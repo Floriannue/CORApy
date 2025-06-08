@@ -22,17 +22,17 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union
-from .interval import interval
+from .interval import Interval
 from .aux_functions import _reorder_numeric, _equal_dim_check, _representsa
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
-def plus(I: interval, S: Union[interval, np.ndarray, float, int]) -> interval:
+def plus(I: Interval, S: Union[Interval, np.ndarray, float, int]) -> Interval:
     """
     Overloaded '+' operator for the Minkowski sum of an interval and another set or point
     
     Args:
-        I: interval object or numeric
+        I: Interval object or numeric
         S: contSet object or numeric
         
     Returns:
@@ -47,8 +47,8 @@ def plus(I: interval, S: Union[interval, np.ndarray, float, int]) -> interval:
     
     try:
         # interval-interval case
-        if isinstance(S, interval):
-            result = interval.__new__(interval)
+        if isinstance(S, Interval):
+            result = Interval.__new__(Interval)
             result.precedence = S_out.precedence
             result.inf = S_out.inf + S.inf
             result.sup = S_out.sup + S.sup
@@ -57,7 +57,7 @@ def plus(I: interval, S: Union[interval, np.ndarray, float, int]) -> interval:
         # numeric vector/matrix
         if isinstance(S, (int, float, np.ndarray)):
             S = np.asarray(S)
-            result = interval.__new__(interval)
+            result = Interval.__new__(Interval)
             result.precedence = S_out.precedence
             result.inf = S_out.inf + S
             result.sup = S_out.sup + S
@@ -70,7 +70,7 @@ def plus(I: interval, S: Union[interval, np.ndarray, float, int]) -> interval:
         # Check for empty sets
         if (_representsa(S_out, 'emptySet', 1e-9) or 
             _representsa(S, 'emptySet', 1e-9)):
-            return interval.empty(S_out.dim())
+            return Interval.empty(S_out.dim())
         
         # Re-raise the original error
         raise e

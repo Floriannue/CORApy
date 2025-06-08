@@ -8,8 +8,8 @@ Authors: Matthias Althoff, Mark Wetzlinger (MATLAB)
          Python translation by AI Assistant
 """
 
-# Import the main contSet class
-from .contSet import contSet
+# Import the main ContSet class
+from .contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 # Import all method implementations
@@ -18,9 +18,9 @@ from .plot1D import plot1D
 from .plot2D import plot2D
 from .plot3D import plot3D
 
-# Export the contSet class and all methods
+# Export the ContSet class and all methods
 __all__ = [
-    'contSet',
+    'ContSet',
     'CORAError',
     'plot',
     'plot1D',

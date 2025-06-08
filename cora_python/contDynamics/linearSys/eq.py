@@ -4,7 +4,7 @@ eq - overloads '==' operator to check if two linear systems are equal
 This function checks if two linearSys objects are equal by comparing
 all their matrices and properties within a specified tolerance.
 
-Authors: Florian Lercher (Python implementation)
+Authors: Florian Nüssel (Python implementation)
 Date: 2025-06-08
 """
 

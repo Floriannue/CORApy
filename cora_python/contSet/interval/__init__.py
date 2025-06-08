@@ -8,8 +8,8 @@ Authors: Matthias Althoff, Niklas Kochdumper, Mark Wetzlinger (MATLAB)
          Python translation by AI Assistant
 """
 
-# Import the main interval class
-from .interval import interval
+# Import the main Interval class
+from .interval import Interval
 
 # Import all method implementations
 from .plus import plus
@@ -29,13 +29,14 @@ from .project import project
 from .is_bounded import is_bounded
 from .vertices import vertices, vertices_
 from .and_ import and_
+from .randPoint import randPoint
 
 # Import auxiliary functions
 from .aux_functions import _within_tol, _reorder_numeric, _equal_dim_check, _representsa
 
-# Export the interval class and all methods
+# Export the Interval class and all methods
 __all__ = [
-    'interval',
+    'Interval',
     'plus',
     'minus',
     'mtimes', 
@@ -54,6 +55,7 @@ __all__ = [
     'vertices',
     'vertices_',
     'and_',
+    'randPoint',
     # Auxiliary functions (for internal use)
     '_within_tol',
     '_reorder_numeric', 

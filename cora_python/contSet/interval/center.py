@@ -18,15 +18,15 @@ Python translation: 2025
 """
 
 import numpy as np
-from .interval import interval
+from .interval import Interval
 
 
-def center(I: interval) -> np.ndarray:
+def center(I: Interval) -> np.ndarray:
     """
     Returns the center of an interval
     
     Args:
-        I: interval object
+        I: Interval object
         
     Returns:
         c: center of interval (vector)

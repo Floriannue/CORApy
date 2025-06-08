@@ -25,7 +25,7 @@ def contains_(obj, point: np.ndarray) -> bool:
     Check if interval contains given point(s)
     
     Args:
-        obj: interval object
+        obj: Interval object
         point: Point(s) to check
         
     Returns:

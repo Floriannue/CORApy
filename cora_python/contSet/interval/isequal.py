@@ -32,9 +32,9 @@ def isequal(obj1, obj2) -> bool:
         True if intervals are equal, False otherwise
     """
     # Import here to avoid circular imports
-    from .interval import interval
+    from .interval import Interval
     
-    if not isinstance(obj2, interval):
+    if not isinstance(obj2, Interval) :
         return False
     
     # Check if both are empty

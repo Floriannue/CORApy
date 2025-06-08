@@ -4,7 +4,7 @@ test_linearSys - unit test for LinearSys constructor
 This test verifies that the LinearSys constructor correctly sets all properties
 for various input argument combinations.
 
-Authors: Florian Lercher (Python implementation)
+Authors: Florian Nüssel (Python implementation)
 Date: 2025-06-08
 """
 

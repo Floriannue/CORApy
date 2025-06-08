@@ -24,7 +24,7 @@ def dim(obj) -> int:
     Get dimension of the interval
     
     Args:
-        obj: interval object
+        obj: Interval object
         
     Returns:
         Dimension of the interval

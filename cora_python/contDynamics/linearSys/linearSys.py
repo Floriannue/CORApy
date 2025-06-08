@@ -6,7 +6,7 @@ first-order differential equations:
     x'(t) = A x(t) + B u(t) + c + E w(t)
     y(t)  = C x(t) + D u(t) + k + F v(t)
 
-Authors: Florian Lercher (Python implementation)
+Authors: Florian Nüssel (Python implementation)
 Date: 2025-06-08
 """
 

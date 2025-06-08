@@ -4,7 +4,7 @@ test_linearSys_generateRandom - unit test for LinearSys.generateRandom
 This test verifies that the generateRandom static method correctly creates
 random linear systems with the specified properties.
 
-Authors: Florian Lercher (Python implementation)
+Authors: Florian Nüssel (Python implementation)
 Date: 2025-06-08
 """
 

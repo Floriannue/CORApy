@@ -26,18 +26,18 @@ def project(I, dims: Union[List[int], np.ndarray]):
     Project interval to lower-dimensional subspace
     
     Args:
-        I: interval object
+        I: Interval object
         dims: dimensions for projection (1-based indexing)
         
     Returns:
         Projected interval object
     """
     # Import here to avoid circular imports
-    from .interval import interval
+    from .interval import Interval
     
     # Handle empty interval
     if I.inf.size == 0:
-        return interval.empty(len(dims))
+        return Interval.empty(len(dims))
     
     # Convert dims to 0-based indexing and ensure it's a list
     if isinstance(dims, (int, np.integer)):
@@ -71,4 +71,4 @@ def project(I, dims: Union[List[int], np.ndarray]):
         inf_proj = I.inf[dims, :]
         sup_proj = I.sup[dims, :]
     
-    return interval(inf_proj, sup_proj) 
+    return Interval(inf_proj, sup_proj) 

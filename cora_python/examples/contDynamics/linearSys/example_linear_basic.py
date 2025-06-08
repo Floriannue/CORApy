@@ -4,7 +4,7 @@ example_linear_basic - Basic example of linear system usage
 This example demonstrates how to create and work with linear systems
 in the Python CORA implementation.
 
-Authors: Florian Lercher (Python implementation)
+Authors: Florian Nüssel (Python implementation)
 Date: 2025-06-08
 """
 

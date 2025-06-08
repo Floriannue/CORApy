@@ -4,7 +4,7 @@ display - Displays a linearSys object
 This function provides a formatted display of the linear system's matrices
 and properties, similar to the MATLAB implementation.
 
-Authors: Florian Lercher (Python implementation)
+Authors: Florian Nüssel (Python implementation)
 Date: 2025-06-08
 """
 

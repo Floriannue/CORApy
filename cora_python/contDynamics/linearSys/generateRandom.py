@@ -5,7 +5,7 @@ This function generates a random linear system of the form:
     x' = Ax + Bu
     y  = Cx
 
-Authors: Florian Lercher (Python implementation)
+Authors: Florian Nüssel (Python implementation)
 Date: 2025-06-08
 """
 

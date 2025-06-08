@@ -14,7 +14,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .interval import interval
+    from .interval import Interval
 
 
 def _within_tol(a: np.ndarray, b: np.ndarray, tol: float = 1e-6) -> np.ndarray:
@@ -44,9 +44,9 @@ def _reorder_numeric(obj1, obj2):
         Tuple with interval object first
     """
     # Import here to avoid circular imports
-    from .interval import interval
+    from .interval import Interval
     
-    if isinstance(obj1, interval):
+    if isinstance(obj1, Interval):
         return obj1, obj2
     else:
         return obj2, obj1

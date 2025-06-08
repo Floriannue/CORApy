@@ -24,7 +24,7 @@ def isemptyobject(obj) -> bool:
     Check if interval is empty
     
     Args:
-        obj: interval object
+        obj: Interval object
         
     Returns:
         True if interval is empty, False otherwise

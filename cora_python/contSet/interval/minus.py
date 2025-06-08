@@ -23,31 +23,31 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union
-from .interval import interval
+from .interval import Interval
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
-def minus(minuend: Union[interval, np.ndarray, float, int], 
-          subtrahend: Union[interval, np.ndarray, float, int]) -> interval:
+def minus(minuend: Union[Interval, np.ndarray, float, int], 
+          subtrahend: Union[Interval, np.ndarray, float, int]) -> Interval:
     """
     Overloaded '-' operator for intervals
     
     Args:
-        minuend: interval or numerical value
-        subtrahend: interval or numerical value
+        minuend: Interval or numerical value
+        subtrahend: Interval or numerical value
         
     Returns:
-        res: interval result
+        res: Interval result
     """
     # Find an interval object
     # Is minuend an interval?
-    if isinstance(minuend, interval):
+    if isinstance(minuend, Interval):
         # Initialize result with minuend
-        res = interval.__new__(interval)
+        res = Interval.__new__(Interval)
         res.precedence = minuend.precedence
         
         # Is subtrahend an interval?
-        if isinstance(subtrahend, interval):
+        if isinstance(subtrahend, Interval):
             # Calculate infimum and supremum
             # For interval subtraction: [a,b] - [c,d] = [a-d, b-c]
             res.inf = minuend.inf - subtrahend.sup
@@ -60,12 +60,12 @@ def minus(minuend: Union[interval, np.ndarray, float, int],
             res.sup = minuend.sup - subtrahend
     else:
         # minuend is numeric, subtrahend must be interval
-        if not isinstance(subtrahend, interval):
+        if not isinstance(subtrahend, Interval):
             raise CORAError('CORA:wrongInput', 
                            'At least one operand must be an interval')
         
         # Initialize result with subtrahend structure
-        res = interval.__new__(interval)
+        res = Interval.__new__(Interval)
         res.precedence = subtrahend.precedence
         
         # minuend must be a particular value

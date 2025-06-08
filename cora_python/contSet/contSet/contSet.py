@@ -18,7 +18,7 @@ import numpy as np
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
-class contSet(ABC):
+class ContSet(ABC):
     """
     Abstract superclass for continuous sets
     
@@ -33,14 +33,14 @@ class contSet(ABC):
                    110: zonotope, 120: interval, 1000: contSet
     """
     
-    def __init__(self, other: Optional['contSet'] = None):
+    def __init__(self, other: Optional['ContSet'] = None):
         """
         Constructor for contSet
         
         Args:
             other: Another contSet object for copy construction
         """
-        if other is not None and isinstance(other, contSet):
+        if other is not None and isinstance(other, ContSet):
             # Copy constructor
             self.precedence = other.precedence
         else:
@@ -143,11 +143,11 @@ class contSet(ABC):
         return not self.__eq__(other)
     
     # Methods needed for plotting (to be implemented by subclasses)
-    def project(self, dims: Union[List[int], np.ndarray]) -> 'contSet':
+    def project(self, dims: Union[List[int], np.ndarray]) -> 'ContSet':
         """Project set to lower-dimensional subspace"""
         raise NotImplementedError("project not implemented")
     
-    def interval(self, *args) -> 'contSet':
+    def interval(self, *args) -> 'ContSet':
         """Convert to interval representation"""
         raise NotImplementedError("interval not implemented")
     
@@ -163,10 +163,10 @@ class contSet(ABC):
         """Get vertices of the set (internal version)"""
         raise NotImplementedError("vertices_ not implemented")
     
-    def polygon(self, *args) -> 'contSet':
+    def polygon(self, *args) -> 'ContSet':
         """Convert to polygon representation"""
         raise NotImplementedError("polygon not implemented")
     
-    def and_(self, other: 'contSet', method: str = 'exact') -> 'contSet':
+    def and_(self, other: 'ContSet', method: str = 'exact') -> 'ContSet':
         """Set intersection"""
         raise NotImplementedError("and_ not implemented") 

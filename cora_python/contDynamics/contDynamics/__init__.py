@@ -6,5 +6,9 @@ for all continuous dynamical systems in CORA.
 """
 
 from .contDynamics import ContDynamics
+from .simulateRandom import simulateRandom
 
-__all__ = ['ContDynamics'] 
+# Attach the simulateRandom method to the ContDynamics class
+ContDynamics.simulateRandom = simulateRandom
+
+__all__ = ['ContDynamics', 'simulateRandom'] 

@@ -37,11 +37,11 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union, Optional, Any
-from cora_python.contSet.contSet.contSet import contSet
+from ..contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
-class zonotope(contSet):
+class Zonotope(ContSet):
     """
     Zonotope class for representing zonotopic sets
     
@@ -81,7 +81,7 @@ class zonotope(contSet):
                           'No input arguments provided to zonotope constructor')
         
         # Copy constructor
-        if len(args) == 1 and isinstance(args[0], zonotope):
+        if len(args) == 1 and isinstance(args[0], Zonotope):
             other = args[0]
             self.c = other.c.copy() if other.c is not None else None
             self.G = other.G.copy() if other.G is not None else None
@@ -183,13 +183,13 @@ class zonotope(contSet):
         return isemptyobject(self)
     
     @staticmethod
-    def empty(n: int = 0) -> 'zonotope':
+    def empty(n: int = 0) -> 'Zonotope':
         """Create an empty zonotope of dimension n"""
         from .empty import empty
         return empty(n)
     
     @staticmethod
-    def origin(n: int) -> 'zonotope':
+    def origin(n: int) -> 'Zonotope':
         """Create a zonotope representing the origin in dimension n"""
         from .origin import origin
         return origin(n)
@@ -231,6 +231,16 @@ class zonotope(contSet):
         from .mtimes import mtimes
         return mtimes(other, self)
     
+    def __matmul__(self, other):
+        """Matrix multiplication operator (@)"""
+        from .mtimes import mtimes
+        return mtimes(self, other)
+    
+    def __rmatmul__(self, other):
+        """Right matrix multiplication operator (other @ self)"""
+        from .mtimes import mtimes
+        return mtimes(other, self)
+    
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Handle numpy universal functions"""
         if ufunc == np.add:
@@ -249,6 +259,14 @@ class zonotope(contSet):
                         return self.__mul__(inputs[1])
                     else:
                         return self.__rmul__(inputs[0])
+        elif ufunc == np.matmul:
+            if method == '__call__':
+                # Handle matrix multiplication with numpy arrays
+                if len(inputs) == 2:
+                    if inputs[0] is self:
+                        return self.__matmul__(inputs[1])
+                    else:
+                        return self.__rmatmul__(inputs[0])
         
         # For other ufuncs, return NotImplemented to let numpy handle it
         return NotImplemented 

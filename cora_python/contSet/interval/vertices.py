@@ -25,13 +25,13 @@ def vertices(I):
     Compute vertices of an interval
     
     Args:
-        I: interval object
+        I: Interval object
         
     Returns:
-        V: Matrix where each column is a vertex (n x 2^n for n-dim interval)
+        V: Matrix where each column is a vertex (n x 2^n for n-dim Interval)
     """
     # Import here to avoid circular imports
-    from .interval import interval
+    from .interval import Interval
     
     # Handle empty interval
     if I.inf.size == 0:
@@ -80,7 +80,7 @@ def vertices_(I):
     Internal version of vertices computation
     
     Args:
-        I: interval object
+        I: Interval object
         
     Returns:
         V: Matrix where each column is a vertex

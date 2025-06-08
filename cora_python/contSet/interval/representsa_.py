@@ -29,7 +29,7 @@ def representsa_(obj, set_type: str, tol: float = 1e-9) -> bool:
     Check if interval represents a specific set type
     
     Args:
-        obj: interval object
+        obj: Interval object
         set_type: Type of set to check ('emptySet', 'origin', 'point')
         tol: Tolerance for comparison
         

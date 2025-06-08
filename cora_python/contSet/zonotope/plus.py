@@ -54,7 +54,7 @@ def plus(Z, S):
     Raises:
         CORAError: If operation is not supported or dimensions don't match
     """
-    from .zonotope import zonotope
+    from .zonotope import Zonotope
     
     # Ensure that numeric is second input argument (reorder if necessary)
     S_out, S = _reorder_numeric(Z, S)
@@ -65,11 +65,11 @@ def plus(Z, S):
     
     try:
         # Different cases depending on the class of the second summand
-        if isinstance(S, zonotope):
+        if isinstance(S, Zonotope):
             # Zonotope + Zonotope: see Equation 2.1 in [1]
             new_c = S_out.c + S.c
             if new_c.size == 0:
-                return zonotope.empty(S_out.dim())
+                return Zonotope.empty(S_out.dim())
             
             # Concatenate generator matrices
             if S_out.G.size > 0 and S.G.size > 0:
@@ -81,23 +81,23 @@ def plus(Z, S):
             else:
                 new_G = np.array([]).reshape(len(new_c), 0)
             
-            return zonotope(new_c, new_G)
+            return Zonotope(new_c, new_G)
         
         # Numeric has to be a scalar or a column vector of correct size
         if isinstance(S, (int, float, np.number)):
             # Scalar addition
             new_c = S_out.c + S
-            return zonotope(new_c, S_out.G)
+            return Zonotope(new_c, S_out.G)
         elif isinstance(S, (list, tuple, np.ndarray)):
             S_vec = np.asarray(S).flatten()
             if len(S_vec) == 1:
                 # Scalar addition
                 new_c = S_out.c + S_vec[0]
-                return zonotope(new_c, S_out.G)
+                return Zonotope(new_c, S_out.G)
             elif len(S_vec) == len(S_out.c):
                 # Vector addition
                 new_c = S_out.c + S_vec
-                return zonotope(new_c, S_out.G)
+                return Zonotope(new_c, S_out.G)
             else:
                 raise CORAError('CORA:wrongInputInConstructor',
                               'Dimension mismatch in addition')
@@ -108,7 +108,7 @@ def plus(Z, S):
             try:
                 from cora_python.contSet.interval.interval import interval
                 if isinstance(S, interval):
-                    S_zono = zonotope(S)  # This would need interval->zonotope conversion
+                    S_zono = Zonotope(S)  # This would need interval->zonotope conversion
                     new_c = S_out.c + S_zono.c
                     
                     # Concatenate generator matrices
@@ -121,7 +121,7 @@ def plus(Z, S):
                     else:
                         new_G = np.array([]).reshape(len(new_c), 0)
                     
-                    return zonotope(new_c, new_G)
+                    return Zonotope(new_c, new_G)
             except ImportError:
                 pass  # interval class not available
 
@@ -134,9 +134,9 @@ def plus(Z, S):
         
         # Check for empty sets
         if hasattr(S_out, 'is_empty') and S_out.is_empty():
-            return zonotope.empty(S_out.dim())
+            return Zonotope.empty(S_out.dim())
         if hasattr(S, 'is_empty') and S.is_empty():
-            return zonotope.empty(S_out.dim())
+            return Zonotope.empty(S_out.dim())
         
         # Re-raise original error
         raise e
@@ -156,11 +156,11 @@ def _reorder_numeric(Z, S):
     Returns:
         tuple: (zonotope_operand, other_operand) with zonotope first
     """
-    from .zonotope import zonotope
+    from .zonotope import Zonotope
     
-    if isinstance(Z, zonotope):
+    if isinstance(Z, Zonotope):
         return Z, S
-    elif isinstance(S, zonotope):
+    elif isinstance(S, Zonotope):
         return S, Z
     else:
         raise CORAError('CORA:wrongInputInConstructor',

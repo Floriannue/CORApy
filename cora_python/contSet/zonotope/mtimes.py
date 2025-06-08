@@ -50,30 +50,30 @@ def mtimes(factor1, factor2):
     Raises:
         CORAError: If operation is not supported or dimensions don't match
     """
-    from .zonotope import zonotope
+    from .zonotope import Zonotope
     
     try:
         # matrix/scalar * zonotope
-        if isinstance(factor1, (int, float, np.number, list, tuple, np.ndarray)) and isinstance(factor2, zonotope):
+        if isinstance(factor1, (int, float, np.number, list, tuple, np.ndarray)) and isinstance(factor2, Zonotope):
             factor1_mat = np.asarray(factor1)
             
             # Handle empty zonotope case
             if factor2.is_empty():
                 if factor1_mat.ndim == 0 or (factor1_mat.ndim == 1 and factor1_mat.size == 1):
                     # Scalar * empty zonotope = empty zonotope of same dimension
-                    return zonotope.empty(factor2.dim())
+                    return Zonotope.empty(factor2.dim())
                 else:
                     # Matrix * empty zonotope = empty zonotope of matrix output dimension
                     if factor1_mat.ndim == 1:
                         factor1_mat = factor1_mat.reshape(1, -1)
-                    return zonotope.empty(factor1_mat.shape[0])
+                    return Zonotope.empty(factor1_mat.shape[0])
             
             # Handle scalar case
             if factor1_mat.ndim == 0 or (factor1_mat.ndim == 1 and factor1_mat.size == 1):
                 scalar = factor1_mat.item() if factor1_mat.ndim > 0 else factor1_mat
                 c = scalar * factor2.c
                 G = scalar * factor2.G if factor2.G.size > 0 else factor2.G
-                return zonotope(c, G)
+                return Zonotope(c, G)
             
             # Handle matrix case
             if factor1_mat.ndim == 1:
@@ -88,29 +88,29 @@ def mtimes(factor1, factor2):
             c = factor1_mat @ factor2.c if factor2.c.size > 0 else np.array([])
             G = factor1_mat @ factor2.G if factor2.G.size > 0 else np.zeros((factor1_mat.shape[0], 0))
             
-            return zonotope(c, G)
+            return Zonotope(c, G)
         
         # zonotope * matrix/scalar
-        if isinstance(factor1, zonotope) and isinstance(factor2, (int, float, np.number, list, tuple, np.ndarray)):
+        if isinstance(factor1, Zonotope) and isinstance(factor2, (int, float, np.number, list, tuple, np.ndarray)):
             factor2_mat = np.asarray(factor2)
             
             # Handle empty zonotope case
             if factor1.is_empty():
                 if factor2_mat.ndim == 0 or (factor2_mat.ndim == 1 and factor2_mat.size == 1):
                     # Empty zonotope * scalar = empty zonotope of same dimension
-                    return zonotope.empty(factor1.dim())
+                    return Zonotope.empty(factor1.dim())
                 else:
                     # Empty zonotope * matrix = empty zonotope of matrix output dimension
                     if factor2_mat.ndim == 1:
                         factor2_mat = factor2_mat.reshape(-1, 1)
-                    return zonotope.empty(factor2_mat.shape[1])
+                    return Zonotope.empty(factor2_mat.shape[1])
             
             # Handle scalar case
             if factor2_mat.ndim == 0 or (factor2_mat.ndim == 1 and factor2_mat.size == 1):
                 scalar = factor2_mat.item() if factor2_mat.ndim > 0 else factor2_mat
                 c = scalar * factor1.c
                 G = scalar * factor1.G if factor1.G.size > 0 else factor1.G
-                return zonotope(c, G)
+                return Zonotope(c, G)
             
             # Handle matrix case (right multiplication)
             if factor2_mat.ndim == 1:
@@ -125,7 +125,7 @@ def mtimes(factor1, factor2):
             c = factor1.c @ factor2_mat if factor1.c.size > 0 else np.array([])
             G = factor1.G @ factor2_mat if factor1.G.size > 0 else np.zeros((0, factor2_mat.shape[1]))
             
-            return zonotope(c, G)
+            return Zonotope(c, G)
 
     except Exception as e:
         # Check whether different dimension of ambient space

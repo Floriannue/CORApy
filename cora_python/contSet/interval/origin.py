@@ -30,7 +30,7 @@ def origin(n: int):
         Interval object representing the origin
     """
     # Import here to avoid circular imports
-    from .interval import interval
+    from .interval import Interval
     
     zeros = np.zeros(n)
-    return interval(zeros, zeros) 
+    return Interval(zeros, zeros) 

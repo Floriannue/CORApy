@@ -2,7 +2,7 @@
 empty - instantiate an empty interval
 
 Syntax:
-    I = interval.empty(n)
+    I = Interval.empty(n)
 
 Inputs:
     n - dimension of the empty interval
@@ -30,9 +30,9 @@ def empty(n: int = 0):
         Empty interval object
     """
     # Import here to avoid circular imports
-    from .interval import interval
+    from .interval import Interval
     
     # Create empty interval with proper dimensions
-    # In MATLAB: interval(zeros(n,0))
+    # In MATLAB: Interval(zeros(n,0))
     empty_array = np.zeros((n, 0))
-    return interval(empty_array) 
+    return Interval(empty_array) 

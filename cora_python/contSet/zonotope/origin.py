@@ -38,7 +38,7 @@ def origin(n):
     Returns:
         zonotope: zonotope representing the origin
     """
-    from .zonotope import zonotope
+    from .zonotope import Zonotope
     
     # Input validation
     if not isinstance(n, (int, np.integer)) or n < 1:
@@ -46,4 +46,4 @@ def origin(n):
         raise CORAError('CORA:wrongInputInConstructor',
                       'Dimension must be a positive integer')
     
-    return zonotope(np.zeros(n), np.zeros((n, 0))) 
+    return Zonotope(np.zeros((n, 1)), np.zeros((n, 0))) 

@@ -17,15 +17,15 @@ Python translation: 2025
 """
 
 import numpy as np
-from .interval import interval
+from .interval import Interval
 
 
-def rad(I: interval) -> np.ndarray:
+def rad(I: Interval) -> np.ndarray:
     """
     Returns the radius of an interval
     
     Args:
-        I: interval object
+        I: Interval object
         
     Returns:
         r: radius of interval (vector)

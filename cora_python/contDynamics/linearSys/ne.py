@@ -4,7 +4,7 @@ ne - overloads '!=' operator to check if two linear systems are not equal
 This function checks if two linearSys objects are not equal by negating
 the result of the equality comparison.
 
-Authors: Florian Lercher (Python implementation)
+Authors: Florian Nüssel (Python implementation)
 Date: 2025-06-08
 """
 

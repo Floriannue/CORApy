@@ -24,7 +24,7 @@ def is_bounded(I) -> bool:
     Check if interval is bounded
     
     Args:
-        I: interval object
+        I: Interval object
         
     Returns:
         True if interval is bounded (all bounds are finite), False otherwise

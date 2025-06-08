@@ -36,18 +36,18 @@ def and_(I1, I2, method: str = 'exact'):
         Intersection of the intervals
     """
     # Import here to avoid circular imports
-    from .interval import interval
+    from .interval import Interval
     
     # Convert I2 to interval if it's not already
-    if not isinstance(I2, interval):
+    if not isinstance(I2, Interval) :
         if hasattr(I2, 'interval'):
-            I2 = I2.interval()
+            I2 = I2.Interval()
         else:
             raise ValueError("Cannot compute intersection: second argument is not convertible to interval")
     
     # Handle empty intervals
     if I1.inf.size == 0 or I2.inf.size == 0:
-        return interval.empty(max(I1.dim() if I1.inf.size > 0 else 0, 
+        return Interval.empty(max(I1.dim() if I1.inf.size > 0 else 0, 
                                  I2.dim() if I2.inf.size > 0 else 0))
     
     # Check dimension compatibility
@@ -60,6 +60,6 @@ def and_(I1, I2, method: str = 'exact'):
     
     # Check if intersection is empty (any dimension has inf > sup)
     if np.any(inf_result > sup_result):
-        return interval.empty(I1.dim())
+        return Interval.empty(I1.dim())
     
-    return interval(inf_result, sup_result) 
+    return Interval(inf_result, sup_result) 

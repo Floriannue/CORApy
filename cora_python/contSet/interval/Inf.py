@@ -30,9 +30,9 @@ def Inf(n: int):
         Fullspace interval object
     """
     # Import here to avoid circular imports
-    from .interval import interval
+    from .interval import Interval
     
     inf = np.full(n, -np.inf)
     sup = np.full(n, np.inf)
     
-    return interval(inf, sup) 
+    return Interval(inf, sup) 

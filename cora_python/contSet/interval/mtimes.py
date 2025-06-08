@@ -21,7 +21,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union
-from .interval import interval
+from .interval import Interval
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 # Optional scipy import for sparse matrix support
@@ -32,17 +32,17 @@ except ImportError:
     HAS_SCIPY = False
 
 
-def mtimes(factor1: Union[interval, np.ndarray, float, int], 
-          factor2: Union[interval, np.ndarray, float, int]) -> interval:
+def mtimes(factor1: Union[Interval, np.ndarray, float, int], 
+          factor2: Union[Interval, np.ndarray, float, int]) -> Interval:
     """
     Overloaded '*' operator for intervals
     
     Args:
-        factor1: interval object or numeric
-        factor2: interval object, numeric, or contSet object
+        factor1: Interval object or numeric
+        factor2: Interval object, numeric, or contSet object
         
     Returns:
-        res: interval result
+        res: Interval result
     """
     # Handle contSet cases (not implemented yet, but structure for future)
     if hasattr(factor2, '__class__') and factor2.__class__.__name__ in [
@@ -51,15 +51,15 @@ def mtimes(factor1: Union[interval, np.ndarray, float, int],
     
     # Other contSet cases not supported
     if (hasattr(factor2, 'precedence') and 
-        not isinstance(factor2, interval) and 
+        not isinstance(factor2, Interval) and 
         hasattr(factor2, '__class__')):
         raise CORAError('CORA:noops', f'Operation not supported between {type(factor1)} and {type(factor2)}')
     
     # Convert inputs to intervals if needed
-    if not isinstance(factor1, interval):
-        factor1 = _numeric_to_interval(factor1)
-    if not isinstance(factor2, interval):
-        factor2 = _numeric_to_interval(factor2)
+    if not isinstance(factor1, Interval):
+        factor1 = _numeric_to_Interval(factor1)
+    if not isinstance(factor2, Interval):
+        factor2 = _numeric_to_Interval(factor2)
     
     # Scalar case
     if _is_scalar(factor1) and _is_scalar(factor2):
@@ -78,19 +78,19 @@ def mtimes(factor1: Union[interval, np.ndarray, float, int],
         return _mtimes_sparse(factor1, factor2)
 
 
-def _numeric_to_interval(value):
+def _numeric_to_Interval(value):
     """Convert numeric value to interval"""
     if isinstance(value, (int, float)):
-        return interval(np.array([value]))
+        return Interval(np.array([value]))
     elif isinstance(value, np.ndarray):
-        return interval(value, value)
+        return Interval(value, value)
     else:
         raise CORAError('CORA:wrongInput', f'Cannot convert {type(value)} to interval')
 
 
 def _is_scalar(obj):
     """Check if object represents a scalar"""
-    if isinstance(obj, interval):
+    if isinstance(obj, Interval):
         return obj.inf.size == 1
     return np.isscalar(obj)
 
@@ -100,16 +100,16 @@ def _is_sparse(obj):
     if not HAS_SCIPY:
         return False
     
-    if isinstance(obj, interval):
+    if isinstance(obj, Interval):
         return sp.issparse(obj.inf) or sp.issparse(obj.sup)
     return sp.issparse(obj)
 
 
-def _mtimes_scalar(factor1: interval, factor2: interval) -> interval:
+def _mtimes_scalar(factor1: Interval, factor2: Interval) -> Interval:
     """Multiply two scalar intervals"""
     # Handle zero cases
-    if (_is_zero_interval(factor1) or _is_zero_interval(factor2)):
-        return interval(np.array([0.0]))
+    if (_is_zero_Interval(factor1) or _is_zero_Interval(factor2)):
+        return Interval(np.array([0.0]))
     
     # Get possible values
     possible_values = [
@@ -123,25 +123,25 @@ def _mtimes_scalar(factor1: interval, factor2: interval) -> interval:
     inf_val = np.min(possible_values)
     sup_val = np.max(possible_values)
     
-    return interval(np.array([inf_val]), np.array([sup_val]))
+    return Interval(np.array([inf_val]), np.array([sup_val]))
 
 
-def _mtimes_scalar_matrix(factor1: interval, factor2: interval) -> interval:
+def _mtimes_scalar_matrix(factor1: Interval, factor2: Interval) -> Interval:
     """Multiply scalar interval with matrix interval"""
     scalar_inf = factor1.inf.item()
     scalar_sup = factor1.sup.item()
     
     if scalar_inf == 0 and scalar_sup == 0:
         # 0 * anything = 0
-        return interval(np.zeros_like(factor2.inf))
+        return Interval(np.zeros_like(factor2.inf))
     elif scalar_inf >= 0 and scalar_sup >= 0:
         # Positive scalar interval
-        return interval(scalar_inf * factor2.inf, scalar_sup * factor2.sup)
+        return Interval(scalar_inf * factor2.inf, scalar_sup * factor2.sup)
     elif scalar_inf <= 0 and scalar_sup <= 0:
         # Negative scalar interval - when multiplying by negative values, bounds swap
         # scalar_inf * factor2.sup gives the minimum (most negative)
         # scalar_sup * factor2.inf gives the maximum (least negative)
-        return interval(scalar_inf * factor2.sup, scalar_sup * factor2.inf)
+        return Interval(scalar_inf * factor2.sup, scalar_sup * factor2.inf)
     else:
         # Scalar interval contains zero - need to consider all combinations
         products = [
@@ -156,28 +156,28 @@ def _mtimes_scalar_matrix(factor1: interval, factor2: interval) -> interval:
         inf_result = np.min(all_products, axis=-1)
         sup_result = np.max(all_products, axis=-1)
         
-        return interval(inf_result, sup_result)
+        return Interval(inf_result, sup_result)
 
 
-def _mtimes_matrix_scalar(factor1: interval, factor2: interval) -> interval:
+def _mtimes_matrix_scalar(factor1: Interval, factor2: Interval) -> Interval:
     """Multiply matrix interval with scalar interval"""
     # Check if factor2 is effectively numeric (same inf and sup)
     if np.allclose(factor2.inf, factor2.sup):
         # factor2 is effectively a numeric scalar, use the scalar logic
         scalar_val = factor2.inf.item()
         if scalar_val < 0:
-            return interval(scalar_val * factor1.sup, scalar_val * factor1.inf)
+            return Interval(scalar_val * factor1.sup, scalar_val * factor1.inf)
         elif scalar_val > 0:
-            return interval(scalar_val * factor1.inf, scalar_val * factor1.sup)
+            return Interval(scalar_val * factor1.inf, scalar_val * factor1.sup)
         else:  # scalar_val == 0
-            return interval(np.zeros_like(factor1.inf))
+            return Interval(np.zeros_like(factor1.inf))
     else:
         # factor2 is a true interval, use element-wise multiplication
         # This broadcasts the scalar interval across all elements of the matrix
         return _element_wise_multiply(factor1, factor2)
 
 
-def _element_wise_multiply(factor1: interval, factor2: interval) -> interval:
+def _element_wise_multiply(factor1: Interval, factor2: Interval) -> Interval:
     """Element-wise multiplication of intervals with broadcasting"""
     # Get all possible products for each element
     products = [
@@ -197,10 +197,10 @@ def _element_wise_multiply(factor1: interval, factor2: interval) -> interval:
     inf_result = np.min(all_products, axis=-1)
     sup_result = np.max(all_products, axis=-1)
     
-    return interval(inf_result, sup_result)
+    return Interval(inf_result, sup_result)
 
 
-def _mtimes_nonsparse(factor1: interval, factor2: interval) -> interval:
+def _mtimes_nonsparse(factor1: Interval, factor2: Interval) -> Interval:
     """Matrix multiplication for non-sparse intervals"""
     # Always perform matrix multiplication (not element-wise)
     # The mtimes function in MATLAB always does matrix multiplication
@@ -245,10 +245,10 @@ def _mtimes_nonsparse(factor1: interval, factor2: interval) -> interval:
         inf_result = inf_result.flatten()
         sup_result = sup_result.flatten()
     
-    return interval(inf_result, sup_result)
+    return Interval(inf_result, sup_result)
 
 
-def _mtimes_sparse(factor1: interval, factor2: interval) -> interval:
+def _mtimes_sparse(factor1: Interval, factor2: Interval) -> Interval:
     """Matrix multiplication for sparse intervals"""
     # For sparse matrices, use the slower but more memory-efficient algorithm
     f1_shape = factor1.inf.shape
@@ -273,7 +273,7 @@ def _mtimes_sparse(factor1: interval, factor2: interval) -> interval:
     res_sup = np.zeros((m, n))
     
     # Create temporary interval for row operations
-    temp_interval = interval(np.zeros(k), np.zeros(k))
+    temp_interval = Interval(np.zeros(k), np.zeros(k))
     
     for i in range(m):
         # Get i-th row
@@ -285,10 +285,10 @@ def _mtimes_sparse(factor1: interval, factor2: interval) -> interval:
         res_inf[i, :] = row_result.inf
         res_sup[i, :] = row_result.sup
     
-    return interval(res_inf, res_sup)
+    return Interval(res_inf, res_sup)
 
 
-def _mtimes_vector_matrix(vector_interval: interval, matrix_interval: interval) -> interval:
+def _mtimes_vector_matrix(vector_interval: Interval, matrix_interval: Interval) -> Interval:
     """Multiply vector interval with matrix interval"""
     k, n = matrix_interval.inf.shape
     
@@ -314,9 +314,9 @@ def _mtimes_vector_matrix(vector_interval: interval, matrix_interval: interval) 
     inf_result = np.min(sums, axis=-1)
     sup_result = np.max(sums, axis=-1)
     
-    return interval(inf_result, sup_result)
+    return Interval(inf_result, sup_result)
 
 
-def _is_zero_interval(obj: interval) -> bool:
+def _is_zero_Interval(obj: Interval) -> bool:
     """Check if interval represents zero"""
     return np.allclose(obj.inf, 0) and np.allclose(obj.sup, 0) 

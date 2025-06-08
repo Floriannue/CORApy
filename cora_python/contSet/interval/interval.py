@@ -6,9 +6,9 @@ Description:
     {x | a_i <= x <= b_i, ∀ i = 1,...,n}.
 
 Syntax:
-    obj = interval(I)
-    obj = interval(a)
-    obj = interval(a,b)
+    obj = Interval(I)
+    obj = Interval(a)
+    obj = Interval(a,b)
 
 Inputs:
     I - interval object
@@ -21,7 +21,7 @@ Outputs:
 Example:
     a = [1, -1]
     b = [2, 3]
-    I = interval(a, b)
+    I = Interval(a, b)
 
 Authors: Matthias Althoff, Niklas Kochdumper, Mark Wetzlinger (MATLAB)
          Python translation by AI Assistant
@@ -32,7 +32,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union, Optional, Any
-from ..contSet.contSet import contSet
+from ..contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
@@ -40,7 +40,7 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 from .aux_functions import _within_tol, _reorder_numeric, _equal_dim_check
 
 
-class interval(contSet):
+class Interval(ContSet):
     """
     Interval class for real-valued intervals
     
@@ -59,9 +59,9 @@ class interval(contSet):
         
         Args:
             *args: Variable arguments for different construction modes:
-                   - interval(I): Copy constructor
-                   - interval(a): Point interval
-                   - interval(a, b): Interval with bounds
+                   - Interval(I): Copy constructor
+                   - Interval(a): Point interval
+                   - Interval(a, b): Interval with bounds
         """
         # Call parent constructor
         super().__init__()
@@ -76,7 +76,7 @@ class interval(contSet):
                            'Too many input arguments for interval constructor')
         
         # Copy constructor
-        if len(args) == 1 and isinstance(args[0], interval):
+        if len(args) == 1 and isinstance(args[0], Interval):
             other = args[0]
             self.inf = other.inf.copy()
             self.sup = other.sup.copy()
@@ -216,7 +216,7 @@ class interval(contSet):
         return vertices_(self)
     
     def interval(self, *args):
-        """Return self (already an interval)"""
+        """Return self (already an Interval)"""
         return self
     
     def and_(self, other, method: str = 'exact'):

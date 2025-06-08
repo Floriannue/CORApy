@@ -4,7 +4,7 @@ contDynamics - basic class for continuous dynamics
 This class serves as the base class for all continuous dynamical systems in CORA.
 It provides the fundamental structure and properties that all continuous systems share.
 
-Authors: Florian Lercher (Python implementation)
+Authors: Florian Nüssel (Python implementation)
 Date: 2025-06-08
 """
 

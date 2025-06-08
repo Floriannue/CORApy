@@ -5,8 +5,8 @@ This package provides various continuous set representations including
 intervals, zonotopes, polytopes, and other geometric objects.
 """
 
-from .contSet import contSet
-from .interval import interval
-from .zonotope import zonotope
+from .contSet import ContSet
+from .interval import Interval
+from .zonotope import Zonotope
 
-__all__ = ['contSet', 'interval', 'zonotope'] 
+__all__ = ['ContSet', 'Interval', 'Zonotope'] 
