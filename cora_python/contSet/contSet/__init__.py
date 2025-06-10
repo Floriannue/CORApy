@@ -18,6 +18,21 @@ from .plot1D import plot1D
 from .plot2D import plot2D
 from .plot3D import plot3D
 
+# Import core infrastructure functions
+from .representsa import representsa
+from .representsa_ import representsa_
+from .isemptyobject import isemptyobject
+from .dim import dim
+from .center import center
+from .contains import contains
+from .contains_ import contains_
+
+# Import mathematical operations
+from .generateRandom import generateRandom
+from .times import times
+from .decompose import decompose
+from .project import project
+
 # Export the ContSet class and all methods
 __all__ = [
     'ContSet',
@@ -25,5 +40,16 @@ __all__ = [
     'plot',
     'plot1D',
     'plot2D',
-    'plot3D'
+    'plot3D',
+    'representsa',
+    'representsa_',
+    'isemptyobject', 
+    'dim',
+    'center',
+    'contains',
+    'contains_',
+    'generateRandom',
+    'times',
+    'decompose',
+    'project'
 ] 

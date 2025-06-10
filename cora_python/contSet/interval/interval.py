@@ -294,7 +294,8 @@ class Interval(ContSet):
     @staticmethod
     def generateRandom(*args, **kwargs):
         """Generates random interval"""
-        raise NotImplementedError("generateRandom not implemented")
+        from .generateRandom import generateRandom
+        return generateRandom(*args, **kwargs)
     
     @staticmethod
     def enclosePoints(points):

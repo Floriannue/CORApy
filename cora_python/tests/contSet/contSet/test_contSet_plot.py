@@ -22,7 +22,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
-from cora_python.contSet.interval.interval import interval
+from cora_python.contSet.interval.interval import Interval as interval
 
 
 class TestContSetPlot:

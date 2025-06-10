@@ -62,8 +62,8 @@ def input_args_check(checks: List[List[Any]]) -> None:
 def _validate_type(value: Any, expected_type: str) -> None:
     """Validate object type"""
     if expected_type == 'contSet':
-        from cora_python.contSet.contSet.contSet import contSet
-        if not isinstance(value, contSet):
+        from cora_python.contSet.contSet.contSet import ContSet
+        if not isinstance(value, ContSet):
             raise CORAError('CORA:wrongValue', f'Expected contSet object, got {type(value)}')
     elif expected_type == 'numeric':
         if not _is_numeric(value):

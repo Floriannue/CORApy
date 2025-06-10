@@ -68,7 +68,7 @@ class ContSet(ABC):
         raise CORAError('CORA:notSupported',
                        'Given subclass of contSet does not support class arrays.')
     
-    # Static methods (method signatures only)
+    # Static methods
     @staticmethod
     def enclosePoints(*args, **kwargs):
         """Encloses a point cloud with a set"""
@@ -77,7 +77,8 @@ class ContSet(ABC):
     @staticmethod
     def generateRandom(*args, **kwargs):
         """Generates a random contSet"""
-        raise NotImplementedError("generateRandom not implemented")
+        from .generateRandom import generateRandom
+        return generateRandom(*args, **kwargs)
     
     @staticmethod
     def initEmptySet(set_type: str):
@@ -124,15 +125,33 @@ class ContSet(ABC):
     # Common utility methods
     def dim(self) -> int:
         """Get dimension of the set"""
-        raise NotImplementedError("dim not implemented")
+        from .dim import dim
+        return dim(self)
     
     def is_empty(self) -> bool:
         """Check if set is empty"""
-        raise NotImplementedError("is_empty not implemented")
+        from .isemptyobject import isemptyobject
+        return isemptyobject(self)
     
     def contains(self, point: np.ndarray) -> bool:
         """Check if set contains given point(s)"""
-        raise NotImplementedError("contains not implemented")
+        from .contains import contains
+        return contains(self, point)
+    
+    def center(self) -> np.ndarray:
+        """Get center of the set"""
+        from .center import center
+        return center(self)
+    
+    def representsa(self, set_type: str, tol: float = 1e-9) -> bool:
+        """Check if set represents a specific type"""
+        from .representsa import representsa
+        return representsa(self, set_type, tol)
+    
+    def representsa_(self, set_type: str, tol: float = 1e-9) -> bool:
+        """Internal check if set represents a specific type"""
+        from .representsa_ import representsa_
+        return representsa_(self, set_type, tol)
     
     def __eq__(self, other) -> bool:
         """Equality comparison"""
@@ -145,7 +164,18 @@ class ContSet(ABC):
     # Methods needed for plotting (to be implemented by subclasses)
     def project(self, dims: Union[List[int], np.ndarray]) -> 'ContSet':
         """Project set to lower-dimensional subspace"""
-        raise NotImplementedError("project not implemented")
+        from .project import project
+        return project(self, dims)
+    
+    def decompose(self, num_sets: int) -> List['ContSet']:
+        """Decompose set into multiple sets"""
+        from .decompose import decompose
+        return decompose(self, num_sets)
+    
+    def times(self, other) -> 'ContSet':
+        """Element-wise multiplication"""
+        from .times import times
+        return times(self, other)
     
     def interval(self, *args) -> 'ContSet':
         """Convert to interval representation"""

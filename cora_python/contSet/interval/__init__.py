@@ -15,6 +15,7 @@ from .interval import Interval
 from .plus import plus
 from .minus import minus
 from .mtimes import mtimes
+from .times import times
 from .dim import dim
 from .isemptyobject import isemptyobject
 from .representsa_ import representsa_
@@ -30,6 +31,7 @@ from .is_bounded import is_bounded
 from .vertices import vertices, vertices_
 from .and_ import and_
 from .randPoint import randPoint
+from .generateRandom import generateRandom
 
 # Import auxiliary functions
 from .aux_functions import _within_tol, _reorder_numeric, _equal_dim_check, _representsa
@@ -39,7 +41,8 @@ __all__ = [
     'Interval',
     'plus',
     'minus',
-    'mtimes', 
+    'mtimes',
+    'times',
     'dim',
     'isemptyobject',
     'representsa_',
@@ -56,6 +59,7 @@ __all__ = [
     'vertices_',
     'and_',
     'randPoint',
+    'generateRandom',
     # Auxiliary functions (for internal use)
     '_within_tol',
     '_reorder_numeric', 
