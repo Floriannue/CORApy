@@ -18,4 +18,6 @@ __all__ = [
     'default_plot_color',
     'get_unbounded_axis_limits',
     'CORAError',
-] 
+]
+
+# g module - mirrors cora_matlab/global functionality 

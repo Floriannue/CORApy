@@ -39,7 +39,7 @@ def empty(n=0):
     Returns:
         zonotope: empty zonotope
     """
-    from .zonotope import zonotope
+    from .zonotope import Zonotope
     
     # Parse input - ensure n is non-negative scalar
     if not isinstance(n, (int, np.integer)) or n < 0:
@@ -48,9 +48,9 @@ def empty(n=0):
                       'Dimension must be a non-negative integer')
     
     # Create a zonotope with empty center to represent empty set
-    empty_zono = object.__new__(zonotope)
+    empty_zono = object.__new__(Zonotope)
     empty_zono.precedence = 110
-    empty_zono.c = np.array([])
+    empty_zono.c = np.zeros((n, 0)) if n > 0 else np.array([]).reshape(0, 0)
     empty_zono.G = np.zeros((n, 0)) if n > 0 else np.array([]).reshape(0, 0)
     empty_zono._dim = n  # Store dimension for empty zonotope
     return empty_zono 

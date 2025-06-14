@@ -237,7 +237,7 @@ class TestIntervalMinus:
         """Test error cases for minus operation"""
         # Both operands are numeric (should raise error)
         with pytest.raises(CORAError):
-            from cora_python.contSet.Interval.minus import minus
+            from cora_python.contSet.interval.minus import minus
             minus(5, 3)
 
 

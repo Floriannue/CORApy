@@ -35,8 +35,8 @@ Python translation: 2025
 
 import numpy as np
 from typing import Dict, Any, Optional, Tuple, Union
-from ...g.functions.verbose.plot.set_default_values import set_default_values
-from ...g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.verbose.plot.set_default_values import set_default_values
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def reach(linsys, params: Dict[str, Any], *args) -> Union['ReachSet', Tuple['ReachSet', bool]]:
@@ -84,7 +84,7 @@ def reach(linsys, params: Dict[str, Any], *args) -> Union['ReachSet', Tuple['Rea
     else:
         # Initialize taylorLinSys helper property for algorithms below
         if not hasattr(linsys, 'taylor') or linsys.taylor is None:
-            from ...g.classes.taylorLinSys import TaylorLinSys
+            from cora_python.g.classes.taylorLinSys import TaylorLinSys
             linsys.taylor = TaylorLinSys(linsys.A)
         
         # Decide which reach function to execute by options.linAlg
@@ -125,7 +125,7 @@ def reach(linsys, params: Dict[str, Any], *args) -> Union['ReachSet', Tuple['Rea
     linsys.taylor = None
     
     # Create object of class reachSet
-    from ...g.classes.reachSet import ReachSet
+    from cora_python.g.classes.reachSet import ReachSet
     R = ReachSet.initReachSet(timePoint, timeInt)
     
     # Check temporal logic specifications
@@ -184,7 +184,7 @@ def _validateOptions(linsys, params: Dict[str, Any], options: Dict[str, Any]) ->
     
     # Set default input set if not provided
     if 'U' not in params:
-        from ...contSet.zonotope import Zonotope
+        from cora_python.contSet.zonotope import Zonotope
         params['U'] = Zonotope.origin(linsys.nr_of_inputs)
     
     # Set default input trajectory if not provided
@@ -193,12 +193,12 @@ def _validateOptions(linsys, params: Dict[str, Any], options: Dict[str, Any]) ->
     
     # Set default disturbance set if not provided
     if 'W' not in params:
-        from ...contSet.zonotope import Zonotope
+        from cora_python.contSet.zonotope import Zonotope
         params['W'] = Zonotope.origin(linsys.nr_of_disturbances)
     
     # Set default noise set if not provided
     if 'V' not in params:
-        from ...contSet.zonotope import Zonotope
+        from cora_python.contSet.zonotope import Zonotope
         params['V'] = Zonotope.origin(linsys.nr_of_outputs)
     
     return params, options

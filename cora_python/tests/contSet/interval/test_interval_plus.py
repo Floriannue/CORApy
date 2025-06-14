@@ -195,6 +195,134 @@ class TestIntervalPlus:
         
         assert result1 == result2
 
+    def test_plus_interval_zonotope(self):
+        """Test plus operation between interval and zonotope"""
+        from cora_python.contSet import Zonotope
+        
+        # Create interval
+        I = Interval([-1, -1], [1, 1])
+        
+        # Create zonotope
+        c = np.array([[0], [0]])
+        G = np.array([[1, 0], [0, 1]])
+        Z = Zonotope(c, G)
+        
+        # Test I + Z (should use Interval's plus method due to higher precedence)
+        result = I + Z
+        assert isinstance(result, Interval)
+        
+        # Expected: interval bounds should be [-2, -2] to [2, 2]
+        # Since zonotope Z has center [0,0] and generators [[1,0],[0,1]]
+        # its interval representation is [[-1,-1], [1,1]]
+        # So I + Z = [[-1,-1], [1,1]] + [[-1,-1], [1,1]] = [[-2,-2], [2,2]]
+        expected = Interval([-2, -2], [2, 2])
+        assert result == expected
+    
+    def test_plus_zonotope_interval(self):
+        """Test plus operation between zonotope and interval (reverse order)"""
+        from cora_python.contSet import Zonotope
+        
+        # Create interval
+        I = Interval([-1, -1], [1, 1])
+        
+        # Create zonotope
+        c = np.array([[0], [0]])
+        G = np.array([[1, 0], [0, 1]])
+        Z = Zonotope(c, G)
+        
+        # Test Z + I (should delegate to I + Z due to precedence)
+        result = Z + I
+        assert isinstance(result, Interval)
+        
+        # Should give same result as I + Z
+        expected = Interval([-2, -2], [2, 2])
+        assert result == expected
+    
+    def test_plus_interval_zonotope_different_shapes(self):
+        """Test plus operation with different shaped intervals and zonotopes"""
+        from cora_python.contSet import Zonotope
+        
+        # Create interval with different bounds
+        I = Interval([0, -2], [2, 1])
+        
+        # Create zonotope with different center and generators
+        c = np.array([[1], [-1]])
+        G = np.array([[0.5, 0], [0, 0.5]])
+        Z = Zonotope(c, G)
+        
+        # Test I + Z
+        result = I + Z
+        assert isinstance(result, Interval)
+        
+        # Zonotope Z has interval representation: center ± sum(abs(generators))
+        # center = [1, -1], generators = [[0.5, 0], [0, 0.5]]
+        # sum(abs(generators)) = [0.5, 0.5]
+        # So Z as interval = [[0.5, -1.5], [1.5, -0.5]]
+        # I + Z = [[0, -2], [2, 1]] + [[0.5, -1.5], [1.5, -0.5]] = [[0.5, -3.5], [3.5, 0.5]]
+        expected = Interval([0.5, -3.5], [3.5, 0.5])
+        assert result == expected
+    
+    def test_plus_interval_zonotope_1d(self):
+        """Test plus operation with 1D interval and zonotope"""
+        from cora_python.contSet import Zonotope
+        
+        # Create 1D interval
+        I = Interval([-2], [3])
+        
+        # Create 1D zonotope
+        c = np.array([[1]])
+        G = np.array([[2]])
+        Z = Zonotope(c, G)
+        
+        # Test I + Z
+        result = I + Z
+        assert isinstance(result, Interval)
+        
+        # Zonotope Z as interval: [1-2, 1+2] = [-1, 3]
+        # I + Z = [-2, 3] + [-1, 3] = [-3, 6]
+        expected = Interval([-3], [6])
+        assert result == expected
+    
+    def test_plus_interval_zonotope_no_generators(self):
+        """Test plus operation with interval and zonotope with no generators"""
+        from cora_python.contSet import Zonotope
+        
+        # Create interval
+        I = Interval([-1, 0], [1, 2])
+        
+        # Create zonotope with no generators (point)
+        c = np.array([[2], [1]])
+        Z = Zonotope(c)
+        
+        # Test I + Z
+        result = I + Z
+        assert isinstance(result, Interval)
+        
+        # Zonotope Z as interval: [2, 1] (point)
+        # I + Z = [[-1, 0], [1, 2]] + [[2], [1]] = [[1, 1], [3, 3]]
+        expected = Interval([1, 1], [3, 3])
+        assert result == expected
+    
+    def test_plus_interval_zonotope_empty(self):
+        """Test plus operation with empty interval and zonotope"""
+        from cora_python.contSet import Zonotope
+        
+        # Create empty interval
+        I = Interval.empty(2)
+        
+        # Create zonotope
+        c = np.array([[0], [0]])
+        G = np.array([[1, 0], [0, 1]])
+        Z = Zonotope(c, G)
+        
+        # Test I + Z (should result in empty)
+        result = I + Z
+        assert result.representsa_('emptySet')
+        
+        # Test Z + I (should also result in empty)
+        result = Z + I
+        assert result.representsa_('emptySet')
+
 
 if __name__ == '__main__':
     pytest.main([__file__]) 

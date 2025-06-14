@@ -41,9 +41,8 @@ def plus(I: Interval, S: Union[Interval, np.ndarray, float, int]) -> Interval:
     # Ensure that numeric is second input argument
     S_out, S = _reorder_numeric(I, S)
     
-    # Call function with lower precedence
-    if hasattr(S, 'precedence') and S.precedence < S_out.precedence:
-        return S + S_out
+    # Since Interval has highest precedence (120), it should handle all operations
+    # No need to delegate to lower precedence functions
     
     try:
         # interval-interval case
@@ -61,6 +60,16 @@ def plus(I: Interval, S: Union[Interval, np.ndarray, float, int]) -> Interval:
             result.precedence = S_out.precedence
             result.inf = S_out.inf + S
             result.sup = S_out.sup + S
+            return result
+        
+        # Handle zonotope case - convert zonotope to interval first
+        if hasattr(S, '__class__') and S.__class__.__name__ == 'Zonotope':
+            # Convert zonotope to interval using its interval() method
+            S_interval = S.interval()
+            result = Interval.__new__(Interval)
+            result.precedence = S_out.precedence
+            result.inf = S_out.inf + S_interval.inf
+            result.sup = S_out.sup + S_interval.sup
             return result
             
     except Exception as e:

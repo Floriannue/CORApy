@@ -37,30 +37,40 @@ def display(Z):
     
     Args:
         Z: zonotope object
+        
+    Returns:
+        str: String representation of the zonotope
     """
+    lines = []
+    
     # Check for special cases
-    if Z.is_empty():
-        print(f"Empty zonotope in R^{Z.dim()}")
-        return
+    if Z.isemptyobject():
+        result = f"Empty zonotope in R^{Z.dim()}"
+        print(result)
+        return result
     
     # Display basic information
-    print(f"Zonotope in R^{Z.dim()}")
-    print()
+    lines.append(f"Zonotope in R^{Z.dim()}")
+    lines.append("")
     
     # Display center
-    print("c:")
-    print(Z.c)
-    print()
+    lines.append("c:")
+    lines.append(str(Z.c))
+    lines.append("")
     
     # Display generators (limit display for large matrices)
     if Z.G.size > 0:
-        print("G:")
+        lines.append("G:")
         # Limit display to reasonable size (similar to MATLAB's DISPLAYDIM_MAX)
         max_display = 10
         if Z.G.shape[1] <= max_display:
-            print(Z.G)
+            lines.append(str(Z.G))
         else:
-            print(f"{Z.G[:, :max_display]} ... ({Z.G.shape[1]} generators total)")
+            lines.append(f"{Z.G[:, :max_display]} ... ({Z.G.shape[1]} generators total)")
     else:
-        print("G: (no generators)")
-    print() 
+        lines.append("G: (no generators)")
+    lines.append("")
+    
+    result = "\n".join(lines)
+    print(result)
+    return result 

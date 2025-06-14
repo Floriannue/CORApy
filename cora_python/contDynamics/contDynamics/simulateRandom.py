@@ -13,7 +13,16 @@ Date: 2025-01-08
 
 from typing import Dict, Any, Optional, List, Union
 import numpy as np
-from ...g.classes import SimResult
+
+# Use absolute import to avoid relative import issues
+try:
+    from cora_python.g.classes import SimResult
+except ImportError:
+    # Fallback for when running as script
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+    from g.classes import SimResult
 
 
 def simulateRandom(sys, params: Dict[str, Any], options: Optional[Dict[str, Any]] = None) -> List[SimResult]:
@@ -128,13 +137,19 @@ def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tu
     # Set default input set if not provided
     if 'U' not in params:
         # Create zero input set
-        from ...contSet.zonotope import Zonotope
+        try:
+            from cora_python.contSet.zonotope import Zonotope
+        except ImportError:
+            from contSet.zonotope import Zonotope
         params['U'] = Zonotope(np.zeros((sys.nr_of_inputs, 1)), np.zeros((sys.nr_of_inputs, 1)))
     
     # Set default disturbance and noise sets for output computation
     if hasattr(sys, 'C') and sys.C is not None and sys.C.size > 0:
         if 'W' not in params:
-            from ...contSet.zonotope import Zonotope
+            try:
+                from cora_python.contSet.zonotope import Zonotope
+            except ImportError:
+                from contSet.zonotope import Zonotope
             # Create disturbance set with correct dimension
             # Check if E matrix exists and has non-zero entries
             if (hasattr(sys, 'E') and sys.E is not None and sys.E.size > 0 and 
@@ -145,7 +160,10 @@ def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tu
                 w_dim = 1
             params['W'] = Zonotope(np.zeros((w_dim, 1)), np.zeros((w_dim, 1)))
         if 'V' not in params:
-            from ...contSet.zonotope import Zonotope
+            try:
+                from cora_python.contSet.zonotope import Zonotope
+            except ImportError:
+                from contSet.zonotope import Zonotope
             # Create noise set with correct dimension
             # Check if F matrix exists and has non-zero entries
             if (hasattr(sys, 'F') and sys.F is not None and sys.F.size > 0 and 
@@ -158,7 +176,10 @@ def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tu
     else:
         # For systems without output, still need disturbance set for simulation
         if 'W' not in params:
-            from ...contSet.zonotope import Zonotope
+            try:
+                from cora_python.contSet.zonotope import Zonotope
+            except ImportError:
+                from contSet.zonotope import Zonotope
             # Create disturbance set with correct dimension
             # Check if E matrix exists and has non-zero entries
             if (hasattr(sys, 'E') and sys.E is not None and sys.E.size > 0 and 
@@ -329,8 +350,8 @@ def _randPoint(set_obj, N: int = 1, type_: str = 'standard') -> np.ndarray:
     
     # Try to import and use specific randPoint functions
     try:
-        from ...contSet.zonotope import randPoint as zonotope_randPoint
-        from ...contSet.interval import randPoint as interval_randPoint
+        from cora_python.contSet.zonotope import randPoint as zonotope_randPoint
+        from cora_python.contSet.interval import randPoint as interval_randPoint
         
         if hasattr(set_obj, 'c') and hasattr(set_obj, 'G'):
             # Likely a zonotope

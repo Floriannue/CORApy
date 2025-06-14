@@ -120,7 +120,7 @@ class TestIntervalMtimes:
         b = Interval([[-1, 0], [0, -1]], [[1, 1], [1, 1]])
         c = a @ b
         # This is a more complex case - just check it doesn't crash
-        assert isinstance(c, interval)
+        assert isinstance(c, Interval)
         assert c.inf.shape == (2, 2)
         assert c.sup.shape == (2, 2)
     

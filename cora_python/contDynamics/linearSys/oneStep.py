@@ -52,8 +52,8 @@ Python translation: 2025
 
 import numpy as np
 from typing import Tuple, Optional, Union
-from ...contSet.zonotope import Zonotope
-from ...contSet.interval import Interval
+from cora_python.contSet.zonotope import Zonotope
+from cora_python.contSet.interval import Interval
 
 
 def oneStep(linsys, X, U, u, timeStep: float, truncationOrder: int, 

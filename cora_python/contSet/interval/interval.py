@@ -180,10 +180,20 @@ class Interval(ContSet):
         from .isequal import isequal
         return isequal(self, other)
     
-    def contains(self, point: np.ndarray) -> bool:
+    def isequal(self, other) -> bool:
+        """Check if intervals are equal"""
+        from .isequal import isequal
+        return isequal(self, other)
+    
+    def contains(self, point: np.ndarray, tol: float = 0) -> bool:
         """Check if interval contains given point(s)"""
         from .contains_ import contains_
-        return contains_(self, point)
+        return contains_(self, point, tol)
+    
+    def contains_(self, point: np.ndarray, tol: float = 0) -> bool:
+        """Check if interval contains given point(s)"""
+        from .contains_ import contains_
+        return contains_(self, point, tol)
     
     def center(self) -> np.ndarray:
         """Get center of the interval"""
@@ -194,6 +204,14 @@ class Interval(ContSet):
         """Get radius of the interval"""
         from .rad import rad
         return rad(self)
+    
+    def infimum(self) -> np.ndarray:
+        """Get infimum (lower bound) of the interval"""
+        return self.inf
+    
+    def supremum(self) -> np.ndarray:
+        """Get supremum (upper bound) of the interval"""
+        return self.sup
     
     def project(self, dims):
         """Project interval to lower-dimensional subspace"""
@@ -263,6 +281,16 @@ class Interval(ContSet):
         """Reverse matrix multiplication operation"""
         from .mtimes import mtimes
         return mtimes(other, self)
+    
+    def __and__(self, other):
+        """Intersection operation using & operator"""
+        from .and_ import and_
+        return and_(self, other)
+    
+    def __rand__(self, other):
+        """Reverse intersection operation"""
+        from .and_ import and_
+        return and_(other, self)
     
     # Numpy integration
     def __array__(self, dtype=None):

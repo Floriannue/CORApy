@@ -39,7 +39,7 @@ Ensure in the Python translation every function is in its own file like in MATLA
 ```
 Translate_Cora/
 ├── cora_python/  # Target python code that mirrors cora_matlab structure 
-│   ├── g/        # mirrors cora_matlab/global
+│   ├── g/        # mirrors cora_matlab/global helper and global utils functions
 │   ├── contSet/          
 │   │   ├── contSet/      # Base class implementation
 │   │   │   ├── __init__.py  # Must export all functions
@@ -60,9 +60,12 @@ Translate_Cora/
 └── Cora2025.1.0_Manual.txt # manual with exact definitions for everything in cora_matlab
 ```
 
-## Edge Cases
+## Notes
     - Name the folder cora_matlab/global in your python translation g
     - if you run terminal command use powershell syntax, for example "command1; command2"
+    - To ensure the functions and their corresponding tests are complete and correct look at the Cora2025.1.0_Manual.txt
+    - Classes in python start with a captial letter, for example zonotop -> Zonotop
+    - Always mirror the matlab codebase, check how it is done there and how it is specified in the Cora2025.1.0_Manual.txt
 
 ## Translation Workflow must include but not limited to
 
@@ -110,7 +113,8 @@ Translate_Cora/
 
 
 3. **Implementation**
-    Translated the file and the corresponding tests
+    Translated the file and the corresponding tests.
+    For every created translated file or test fill out translate_log.txt with the format Translated file path : corresponding text path.
 
    - **File Creation Rules:**
      1. Each function **must** be in its own file like in the MATLAB codebase
@@ -172,6 +176,7 @@ Translate_Cora/
      2. Verify operator overloading  
      3. Check import paths  
      4. Validate class hierarchy  
+     5. Ensure functions are attached correctly
 
    - **Final Verification:**
      1. Compare directory structure with MATLAB  
@@ -181,4 +186,4 @@ Translate_Cora/
 
 
 ## Task
-Your task is translate `reach: standard, reach: wrapping-free`
+Your task is to translate `ContSet`

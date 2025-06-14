@@ -16,9 +16,9 @@ import numpy as np
 # Add the parent directory to the path to import cora_python modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
-from cora_python.contSet.Interval.interval import Interval
-from cora_python.contSet.Interval.times import times
-from cora_python.contSet.Interval.representsa_ import representsa_
+from cora_python.contSet.interval.interval import Interval
+from cora_python.contSet.interval.times import times
+from cora_python.contSet.interval.representsa_ import representsa_
 
 
 class TestIntervalTimes:

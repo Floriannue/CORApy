@@ -1,0 +1,4 @@
+Translated file path : corresponding text path
+
+contSet\interval\plus.py : tests\contSet\interval\test_interval_plus.py
+contSet\interval\mtimes.py : tests\contSet\interval\test_interval_mtimes.py

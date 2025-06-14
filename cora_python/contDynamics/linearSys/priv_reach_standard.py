@@ -38,8 +38,8 @@ Python translation: 2025
 
 import numpy as np
 from typing import Dict, Any, Tuple
-from ...contSet.zonotope import Zonotope
-from ...contSet.interval import Interval
+from cora_python.contSet.zonotope import Zonotope
+from cora_python.contSet.interval import Interval
 from .canonicalForm import canonicalForm
 from .oneStep import oneStep
 from .priv_outputSet_canonicalForm import priv_outputSet_canonicalForm
@@ -188,7 +188,7 @@ def _enclose(set1, set2):
             return set1.convHull(set2)
         else:
             # Fallback: use interval hull
-            from ...contSet.interval import Interval
+            from cora_python.contSet.interval import Interval
             int1 = Interval(set1) if not isinstance(set1, Interval) else set1
             int2 = Interval(set2) if not isinstance(set2, Interval) else set2
             return int1 + int2

@@ -107,6 +107,29 @@ class Zonotope(ContSet):
             return np.zeros((0, 0)), np.zeros((0, 0))
         
         if len(args) == 1:
+            # Check if input is an Interval object
+            if hasattr(args[0], 'inf') and hasattr(args[0], 'sup'):
+                # Convert interval to zonotope: c = center, G = diag(radius)
+                interval_obj = args[0]
+                
+                # Get center and radius
+                from ..interval.center import center
+                from ..interval.rad import rad
+                
+                c = center(interval_obj)
+                r = rad(interval_obj)
+                
+                # Create generator matrix as diagonal matrix of radii
+                # Remove zero generators (where radius is 0)
+                nonzero_indices = r != 0
+                if np.any(nonzero_indices):
+                    G = np.diag(r)[:, nonzero_indices]
+                else:
+                    G = np.zeros((len(c), 0))
+                
+                return c, G
+            
+            # Handle numeric array input
             Z = np.asarray(args[0])
             if Z.size == 0:
                 return Z, np.array([]).reshape(Z.shape[0], 0)
@@ -160,7 +183,7 @@ class Zonotope(ContSet):
         
         # Ensure c is a column vector
         if c.size > 0:
-            c = c.flatten()
+            c = c.reshape(-1, 1)
         
         # If G is empty, set correct dimension
         if G.size == 0 and c.size > 0:

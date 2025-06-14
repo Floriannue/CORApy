@@ -14,7 +14,7 @@ Python translation: 2025
 import numpy as np
 from typing import Dict, Any, Optional, List
 from scipy.linalg import expm, inv
-from ...g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 class TaylorLinSys:

@@ -59,8 +59,8 @@ def plus(Z, S):
     # Ensure that numeric is second input argument (reorder if necessary)
     S_out, S = _reorder_numeric(Z, S)
     
-    # Call function with lower precedence if applicable
-    if hasattr(S, 'precedence') and hasattr(S_out, 'precedence') and S.precedence < S_out.precedence:
+    # Call function with higher precedence if applicable
+    if hasattr(S, 'precedence') and hasattr(S_out, 'precedence') and S.precedence > S_out.precedence:
         return S + S_out
     
     try:
@@ -79,7 +79,8 @@ def plus(Z, S):
             elif S.G.size > 0:
                 new_G = S.G
             else:
-                new_G = np.array([]).reshape(len(new_c), 0)
+                # Both S_out.G and S.G are empty
+                new_G = np.array([]).reshape(new_c.shape[0], 0)
             
             return Zonotope(new_c, new_G)
         
@@ -89,12 +90,14 @@ def plus(Z, S):
             new_c = S_out.c + S
             return Zonotope(new_c, S_out.G)
         elif isinstance(S, (list, tuple, np.ndarray)):
-            S_vec = np.asarray(S).flatten()
-            if len(S_vec) == 1:
-                # Scalar addition
-                new_c = S_out.c + S_vec[0]
-                return Zonotope(new_c, S_out.G)
-            elif len(S_vec) == len(S_out.c):
+            S_vec = np.asarray(S)
+            # Ensure S_vec is a column vector if it's meant to be added to the center
+            if S_vec.ndim == 1:
+                S_vec = S_vec.reshape(-1, 1)
+            elif S_vec.ndim == 2 and S_vec.shape[1] != 1:
+                S_vec = S_vec.flatten().reshape(-1, 1) # Flatten and convert to column vector
+            
+            if S_vec.shape[0] == S_out.c.shape[0]:
                 # Vector addition
                 new_c = S_out.c + S_vec
                 return Zonotope(new_c, S_out.G)
@@ -102,28 +105,42 @@ def plus(Z, S):
                 raise CORAError('CORA:wrongInputInConstructor',
                               'Dimension mismatch in addition')
         
-        # Handle interval case (if interval class exists)
-        if hasattr(S, '__class__') and S.__class__.__name__ == 'interval':
-            # Convert interval to zonotope and add
-            try:
-                from cora_python.contSet.interval.interval import interval
-                if isinstance(S, interval):
-                    S_zono = Zonotope(S)  # This would need interval->zonotope conversion
-                    new_c = S_out.c + S_zono.c
-                    
-                    # Concatenate generator matrices
-                    if S_out.G.size > 0 and S_zono.G.size > 0:
-                        new_G = np.hstack([S_out.G, S_zono.G])
-                    elif S_out.G.size > 0:
-                        new_G = S_out.G
-                    elif S_zono.G.size > 0:
-                        new_G = S_zono.G
-                    else:
-                        new_G = np.array([]).reshape(len(new_c), 0)
-                    
-                    return Zonotope(new_c, new_G)
-            except ImportError:
-                pass  # interval class not available
+        # Handle interval case - convert interval to zonotope first
+        if hasattr(S, '__class__') and S.__class__.__name__ == 'Interval':
+            # Convert interval to zonotope: center = interval center, generators = diag(radius)
+            from ..interval.center import center
+            from ..interval.rad import rad
+            
+            S_center = center(S)
+            S_radius = rad(S)
+            
+            # Create generator matrix as diagonal matrix of radii
+            # Remove zero generators (where radius is 0)
+            nonzero_indices = S_radius.flatten() != 0
+            if np.any(nonzero_indices):
+                S_G = np.diag(S_radius.flatten())[:, nonzero_indices]
+            else:
+                S_G = np.zeros((len(S_center), 0))
+            
+            # Create zonotope from interval
+            S_zono = Zonotope(S_center, S_G)
+            
+            # Add zonotopes
+            new_c = S_out.c + S_zono.c
+            if new_c.size == 0:
+                return Zonotope.empty(S_out.dim())
+            
+            # Concatenate generator matrices
+            if S_out.G.size > 0 and S_zono.G.size > 0:
+                new_G = np.hstack([S_out.G, S_zono.G])
+            elif S_out.G.size > 0:
+                new_G = S_out.G
+            elif S_zono.G.size > 0:
+                new_G = S_zono.G
+            else:
+                new_G = np.array([]).reshape(len(new_c), 0)
+            
+            return Zonotope(new_c, new_G)
 
     except Exception as e:
         # Check whether different dimension of ambient space

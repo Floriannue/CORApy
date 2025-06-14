@@ -259,8 +259,15 @@ class LinearSys(ContDynamics):
             if B.ndim == 1:
                 B = B.reshape(-1, 1)
         
+        # Handle scalar B: in MATLAB, scalar B means inputs = states
         if B is not None and B.size > 0:
-            inputs = B.shape[1] if B.ndim == 2 else 1
+            if np.isscalar(B) or (B.ndim == 0):
+                inputs = states  # Scalar B means inputs = states (MATLAB behavior)
+                # Convert scalar B to proper matrix: B * I (identity matrix)
+                scalar_b = float(B)
+                B = scalar_b * np.eye(states)
+            else:
+                inputs = B.shape[1] if B.ndim == 2 else 1
         else:
             inputs = 1 if states > 0 else 0
         
@@ -289,6 +296,9 @@ class LinearSys(ContDynamics):
             D = np.asarray(D, dtype=float)
             if D.ndim == 1:
                 D = D.reshape(1, -1)
+            # Handle scalar D
+            elif np.isscalar(D) or (D.ndim == 0):
+                D = np.zeros((outputs, inputs))
         
         # Output offset
         if k is None:
@@ -304,9 +314,17 @@ class LinearSys(ContDynamics):
             dists = 1 if states > 0 else 0
         else:
             E = np.asarray(E, dtype=float)
-            if E.ndim == 1:
+            if np.isscalar(E) or (E.ndim == 0):
+                # Scalar E means dists = states (MATLAB behavior)
+                dists = states
+                # Convert scalar E to proper matrix: E * I (identity matrix)
+                scalar_e = float(E)
+                E = scalar_e * np.eye(states) if states > 0 else np.array([[]])
+            elif E.ndim == 1:
                 E = E.reshape(-1, 1)
-            dists = E.shape[1]
+                dists = 1
+            else:
+                dists = E.shape[1]
         
         # Noise matrix and number of noises
         if F is None:
@@ -314,9 +332,17 @@ class LinearSys(ContDynamics):
             noises = 1 if outputs > 0 else 0
         else:
             F = np.asarray(F, dtype=float)
-            if F.ndim == 1:
+            if np.isscalar(F) or (F.ndim == 0):
+                # Scalar F means noises = outputs (MATLAB behavior)
+                noises = outputs
+                # Convert scalar F to proper matrix: F * I (identity matrix)
+                scalar_f = float(F)
+                F = scalar_f * np.eye(outputs) if outputs > 0 else np.array([[]])
+            elif F.ndim == 1:
                 F = F.reshape(-1, 1)
-            noises = F.shape[1]
+                noises = 1
+            else:
+                noises = F.shape[1]
         
         return name, A, B, c, C, D, k, E, F, states, inputs, outputs, dists, noises
     

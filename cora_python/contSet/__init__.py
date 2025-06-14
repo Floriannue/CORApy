@@ -8,5 +8,8 @@ intervals, zonotopes, polytopes, and other geometric objects.
 from .contSet import ContSet
 from .interval import Interval
 from .zonotope import Zonotope
+from .capsule import Capsule
+from .emptySet import EmptySet
+from .ellipsoid import Ellipsoid
 
-__all__ = ['ContSet', 'Interval', 'Zonotope'] 
+__all__ = ['ContSet', 'Interval', 'Zonotope', 'Capsule'] 
