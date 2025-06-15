@@ -28,9 +28,9 @@ from .Inf import Inf
 from .origin import origin
 from .project import project
 from .is_bounded import is_bounded
-from .vertices import vertices, vertices_
+from .vertices_ import vertices_
 from .and_ import and_
-from .randPoint import randPoint
+from .randPoint_ import randPoint_
 from .generateRandom import generateRandom
 
 # Import auxiliary functions
@@ -55,10 +55,9 @@ __all__ = [
     'origin',
     'project',
     'is_bounded',
-    'vertices',
     'vertices_',
     'and_',
-    'randPoint',
+    'randPoint_',
     'generateRandom',
     # Auxiliary functions (for internal use)
     '_within_tol',

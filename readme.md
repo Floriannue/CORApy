@@ -113,8 +113,8 @@ Translate_Cora/
 
 
 3. **Implementation**
-    Translated the file and the corresponding tests.
-    For every created translated file or test fill out translate_log.txt with the format Translated file path : corresponding text path.
+    Translated all the functionality from the matlab file and the corresponding tests.
+    For every created translated file or test fill out translate_log.txt with the format Translated file path : corresponding test path. Only fill out the test path if there actually tests!
 
    - **File Creation Rules:**
      1. Each function **must** be in its own file like in the MATLAB codebase
@@ -126,7 +126,7 @@ Translate_Cora/
    - **Testing Requirements:**
      1. One test file per function  
      2. Port **all** MATLAB test cases  
-     3. Add edge cases and error tests  
+     3. Add edge cases and in general missing cases 
      4. Verify numerical accuracy  
 
 
@@ -186,4 +186,4 @@ Translate_Cora/
 
 
 ## Task
-Your task is to translate `ContSet`
+Your task is to translate `global functions`

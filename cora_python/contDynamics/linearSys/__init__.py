@@ -15,9 +15,9 @@ from .reach import reach
 from .canonicalForm import canonicalForm
 from .oneStep import oneStep
 from cora_python.g.classes.taylorLinSys import TaylorLinSys
-from .priv_reach_standard import priv_reach_standard
-from .priv_reach_wrappingfree import priv_reach_wrappingfree
-from .priv_outputSet_canonicalForm import priv_outputSet_canonicalForm
+from .private.priv_reach_standard import priv_reach_standard
+from .private.priv_reach_wrappingfree import priv_reach_wrappingfree
+from .private.priv_outputSet_canonicalForm import priv_outputSet_canonicalForm
 from .homogeneousSolution import homogeneousSolution
 from ..contDynamics.simulateRandom import simulateRandom
 

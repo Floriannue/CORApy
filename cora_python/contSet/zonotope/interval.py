@@ -55,11 +55,7 @@ def interval(Z):
     leftLimit = c - delta
     rightLimit = c + delta
     
-    # Flatten to 1D arrays for interval constructor
-    leftLimit = leftLimit.flatten()
-    rightLimit = rightLimit.flatten()
-    
-    # instantiate interval
+    # instantiate interval (keep original shape)
     I = Interval(leftLimit, rightLimit)
     
     return I 

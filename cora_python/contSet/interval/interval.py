@@ -185,15 +185,10 @@ class Interval(ContSet):
         from .isequal import isequal
         return isequal(self, other)
     
-    def contains(self, point: np.ndarray, tol: float = 0) -> bool:
-        """Check if interval contains given point(s)"""
+    def contains_(self, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, scalingToggle=False, *varargin):
+        """Check if interval contains given point(s) or set"""
         from .contains_ import contains_
-        return contains_(self, point, tol)
-    
-    def contains_(self, point: np.ndarray, tol: float = 0) -> bool:
-        """Check if interval contains given point(s)"""
-        from .contains_ import contains_
-        return contains_(self, point, tol)
+        return contains_(self, S, method, tol, maxEval, certToggle, scalingToggle, *varargin)
     
     def center(self) -> np.ndarray:
         """Get center of the interval"""
@@ -223,15 +218,15 @@ class Interval(ContSet):
         from .is_bounded import is_bounded
         return is_bounded(self)
     
-    def vertices(self, *args):
-        """Get vertices of the interval"""
-        from .vertices import vertices
-        return vertices(self)
-    
     def vertices_(self):
         """Get vertices of the interval (internal version)"""
-        from .vertices import vertices_
+        from .vertices_ import vertices_
         return vertices_(self)
+    
+    def randPoint_(self, N=1, type_='standard'):
+        """Generate random points within the interval (internal version)"""
+        from .randPoint_ import randPoint_
+        return randPoint_(self, N, type_)
     
     def interval(self, *args):
         """Return self (already an Interval)"""

@@ -222,6 +222,31 @@ class Zonotope(ContSet):
         from .display import display
         return display(self)
     
+    def randPoint_(self, N=1, type_='standard'):
+        """Generate random points within the zonotope (internal version)"""
+        from .randPoint_ import randPoint_
+        return randPoint_(self, N, type_)
+    
+    def vertices_(self, method='convHull', *args):
+        """Get vertices of the zonotope (internal version)"""
+        from .vertices_ import vertices_
+        return vertices_(self, method, *args)
+    
+    def project(self, dims):
+        """Project zonotope to lower-dimensional subspace"""
+        from .project import project
+        return project(self, dims)
+    
+    def norm_(self, norm_type=2, mode='ub', return_vertex=False):
+        """Compute maximum norm value of the zonotope"""
+        from .norm_ import norm_
+        return norm_(self, norm_type, mode, return_vertex)
+    
+    def zonotopeNorm(self, p, return_minimizer=False):
+        """Compute zonotope norm of point p with respect to this zonotope"""
+        from .zonotopeNorm import zonotopeNorm
+        return zonotopeNorm(self, p, return_minimizer)
+    
     def __repr__(self) -> str:
         """String representation of zonotope"""
         if self.is_empty():

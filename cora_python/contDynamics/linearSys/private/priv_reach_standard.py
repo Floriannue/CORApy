@@ -1,9 +1,9 @@
 """
-priv_reach_wrappingfree - computes the reachable set for linear systems using
-   the wrapping-free reachability algorithm for linear systems [1]
+priv_reach_standard - computes the reachable set for linear systems using the
+   standard (non-wrapping-free) reachability algorithm for linear systems
 
 Syntax:
-   [timeInt, timePoint, res] = priv_reach_wrappingfree(linsys, params, options)
+   [timeInt, timePoint, res] = priv_reach_standard(linsys, params, options)
 
 Inputs:
    linsys - linearSys object
@@ -19,10 +19,9 @@ Example:
    -
 
 References:
-   [1] A. Girard, C. Le Guernic, and O. Maler, "Efficient computation of
-       reachable sets of linear time-invariant systems with inputs"
-       in Hybrid Systems: Computation and Control, ser. LNCS 3927.
-       Springer, 2006, pp. 257--271.
+   [1] A. Girard, "Reachability of uncertain linear systems using 
+      zonotopes" in Hybrid Systems: Computation and Control, 
+      ser. LNCS 3414. Springer, 2005, pp. 291--305.
 
 Other m-files required: none
 Subfunctions: none
@@ -33,7 +32,7 @@ See also: none
 Authors: Matthias Althoff, Mark Wetzlinger (MATLAB)
          Python translation by AI Assistant
 Written: 26-June-2019 (from @contDynamics > reach.m) (MATLAB)
-Last update: 14-August-2019 (MATLAB)
+Last update: 19-November-2022 (MW, modularize specification check) (MATLAB)
 Python translation: 2025
 """
 
@@ -41,14 +40,14 @@ import numpy as np
 from typing import Dict, Any, Tuple
 from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.interval import Interval
-from .canonicalForm import canonicalForm
-from .oneStep import oneStep
+from ..canonicalForm import canonicalForm
+from ..oneStep import oneStep
 from .priv_outputSet_canonicalForm import priv_outputSet_canonicalForm
 
 
-def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, Any]) -> Tuple[Dict, Dict, bool]:
+def priv_reach_standard(linsys, params: Dict[str, Any], options: Dict[str, Any]) -> Tuple[Dict, Dict, bool]:
     """
-    Computes the reachable set for linear systems using the wrapping-free algorithm
+    Computes the reachable set for linear systems using the standard algorithm
     
     Args:
         linsys: LinearSys object
@@ -58,7 +57,12 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
     Returns:
         Tuple of (timeInt, timePoint, res)
     """
-    # Put system into canonical form
+    # Time period and number of steps
+    tVec = np.arange(params['tStart'], params['tFinal'] + options['timeStep'], options['timeStep'])
+    steps = len(tVec) - 1
+    
+    # Put system into canonical form: this allows us to compute the output sets
+    # much more efficiently (see below)
     if 'uTransVec' in params:
         linsys, U, u, V, v = canonicalForm(linsys, params['U'], params['uTransVec'],
                                          params['W'], params['V'], np.zeros((linsys.nr_of_outputs, 1)))
@@ -66,9 +70,8 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
         linsys, U, u, V, v = canonicalForm(linsys, params['U'], params['uTrans'],
                                          params['W'], params['V'], np.zeros((linsys.nr_of_outputs, 1)))
     
-    # Time period and number of steps
-    tVec = np.arange(params['tStart'], params['tFinal'] + options['timeStep'], options['timeStep'])
-    steps = len(tVec) - 1
+    # Check if time-varying inputs given
+    isU = _representsa_origin(U)
     
     # Initialize output variables for reachable sets and output sets
     timeInt = {
@@ -89,17 +92,8 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
     
     # Read out propagation matrix and base particular solution
     eAdt = linsys.taylor.getTaylor('eAdt', timeStep=options['timeStep'])
-    
-    # Save particular solution
-    PU_next = PU
-    PU = Interval(PU) if not isinstance(PU, Interval) else PU
-    
-    if hasattr(Pu, 'center'):
-        Pu_c = Pu.center()
-        Pu_int = Interval(Pu) - Pu_c
-    else:
-        Pu_int = np.zeros((linsys.nr_of_states, 1))
-        Pu_c = Pu
+    if not isU:
+        PU_next = PU
     
     # Compute output set of start set and first time-interval solution
     timePoint['set'][0] = priv_outputSet_canonicalForm(linsys, params['R0'], V, v, 1)
@@ -117,38 +111,36 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
     # Loop over all reachability steps
     for k in range(1, steps):
         
-        # Method implemented from Algorithm 2 in [1]
+        # Method implemented from Algorithm 1 in [1]
         
         # Re-compute particular solution due to constant input if we have a
         # time-varying input trajectory, since the constant input is included
         # in our affine solution, we recompute Htp, Hti, and Pu, incl. errors
         if 'uTransVec' in params:
             Htp_start = Htp
-            from .affineSolution import affineSolution
+            from ..affineSolution import affineSolution
             Htp, Pu, _, C_state, C_input = affineSolution(
                 linsys, Htp_start, u[:, k], options['timeStep'], options['taylorTerms'])
             Hti = _enclose(Htp_start, Htp) + C_state
-            
-            if hasattr(Pu, 'center'):
-                Pu_c = Pu.center()
-                Pu_int = Interval(Pu) - Pu_c
-            else:
-                Pu_int = np.zeros((linsys.nr_of_states, 1))
-                Pu_c = Pu
         else:
-            # Propagate affine solution
-            Hti = eAdt @ Hti + Pu_c
-            Htp = eAdt @ Htp + Pu_c
+            # Homogeneous solution, incl. reduction
+            Htp = eAdt @ Htp + Pu
+            Hti = eAdt @ Hti + Pu
         
-        # Propagate particular solution (interval)
-        PU_next = eAdt @ PU_next
-        PU = PU + Interval(PU_next) + Pu_int
+        # Reduction
+        Htp = _reduce(Htp, options['reductionTechnique'], options['zonotopeOrder'])
+        Hti = _reduce(Hti, options['reductionTechnique'], options['zonotopeOrder'])
         
-        # Full solution
+        if not isU:
+            # Propagate particular solution (time-varying, centered at zero)
+            PU_next = eAdt @ PU_next
+            PU = _reduce(PU + PU_next, options['reductionTechnique'], options['zonotopeOrder'])
+        
+        # Compute reachable set
         Rti = Hti + PU + C_input
         Rtp = Htp + PU
         
-        # Compute output sets
+        # Compute output set
         timeInt['set'][k] = priv_outputSet_canonicalForm(linsys, Rti, V, v, k + 1)
         timeInt['time'][k] = Interval(np.array([[tVec[k]], [tVec[k + 1]]]))
         
@@ -169,6 +161,16 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
     res = True
     
     return timeInt, timePoint, res
+
+
+def _representsa_origin(set_obj) -> bool:
+    """Check if a set represents the origin"""
+    if hasattr(set_obj, 'representsa_'):
+        return set_obj.representsa_('origin')
+    elif isinstance(set_obj, np.ndarray):
+        return np.allclose(set_obj, 0)
+    else:
+        return False
 
 
 def _verboseLog(verbose_level: int, step: int, current_time: float, start_time: float, final_time: float):
@@ -192,6 +194,14 @@ def _enclose(set1, set2):
             return int1 + int2
     else:
         return set1 + set2
+
+
+def _reduce(set_obj, technique: str, order: int):
+    """Reduce set representation"""
+    if hasattr(set_obj, 'reduce'):
+        return set_obj.reduce(technique, order)
+    else:
+        return set_obj
 
 
 def _priv_checkSpecification(specification, Rti, timeInt, timePoint, step):

@@ -27,7 +27,11 @@ Last update:   ---
 Last revision: ---
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+try:
+    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+except ImportError:
+    # Fallback for when running from within the cora_python directory
+    from g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 def project(S, dims):
     """

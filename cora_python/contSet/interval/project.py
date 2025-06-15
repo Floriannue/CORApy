@@ -1,74 +1,49 @@
 """
-project - project an interval to a lower-dimensional subspace
+project - projects an interval onto the specified dimensions
 
-Syntax:
-    I_proj = project(I, dims)
-
-Inputs:
-    I - interval object
-    dims - dimensions for projection (list or array of integers)
-
-Outputs:
-    I_proj - projected interval object
-
-Authors: Matthias Althoff (MATLAB)
+Authors: Mark Wetzlinger (MATLAB)
          Python translation by AI Assistant
-Written: 19-June-2015 (MATLAB)
+Written: 16-September-2019 (MATLAB)
+Last update: 21-May-2022 (MATLAB)
 Python translation: 2025
 """
 
 import numpy as np
-from typing import Union, List
+try:
+    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+except ImportError:
+    # Fallback for when running from within the cora_python directory
+    from g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
-def project(I, dims: Union[List[int], np.ndarray]):
+def project(I: 'Interval', dims) -> 'Interval':
     """
-    Project interval to lower-dimensional subspace
+    Projects an interval onto the specified dimensions
     
     Args:
         I: Interval object
-        dims: dimensions for projection (1-based indexing)
+        dims: dimensions for projection (list or array of indices)
         
     Returns:
-        Projected interval object
+        Interval: projected interval
+        
+    Example:
+        >>> I = Interval([-3, -5, -2], [3, 2, 1])
+        >>> dims = [0, 2]  # Project onto 1st and 3rd dimensions
+        >>> I_proj = project(I, dims)
     """
-    # Import here to avoid circular imports
     from .interval import Interval
     
-    # Handle empty interval
-    if I.inf.size == 0:
-        return Interval.empty(len(dims))
+    # Check if interval is a matrix (not supported)
+    if I.inf.ndim > 1 and I.inf.shape[0] > 1 and I.inf.shape[1] > 1:
+        raise CORAError("CORA:wrongValue", 
+                       "project not implemented for interval matrices")
     
-    # Convert dims to 0-based indexing and ensure it's a list
-    if isinstance(dims, (int, np.integer)):
-        dims = [dims]
-    dims = [d - 1 for d in dims]  # Convert to 0-based indexing
-    
-    # Check dimension validity
-    n_dims = I.dim()
-    if isinstance(n_dims, int):
-        max_dim = n_dims
-    else:
-        max_dim = max(n_dims) if isinstance(n_dims, list) else 1
-    
-    for d in dims:
-        if d < 0 or d >= max_dim:
-            raise ValueError(f"Dimension {d+1} is out of range for {max_dim}-dimensional interval")
+    # Convert dims to numpy array for indexing
+    dims = np.array(dims)
     
     # Project bounds
-    if I.inf.ndim == 0:
-        # Scalar interval - can only project to dimension 1
-        if dims != [0]:
-            raise ValueError(f"Cannot project scalar interval to dimensions {[d+1 for d in dims]}")
-        inf_proj = I.inf
-        sup_proj = I.sup
-    elif I.inf.ndim == 1:
-        # Vector interval
-        inf_proj = I.inf[dims]
-        sup_proj = I.sup[dims]
-    else:
-        # Matrix interval - project rows
-        inf_proj = I.inf[dims, :]
-        sup_proj = I.sup[dims, :]
+    inf_proj = I.inf[dims]
+    sup_proj = I.sup[dims]
     
     return Interval(inf_proj, sup_proj) 

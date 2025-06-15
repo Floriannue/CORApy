@@ -95,10 +95,10 @@ def reach(linsys, params: Dict[str, Any], *args) -> Union['ReachSet', Tuple['Rea
         else:
             # All below, const. time step sizes
             if options['linAlg'] == 'standard':
-                from .priv_reach_standard import priv_reach_standard
+                from .private.priv_reach_standard import priv_reach_standard
                 timeInt, timePoint, res = priv_reach_standard(linsys, params, options)
             elif options['linAlg'] == 'wrapping-free':
-                from .priv_reach_wrappingfree import priv_reach_wrappingfree
+                from .private.priv_reach_wrappingfree import priv_reach_wrappingfree
                 timeInt, timePoint, res = priv_reach_wrappingfree(linsys, params, options)
             elif options['linAlg'] == 'fromStart':
                 # TODO: Implement fromStart algorithm
