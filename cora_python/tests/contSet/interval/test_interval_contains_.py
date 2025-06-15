@@ -81,24 +81,29 @@ class TestIntervalContains:
 
     def test_nd_arrays(self):
         """Test n-d arrays"""
-        # Create multi-dimensional bounds
-        lb = np.zeros((2, 2, 1, 3, 2))
-        lb[:, :, 0, 0, 0] = [[1, 2], [3, 5]]
-        lb[:, :, 0, 1, 0] = [[0, -1], [-2, 3]]
-        lb[:, :, 0, 2, 0] = [[1, 1], [-1, 0]]
-        lb[:, :, 0, 0, 1] = [[-3, 2], [0, 1]]
+        # Create multi-dimensional bounds matching MATLAB structure
+        # MATLAB: lb(:,:,1,1) = [1 2; 3 5]; etc.
+        # This creates a (2,2,2,3) array in MATLAB
+        lb = np.zeros((2, 2, 2, 3))
+        lb[:, :, 0, 0] = [[1, 2], [3, 5]]      # lb(:,:,1,1)
+        lb[:, :, 0, 1] = [[0, -1], [-2, 3]]    # lb(:,:,1,2)
+        lb[:, :, 0, 2] = [[1, 1], [-1, 0]]     # lb(:,:,1,3)
+        lb[:, :, 1, 0] = [[-3, 2], [0, 1]]     # lb(:,:,2,1)
         
-        ub = np.zeros((2, 2, 1, 3, 2))
-        ub[:, :, 0, 0, 0] = [[1.5, 4], [4, 10]]
-        ub[:, :, 0, 1, 0] = [[1, 2], [0, 4]]
-        ub[:, :, 0, 2, 0] = [[2, 3], [-0.5, 2]]
-        ub[:, :, 0, 0, 1] = [[-1, 3], [0, 2]]
+        ub = np.zeros((2, 2, 2, 3))
+        ub[:, :, 0, 0] = [[1.5, 4], [4, 10]]   # ub(:,:,1,1)
+        ub[:, :, 0, 1] = [[1, 2], [0, 4]]      # ub(:,:,1,2)
+        ub[:, :, 0, 2] = [[2, 3], [-0.5, 2]]   # ub(:,:,1,3)
+        ub[:, :, 1, 0] = [[-1, 3], [0, 2]]     # ub(:,:,2,1)
         
         I = Interval(lb, ub)
         c = (lb + ub) / 2
         
-        # Test with center points
-        test_points = np.concatenate([c, c], axis=4)
+        # Test with center points - MATLAB: cat(5,c,c) concatenates along 5th dimension
+        # In Python, this is axis=4 (0-indexed), creating shape (2,2,2,3,2)
+        test_points = np.concatenate([c, c], axis=-1)  # Add new axis and concatenate
+        test_points = np.stack([c, c], axis=-1)  # This creates (2,2,2,3,2)
+        
         res, cert, scaling = I.contains_(test_points)
         assert res.shape == (1, 2)
         assert np.all(res)

@@ -21,7 +21,7 @@ Python translation: 2025
 import numpy as np
 
 
-from .aux_functions import _within_tol
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 
 def representsa_(obj, set_type: str, tol: float = 1e-9, **kwargs):

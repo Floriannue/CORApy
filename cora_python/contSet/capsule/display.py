@@ -39,6 +39,13 @@ def display(C) -> None:
         C: capsule object
     """
     print()
+    
+    # Check for empty capsule
+    if C.is_empty():
+        print(f"Empty capsule in R^{C.dim()}")
+        print()
+        return
+    
     print("capsule")
     print()
     

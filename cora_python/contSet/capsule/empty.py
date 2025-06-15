@@ -50,4 +50,4 @@ def empty(n: Optional[int] = None) -> 'Capsule':
         raise ValueError("Dimension must be a non-negative integer")
     
     # Create empty capsule
-    return Capsule(np.zeros((n, 0)), np.zeros((n, 0)), np.zeros((0, 0))) 
+    return Capsule(np.zeros((n, 0)), np.zeros((n, 0)), np.array([])) 

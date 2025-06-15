@@ -37,7 +37,8 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 
 # Import auxiliary functions
-from .aux_functions import _within_tol, _reorder_numeric, _equal_dim_check
+from .aux_functions import _reorder_numeric, _equal_dim_check
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 
 class Interval(ContSet):
@@ -127,7 +128,7 @@ class Interval(ContSet):
             
             # Check bound ordering with tolerance
             if not np.all(lb <= ub):
-                if not np.all(_within_tol(lb, ub, 1e-6) | (lb <= ub)):
+                if not np.all(withinTol(lb, ub, 1e-6) | (lb <= ub)):
                     raise CORAError('CORA:wrongInputInConstructor',
                                    'Lower bound is larger than upper bound')
     

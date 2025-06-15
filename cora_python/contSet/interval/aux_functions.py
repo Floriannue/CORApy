@@ -17,21 +17,6 @@ if TYPE_CHECKING:
     from .interval import Interval
 
 
-def _within_tol(a: np.ndarray, b: np.ndarray, tol: float = 1e-6) -> np.ndarray:
-    """
-    Check if values are within tolerance
-    
-    Args:
-        a: First array
-        b: Second array  
-        tol: Tolerance value
-        
-    Returns:
-        Boolean array indicating which elements are within tolerance
-    """
-    return np.abs(a - b) <= tol
-
-
 def _reorder_numeric(obj1, obj2):
     """
     Reorder objects to ensure interval comes first

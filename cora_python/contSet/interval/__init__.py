@@ -34,7 +34,7 @@ from .randPoint_ import randPoint_
 from .generateRandom import generateRandom
 
 # Import auxiliary functions
-from .aux_functions import _within_tol, _reorder_numeric, _equal_dim_check, _representsa
+from .aux_functions import _reorder_numeric, _equal_dim_check, _representsa
 
 # Export the Interval class and all methods
 __all__ = [
@@ -60,7 +60,7 @@ __all__ = [
     'randPoint_',
     'generateRandom',
     # Auxiliary functions (for internal use)
-    '_within_tol',
+
     '_reorder_numeric', 
     '_equal_dim_check',
     '_representsa'

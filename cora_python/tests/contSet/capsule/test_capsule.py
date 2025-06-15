@@ -21,8 +21,12 @@ class TestCapsule:
         c = np.array([2, 0])
         C = Capsule(c)
         
-        assert np.allclose(C.c, c)
-        assert np.allclose(C.g, np.zeros_like(c))
+        # Capsule stores center as column vector
+        expected_c = np.array([[2], [0]])
+        expected_g = np.array([[0], [0]])
+        
+        assert np.allclose(C.c, expected_c)
+        assert np.allclose(C.g, expected_g)
         assert C.r == 0
 
     def test_capsule_constructor_center_generator(self):
@@ -31,8 +35,12 @@ class TestCapsule:
         g = np.array([1, -1])
         C = Capsule(c, g)
         
-        assert np.allclose(C.c, c)
-        assert np.allclose(C.g, g)
+        # Capsule stores center and generator as column vectors
+        expected_c = np.array([[2], [0]])
+        expected_g = np.array([[1], [-1]])
+        
+        assert np.allclose(C.c, expected_c)
+        assert np.allclose(C.g, expected_g)
         assert C.r == 0
 
     def test_capsule_constructor_full(self):
@@ -42,8 +50,12 @@ class TestCapsule:
         r = 0.5
         C = Capsule(c, g, r)
         
-        assert np.allclose(C.c, c)
-        assert np.allclose(C.g, g)
+        # Capsule stores center and generator as column vectors
+        expected_c = np.array([[2], [0]])
+        expected_g = np.array([[1], [-1]])
+        
+        assert np.allclose(C.c, expected_c)
+        assert np.allclose(C.g, expected_g)
         assert C.r == r
 
     def test_capsule_empty_constructor(self):
@@ -60,8 +72,8 @@ class TestCapsule:
         C = Capsule.origin(n)
         
         assert C.dim() == n
-        assert np.allclose(C.c, np.zeros(n))
-        assert np.allclose(C.g, np.zeros(n))
+        assert np.allclose(C.c, np.zeros((n, 1)))
+        assert np.allclose(C.g, np.zeros((n, 1)))
         assert C.r == 0
 
     def test_capsule_dimension_consistency(self):
@@ -97,9 +109,12 @@ class TestCapsule:
         r = 2.5
         C = Capsule(c, g, r)
         
-        # Test property access
-        assert np.allclose(C.c, c)
-        assert np.allclose(C.g, g)
+        # Test property access - capsule stores as column vectors
+        expected_c = np.array([[1], [2]])
+        expected_g = np.array([[3], [4]])
+        
+        assert np.allclose(C.c, expected_c)
+        assert np.allclose(C.g, expected_g)
         assert C.r == r
 
     def test_capsule_different_dimensions(self):

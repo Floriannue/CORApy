@@ -56,7 +56,7 @@ import numpy as np
 from typing import Union, Tuple
 
 from .representsa_ import representsa_
-from .aux_functions import _within_tol as withinTol
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 
 def contains_(I, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, scalingToggle=False, *varargin):
@@ -93,97 +93,158 @@ def contains_(I, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, sc
     if isinstance(S, (int, float, list, tuple, np.ndarray)):
         S = np.asarray(S)
         
-        # Flatten interval bounds for easier handling
-        I_inf = I.inf.flatten()
-        I_sup = I.sup.flatten()
-        
-        # Handle different input shapes
-        if S.ndim == 1:
-            # Single point as 1D array
-            if len(S) == len(I_inf):
-                # Single point with same dimension as interval
-                S = S.reshape(-1, 1)
-            else:
-                # Multiple 1D points - reshape to column vectors
-                S = S.reshape(1, -1)
-        elif S.ndim > 2:
-            # For multi-dimensional arrays, flatten completely to match interval structure
-            # The interval is flattened, so points should be too
-            original_shape = S.shape
-            # Flatten all but potentially the last dimension if it represents multiple points
-            if S.shape[-1] > 1 and np.prod(S.shape[:-1]) == len(I_inf):
-                # Last dimension represents multiple points
-                S = S.reshape(-1, S.shape[-1])
-            else:
-                # Flatten completely and treat as single point or multiple 1D points
-                S = S.flatten()
-                if len(S) == len(I_inf):
-                    S = S.reshape(-1, 1)
-                else:
-                    # Try to infer structure - if divisible, treat as multiple points
-                    if len(S) % len(I_inf) == 0:
-                        n_points = len(S) // len(I_inf)
-                        S = S.reshape(len(I_inf), n_points)
-                    else:
-                        S = S.reshape(-1, 1)
-        
-        n_dims, n_points = S.shape
-        
-        # Check dimension compatibility
-        if n_dims != len(I_inf):
-            raise ValueError(f"Dimension mismatch: interval has {len(I_inf)} dimensions, points have {n_dims}")
-        
         if scalingToggle:
-            c = (I_inf + I_sup) / 2
+            # Get center of interval
+            c = (I.inf + I.sup) / 2
             if np.any(np.isnan(c)):
-                nan_instances = np.where(np.isnan(c))[0]
-                for i in nan_instances:
-                    if I_inf[i] == -np.inf and I_sup[i] == np.inf:
-                        c[i] = 0
+                nan_instances = np.where(np.isnan(c))
+                for idx in zip(*nan_instances):
+                    if I.inf[idx] == -np.inf and I.sup[idx] == np.inf:
+                        c[idx] = 0
                     else:
                         raise ValueError("Cannot determine center of the interval, as it has a dimension unbounded only in one direction")
             
-            # Compute scaling for each point
-            scaling = np.zeros(n_points)
-            for j in range(n_points):
-                point = S[:, j]
-                point_centered = point - c
-                I_inf_centered = I_inf - c
-                I_sup_centered = I_sup - c
+            # Check if this is a multi-dimensional case or regular point array case
+            if S.ndim == len(I.inf.shape) + 1:
+                # Multi-dimensional case: S has shape (..., n_points) where ... matches I.inf.shape
+                # Expand c to match S dimensions
+                c_expanded = np.expand_dims(c, axis=-1)
                 
-                # Compute scaling needed for each dimension
-                scaling_per_dim = np.zeros(n_dims)
-                for i in range(n_dims):
-                    if I_inf_centered[i] == 0 and I_sup_centered[i] == 0:
-                        # Interval is a point
-                        scaling_per_dim[i] = 0 if point_centered[i] == 0 else np.inf
-                    else:
-                        # Find which bound is more restrictive
-                        if point_centered[i] >= 0:
-                            scaling_per_dim[i] = abs(point_centered[i] / I_sup_centered[i]) if I_sup_centered[i] != 0 else (0 if point_centered[i] == 0 else np.inf)
-                        else:
-                            scaling_per_dim[i] = abs(point_centered[i] / I_inf_centered[i]) if I_inf_centered[i] != 0 else (0 if point_centered[i] == 0 else np.inf)
+                # Compute scaling: scaling = abs(S) / abs([I.inf-c, I.sup-c])
+                # This follows MATLAB: scaling = abs(S)./(abs([I.inf-c I.sup-c]));
+                I_bounds = np.stack([np.expand_dims(I.inf - c, axis=-1), np.expand_dims(I.sup - c, axis=-1)], axis=-1)
+                I_bounds_abs = np.abs(I_bounds)
                 
-                scaling[j] = np.max(scaling_per_dim)
+                # For each point in S, compute scaling
+                S_abs = np.abs(S)
+                # Expand S to match I_bounds for division
+                S_expanded = np.expand_dims(S_abs, axis=-1)  # Add dimension for bounds
+                scaling = S_expanded / I_bounds_abs
+                
+                # Take maximum over bounds (inf vs sup) and then over spatial dimensions
+                scaling = np.max(scaling, axis=-1)  # Max over bounds
+                
+                # Apply max() over spatial dimensions (equivalent to MATLAB's 1:numel(dim(I)))
+                # This reduces all spatial dimensions, leaving only the point dimension
+                spatial_dims = tuple(range(len(I.inf.shape)))
+                if len(spatial_dims) > 0:
+                    scaling = np.max(scaling, axis=spatial_dims)
+                
+            elif S.ndim == len(I.inf.shape) and S.shape[:-1] == I.inf.shape[:-1]:
+                # Regular point array case: S has shape (n_dims, n_points), I has shape (n_dims, 1)
+                n_points = S.shape[-1]
+                scaling = np.zeros(n_points)
+                
+                for i in range(n_points):
+                    point = S[..., i:i+1]  # Keep same shape as I for broadcasting
+                    # Compute scaling for this point following MATLAB logic
+                    point_scaling = np.abs(point) / np.abs(np.stack([I.inf - c, I.sup - c], axis=-1))
+                    scaling[i] = np.max(point_scaling)
+                
+            else:
+                # S has same dimensions as I - single point case
+                # Compute scaling: scaling = abs(S) / abs([I.inf-c, I.sup-c])
+                # This follows MATLAB: scaling = abs(S)./(abs([I.inf-c I.sup-c]));
+                I_bounds = np.stack([I.inf - c, I.sup - c], axis=-1)  # Stack bounds along last axis
+                I_bounds_abs = np.abs(I_bounds)
+                
+                # For each point in S, compute scaling
+                S_abs = np.abs(S)
+                scaling = S_abs / I_bounds_abs
+                
+                # Take maximum over bounds (inf vs sup) and then over spatial dimensions
+                scaling = np.max(scaling, axis=-1)  # Max over bounds
+                
+                # Apply all() over spatial dimensions (equivalent to MATLAB's 1:numel(dim(I)))
+                # This reduces all spatial dimensions, leaving only the point dimension
+                spatial_dims = tuple(range(len(I.inf.shape)))
+                if len(spatial_dims) > 0:
+                    scaling = np.max(scaling, axis=spatial_dims)
             
             res = scaling <= 1 + tol
             cert = np.ones_like(res, dtype=bool)
-        else:
-            # Check if points are within bounds
-            res = np.zeros(n_points, dtype=bool)
-            for j in range(n_points):
-                point = S[:, j]
-                within_bounds = np.all((I_inf <= point + tol) & (point <= I_sup + tol))
-                res[j] = within_bounds
             
-            cert = np.ones_like(res, dtype=bool)
-            scaling = np.zeros_like(res, dtype=float)
+            # Reshape to [1, n_points] to match MATLAB behavior
+            res = res.reshape(1, -1)
+            cert = cert.reshape(1, -1)
+            scaling = scaling.reshape(1, -1)
+            
+        else:
+            # Check if this is a multi-dimensional case (S has more dimensions than I)
+            # or a regular point array case (S has same dimensions as I but different shape)
+            if S.ndim == len(I.inf.shape) + 1:
+                # Multi-dimensional case: S has shape (..., n_points) where ... matches I.inf.shape
+                # We need to broadcast I.inf and I.sup to match S for element-wise comparison
+                I_inf_expanded = np.expand_dims(I.inf, axis=-1)  # Add last dimension
+                I_sup_expanded = np.expand_dims(I.sup, axis=-1)  # Add last dimension
+                
+                # Check containment: (I.inf < S + tol | withinTol(I.inf,S,tol)) & (I.sup > S - tol | withinTol(I.sup,S,tol))
+                lower_check = (I_inf_expanded < S + tol) | withinTol(I_inf_expanded, S, tol)
+                upper_check = (I_sup_expanded > S - tol) | withinTol(I_sup_expanded, S, tol)
+                
+                # Combine checks
+                containment_check = lower_check & upper_check
+                
+                # Apply all() over spatial dimensions (equivalent to MATLAB's 1:numel(dim(I)))
+                # This reduces all spatial dimensions, leaving only the point dimension
+                spatial_dims = tuple(range(len(I.inf.shape)))
+                if len(spatial_dims) > 0:
+                    res = np.all(containment_check, axis=spatial_dims)
+                else:
+                    res = containment_check
+                
+                # Reshape to [1, n_points] to match MATLAB behavior: res = reshape(res,1,[]);
+                res = res.reshape(1, -1)
+                cert = np.ones_like(res, dtype=bool)
+                scaling = np.zeros_like(res, dtype=float)
+                
+            elif S.ndim == len(I.inf.shape) and S.shape[:-1] == I.inf.shape[:-1]:
+                # Regular point array case: S has shape (n_dims, n_points), I has shape (n_dims, 1)
+                # Check containment for each point
+                n_points = S.shape[-1]
+                res = np.zeros(n_points, dtype=bool)
+                
+                for i in range(n_points):
+                    point = S[..., i:i+1]  # Keep same shape as I for broadcasting
+                    lower_check = (I.inf < point + tol) | withinTol(I.inf, point, tol)
+                    upper_check = (I.sup > point - tol) | withinTol(I.sup, point, tol)
+                    containment_check = lower_check & upper_check
+                    res[i] = np.all(containment_check)
+                
+                cert = np.ones_like(res, dtype=bool)
+                scaling = np.zeros_like(res, dtype=float)
+                
+            else:
+                # S has same dimensions as I or different structure - single point case
+                # Check containment: (I.inf < S + tol | withinTol(I.inf,S,tol)) & (I.sup > S - tol | withinTol(I.sup,S,tol))
+                lower_check = (I.inf < S + tol) | withinTol(I.inf, S, tol)
+                upper_check = (I.sup > S - tol) | withinTol(I.sup, S, tol)
+                
+                # Combine checks
+                containment_check = lower_check & upper_check
+                
+                # Apply all() over spatial dimensions (equivalent to MATLAB's 1:numel(dim(I)))
+                spatial_dims = tuple(range(len(I.inf.shape)))
+                if len(spatial_dims) > 0:
+                    res = np.all(containment_check, axis=spatial_dims)
+                else:
+                    res = containment_check
+                
+                cert = True
+                scaling = 0.0
         
         # Return scalars for single point, arrays for multiple points
-        if n_points == 1:
-            return res[0], cert[0], scaling[0]
+        if res.size == 1:
+            return res.item(), cert.item(), scaling.item()
         else:
-            return res, cert, scaling
+            # For multi-dimensional case (S.ndim > I.ndim), preserve shape (1, n_points)
+            # For regular point arrays, return as 1D arrays
+            if S.ndim == len(I.inf.shape) + 1:
+                # Multi-dimensional case: preserve (1, n_points) shape
+                return res, cert, scaling
+            else:
+                # Regular point array case: return as 1D arrays
+                return res.flatten(), cert.flatten(), scaling.flatten()
     
     # Interval in interval containment
     elif hasattr(S, 'inf') and hasattr(S, 'sup'):
@@ -196,71 +257,63 @@ def contains_(I, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, sc
         
         # Compute scaling?
         if scalingToggle:
-            I_inf = I.inf.flatten()
-            I_sup = I.sup.flatten()
-            S_inf = S.inf.flatten()
-            S_sup = S.sup.flatten()
-            
-            c = (I_inf + I_sup) / 2
+            c = (I.inf + I.sup) / 2
             if np.any(np.isnan(c)):
-                nan_instances = np.where(np.isnan(c))[0]
-                for i in nan_instances:
-                    if I_inf[i] == -np.inf and I_sup[i] == np.inf:
-                        c[i] = 0
+                nan_instances = np.where(np.isnan(c))
+                for idx in zip(*nan_instances):
+                    if I.inf[idx] == -np.inf and I.sup[idx] == np.inf:
+                        c[idx] = 0
                     else:
                         raise ValueError("Cannot determine center of the interval, as it has a dimension unbounded only in one direction")
             
-            I_inf_centered = I_inf - c
-            I_sup_centered = I_sup - c
-            S_inf_centered = S_inf - c
-            S_sup_centered = S_sup - c
+            I_centered = I.inf - c, I.sup - c
+            S_centered = S.inf - c, S.sup - c
             
-            scaling_inf = np.abs(S_inf_centered / I_inf_centered)
-            scaling_sup = np.abs(S_sup_centered / I_sup_centered)
+            scaling_inf = np.abs(S_centered[0] / I_centered[0])
+            scaling_sup = np.abs(S_centered[1] / I_centered[1])
             
             # Need to remove NaNs, which can happen only if both coordinates are the same, and are 0 or inf
-            for i in range(len(I_inf)):
-                if np.isnan(scaling_inf[i]):
-                    a = S_inf_centered[i]
-                    b = I_inf_centered[i]
-                    if b == 0:
-                        scaling_inf[i] = 0
-                    elif a == b:
-                        scaling_inf[i] = np.inf
-                    else:
-                        scaling_inf[i] = 0  # This can technically never happen since I and S are both non-empty
-                
-                # Do the same for scaling_sup
-                if np.isnan(scaling_sup[i]):
-                    a = S_sup_centered[i]
-                    b = I_sup_centered[i]
-                    if b == 0:
-                        scaling_sup[i] = 0
-                    elif a == b:
-                        scaling_sup[i] = np.inf
-                    else:
-                        scaling_sup[i] = 0
+            # Handle NaNs element-wise
+            nan_mask_inf = np.isnan(scaling_inf)
+            nan_mask_sup = np.isnan(scaling_sup)
             
-            scaling = np.max(np.concatenate([scaling_inf, scaling_sup]))
+            if np.any(nan_mask_inf):
+                for idx in zip(*np.where(nan_mask_inf)):
+                    a = S_centered[0][idx]
+                    b = I_centered[0][idx]
+                    if b == 0:
+                        scaling_inf[idx] = 0
+                    elif a == b:
+                        scaling_inf[idx] = np.inf
+                    else:
+                        scaling_inf[idx] = 0  # This can technically never happen since I and S are both non-empty
+            
+            if np.any(nan_mask_sup):
+                for idx in zip(*np.where(nan_mask_sup)):
+                    a = S_centered[1][idx]
+                    b = I_centered[1][idx]
+                    if b == 0:
+                        scaling_sup[idx] = 0
+                    elif a == b:
+                        scaling_sup[idx] = np.inf
+                    else:
+                        scaling_sup[idx] = 0
+            
+            scaling = np.max([np.max(scaling_inf), np.max(scaling_sup)])
             cert = True
             res = scaling <= 1 + tol
             return res, cert, scaling
         
         else:  # do not compute scaling
-            I_inf = I.inf.flatten()
-            I_sup = I.sup.flatten()
-            S_inf = S.inf.flatten()
-            S_sup = S.sup.flatten()
-            
-            if (np.all(I_sup >= S_sup) or np.all(withinTol(I_sup, S_sup, tol))) and \
-               (np.all(I_inf <= S_inf) or np.all(withinTol(I_inf, S_inf, tol))):
+            if (np.all(I.sup >= S.sup) or np.all(withinTol(I.sup, S.sup, tol))) and \
+               (np.all(I.inf <= S.inf) or np.all(withinTol(I.inf, S.inf, tol))):
                 res = True
                 cert = True
-                scaling = 0 if scalingToggle else np.inf
+                scaling = np.nan
             else:
                 res = False
                 cert = True
-                scaling = np.inf
+                scaling = np.nan
             return res, cert, scaling
     
     # Other set in interval containment

@@ -51,6 +51,8 @@ from cora_python.contSet.interval import Interval
 from cora_python.contSet.ellipsoid import Ellipsoid # Assuming ellipsoid is implemented
 from cora_python.contSet.capsule.representsa_ import representsa_ # Import the new function
 from cora_python.contSet.capsule.isemptyobject import isemptyobject # Import the new function
+from cora_python.contSet.capsule.empty import empty # Import the empty method
+from cora_python.contSet.capsule.display import display # Import the display method
 
 
 class Capsule(ContSet):
@@ -127,7 +129,6 @@ class Capsule(ContSet):
             g = args[1]
         if len(args) >= 3:
             r_raw = args[2]
-            print(f"DEBUG (capsule._parse_input_args): r_raw type: {type(r_raw)}, r_raw value: {r_raw}")
             # Ensure r is a scalar float
             if isinstance(r_raw, (np.ndarray, list, tuple)):
                 if np.size(r_raw) == 1:
@@ -217,6 +218,10 @@ class Capsule(ContSet):
             return self.c.shape[0]
         return 0
     
+    def is_empty(self) -> bool:
+        """Check if capsule is empty"""
+        return isemptyobject(self)
+    
     def __str__(self) -> str:
         """String representation of the capsule"""
         return f"capsule (dimension: {self.dim()})"
@@ -228,4 +233,13 @@ class Capsule(ContSet):
 
     # Assign the function to the class
     representsa_ = representsa_
-    # isemptyobject = isemptyobject # This line is causing a NameError 
+    isemptyobject = isemptyobject
+    
+    @staticmethod
+    def empty(n: int = 0):
+        """Create an empty capsule"""
+        return empty(n)
+    
+    def display(self):
+        """Display capsule properties"""
+        return display(self) 

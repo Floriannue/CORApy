@@ -122,6 +122,7 @@ Translate_Cora/
      3. `__init__.py` files export functionality — update them immediately  
      4. Class file or `__init__.py` should import functions and attach them to the class  
      5. Copy the explanations from the MATLAB files into the Python code as docstrings  
+     6. Use the helper functions in cora_python/g/
 
    - **Testing Requirements:**
      1. One test file per function  
@@ -137,6 +138,7 @@ Translate_Cora/
      2. Compare numerical results  
      3. Verify edge case handling  
      4. Check documentation completeness  
+     5. Compare against matlab codebase
 
    - **Self-Correction Template:**
      ```
@@ -186,4 +188,4 @@ Translate_Cora/
 
 
 ## Task
-Your task is to translate `global functions`
+Your task is to translate `reachSet, simResult`

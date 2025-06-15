@@ -46,7 +46,9 @@ def _aux_checkIfEmpty(C_obj) -> bool:
 
     # In MATLAB, isnumeric(C.c) && isempty(C.c) checks if c is a numeric type and empty.
     # In Python, we check if it's a numpy array and then if its size is 0.
-    # This assumes C.c, C.g, C.r are numpy arrays or convertible to them.
-    return (isinstance(C_obj.c, np.ndarray) and C_obj.c.size == 0 and
-            isinstance(C_obj.g, np.ndarray) and C_obj.g.size == 0 and
-            isinstance(C_obj.r, np.ndarray) and C_obj.r.size == 0) 
+    # A capsule is empty if both center and generator are empty arrays
+    c_empty = isinstance(C_obj.c, np.ndarray) and C_obj.c.size == 0
+    g_empty = isinstance(C_obj.g, np.ndarray) and C_obj.g.size == 0
+    
+    # For an empty capsule, the radius doesn't matter - if c and g are empty, it's empty
+    return c_empty and g_empty 
