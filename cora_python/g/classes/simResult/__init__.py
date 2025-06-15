@@ -14,18 +14,30 @@ from .simResult import SimResult
 # Import all method implementations
 from .find import find
 from .add import add
+from .extractHits import extractHits
 from .isemptyobject import isemptyobject
 from .plus import plus
 from .minus import minus
 from .mtimes import mtimes
+from .times import times
+from .uminus import uminus
+from .uplus import uplus
+from .plot import plot
+from .plotOverTime import plotOverTime
 
 # Export the SimResult class and all methods
 __all__ = [
     'SimResult',
     'find',
     'add',
+    'extractHits',
     'isemptyobject',
     'plus',
     'minus',
-    'mtimes'
+    'mtimes',
+    'times',
+    'uminus',
+    'uplus',
+    'plot',
+    'plotOverTime'
 ] 

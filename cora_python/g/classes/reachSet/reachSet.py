@@ -70,15 +70,15 @@ class ReachSet:
         self.loc = loc
     
     # Method implementations (imported from separate files)
-    def query(self, property_name: str, time_value: Optional[float] = None) -> Any:
+    def query(self, property_name: str) -> Any:
         """Query reachable sets for specific properties"""
         from .query import query
-        return query(self, property_name, time_value)
+        return query(self, property_name)
     
-    def contains(self, simResult) -> bool:
+    def contains(self, simResult, type_: str = 'exact', tol: float = 1e-10) -> bool:
         """Check if simulation results are contained in reachable sets"""
         from .contains import contains
-        return contains(self, simResult)
+        return contains(self, simResult, type_, tol)
     
     def project(self, dims: List[int]) -> 'ReachSet':
         """Project reachable sets to lower-dimensional subspace"""
@@ -94,6 +94,16 @@ class ReachSet:
         """Add another reachSet object"""
         from .add import add
         return add(self, other)
+    
+    def append(self, other: 'ReachSet') -> 'ReachSet':
+        """Append another reachSet object at the end"""
+        from .append import append
+        return append(self, other)
+    
+    def children(self, parent: int) -> List[int]:
+        """Return a list of indices of the children of this parent node"""
+        from .children import children
+        return children(self, parent)
     
     def plot(self, *args, **kwargs):
         """Plot reachable sets"""
