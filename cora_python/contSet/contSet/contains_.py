@@ -34,7 +34,8 @@ def contains_(S1, S2, method='exact', tol=1e-12, maxEval=200, cert_toggle=False,
     """
     Internal implementation of containment checking.
     
-    This base implementation throws an error - to be overridden in subclasses.
+    This function delegates to the object's contains_ method if available,
+    otherwise raises an error.
     
     Args:
         S1: contSet object
@@ -49,7 +50,11 @@ def contains_(S1, S2, method='exact', tol=1e-12, maxEval=200, cert_toggle=False,
         bool or tuple: containment result, optionally with certification and scaling
         
     Raises:
-        CORAError: This method should be overridden in subclasses
+        CORAError: If contains_ is not implemented for the specific set type
     """
-    # is overridden in subclass if implemented; throw error
+    # Check if the object has a contains_ method and use it
+    if hasattr(S1, 'contains_') and callable(getattr(S1, 'contains_')):
+        return S1.contains_(S2, method, tol, maxEval, cert_toggle, scaling_toggle)
+    
+    # Fallback error
     raise CORAError("CORA:noops", f"Function contains_ not implemented for class {type(S1).__name__}") 

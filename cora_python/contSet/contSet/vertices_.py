@@ -19,8 +19,8 @@ def vertices_(S: 'ContSet', method: str = 'convHull', *args, **kwargs) -> np.nda
     """
     Computes the vertices of a set (internal use, see also contSet/vertices)
     
-    This is the base implementation that throws an error. Subclasses should
-    override this method to provide specific vertex computation logic.
+    This function delegates to the object's vertices_ method if available,
+    otherwise raises an error.
     
     Args:
         S: contSet object
@@ -32,13 +32,17 @@ def vertices_(S: 'ContSet', method: str = 'convHull', *args, **kwargs) -> np.nda
         np.ndarray: Numeric matrix of vertices
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAError: If vertices_ is not implemented for the specific set type
         
     Example:
         >>> # This will be overridden in specific set classes
         >>> S = interval([1, 2], [3, 4])
         >>> V = vertices_(S, 'convHull')
     """
-    # This is overridden in subclass if implemented; throw error
+    # Check if the object has a vertices_ method and use it
+    if hasattr(S, 'vertices_') and callable(getattr(S, 'vertices_')):
+        return S.vertices_(method, *args, **kwargs)
+    
+    # Fallback error
     raise CORAError('CORA:noops',
                    f'vertices_ not implemented for {type(S).__name__} with method {method}') 

@@ -84,7 +84,7 @@ def find(simRes, prop: str, val: Any):
     
     elif prop == 'time':
         # Get all simRes trajectories within a given time interval
-        from ...functions.matlab.validate.check.interval import Interval
+        from ....contSet.interval.interval import Interval
         
         # Convert val to interval if it's not already
         if not isinstance(val, Interval):

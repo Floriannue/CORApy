@@ -20,8 +20,8 @@ def mtimes(M: Union[np.ndarray, float, int], S: 'ContSet') -> 'ContSet':
     
     Computes the set {M * s | s ∈ S}, where S ∈ ℝⁿ and M ∈ ℝʷˣⁿ
     
-    This is the base implementation that throws an error. Subclasses should
-    override this method to provide specific matrix multiplication logic.
+    This function delegates to the object's mtimes method if available,
+    otherwise raises an error.
     
     Args:
         M: Matrix or scalar for multiplication
@@ -31,13 +31,17 @@ def mtimes(M: Union[np.ndarray, float, int], S: 'ContSet') -> 'ContSet':
         ContSet: Result of matrix multiplication
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAError: If mtimes is not implemented for the specific set type
         
     Example:
         >>> S = zonotope([1, 0], [[1, 0], [0, 1]])
         >>> M = np.array([[2, 0], [0, 3]])
         >>> result = mtimes(M, S)  # or result = M * S
     """
-    # This is overridden in subclass if implemented; throw error
+    # Check if the set object has an mtimes method and use it
+    if hasattr(S, 'mtimes') and callable(getattr(S, 'mtimes')):
+        return S.mtimes(M)
+    
+    # Fallback error
     raise CORAError('CORA:noops',
                    f'mtimes not implemented for {type(M).__name__} and {type(S).__name__}') 

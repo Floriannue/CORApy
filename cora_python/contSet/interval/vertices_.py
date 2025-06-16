@@ -42,7 +42,11 @@ def vertices_(I: 'Interval') -> np.ndarray:
                        'Interval must not be an n-d array with n > 1.')
     
     # Empty case
-    if n == 0:
+    if n == 0 or I.inf.size == 0:
+        # Return empty array with proper shape (n_dims, 0)
+        if hasattr(I, 'inf') and I.inf.size == 0:
+            n_dims = I.inf.shape[0] if I.inf.ndim > 0 else 0
+            return np.zeros((n_dims, 0))
         return np.array([])
     
     # Check whether there is a non-zero radius in all dimensions

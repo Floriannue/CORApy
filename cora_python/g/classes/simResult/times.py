@@ -26,7 +26,7 @@ def times(simRes1, simRes2):
     Overloaded '.*' operator for simResult objects (element-wise multiplication)
     
     Args:
-        simRes1: First simResult object
+        simRes1: First simResult object or numeric value
         simRes2: Second simResult object or numeric value
         
     Returns:
@@ -34,8 +34,16 @@ def times(simRes1, simRes2):
     """
     from .simResult import SimResult
     
+    # If simRes1 is numeric and simRes2 is simResult (reverse multiplication)
+    if isinstance(simRes1, (int, float, np.ndarray)) and hasattr(simRes2, 'x'):
+        new_x = [x * simRes1 for x in simRes2.x]
+        new_y = [y * simRes1 for y in simRes2.y] if simRes2.y else []
+        new_a = [a * simRes1 for a in simRes2.a] if simRes2.a else []
+        
+        return SimResult(new_x, simRes2.t.copy(), simRes2.loc, new_y, new_a)
+    
     # If simRes2 is numeric, multiply all states element-wise
-    if isinstance(simRes2, (int, float, np.ndarray)):
+    elif isinstance(simRes2, (int, float, np.ndarray)):
         new_x = [x * simRes2 for x in simRes1.x]
         new_y = [y * simRes2 for y in simRes1.y] if simRes1.y else []
         new_a = [a * simRes2 for a in simRes1.a] if simRes1.a else []

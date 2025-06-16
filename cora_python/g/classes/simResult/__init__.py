@@ -24,6 +24,8 @@ from .uminus import uminus
 from .uplus import uplus
 from .plot import plot
 from .plotOverTime import plotOverTime
+from .plotTimeStep import plotTimeStep
+from .printSimResult import printSimResult
 
 # Export the SimResult class and all methods
 __all__ = [
@@ -39,5 +41,7 @@ __all__ = [
     'uminus',
     'uplus',
     'plot',
-    'plotOverTime'
+    'plotOverTime',
+    'plotTimeStep',
+    'printSimResult'
 ] 

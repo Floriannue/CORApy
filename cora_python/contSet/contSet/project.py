@@ -37,7 +37,8 @@ def project(S, dims):
     """
     Projects a set onto the specified dimensions.
     
-    This base implementation throws an error - to be overridden in subclasses.
+    This function delegates to the object's project method if available,
+    otherwise raises an error.
     
     Args:
         S: contSet object
@@ -47,7 +48,11 @@ def project(S, dims):
         contSet: projected set
         
     Raises:
-        CORAError: This method should be overridden in subclasses
+        CORAError: If project is not implemented for the specific set type
     """
-    # is overridden in subclass if implemented; throw error
+    # Check if the object has a project method and use it
+    if hasattr(S, 'project') and callable(getattr(S, 'project')):
+        return S.project(dims)
+    
+    # Fallback error
     raise CORAError("CORA:noops", f"Function project not implemented for class {type(S).__name__}") 

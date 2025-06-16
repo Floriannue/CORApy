@@ -80,9 +80,18 @@ def _parse_input(S, args, kwargs):
     # Convert args to list
     args_list = list(args)
     
-    # Set default values - dims defaults to [1, 2]
-    dims = set_default_values([[1, 2]], [args_list[0]] if args_list else [])
+    # Set default values - dims defaults to [0, 1] (Python 0-based indexing)
+    dims = set_default_values([[0, 1]], [args_list[0]] if args_list else [])
     dims = dims[0]
+    
+    # Convert MATLAB 1-based indexing to Python 0-based if needed
+    if isinstance(dims, (list, tuple, np.ndarray)) and len(dims) > 0:
+        # Check if dims looks like MATLAB 1-based indexing (all values >= 1)
+        dims_array = np.array(dims)
+        if np.all(dims_array >= 1):
+            # Convert to 0-based indexing
+            dims = dims_array - 1
+        dims = dims.tolist() if hasattr(dims, 'tolist') else dims
     
     # Check input arguments
     input_args_check([

@@ -84,9 +84,29 @@ def contains_(I, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, sc
     
     # Set in empty set
     if representsa_(I, 'emptySet', 0):
-        res = representsa_(S, 'emptySet', 0)
-        cert = True
-        scaling = 0 if res else np.inf
+        # Empty interval logic: empty contains empty, but not non-empty
+        if hasattr(S, 'inf') and hasattr(S, 'sup') and representsa_(S, 'emptySet', 0):
+            # Empty interval contains empty interval
+            res = True
+            cert = True
+            scaling = 0
+        elif isinstance(S, (list, tuple, np.ndarray)):
+            S_arr = np.asarray(S)
+            if S_arr.size == 0:
+                # Empty interval contains empty arrays
+                res = True
+                cert = True
+                scaling = 0
+            else:
+                # Empty interval does not contain non-empty points
+                res = False
+                cert = True
+                scaling = np.inf
+        else:
+            # Empty interval does not contain other objects
+            res = False
+            cert = True
+            scaling = np.inf
         return res, cert, scaling
     
     # Point in interval containment
@@ -198,7 +218,7 @@ def contains_(I, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, sc
                 cert = np.ones_like(res, dtype=bool)
                 scaling = np.zeros_like(res, dtype=float)
                 
-            elif S.ndim == len(I.inf.shape) and S.shape[:-1] == I.inf.shape[:-1]:
+            elif S.ndim == len(I.inf.shape) and S.shape != I.inf.shape:
                 # Regular point array case: S has shape (n_dims, n_points), I has shape (n_dims, 1)
                 # Check containment for each point
                 n_points = S.shape[-1]
@@ -223,19 +243,19 @@ def contains_(I, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, sc
                 # Combine checks
                 containment_check = lower_check & upper_check
                 
-                # Apply all() over spatial dimensions (equivalent to MATLAB's 1:numel(dim(I)))
-                spatial_dims = tuple(range(len(I.inf.shape)))
-                if len(spatial_dims) > 0:
-                    res = np.all(containment_check, axis=spatial_dims)
-                else:
-                    res = containment_check
+                # For single point, check all dimensions
+                res = np.all(containment_check)
                 
                 cert = True
                 scaling = 0.0
         
         # Return scalars for single point, arrays for multiple points
-        if res.size == 1:
-            return res.item(), cert.item(), scaling.item()
+        if np.isscalar(res) or (hasattr(res, 'size') and res.size == 1):
+            # Single point case - ensure we return scalars
+            res_scalar = res.item() if hasattr(res, 'item') else res
+            cert_scalar = cert.item() if hasattr(cert, 'item') else cert
+            scaling_scalar = scaling.item() if hasattr(scaling, 'item') else scaling
+            return res_scalar, cert_scalar, scaling_scalar
         else:
             # For multi-dimensional case (S.ndim > I.ndim), preserve shape (1, n_points)
             # For regular point arrays, return as 1D arrays

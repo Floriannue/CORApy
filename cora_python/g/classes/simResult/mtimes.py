@@ -61,16 +61,20 @@ def mtimes(arg1, arg2):
     if simRes.y:
         for y in simRes.y:
             if y.size > 0:
-                if left_multiply:
-                    if y.shape[1] == matrix.shape[1]:  # Compatible dimensions
-                        new_y.append((matrix @ y.T).T)
+                try:
+                    if left_multiply:
+                        if y.shape[1] == matrix.shape[1]:  # Compatible dimensions
+                            new_y.append((matrix @ y.T).T)
+                        else:
+                            new_y.append(y.copy())  # Keep original if incompatible
                     else:
-                        new_y.append(y.copy())  # Keep original if incompatible
-                else:
-                    if y.shape[1] == matrix.shape[0]:  # Compatible dimensions
-                        new_y.append(y @ matrix.T)
-                    else:
-                        new_y.append(y.copy())  # Keep original if incompatible
+                        if y.shape[1] == matrix.shape[0]:  # Compatible dimensions
+                            new_y.append(y @ matrix.T)
+                        else:
+                            new_y.append(y.copy())  # Keep original if incompatible
+                except ValueError:
+                    # If matrix multiplication fails due to dimension mismatch, keep original
+                    new_y.append(y.copy())
             else:
                 new_y.append(y.copy())
     

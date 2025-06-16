@@ -27,7 +27,8 @@ def times(factor1, factor2):
     """
     Element-wise multiplication for contSet objects.
     
-    This base implementation throws an error - to be overridden in subclasses.
+    This function delegates to the object's times method if available,
+    otherwise raises an error.
     
     Args:
         factor1: contSet object or numeric
@@ -37,15 +38,15 @@ def times(factor1, factor2):
         contSet: result of element-wise multiplication
         
     Raises:
-        CORAError: This method should be overridden in subclasses
+        CORAError: If times is not implemented for the specific set type
     """
-    # Determine which object is the contSet
-    if hasattr(factor1, '__class__') and hasattr(factor1, 'times'):
-        # is overridden in subclass if implemented; throw error
-        raise CORAError("CORA:noops", f"Function times not implemented for class {type(factor1).__name__}")
-    elif hasattr(factor2, '__class__') and hasattr(factor2, 'times'):
-        # is overridden in subclass if implemented; throw error
-        raise CORAError("CORA:noops", f"Function times not implemented for class {type(factor2).__name__}")
-    else:
-        # Neither is a contSet object with times method
-        raise CORAError("CORA:noops", "Function times requires at least one contSet object") 
+    # Check if the first object has a times method and use it
+    if hasattr(factor1, 'times') and callable(getattr(factor1, 'times')):
+        return factor1.times(factor2)
+    
+    # Check if the second object has a times method and use it (commutative)
+    if hasattr(factor2, 'times') and callable(getattr(factor2, 'times')):
+        return factor2.times(factor1)
+    
+    # Neither is a contSet object with times method
+    raise CORAError("CORA:noops", "Function times requires at least one contSet object") 

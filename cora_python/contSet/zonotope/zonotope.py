@@ -289,6 +289,30 @@ class Zonotope(ContSet):
         from .mtimes import mtimes
         return mtimes(other, self)
     
+    def __sub__(self, other):
+        """Subtraction operator (-)"""
+        from .minus import minus
+        return minus(self, other)
+    
+    def __rsub__(self, other):
+        """Right subtraction operator (other - self)"""
+        from .minus import minus
+        return minus(other, self)
+    
+    def __neg__(self):
+        """Unary minus operator (-self)"""
+        from .uminus import uminus
+        return uminus(self)
+    
+    def __eq__(self, other):
+        """Equality operator (==)"""
+        from .isequal import isequal
+        return isequal(self, other)
+    
+    def __ne__(self, other):
+        """Inequality operator (!=)"""
+        return not self.__eq__(other)
+    
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Handle numpy universal functions"""
         if ufunc == np.add:

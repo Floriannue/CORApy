@@ -63,7 +63,7 @@ def find(R, prop: str, val: Any):
     
     elif prop == 'time':
         # Find reachSet objects inside the specified time interval
-        from ...functions.matlab.validate.check.interval import Interval
+        from ....contSet.interval.interval import Interval
         
         # Convert val to interval if it's not already
         if not isinstance(val, Interval):

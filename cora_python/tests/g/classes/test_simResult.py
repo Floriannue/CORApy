@@ -1,7 +1,7 @@
 """
-test_simResult - unit test function for simResult class
+test_simResult - comprehensive unit test function for simResult class
 
-Tests the simResult class for storing simulation results.
+Tests the simResult class for storing simulation results with all methods.
 
 Authors: Python translation by AI Assistant
 Date: 2025
@@ -9,6 +9,8 @@ Date: 2025
 
 import pytest
 import numpy as np
+import warnings
+from unittest.mock import Mock, patch
 from cora_python.g.classes.simResult import SimResult
 
 
@@ -154,10 +156,10 @@ class TestSimResult:
         assert np.allclose(simRes_sum.x[1], x2[0])
     
     def test_addition_type_error(self):
-        """Test addition with wrong type"""
-        simRes = SimResult()
+        """Test addition with invalid type"""
+        simRes = SimResult([np.array([[1, 2], [3, 4]])], [np.array([0, 1])])
         
-        with pytest.raises(TypeError, match="Can only add SimResult objects"):
+        with pytest.raises(TypeError, match="Unsupported operand type for"):
             simRes + "invalid"
     
     def test_scalar_multiplication(self):
@@ -190,10 +192,10 @@ class TestSimResult:
         assert np.allclose(simRes_mult.x[0], expected_x[0])
     
     def test_scalar_multiplication_type_error(self):
-        """Test scalar multiplication with wrong type"""
-        simRes = SimResult()
+        """Test scalar multiplication with invalid type"""
+        simRes = SimResult([np.array([[1, 2], [3, 4]])], [np.array([0, 1])])
         
-        with pytest.raises(TypeError, match="Can only multiply by scalar"):
+        with pytest.raises(TypeError, match="Unsupported operand type for"):
             simRes * "invalid"
     
     def test_matrix_multiplication(self):
@@ -236,6 +238,148 @@ class TestSimResult:
         assert not simRes.is_empty()
         assert np.allclose(simRes.x[0], x[0])
         assert np.allclose(simRes.x[1], x[1])
+    
+    def test_add_method(self):
+        """Test add method"""
+        simRes1 = SimResult([np.array([[1, 2], [3, 4]])], [np.array([0, 1])])
+        simRes2 = SimResult([np.array([[5, 6], [7, 8]])], [np.array([2, 3])])
+        
+        simRes_sum = simRes1.add(simRes2)
+        assert len(simRes_sum) == 2
+        assert len(simRes_sum.x) == 2
+        assert len(simRes_sum.t) == 2
+    
+    def test_plot_method(self):
+        """Test plot method"""
+        x = [np.array([[1, 2], [3, 4]])]
+        t = [np.array([[0], [0.1]])]
+        simRes = SimResult(x, t)
+        
+        # Should not raise an error
+        with patch('matplotlib.pyplot.show'):
+            simRes.plot()
+    
+    def test_plot_with_dimensions(self):
+        """Test plot method with specific dimensions"""
+        x = [np.array([[1, 2, 3], [4, 5, 6]])]
+        t = [np.array([[0], [0.1]])]
+        simRes = SimResult(x, t)
+        
+        # Should not raise an error
+        with patch('matplotlib.pyplot.show'):
+            simRes.plot([0, 1])  # Plot first two dimensions
+    
+    def test_plotOverTime_method(self):
+        """Test plotOverTime method"""
+        x = [np.array([[1, 2], [3, 4]])]
+        t = [np.array([[0], [0.1]])]
+        simRes = SimResult(x, t)
+        
+        # Should not raise an error
+        with patch('matplotlib.pyplot.show'):
+            simRes.plotOverTime()
+    
+    def test_plotOverTime_with_dimensions(self):
+        """Test plotOverTime method with specific dimensions"""
+        x = [np.array([[1, 2, 3], [4, 5, 6]])]
+        t = [np.array([[0], [0.1]])]
+        simRes = SimResult(x, t)
+        
+        # Should not raise an error
+        with patch('matplotlib.pyplot.show'):
+            simRes.plotOverTime([0, 2])  # Plot first and third dimensions
+    
+    def test_isemptyobject_method(self):
+        """Test isemptyobject method"""
+        simRes_empty = SimResult()
+        simRes_nonempty = SimResult([np.array([[1, 2]])], [np.array([[0]])])
+        
+        assert simRes_empty.isemptyobject()
+        assert not simRes_nonempty.isemptyobject()
+    
+    def test_find_method(self):
+        """Test find method"""
+        x = [np.array([[1, 2], [3, 4]])]
+        t = [np.array([[0], [0.1]])]
+        simRes = SimResult(x, t, 1)
+        
+        # Find by location - this should work
+        result = simRes.find('location', 1)
+        assert result is not None
+        
+        # Find by time - this should work
+        result = simRes.find('time', 0.05)
+        assert result is not None
+    
+    def test_empty_simResult_operations(self):
+        """Test operations on empty simResult"""
+        simRes = SimResult()
+        
+        # Test various operations on empty simResult
+        assert simRes.isemptyobject()
+        assert simRes.is_empty()
+        assert len(simRes) == 0
+
+    def test_multiple_locations(self):
+        """Test simResult with multiple locations"""
+        x1 = [np.array([[1, 2]])]
+        t1 = [np.array([[0]])]
+        simRes1 = SimResult(x1, t1, 1)
+        
+        x2 = [np.array([[3, 4]])]
+        t2 = [np.array([[0.1]])]
+        simRes2 = SimResult(x2, t2, 2)
+        
+        assert simRes1.loc == 1
+        assert simRes2.loc == 2
+        
+        # Test addition preserves locations
+        simRes_sum = simRes1 + simRes2
+        assert simRes_sum.loc == [1, 2]
+
+    def test_error_handling(self):
+        """Test error handling in various methods"""
+        simRes = SimResult()
+        
+        # Test invalid inputs for add method
+        with pytest.raises((ValueError, TypeError)):
+            simRes.add("invalid")
+    
+    def test_copy_behavior(self):
+        """Test that operations create proper copies"""
+        x = [np.array([[1, 2]])]
+        t = [np.array([[0]])]
+        simRes = SimResult(x, t)
+        
+        # Test that multiplication creates a copy
+        simRes_mult = simRes * 2
+        
+        # Modify original
+        simRes.x[0][0, 0] = 999
+        
+        # Copy should be unchanged
+        assert simRes_mult.x[0][0, 0] == 2  # Original was 1, multiplied by 2
+    
+    def test_algebraic_variables_handling(self):
+        """Test proper handling of algebraic variables"""
+        x = [np.array([[1, 2]])]
+        t = [np.array([[0]])]
+        a = [np.array([[0.1, 0.2]])]
+        simRes = SimResult(x, t, 0, [], a)
+        
+        # Test that algebraic variables are preserved in operations
+        simRes_mult = simRes * 2
+        expected_a = [np.array([[0.2, 0.4]])]
+        assert np.allclose(simRes_mult.a[0], expected_a[0])
+        
+        # Test addition with algebraic variables
+        a2 = [np.array([[0.3, 0.4]])]
+        simRes2 = SimResult([np.array([[3, 4]])], [np.array([[0.1]])], 0, [], a2)
+        
+        simRes_sum = simRes + simRes2
+        assert len(simRes_sum.a) == 2
+        assert np.allclose(simRes_sum.a[0], a[0])
+        assert np.allclose(simRes_sum.a[1], a2[0])
 
 
 if __name__ == "__main__":

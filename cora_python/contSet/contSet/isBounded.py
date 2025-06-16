@@ -16,8 +16,8 @@ def isBounded(S: 'ContSet') -> bool:
     """
     Determines if a set is bounded
     
-    This is the base implementation that throws an error. Subclasses should
-    override this method to provide specific boundedness checking logic.
+    This function delegates to the object's isBounded method if available,
+    otherwise raises an error for the base contSet class.
     
     Args:
         S: contSet object to check
@@ -26,13 +26,17 @@ def isBounded(S: 'ContSet') -> bool:
         bool: True if the set is bounded, False otherwise
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAError: If isBounded is not implemented for the specific set type
         
     Example:
         >>> S = zonotope([1, 0], [[1, 0], [0, 1]])
         >>> result = isBounded(S)
         >>> # result is True for zonotopes
     """
-    # This is overridden in subclass if implemented; throw error
+    # Check if the object has an isBounded method and use it
+    if hasattr(S, 'isBounded') and callable(getattr(S, 'isBounded')):
+        return S.isBounded()
+    
+    # Fallback error for base contSet objects
     raise CORAError('CORA:noops',
                    f'isBounded not implemented for {type(S).__name__}') 

@@ -52,27 +52,28 @@ def append(R: 'ReachSet', Radd: 'ReachSet') -> 'ReachSet':
         # general case:
         
         # get final time of R
-        shift = R.timePoint.time[-1]
+        shift = R.timePoint['time'][-1]
         
         # number of sets of Radd
-        nrSets_tp = len(Radd.timePoint.set)
-        nrSets_ti = len(Radd.timeInterval.set) if Radd.timeInterval.set is not None else 0
+        nrSets_tp = len(Radd.timePoint['set'])
+        nrSets_ti = len(Radd.timeInterval['set']) if 'set' in Radd.timeInterval and Radd.timeInterval['set'] is not None else 0
         
         # time-point sets
-        R.timePoint.set.extend(Radd.timePoint.set)
+        R.timePoint['set'].extend(Radd.timePoint['set'])
         # shift time
         shifted_times = []
         for i in range(nrSets_tp):
-            shifted_times.append(Radd.timePoint.time[i] + shift)
-        R.timePoint.time.extend(shifted_times)
+            shifted_times.append(Radd.timePoint['time'][i] + shift)
+        R.timePoint['time'].extend(shifted_times)
         
         # time-interval sets
-        if R.timeInterval.set is not None and Radd.timeInterval.set is not None:
-            R.timeInterval.set.extend(Radd.timeInterval.set)
+        if ('set' in R.timeInterval and R.timeInterval['set'] is not None and 
+            'set' in Radd.timeInterval and Radd.timeInterval['set'] is not None):
+            R.timeInterval['set'].extend(Radd.timeInterval['set'])
             # shift time
             shifted_times_ti = []
             for i in range(nrSets_ti):
-                shifted_times_ti.append(Radd.timeInterval.time[i] + shift)
-            R.timeInterval.time.extend(shifted_times_ti)
+                shifted_times_ti.append(Radd.timeInterval['time'][i] + shift)
+            R.timeInterval['time'].extend(shifted_times_ti)
     
     return R 

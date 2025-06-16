@@ -29,7 +29,8 @@ def center(S):
     """
     Returns the center of a set.
     
-    This base implementation throws an error - to be overridden in subclasses.
+    This function delegates to the object's center method if available,
+    otherwise raises an error.
     
     Args:
         S: contSet object
@@ -38,7 +39,11 @@ def center(S):
         numpy.ndarray: center of the set
         
     Raises:
-        CORAError: This method should be overridden in subclasses
+        CORAError: If center is not implemented for the specific set type
     """
-    # is overridden in subclass if implemented; throw error
+    # Check if the object has a center method and use it
+    if hasattr(S, 'center') and callable(getattr(S, 'center')):
+        return S.center()
+    
+    # Fallback error
     raise CORAError("CORA:noops", f"Function center not implemented for class {type(S).__name__}") 

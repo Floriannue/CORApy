@@ -122,8 +122,20 @@ def mtimes(factor1, factor2):
                               f'Zonotope dimension {len(factor1.c)} incompatible with matrix dimensions {factor2_mat.shape}')
             
             # Apply linear transformation (right multiplication)
-            c = factor1.c @ factor2_mat if factor1.c.size > 0 else np.array([])
-            G = factor1.G @ factor2_mat if factor1.G.size > 0 else np.zeros((0, factor2_mat.shape[1]))
+            # Handle the case where c is a column vector and needs to be transposed for right multiplication
+            if factor1.c.size > 0:
+                if factor1.c.ndim == 2 and factor1.c.shape[1] == 1:
+                    # c is a column vector, transpose it for right multiplication
+                    c = (factor1.c.T @ factor2_mat).T
+                else:
+                    c = factor1.c @ factor2_mat
+            else:
+                c = np.array([])
+            
+            if factor1.G.size > 0:
+                G = factor1.G @ factor2_mat
+            else:
+                G = np.zeros((0, factor2_mat.shape[1]))
             
             return Zonotope(c, G)
 

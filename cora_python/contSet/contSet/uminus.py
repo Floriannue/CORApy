@@ -15,6 +15,9 @@ def uminus(S: 'ContSet') -> 'ContSet':
     """
     Overloads the unary '-' operator
     
+    This function delegates to the object's uminus method if available,
+    otherwise implements as multiplication by -1.
+    
     Args:
         S: contSet object to negate
         
@@ -25,6 +28,10 @@ def uminus(S: 'ContSet') -> 'ContSet':
         >>> S = zonotope([1, 0], [[1, 0], [0, 1]])
         >>> neg_S = uminus(S)  # or neg_S = -S
     """
-    # Implement as multiplication by -1
+    # Check if the object has an uminus method and use it
+    if hasattr(S, 'uminus') and callable(getattr(S, 'uminus')):
+        return S.uminus()
+    
+    # Fallback: implement as multiplication by -1
     from .times import times
     return times(-1, S) 

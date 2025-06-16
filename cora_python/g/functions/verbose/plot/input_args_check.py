@@ -17,7 +17,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import List, Any, Union, Callable
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from ....functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def input_args_check(checks: List[List[Any]]) -> None:
@@ -62,7 +62,7 @@ def input_args_check(checks: List[List[Any]]) -> None:
 def _validate_type(value: Any, expected_type: str) -> None:
     """Validate object type"""
     if expected_type == 'contSet':
-        from cora_python.contSet.contSet.contSet import ContSet
+        from .....contSet.contSet.contSet import ContSet
         if not isinstance(value, ContSet):
             raise CORAError('CORA:wrongValue', f'Expected contSet object, got {type(value)}')
     elif expected_type == 'numeric':

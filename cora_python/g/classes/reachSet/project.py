@@ -32,13 +32,31 @@ def project(R, dims: List[int]):
         
     Returns:
         Projected reachSet object
+        
+    Raises:
+        TypeError: If dims is not a valid list of integers
+        ValueError: If dims contains invalid dimension indices
     """
     from .reachSet import ReachSet
     
     # Validate inputs
+    if isinstance(dims, str):
+        raise TypeError("dims must be a list of integers, not string")
+    
     if not isinstance(dims, (list, tuple, np.ndarray)):
-        dims = [dims]
+        if isinstance(dims, (int, np.integer)):
+            dims = [dims]
+        else:
+            raise TypeError("dims must be a list of integers")
+    
     dims = list(dims)
+    
+    # Check that all dimensions are integers
+    for dim in dims:
+        if not isinstance(dim, (int, np.integer)):
+            raise TypeError("All dimensions must be integers")
+        if dim < 0:
+            raise ValueError("Dimension indices must be non-negative")
     
     # Project time-point sets
     projected_timePoint = {}

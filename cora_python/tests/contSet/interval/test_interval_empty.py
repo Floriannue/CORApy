@@ -56,7 +56,8 @@ class TestIntervalEmpty:
         
         # Empty interval should not contain any points
         test_point = np.array([[0], [0], [0]])
-        assert not I.contains_(test_point)
+        res, cert, scaling = I.contains_(test_point)
+        assert not res
 
     def test_interval_empty_operations(self):
         """Test operations with empty intervals."""

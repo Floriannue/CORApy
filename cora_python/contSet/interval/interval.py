@@ -181,10 +181,10 @@ class Interval(ContSet):
         from .isequal import isequal
         return isequal(self, other)
     
-    def isequal(self, other) -> bool:
+    def isequal(self, other, tol: float = 1e-12) -> bool:
         """Check if intervals are equal"""
         from .isequal import isequal
-        return isequal(self, other)
+        return isequal(self, other, tol)
     
     def contains_(self, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, scalingToggle=False, *varargin):
         """Check if interval contains given point(s) or set"""
@@ -358,4 +358,11 @@ class Interval(ContSet):
     
     def __repr__(self) -> str:
         """Detailed string representation of interval"""
-        return self.__str__() 
+        return self.__str__()
+    
+    def __getitem__(self, key):
+        """Indexing operation (e.g., I[0:2, 1:3])"""
+        # Apply the same indexing to both inf and sup
+        new_inf = self.inf[key]
+        new_sup = self.sup[key]
+        return Interval(new_inf, new_sup) 

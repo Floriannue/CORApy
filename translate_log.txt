@@ -2,24 +2,3 @@ Translated file path : corresponding text path
 
 contSet\interval\plus.py : tests\contSet\interval\test_interval_plus.py
 contSet\interval\mtimes.py : tests\contSet\interval\test_interval_mtimes.py
-
-# ContSet base class methods (newly translated)
-contSet\contSet\supportFunc.py : 
-contSet\contSet\supportFunc_.py : 
-contSet\contSet\randPoint.py : 
-contSet\contSet\randPoint_.py : 
-contSet\contSet\isIntersecting.py : 
-contSet\contSet\isIntersecting_.py : 
-contSet\contSet\isFullDim.py : 
-contSet\contSet\isZero.py : 
-contSet\contSet\enlarge.py : 
-contSet\contSet\lift.py : 
-contSet\contSet\lift_.py : 
-contSet\contSet\compact.py : 
-contSet\contSet\compact_.py : 
-contSet\contSet\reduce.py : 
-contSet\contSet\origin.py : 
-contSet\contSet\minkDiff.py : 
-contSet\contSet\linComb.py : 
-contSet\contSet\quadMap.py : 
-contSet\contSet\cubMap.py :

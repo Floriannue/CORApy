@@ -19,9 +19,12 @@ from .add import add
 from .append import append
 from .children import children
 from .contains import contains
+from .isequal import isequal
 from .isemptyobject import isemptyobject
+from .order import order
 from .plus import plus
 from .minus import minus
+from .shiftTime import shiftTime
 from .times import times
 from .mtimes import mtimes
 from .eq import eq
@@ -29,6 +32,10 @@ from .ne import ne
 from .uminus import uminus
 from .uplus import uplus
 from .plot import plot
+from .plotOverTime import plotOverTime
+from .plotTimeStep import plotTimeStep
+from .plotAsGraph import plotAsGraph
+from .modelChecking import modelChecking
 from .initReachSet import initReachSet
 
 # Export the ReachSet class and all methods
@@ -41,9 +48,12 @@ __all__ = [
     'append',
     'children',
     'contains',
+    'isequal',
     'isemptyobject',
+    'order',
     'plus',
     'minus',
+    'shiftTime',
     'times',
     'mtimes',
     'eq',
@@ -51,5 +61,9 @@ __all__ = [
     'uminus',
     'uplus',
     'plot',
+    'plotOverTime',
+    'plotTimeStep',
+    'plotAsGraph',
+    'modelChecking',
     'initReachSet'
 ] 

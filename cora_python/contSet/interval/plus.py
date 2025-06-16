@@ -68,8 +68,19 @@ def plus(I: Interval, S: Union[Interval, np.ndarray, float, int]) -> Interval:
             S_interval = S.interval()
             result = Interval.__new__(Interval)
             result.precedence = S_out.precedence
-            result.inf = S_out.inf + S_interval.inf
-            result.sup = S_out.sup + S_interval.sup
+            
+            # Ensure compatible shapes for addition - flatten if needed to match S_out
+            S_inf = S_interval.inf
+            S_sup = S_interval.sup
+            if S_out.inf.ndim == 1 and S_inf.ndim > 1:
+                S_inf = S_inf.flatten()
+                S_sup = S_sup.flatten()
+            elif S_out.inf.ndim > 1 and S_inf.ndim == 1:
+                S_inf = S_inf.reshape(S_out.inf.shape)
+                S_sup = S_sup.reshape(S_out.sup.shape)
+            
+            result.inf = S_out.inf + S_inf
+            result.sup = S_out.sup + S_sup
             return result
             
     except Exception as e:

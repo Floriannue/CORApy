@@ -30,15 +30,18 @@ def test_interval_randPoint():
     
     # Single point
     p = randPoint_(I)
-    assert contains_(I, p)
+    res, _, _ = contains_(I, p)
+    assert res
     
     # Multiple points
     p = randPoint_(I, 10)
-    assert np.all(contains_(I, p))
+    res, _, _ = contains_(I, p)
+    assert np.all(res)
     
     # Extreme point
     p = randPoint_(I, 1, 'extreme')
-    assert contains_(I, p)
+    res, _, _ = contains_(I, p)
+    assert res
 
 
 if __name__ == '__main__':

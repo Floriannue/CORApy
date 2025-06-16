@@ -9,6 +9,10 @@ from .zonotope import Zonotope
 from .abs import abs_
 from .box import box
 from .plus import plus
+from .minus import minus
+from .times import times
+from .uminus import uminus
+from .isequal import isequal
 from .mtimes import mtimes
 from .dim import dim
 from .empty import empty
@@ -25,11 +29,16 @@ from .interval import interval
 from .contains_ import contains_
 from .norm_ import norm_
 from .zonotopeNorm import zonotopeNorm
+from .isBounded import isBounded
 
 # Attach methods to the class
 Zonotope.abs_ = abs_
 Zonotope.box = box
 Zonotope.plus = plus
+Zonotope.minus = minus
+Zonotope.times = times
+Zonotope.uminus = uminus
+Zonotope.isequal = isequal
 Zonotope.mtimes = mtimes
 Zonotope.dim = dim
 Zonotope.empty = empty
@@ -46,11 +55,15 @@ Zonotope.interval = interval
 Zonotope.contains_ = contains_
 Zonotope.norm_ = norm_
 Zonotope.zonotopeNorm = zonotopeNorm
+Zonotope.isBounded = isBounded
 
 # Special methods
 Zonotope.__abs__ = abs_
 Zonotope.__add__ = plus
+Zonotope.__sub__ = minus
+Zonotope.__neg__ = uminus
+Zonotope.__eq__ = isequal
 Zonotope.__mul__ = mtimes
 Zonotope.__rmul__ = lambda self, other: mtimes(other, self)
 
-__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm'] 
+__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded'] 

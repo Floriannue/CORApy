@@ -59,7 +59,7 @@ import numpy as np
 from .isemptyobject import isemptyobject
 from .contains_ import contains_
 
-def contains(S1, S2, method='exact', tol=None, maxEval=None):
+def contains(S1, S2, method='exact', tol=None, maxEval=None, *, return_cert=False, return_scaling=False):
     """
     Determines if a set contains another set or a point.
     
@@ -69,6 +69,8 @@ def contains(S1, S2, method='exact', tol=None, maxEval=None):
         method: method for computation (default: 'exact')
         tol: tolerance (default: 100*eps)
         maxEval: maximal number of iterations (default: depends on S2)
+        return_cert: whether to return certification information
+        return_scaling: whether to return scaling factor
         
     Returns:
         bool or tuple: containment result, optionally with certification and scaling
@@ -111,15 +113,29 @@ def contains(S1, S2, method='exact', tol=None, maxEval=None):
         # Check dimension mismatch (would need to implement equalDimCheck)
         # For now, skip this check
         
-        # Call subclass method
+        # Call subclass method with appropriate toggles
         from .contains_ import contains_
-        result = contains_(S1, S2, method, tol, maxEval, cert_toggle=True, scaling_toggle=True)
+        cert_toggle = return_cert or return_scaling  # Only compute cert if needed
+        scaling_toggle = return_scaling  # Only compute scaling if needed
+        res, cert, scaling = contains_(S1, S2, method, tol, maxEval, cert_toggle, scaling_toggle)
         
-        # Handle return values based on what's requested
-        if isinstance(result, tuple):
-            return result
+        # Return based on what's requested
+        if return_scaling:
+            return res, cert, scaling
+        elif return_cert:
+            return res, cert
         else:
-            return result
+            # For single boolean result, ensure we return a scalar
+            if isinstance(res, np.ndarray) and res.size == 1:
+                return res.item()
+            elif isinstance(res, np.ndarray) and res.ndim == 1 and len(res) > 0:
+                # For multiple identical values (like [True, True]), check if all are the same
+                if np.all(res == res[0]):
+                    return res[0].item() if hasattr(res[0], 'item') else res[0]
+                else:
+                    return res
+            else:
+                return res
             
     except Exception as e:
         # Handle empty set cases
@@ -127,11 +143,28 @@ def contains(S1, S2, method='exact', tol=None, maxEval=None):
         # Inner-body is empty numeric array or empty contSet
         if (isinstance(S2, np.ndarray) and S2.size == 0) or \
            (hasattr(S2, '__class__') and hasattr(S2, 'isemptyobject') and isemptyobject(S2)):
-            return True, True, 0
-        
+            res, cert, scaling = True, True, 0
         # Outer body is empty
-        if hasattr(S1, 'isemptyobject') and isemptyobject(S1):
-            return False, True, np.inf
-        
-        # Re-raise if not an empty set case
-        raise e 
+        elif hasattr(S1, 'isemptyobject') and isemptyobject(S1):
+            res, cert, scaling = False, True, np.inf
+        else:
+            # Re-raise if not an empty set case
+            raise e
+            
+        # Return based on what's requested
+        if return_scaling:
+            return res, cert, scaling
+        elif return_cert:
+            return res, cert
+        else:
+            # For single boolean result, ensure we return a scalar
+            if isinstance(res, np.ndarray) and res.size == 1:
+                return res.item()
+            elif isinstance(res, np.ndarray) and res.ndim == 1 and len(res) > 0:
+                # For multiple identical values (like [True, True]), check if all are the same
+                if np.all(res == res[0]):
+                    return res[0].item() if hasattr(res[0], 'item') else res[0]
+                else:
+                    return res
+            else:
+                return res 

@@ -35,7 +35,8 @@ def representsa_(S, set_type, tol=1e-12, method='linearize', iter=1, splits=0):
     """
     Checks if a set can also be represented by a different set type.
     
-    This base implementation throws an error - to be overridden in subclasses.
+    This function delegates to the object's representsa_ method if available,
+    otherwise raises an error.
     
     Args:
         S: contSet object
@@ -49,7 +50,11 @@ def representsa_(S, set_type, tol=1e-12, method='linearize', iter=1, splits=0):
         bool or tuple: Whether S can be represented by set_type, optionally with converted set
         
     Raises:
-        CORAError: This method should be overridden in subclasses
+        CORAError: If representsa_ is not implemented for the specific set type
     """
-    # is overridden in subclass if implemented; throw error
+    # Check if the object has a representsa_ method and use it
+    if hasattr(S, 'representsa_') and callable(getattr(S, 'representsa_')):
+        return S.representsa_(set_type, tol, method, iter, splits)
+    
+    # Fallback error
     raise CORAError("CORA:noops", f"Function representsa_ not implemented for class {type(S).__name__}") 

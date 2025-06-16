@@ -46,7 +46,12 @@ def contains(R: 'ReachSet', simRes: 'SimResult',
         
     Raises:
         ValueError: if some points occur outside of the time covered by the reachable set
+        NotImplementedError: if simRes is not a simResult object
     """
+    # Check if simRes is a proper simResult object
+    if not hasattr(simRes, 't') or not hasattr(simRes, 'x'):
+        raise NotImplementedError("contains method currently only supports simResult objects")
+    
     # Validate inputs
     if type_ not in ['exact', 'approx']:
         raise ValueError("type must be 'exact' or 'approx'")

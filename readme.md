@@ -66,6 +66,8 @@ Translate_Cora/
     - To ensure the functions and their corresponding tests are complete and correct look at the Cora2025.1.0_Manual.txt
     - Classes in python start with a captial letter, for example zonotop -> Zonotop
     - Always mirror the matlab codebase, check how it is done there and how it is specified in the Cora2025.1.0_Manual.txt
+    - to ensure polymorphic dispatch works even tough every function has its own file use the following template `if hasattr(S, 'func') and callable(getattr(S, 'func')): return S.func()`
+    - for some functions their are two version func and func_. func has the parameter handling and func_ the internal logic 
 
 ## Translation Workflow must include but not limited to
 
@@ -123,6 +125,8 @@ Translate_Cora/
      4. Class file or `__init__.py` should import functions and attach them to the class  
      5. Copy the explanations from the MATLAB files into the Python code as docstrings  
      6. Use the helper functions in cora_python/g/
+     7. Use the typing module instead of lazy imports
+     8. You can only simplify if still translate all the functionality
 
    - **Testing Requirements:**
      1. One test file per function  
@@ -188,4 +192,4 @@ Translate_Cora/
 
 
 ## Task
-Your task is to translate `reachSet, simResult`
+Your task is to translate `run the pytests and fix the translation or tests by comparing against the matlab source and the cora manual`

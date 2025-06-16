@@ -100,10 +100,25 @@ class ReachSet:
         from .append import append
         return append(self, other)
     
-    def children(self, parent: int) -> List[int]:
+    def children(self, R_list: List['ReachSet'], parent: int) -> List[int]:
         """Return a list of indices of the children of this parent node"""
         from .children import children
-        return children(self, parent)
+        return children(R_list, parent)
+    
+    def isequal(self, other: 'ReachSet', tol: float = 1e-12) -> bool:
+        """Check if two reachSet objects are equal"""
+        from .isequal import isequal
+        return isequal(self, other, tol)
+    
+    def order(self) -> 'ReachSet':
+        """Order the elements chronologically"""
+        from .order import order
+        return order(self)
+    
+    def shiftTime(self, delta: Union[int, float]) -> 'ReachSet':
+        """Shift all sets by a scalar time delta"""
+        from .shiftTime import shiftTime
+        return shiftTime(self, delta)
     
     def plot(self, *args, **kwargs):
         """Plot reachable sets"""
@@ -115,10 +130,65 @@ class ReachSet:
         from .plotOverTime import plotOverTime
         return plotOverTime(self, *args, **kwargs)
     
+    def plotTimeStep(self, *args, **kwargs):
+        """Plot time step size over time"""
+        from .plotTimeStep import plotTimeStep
+        return plotTimeStep(self, *args, **kwargs)
+    
+    def plotAsGraph(self):
+        """Plot branches of reachable set as graph"""
+        from .plotAsGraph import plotAsGraph
+        return plotAsGraph(self)
+    
+    def modelChecking(self, eq, alg: str = 'sampledTime', *args, **kwargs) -> bool:
+        """Check if reachable set satisfies an STL formula"""
+        from .modelChecking import modelChecking
+        return modelChecking(self, eq, alg, *args, **kwargs)
+    
     def isemptyobject(self) -> bool:
         """Check if reachSet is empty"""
         from .isemptyobject import isemptyobject
         return isemptyobject(self)
+    
+    def plus(self, other: 'ReachSet') -> 'ReachSet':
+        """Addition operation"""
+        from .plus import plus
+        return plus(self, other)
+    
+    def minus(self, other: 'ReachSet') -> 'ReachSet':
+        """Subtraction operation"""
+        from .minus import minus
+        return minus(self, other)
+    
+    def times(self, other) -> 'ReachSet':
+        """Element-wise multiplication operation"""
+        from .times import times
+        return times(self, other)
+    
+    def mtimes(self, other) -> 'ReachSet':
+        """Matrix multiplication operation"""
+        from .mtimes import mtimes
+        return mtimes(self, other)
+    
+    def uminus(self) -> 'ReachSet':
+        """Unary minus operation"""
+        from .uminus import uminus
+        return uminus(self)
+    
+    def uplus(self) -> 'ReachSet':
+        """Unary plus operation"""
+        from .uplus import uplus
+        return uplus(self)
+    
+    def eq(self, other: 'ReachSet') -> bool:
+        """Equality comparison"""
+        from .eq import eq
+        return eq(self, other)
+    
+    def ne(self, other: 'ReachSet') -> bool:
+        """Inequality comparison"""
+        from .ne import ne
+        return ne(self, other)
     
     # Operator overloads
     def __add__(self, other):
@@ -197,4 +267,10 @@ class ReachSet:
     
     def __repr__(self) -> str:
         """Detailed string representation of reachSet"""
-        return self.__str__() 
+        return self.__str__()
+    
+    def __len__(self) -> int:
+        """Return the number of branches in the reachSet"""
+        # For now, we consider a single reachSet as having length 1
+        # In MATLAB, this would be the number of branches/elements in an array of reachSets
+        return 1 

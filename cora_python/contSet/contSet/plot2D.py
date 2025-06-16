@@ -73,17 +73,30 @@ def plot2D(S, plot_kwargs: Optional[Dict[str, Any]] = None,
         # This obtains tighter results for some set representations due to splits
         # or provides results for sets where direct vertex computation is not feasible
         
-        if hasattr(S, 'polygon'):
-            # Convert to polygon first
-            pgon = S.polygon(*nvpairs_polygon)
+        if hasattr(S, 'polygon') and callable(getattr(S, 'polygon')):
+            try:
+                # Convert to polygon first
+                pgon = S.polygon(*nvpairs_polygon)
+            except (NotImplementedError, AttributeError):
+                # Fallback to direct vertex computation if polygon is not implemented
+                pgon = None
             
             # Read vertices from polygon
-            if hasattr(pgon, 'vertices_'):
-                V = pgon.vertices_()
-            elif hasattr(pgon, 'vertices'):
-                V = pgon.vertices()
+            if pgon is not None:
+                if hasattr(pgon, 'vertices_'):
+                    V = pgon.vertices_()
+                elif hasattr(pgon, 'vertices'):
+                    V = pgon.vertices()
+                else:
+                    raise ValueError("Cannot extract vertices from polygon")
             else:
-                raise ValueError("Cannot extract vertices from polygon")
+                # Fallback to direct vertex computation
+                if hasattr(S, 'vertices_'):
+                    V = S.vertices_()
+                elif hasattr(S, 'vertices'):
+                    V = S.vertices()
+                else:
+                    raise ValueError("Cannot extract vertices from set for plotting")
         else:
             # Fallback to direct vertex computation
             if hasattr(S, 'vertices'):
