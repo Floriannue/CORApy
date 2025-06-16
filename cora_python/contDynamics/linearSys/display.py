@@ -97,10 +97,10 @@ def _display_matrix_vector(matrix: np.ndarray, name: str) -> None:
     Helper function to display a matrix or vector with proper formatting
     
     Args:
-        matrix: NumPy array to display
+        matrix: NumPy array to display (can be None)
         name: Name of the matrix/vector
     """
-    if matrix.size == 0:
+    if matrix is None or matrix.size == 0:
         print(f"{name} = []")
         return
     

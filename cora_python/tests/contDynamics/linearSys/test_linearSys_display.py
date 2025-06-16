@@ -155,12 +155,12 @@ class TestLinearSysDisplay:
             LinearSys(A, B, None, np.array([[1, 0]]), np.array([[0]])),
         ]
         
-        for sys in systems:
+        for linsys in systems:
             # Should not raise any exceptions
             try:
                 captured_output = io.StringIO()
                 sys.stdout = captured_output
-                sys.display()
+                linsys.display()
                 # Test passed if no exception is raised
                 assert True
             except Exception as e:
@@ -190,14 +190,14 @@ class TestLinearSysDisplay:
         """Test that display shows system dimensions"""
         A = np.array([[1, 2], [3, 4]])
         B = np.array([[1], [0]])
-        sys = LinearSys(A, B)
+        linsys = LinearSys(A, B)
         
         # Capture output
         captured_output = io.StringIO()
         sys.stdout = captured_output
         
         try:
-            sys.display()
+            linsys.display()
             output = captured_output.getvalue()
             
             # Should contain dimension information

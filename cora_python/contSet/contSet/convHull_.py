@@ -42,6 +42,13 @@ def convHull_(S1: Union['ContSet', np.ndarray],
         >>> S2 = interval([4, 3], [6, 5])
         >>> result = convHull_(S1, S2, 'exact')
     """
+    # Check if the object has a convHull_ method and use it
+    if hasattr(S1, 'convHull_') and callable(getattr(S1, 'convHull_')):
+        if S2 is None:
+            return S1.convHull_(method=method)
+        else:
+            return S1.convHull_(S2, method=method)
+    
     # This is overridden in subclass if implemented; throw error
     if S2 is None:
         raise CORAError('CORA:noops',

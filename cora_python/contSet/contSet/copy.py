@@ -33,6 +33,10 @@ def copy(S: 'ContSet') -> 'ContSet':
         >>> S = zonotope([1, 0], [[1, 0, -1], [0, 1, 1]])
         >>> S_out = copy(S)
     """
+    # Check if the object has a copy method and use it
+    if hasattr(S, 'copy') and callable(getattr(S, 'copy')):
+        return S.copy()
+    
     # This is overridden in subclass if implemented; throw error
     raise CORAError('CORA:notSupported',
                    'The chosen subclass of contSet does not support a dynamic copy operation.') 

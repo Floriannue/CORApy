@@ -30,6 +30,9 @@ from .contains_ import contains_
 from .norm_ import norm_
 from .zonotopeNorm import zonotopeNorm
 from .isBounded import isBounded
+from .copy import copy
+from .convHull_ import convHull_
+from .enclose import enclose
 
 # Attach methods to the class
 Zonotope.abs_ = abs_
@@ -56,6 +59,9 @@ Zonotope.contains_ = contains_
 Zonotope.norm_ = norm_
 Zonotope.zonotopeNorm = zonotopeNorm
 Zonotope.isBounded = isBounded
+Zonotope.copy = copy
+Zonotope.convHull_ = convHull_
+Zonotope.enclose = enclose
 
 # Special methods
 Zonotope.__abs__ = abs_
@@ -65,5 +71,7 @@ Zonotope.__neg__ = uminus
 Zonotope.__eq__ = isequal
 Zonotope.__mul__ = mtimes
 Zonotope.__rmul__ = lambda self, other: mtimes(other, self)
+Zonotope.__matmul__ = lambda self, other: mtimes(self, other)
+Zonotope.__rmatmul__ = lambda self, other: mtimes(other, self)
 
-__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded'] 
+__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose'] 

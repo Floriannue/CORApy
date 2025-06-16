@@ -65,7 +65,9 @@ def plus(Z, S):
     
     try:
         # Different cases depending on the class of the second summand
-        if isinstance(S, Zonotope):
+        # Check for zonotope using both isinstance and class name for robustness
+        # (handles different import paths that might create different class instances)
+        if isinstance(S, Zonotope) or (hasattr(S, '__class__') and S.__class__.__name__ == 'Zonotope'):
             # Zonotope + Zonotope: see Equation 2.1 in [1]
             new_c = S_out.c + S.c
             if new_c.size == 0:
@@ -175,9 +177,13 @@ def _reorder_numeric(Z, S):
     """
     from .zonotope import Zonotope
     
-    if isinstance(Z, Zonotope):
+    # Check for zonotope using both isinstance and class name for robustness
+    Z_is_zonotope = isinstance(Z, Zonotope) or (hasattr(Z, '__class__') and Z.__class__.__name__ == 'Zonotope')
+    S_is_zonotope = isinstance(S, Zonotope) or (hasattr(S, '__class__') and S.__class__.__name__ == 'Zonotope')
+    
+    if Z_is_zonotope:
         return Z, S
-    elif isinstance(S, Zonotope):
+    elif S_is_zonotope:
         return S, Z
     else:
         raise CORAError('CORA:wrongInputInConstructor',

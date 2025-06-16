@@ -54,7 +54,7 @@ def representsa_(S, set_type, tol=1e-12, method='linearize', iter=1, splits=0):
     """
     # Check if the object has a representsa_ method and use it
     if hasattr(S, 'representsa_') and callable(getattr(S, 'representsa_')):
-        return S.representsa_(set_type, tol, method, iter, splits)
+        return S.representsa_(set_type, tol, method=method, iter=iter, splits=splits)
     
     # Fallback error
     raise CORAError("CORA:noops", f"Function representsa_ not implemented for class {type(S).__name__}") 

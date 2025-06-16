@@ -38,6 +38,10 @@ def randPoint_(S: 'ContSet', N: Union[int, str] = 1, type_: str = 'standard') ->
         >>> S = interval([1, 2], [3, 4])
         >>> points = randPoint_(S, 10, 'standard')
     """
+    # Check if the object has a randPoint_ method and use it
+    if hasattr(S, 'randPoint_') and callable(getattr(S, 'randPoint_')):
+        return S.randPoint_(N, type_)
+    
     # This is overridden in subclass if implemented; throw error
     raise CORAError('CORA:noops',
                    f'randPoint_ not implemented for {type(S).__name__} with N={N} and type={type_}') 
