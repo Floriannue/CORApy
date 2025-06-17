@@ -11,5 +11,6 @@ from .zonotope import Zonotope
 from .capsule import Capsule
 from .emptySet import EmptySet
 from .ellipsoid import Ellipsoid
+from .polytope import Polytope
 
-__all__ = ['ContSet', 'Interval', 'Zonotope', 'Capsule'] 
+__all__ = ['ContSet', 'Interval', 'Zonotope', 'Capsule', 'EmptySet', 'Ellipsoid', 'Polytope'] 

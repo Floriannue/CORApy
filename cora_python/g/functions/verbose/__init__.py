@@ -5,6 +5,7 @@ This module contains verbose output functions including plotting utilities.
 """
 
 from .plot import *
+from .verboseLog import verboseLog, verboseLogReach, verboseLogAdaptive, verboseLogHeader, verboseLogFooter
 
 __all__ = [
     'plot_polygon',
@@ -15,5 +16,10 @@ __all__ = [
     'input_args_check',
     'next_color',
     'default_plot_color',
-    'get_unbounded_axis_limits'
+    'get_unbounded_axis_limits',
+    'verboseLog',
+    'verboseLogReach', 
+    'verboseLogAdaptive',
+    'verboseLogHeader',
+    'verboseLogFooter'
 ] 

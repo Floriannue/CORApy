@@ -89,9 +89,8 @@ def reach(linsys, params: Dict[str, Any], *args) -> Union['ReachSet', Tuple['Rea
         
         # Decide which reach function to execute by options.linAlg
         if options['linAlg'] == 'adaptive':
-            # TODO: Implement adaptive algorithm
-            raise CORAError('CORA:notImplemented', 
-                           'Adaptive reachability algorithm not yet implemented')
+            from .private.priv_reach_adaptive import priv_reach_adaptive
+            timeInt, timePoint, res = priv_reach_adaptive(linsys, params, options)
         else:
             # All below, const. time step sizes
             if options['linAlg'] == 'standard':

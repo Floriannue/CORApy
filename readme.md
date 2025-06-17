@@ -118,7 +118,8 @@ Translate_Cora/
 
 3. **Implementation**
     Translated all the functionality from the matlab file and the corresponding tests.
-    For every created translated file or test fill out translate_log.txt with the format Translated file path : corresponding test path. Only fill out the test path if there actually tests!
+    For every created translated file or test, fill out translate_log.txt with the format 
+    function/class file path : test path. Only fill out the test path if there actually tests!
 
    - **File Creation Rules:**
      1. Each function **must** be in its own file like in the MATLAB codebase
@@ -130,7 +131,7 @@ Translate_Cora/
      7. Use the typing module instead of lazy imports
      8. You can only simplify if still translate all the functionality
 
-   - **Testing Requirements:**
+   - **Testing Requirements:**ons
      1. One test file per function  
      2. Port **all** MATLAB test cases  
      3. Add edge cases and in general missing cases 
@@ -194,4 +195,4 @@ Translate_Cora/
 
 
 ## Task
-Your task is to fully translate `example_linear_reach_01_5dim.py` and make it work
+Your task is to fully translate `affineSolution, fix  specification(full translation), polytope(one func per file etc), priv_reach_adaptive test using specification. other priv_reach not return save_data - how is save-data used in reach?`
