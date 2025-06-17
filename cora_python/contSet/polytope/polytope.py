@@ -1,93 +1,107 @@
 """
-polytope - class for convex polytopes
+polytope - class for polytope objects
 
-This class implements convex polytopes defined by linear constraints
-of the form {x | A*x <= b}.
+This class represents polytope objects defined as (halfspace representation)
+{ x | A*x <= b }. 
+For convenience, equality constraints { x | A*x <= b, Ae*x == be }
+can be added, too.
+Alternatively, polytopes can be defined as (vertex representation)
+{ sum_i a_i v_i | sum_i a_i = 1, a_i >= 0 }
 
 Syntax:
-    P = Polytope(A, b)
-    P = Polytope(V)  # From vertices
+    P = polytope(V)
+    P = polytope(A,b)
+    P = polytope(A,b,Ae,be)
 
 Inputs:
-    A - constraint matrix (m x n)
-    b - constraint vector (m x 1)
-    V - vertex matrix (n x k)
+    V - (n x p) array of vertices
+    A - (n x m) matrix for the inequality representation
+    b - (n x 1) vector for the inequality representation
+    Ae - (k x l) matrix for the equality representation
+    be - (k x 1) vector for the equality representation
 
 Outputs:
-    P - polytope object
+    obj - generated polytope object
 
-Example:
-    # Polytope from constraints: x1 + x2 <= 1, x1 >= 0, x2 >= 0
-    A = np.array([[1, 1], [-1, 0], [0, -1]])
-    b = np.array([1, 0, 0])
-    P = Polytope(A, b)
-    
-    # Polytope from vertices (unit simplex)
-    V = np.array([[0, 1, 0], [0, 0, 1]])
-    P = Polytope(V)
+Example: 
+    A = [1 0 -1 0 1; 0 1 0 -1 1]';
+    b = [3; 2; 3; 2; 1];
+    P = polytope(A,b);
 
-Authors: Matthias Althoff (MATLAB)
+Authors: Viktor Kotsev, Mark Wetzlinger, Tobias Ladner (MATLAB)
          Python translation by AI Assistant
-Written: 30-September-2006 (MATLAB)
-Last update: 25-July-2016 (MATLAB)
+Written: 25-April-2022 (MATLAB)
+Last update: 01-December-2022 (MW, add CORAerrors, checks) (MATLAB)
+             16-July-2024 (MW, allow separate usage of VRep/HRep) (MATLAB)
 Python translation: 2025
 """
 
 import numpy as np
-from typing import Optional, Union, Any
-from ..contSet.contSet import ContSet
-from ...g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from typing import Union, Optional, Any
+from cora_python.contSet.contSet import ContSet
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 class Polytope(ContSet):
     """
-    Polytope class for convex polytopes
+    Polytope class for convex polytope objects
     
-    This class represents convex polytopes defined by linear constraints
-    of the form {x | A*x <= b} or by vertices.
-    
-    Properties:
-        A: Constraint matrix (m x n)
-        b: Constraint vector (m x 1)
-        V: Vertices (n x k) - computed on demand
-        bounded: Whether polytope is bounded
-        fullDim: Whether polytope is full-dimensional
-        precedence: Set to 80 for polytopes
+    This class represents polytopes in either halfspace representation 
+    (A*x <= b) or vertex representation (convex hull of vertices).
     """
     
     def __init__(self, *args):
         """
         Constructor for polytope objects
-        
+
         Args:
             *args: Variable arguments for different construction modes:
                    - Polytope(A, b): From constraints A*x <= b
+                   - Polytope(A, b, Ae, be): From constraints with equalities
                    - Polytope(V): From vertices V
                    - Polytope(P): Copy constructor
+                   - Polytope(Z): From zonotope Z
         """
         # Call parent constructor
         super().__init__()
         
         # Avoid empty instantiation
         if len(args) == 0:
-            raise CORAError('CORA:noInputInSetConstructor', 
+            raise CORAError('CORA:noInputInSetConstructor',
                            'No input arguments provided to polytope constructor')
-        
-        if len(args) > 2:
-            raise CORAError('CORA:wrongInput', 
+
+        if len(args) > 4:
+            raise CORAError('CORA:wrongInput',
                            'Too many input arguments for polytope constructor')
-        
+
         # Copy constructor
         if len(args) == 1 and isinstance(args[0], Polytope):
             other = args[0]
             self.A = other.A.copy() if other.A is not None else None
             self.b = other.b.copy() if other.b is not None else None
+            self.Ae = getattr(other, 'Ae', None)
+            self.be = getattr(other, 'be', None)
             self.V = other.V.copy() if hasattr(other, 'V') and other.V is not None else None
             self.bounded = getattr(other, 'bounded', None)
             self.fullDim = getattr(other, 'fullDim', None)
             self.precedence = 80
             return
-        
+
+        # Handle zonotope conversion
+        if len(args) == 1 and hasattr(args[0], '__class__') and args[0].__class__.__name__ == 'Zonotope':
+            # Convert zonotope to polytope
+            from .zonotope import zonotope as poly_from_zonotope
+            P = poly_from_zonotope(args[0])
+            self.A = P.A
+            self.b = P.b
+            self.Ae = getattr(P, 'Ae', None)
+            self.be = getattr(P, 'be', None)
+            self.V = getattr(P, 'V', None)
+            self.bounded = getattr(P, 'bounded', True)  # Zonotopes are always bounded
+            self.fullDim = getattr(P, 'fullDim', None)
+            self.precedence = 80
+            return
+
         # Parse input arguments
         if len(args) == 1:
             # From vertices
@@ -99,8 +113,8 @@ class Polytope(ContSet):
             self.V = V
             self.A = None
             self.b = None
-            # Convert to constraints (would need convex hull computation)
-            # For now, store vertices only
+            self.Ae = None
+            self.be = None
             
         elif len(args) == 2:
             # From constraints A*x <= b
@@ -123,6 +137,55 @@ class Polytope(ContSet):
             
             self.A = A
             self.b = b
+            self.V = None
+            self.Ae = None
+            self.be = None
+            
+        elif len(args) == 4:
+            # From constraints A*x <= b, Ae*x == be
+            A = np.asarray(args[0], dtype=float)
+            b = np.asarray(args[1], dtype=float)
+            Ae = np.asarray(args[2], dtype=float)
+            be = np.asarray(args[3], dtype=float)
+            
+            # Validate A, b
+            if A.ndim != 2:
+                raise CORAError('CORA:wrongInputInConstructor',
+                               'Constraint matrix A must be 2D')
+            
+            if b.ndim == 1:
+                b = b.reshape(-1, 1)
+            elif b.ndim != 2 or b.shape[1] != 1:
+                raise CORAError('CORA:wrongInputInConstructor',
+                               'Constraint vector b must be 1D or column vector')
+            
+            if A.shape[0] != b.shape[0]:
+                raise CORAError('CORA:wrongInputInConstructor',
+                               'Number of rows in A must match length of b')
+                               
+            # Validate Ae, be
+            if Ae.ndim != 2:
+                raise CORAError('CORA:wrongInputInConstructor',
+                               'Equality constraint matrix Ae must be 2D')
+            
+            if be.ndim == 1:
+                be = be.reshape(-1, 1)
+            elif be.ndim != 2 or be.shape[1] != 1:
+                raise CORAError('CORA:wrongInputInConstructor',
+                               'Equality constraint vector be must be 1D or column vector')
+            
+            if Ae.shape[0] != be.shape[0]:
+                raise CORAError('CORA:wrongInputInConstructor',
+                               'Number of rows in Ae must match length of be')
+                               
+            if A.shape[1] != Ae.shape[1]:
+                raise CORAError('CORA:wrongInputInConstructor',
+                               'Number of columns must match between A and Ae')
+            
+            self.A = A
+            self.b = b
+            self.Ae = Ae
+            self.be = be
             self.V = None
         
         # Set properties
@@ -168,16 +231,13 @@ class Polytope(ContSet):
             point = point.reshape(-1, 1)
         
         # Check A*x <= b
-        return np.all(self.A @ point <= self.b + 1e-12)  # Small tolerance
-    
-    def vertices(self) -> np.ndarray:
-        """Get vertices of the polytope"""
-        if self.V is not None:
-            return self.V
-        else:
-            # Would need to compute vertices from constraints
-            # This requires vertex enumeration algorithms
-            raise NotImplementedError("Vertex computation from constraints not implemented")
+        result = np.all(self.A @ point <= self.b + 1e-12)  # Small tolerance
+        
+        # Check equality constraints if present
+        if self.Ae is not None and self.be is not None:
+            result = result and np.allclose(self.Ae @ point, self.be, atol=1e-12)
+        
+        return result
     
     def center(self) -> np.ndarray:
         """Get center of the polytope"""
@@ -248,7 +308,27 @@ class Polytope(ContSet):
             # Combine constraints
             A_new = np.vstack([self.A, other.A])
             b_new = np.vstack([self.b, other.b])
-            return Polytope(A_new, b_new)
+            
+            # Handle equality constraints
+            Ae_new = None
+            be_new = None
+            if self.Ae is not None or other.Ae is not None:
+                Ae_list = []
+                be_list = []
+                if self.Ae is not None:
+                    Ae_list.append(self.Ae)
+                    be_list.append(self.be)
+                if other.Ae is not None:
+                    Ae_list.append(other.Ae)
+                    be_list.append(other.be)
+                if Ae_list:
+                    Ae_new = np.vstack(Ae_list)
+                    be_new = np.vstack(be_list)
+            
+            if Ae_new is not None:
+                return Polytope(A_new, b_new, Ae_new, be_new)
+            else:
+                return Polytope(A_new, b_new)
         else:
             raise NotImplementedError("Intersection requires constraint representation")
     
@@ -274,11 +354,44 @@ class Polytope(ContSet):
     def __str__(self) -> str:
         """String representation"""
         if self.A is not None:
-            return f"Polytope: {self.A.shape[0]} constraints in R^{self.dim()}"
+            constraints_str = f"{self.A.shape[0]} constraints"
+            if self.Ae is not None:
+                constraints_str += f", {self.Ae.shape[0]} equalities"
+            return f"Polytope: {constraints_str} in R^{self.dim()}"
         elif self.V is not None:
             return f"Polytope: {self.V.shape[1]} vertices in R^{self.dim()}"
         else:
-            return "Polytope: empty"
+            return f"Polytope: empty in R^{self.dim()}"
+    
+    def contains_(self, S, method='exact', tol=1e-12, maxEval=0, certToggle=True, scalingToggle=False):
+        """Check if polytope contains another set or points"""
+        from .contains_ import contains_
+        return contains_(self, S, method, tol, maxEval, certToggle, scalingToggle)
+    
+    def dim(self) -> int:
+        """Get dimension of polytope"""
+        from .dim import dim
+        return dim(self)
+    
+    def center(self):
+        """Get center of polytope"""
+        from .center import center
+        return center(self)
+    
+    def isBounded(self) -> bool:
+        """Check if polytope is bounded"""
+        from .isBounded import isBounded
+        return isBounded(self)
+    
+    def isemptyobject(self) -> bool:
+        """Check if polytope is empty"""
+        from .isemptyobject import isemptyobject
+        return isemptyobject(self)
+    
+    def interval(self):
+        """Enclose polytope by an interval"""
+        from .interval import interval
+        return interval(self)
     
     def __repr__(self) -> str:
         """Detailed string representation"""

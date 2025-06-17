@@ -167,14 +167,18 @@ def _block_zeros(blocks):
     from cora_python.contSet.zonotope import Zonotope
     
     if blocks.shape[0] == 1:
-        # Single block
-        dim = blocks[0, 1] - blocks[0, 0] + 1
+        # Single block - note: blocks are 1-indexed from MATLAB but 0-indexed ranges in Python
+        start_idx = blocks[0, 0] - 1  # Convert from 1-indexed to 0-indexed
+        end_idx = blocks[0, 1] - 1    # Convert from 1-indexed to 0-indexed
+        dim = end_idx - start_idx + 1
         return Zonotope.origin(dim)
     else:
         # Multiple blocks
         result = []
         for i in range(blocks.shape[0]):
-            dim = blocks[i, 1] - blocks[i, 0] + 1
+            start_idx = blocks[i, 0] - 1  # Convert from 1-indexed to 0-indexed
+            end_idx = blocks[i, 1] - 1    # Convert from 1-indexed to 0-indexed
+            dim = end_idx - start_idx + 1
             result.append(Zonotope.origin(dim))
         return result
 

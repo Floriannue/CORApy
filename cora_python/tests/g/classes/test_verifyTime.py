@@ -121,14 +121,24 @@ class TestVerifyTime:
             assert vt.contains(8.0) == False
     
     def test_merge_overlapping_intervals(self):
-        """Test merging of overlapping intervals if implemented"""
-        # This test assumes the class might have interval merging functionality
-        vt = VerifyTime([[1, 3], [2, 5], [7, 9]])
+        """Test handling of overlapping intervals"""
+        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
         
-        # If merge functionality exists, test it
-        if hasattr(vt, 'merge') or hasattr(vt, '_merge_intervals'):
-            # The overlapping [1,3] and [2,5] should merge to [1,5]
-            pass  # Implementation would depend on actual method
+        # Overlapping intervals should raise an error (matching MATLAB behavior)
+        with pytest.raises(CORAError):
+            vt = VerifyTime([[1, 3], [2, 5], [7, 9]])
+        
+        # Non-overlapping intervals should work fine
+        vt = VerifyTime([[1, 3], [4, 5], [7, 9]])
+        assert vt.numIntervals() == 3
+        
+        # If merge functionality exists, test it with adjacent intervals
+        if hasattr(vt, 'compact'):
+            # Adjacent intervals that can be compacted
+            vt_adjacent = VerifyTime([[1, 3], [3, 5], [7, 9]])
+            compacted = vt_adjacent.compact()
+            # Should merge [1,3] and [3,5] into [1,5]
+            assert compacted.numIntervals() == 2
     
     def test_intersection_with_interval(self):
         """Test intersection with another interval if implemented"""
@@ -158,20 +168,15 @@ class TestVerifyTime:
     
     def test_invalid_intervals(self):
         """Test handling of invalid intervals"""
-        # Interval with start > end
-        try:
-            vt = VerifyTime([5, 2])  # Invalid: start > end
-            # If no exception, the class might handle it gracefully
-            pass
-        except (ValueError, AssertionError):
-            pass  # Expected behavior
+        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
         
-        # Empty interval list
-        try:
-            vt = VerifyTime([])
-            assert vt.numIntervals() == 0
-        except:
-            pass
+        # Interval with start > end - should raise CORAError
+        with pytest.raises(CORAError):
+            vt = VerifyTime([5, 2])  # Invalid: start > end
+        
+        # Empty interval list - should work
+        vt = VerifyTime([])
+        assert vt.numIntervals() == 0
     
     def test_str_representation(self):
         """Test string representation if implemented"""

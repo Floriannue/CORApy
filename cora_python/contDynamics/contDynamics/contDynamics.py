@@ -108,3 +108,11 @@ class ContDynamics(ABC):
         warnings.warn("Property 'nr_of_states' is deprecated, use 'nr_of_dims' instead", 
                      DeprecationWarning, stacklevel=2)
         self.nr_of_dims = value 
+    
+    @abstractmethod
+    def _validate_implementation(self):
+        """
+        Abstract method to ensure this class cannot be instantiated directly.
+        All subclasses must implement this method.
+        """
+        pass

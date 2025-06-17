@@ -112,29 +112,73 @@ class InitialSet:
                 else:
                     projected_set = self.set
         
-        # Create time-extended set: [0; 1] * set
-        import numpy as np
-        time_matrix = np.array([[0], [1]])  # Time from 0 to 1
-        
-        # For zonotope: multiply time vector with set
+        # For zonotope-like objects, create time-extended set
         if hasattr(projected_set, 'c') and hasattr(projected_set, 'G'):
-            # This is a zonotope-like object
             try:
                 from ...contSet.zonotope.zonotope import Zonotope
             except ImportError:
                 from cora_python.contSet.zonotope.zonotope import Zonotope
             
-            # Create extended set by Cartesian product with time interval
-            extended_center = np.kron(time_matrix, projected_set.c)
-            extended_generators = np.kron(time_matrix, projected_set.G)
+            import numpy as np
             
+            # Ensure we have proper arrays
+            c = np.asarray(projected_set.c, dtype=float)
+            G = np.asarray(projected_set.G, dtype=float)
+            
+            # Ensure center is a column vector
+            if c.ndim == 1:
+                c = c.reshape(-1, 1)
+            
+            # Create time interval zonotope: time ∈ [0, 1]
+            # This represents the interval from time 0 to time 1
+            time_center = np.array([[0.5]])  # Center at t=0.5
+            time_generator = np.array([[0.5]])  # ±0.5 gives [0, 1]
+            
+            # Create the time-extended set by Cartesian product
+            # Result will be 2D: [time, projected_dimension]
+            extended_center = np.vstack([time_center, c])
+            
+            # Create generators: time generator + projected generators
+            if G.size > 0:
+                # Add time generator and extend the original generators
+                time_gen = np.vstack([time_generator, np.zeros((c.shape[0], 1))])
+                extended_gens = []
+                for i in range(G.shape[1]):
+                    gen_i = np.vstack([np.zeros((1, 1)), G[:, i:i+1]])
+                    extended_gens.append(gen_i)
+                extended_gens.append(time_gen)
+                extended_generators = np.hstack(extended_gens)
+            else:
+                # Only time generator
+                extended_generators = np.vstack([time_generator, np.zeros((c.shape[0], 1))])
+            
+            # Create extended zonotope
             extended_set = Zonotope(extended_center, extended_generators)
             
             # Plot in time-space coordinates [time, state]
             return extended_set.plot([0, 1], **plot_options)
         else:
-            # For other set types, use generic approach
-            return projected_set.plot([0], **plot_options)
+            # For other set types, create a simple line plot at t=0
+            import matplotlib.pyplot as plt
+            
+            # Get the center or representative point
+            if hasattr(projected_set, 'center'):
+                point = projected_set.center()
+            elif hasattr(projected_set, 'c'):
+                point = projected_set.c
+            else:
+                # Fallback to zero
+                point = np.array([[0.0]])
+            
+            if point.ndim == 1:
+                point = point.reshape(-1, 1)
+            
+            # Plot as a vertical line at t=0
+            time_points = [0, 1]
+            state_points = [point[0, 0], point[0, 0]]
+            
+            line = plt.plot(time_points, state_points, **plot_options)
+            return line[0] if line else None
     
     def __str__(self) -> str:
         """String representation"""

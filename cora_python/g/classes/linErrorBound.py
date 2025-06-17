@@ -150,8 +150,8 @@ class LinErrorBound:
         nonacc_step = np.array([step for sublist in self.seq_nonacc for step in (sublist if isinstance(sublist, list) else [sublist])])
         acc_step = np.array([step for sublist in self.step_acc for step in (sublist if isinstance(sublist, list) else [sublist])])
         nonacc_bound = np.array([bound for sublist in self.bound_rem for bound in (sublist if isinstance(sublist, list) else [sublist])])
-        acc_bound = np.array([bound for sublist in self.bound_acc for bound in (sublist if isinstance(sublist, list) else [bound])])
-        red_bound = np.array([bound for sublist in self.bound_red for bound in (sublist if isinstance(sublist, list) else [bound])])
+        acc_bound = np.array([item for sublist in self.bound_acc for item in (sublist if isinstance(sublist, list) else [sublist])])
+        red_bound = np.array([item for sublist in self.bound_red for item in (sublist if isinstance(sublist, list) else [sublist])])
         
         # check which steps are computed completely
         fullstep = ~np.isnan(nonacc_step)
@@ -454,10 +454,14 @@ class LinErrorBound:
         while len(self.timeSteps) <= k:
             self.timeSteps.append([])
         
+        # Ensure timeSteps[k] has enough elements
+        while len(self.timeSteps[k]) <= k_iter:
+            self.timeSteps[k].append(0.0)
+        
         if k_iter == 0:  # Python 0-based indexing
             # initialize coefficients (guessing that b = 0)
             
-            if fullcomp and len(self.idv_linComb) > k and len(self.idv_linComb[k]) > k_iter:
+            if fullcomp and len(self.idv_linComb) > k and len(self.idv_linComb[k]) > k_iter and self.timeSteps[k][k_iter] != 0:
                 # linComb and time-interval error of PU are linear approximation functions
                 self.coeff_linComb_b = self.idv_linComb[k][k_iter] / self.timeSteps[k][k_iter]
                 self.coeff_PUtauk_b = self.idv_PUtauk[k][k_iter] / self.timeSteps[k][k_iter]
@@ -469,13 +473,13 @@ class LinErrorBound:
                 self.coeff_G_a = self.idv_G[k][k_iter] / (self.timeSteps[k][k_iter] ** 2)
                 self.coeff_G_b = 0.0
             
-            if len(self.idv_PUtkplus1[k]) > k_iter:
+            if len(self.idv_PUtkplus1[k]) > k_iter and self.timeSteps[k][k_iter] != 0:
                 self.coeff_PUtkplus1_a = self.idv_PUtkplus1[k][k_iter] / (self.timeSteps[k][k_iter] ** 2)
                 self.coeff_PUtkplus1_b = 0.0
         else:
             # update coefficients
             
-            if fullcomp and len(self.idv_linComb) > k and len(self.idv_linComb[k]) > k_iter:
+            if fullcomp and len(self.idv_linComb) > k and len(self.idv_linComb[k]) > k_iter and self.timeSteps[k][k_iter] != 0:
                 # linear approximation function -> take newest value
                 self.coeff_linComb_b = self.idv_linComb[k][k_iter] / self.timeSteps[k][k_iter]
                 self.coeff_PUtauk_b = self.idv_PUtauk[k][k_iter] / self.timeSteps[k][k_iter]
@@ -671,15 +675,27 @@ class LinErrorBound:
             Error value
         """
         # This is a simplified version - would need proper set type checking
-        if hasattr(S, 'generators') and hasattr(S, 'center'):
-            # zonotope-like
-            return np.linalg.norm(np.sum(np.abs(S.generators()), axis=1) + np.abs(S.center()))
+        if hasattr(S, 'G') and hasattr(S, 'c'):
+            # zonotope-like with G, c attributes
+            return np.linalg.norm(np.sum(np.abs(S.G), axis=1) + np.abs(S.c.flatten()))
+        elif hasattr(S, 'generators') and hasattr(S, 'center'):
+            # zonotope-like with methods
+            G = S.generators()
+            c = S.center()
+            return np.linalg.norm(np.sum(np.abs(G), axis=1) + np.abs(c.flatten()))
         elif hasattr(S, 'infimum') and hasattr(S, 'supremum'):
             # interval-like
             return np.linalg.norm(np.maximum(-S.infimum(), S.supremum()))
-        else:
-            # fallback: assume it has some norm
+        elif isinstance(S, np.ndarray):
+            # numpy array
             return np.linalg.norm(S)
+        else:
+            # fallback: try to convert to array
+            try:
+                return np.linalg.norm(np.asarray(S))
+            except (ValueError, TypeError):
+                # Last resort: return a default value
+                return 1.0
     
     def _priv_approxFun(self, t: float, k: int, k_iter: int, fullcomp: bool, 
                        timeStep: float, maxTimeStep: float, isU: bool) -> float:
@@ -701,14 +717,22 @@ class LinErrorBound:
         # in the first step, there is a chance that the initial guess is
         # too large; thus, we use another condition to decrease the initial
         # guess until a reasonable value can be found
-        if k == 0 and len(self.seq_nonacc) > k and len(self.seq_nonacc[k]) > k_iter:
-            seq_ratio = (self.seq_nonacc[k][k_iter] / self.bound_rem[k][k_iter] 
-                        if len(self.bound_rem) > k and len(self.bound_rem[k]) > k_iter and self.bound_rem[k][k_iter] != 0 
-                        else 0)
-            acc_ratio = (self.step_acc[k][k_iter] / self.bound_acc[k][k_iter] 
-                        if len(self.step_acc) > k and len(self.step_acc[k]) > k_iter and 
-                           len(self.bound_acc) > k and len(self.bound_acc[k]) > k_iter and self.bound_acc[k][k_iter] != 0 
-                        else 0)
+        if k == 0 and len(self.seq_nonacc) > k:
+            # Handle seq_nonacc as either list or float after removeRedundantValues
+            seq_val = (self.seq_nonacc[k][k_iter] if isinstance(self.seq_nonacc[k], list) and len(self.seq_nonacc[k]) > k_iter
+                      else self.seq_nonacc[k] if not isinstance(self.seq_nonacc[k], list) else 0)
+            bound_rem_val = (self.bound_rem[k][k_iter] if len(self.bound_rem) > k and isinstance(self.bound_rem[k], list) and len(self.bound_rem[k]) > k_iter
+                           else self.bound_rem[k] if len(self.bound_rem) > k and not isinstance(self.bound_rem[k], list)
+                           else 0)
+            
+            seq_ratio = seq_val / bound_rem_val if bound_rem_val != 0 else 0
+            
+            step_acc_val = (self.step_acc[k][k_iter] if len(self.step_acc) > k and isinstance(self.step_acc[k], list) and len(self.step_acc[k]) > k_iter
+                          else self.step_acc[k] if len(self.step_acc) > k and not isinstance(self.step_acc[k], list) else 0)
+            bound_acc_val = (self.bound_acc[k][k_iter] if len(self.bound_acc) > k and isinstance(self.bound_acc[k], list) and len(self.bound_acc[k]) > k_iter
+                           else self.bound_acc[k] if len(self.bound_acc) > k and not isinstance(self.bound_acc[k], list) else 0)
+            
+            acc_ratio = step_acc_val / bound_acc_val if bound_acc_val != 0 else 0
             
             if max(seq_ratio, acc_ratio) > 1e3:
                 return 0.01 * timeStep
@@ -737,7 +761,9 @@ class LinErrorBound:
             temp_a = self.coeff_PUtkplus1_a + self.coeff_F_a + self.coeff_G_a
             temp_b = (self.coeff_PUtkplus1_b + self.coeff_F_b + self.coeff_G_b +
                      self.coeff_linComb_b + self.coeff_PUtauk_b)
-            temp_c = -(self.bound_rem[k][k_iter] if len(self.bound_rem) > k and len(self.bound_rem[k]) > k_iter else 0)
+            temp_c = -(self.bound_rem[k] if len(self.bound_rem) > k and not isinstance(self.bound_rem[k], list)
+                      else self.bound_rem[k][k_iter] if len(self.bound_rem) > k and isinstance(self.bound_rem[k], list) and len(self.bound_rem[k]) > k_iter
+                      else 0)
             
             # compute two solutions of quadratic equation (one is < 0)
             # choose maximum of predicted timeSteps -> positive solution

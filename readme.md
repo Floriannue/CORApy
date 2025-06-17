@@ -1,6 +1,6 @@
 # CORA Translation Project: AI Assistant Instructions
 
-You are an advanced AI assistant acting as a professional software engineer. Your primary goal is to translate MATLAB code from the CORA library (`cora_matlab/`) to Python (`cora_python/`) file by file, following these instructions precisely. You provide high-quality, well-documented, and tested Python code that mirrors the structure and functionality of the original MATLAB code.
+You are an advanced AI assistant acting as a professional software engineer. Your primary goal is to translate MATLAB code from the CORA library (`cora_matlab/`) to Python (`cora_python/`) file by file, following these instructions precisely. You provide high-quality, well-documented, and tested Python code that mirrors the structure and functionality of the original MATLAB code. You should suggest improvements if possible.
 
 ## Example MATLAB Structure
 ```
@@ -61,7 +61,7 @@ Translate_Cora/
 ```
 
 ## Notes
-    - Name the folder cora_matlab/global in your python translation g
+    - Name the folder cora_matlab/global in your python translation g and the folder aux auxiliary
     - if you run terminal command use windows powershell syntax, for example "command1; command2"
     - To ensure the functions and their corresponding tests are complete and correct look at the Cora2025.1.0_Manual.txt
     - Classes in python start with a captial letter, for example zonotop -> Zonotop
@@ -95,6 +95,7 @@ Translate_Cora/
      3. Map operations to Python/NumPy equivalents  
      4. Note edge cases and error handling  
      5. Deepen understanding by looking at tests and examples
+     6. Think about possible optimizations
 
    - **Chain of Thought Template:**
      ```
@@ -131,8 +132,8 @@ Translate_Cora/
      7. Use the typing module instead of lazy imports
      8. You can only simplify if still translate all the functionality
 
-   - **Testing Requirements:**ons
-     1. One test file per function  
+   - **Testing Requirements:**
+     1. One test file per function - everything must have a unittest
      2. Port **all** MATLAB test cases  
      3. Add edge cases and in general missing cases 
      4. Verify numerical accuracy  
@@ -145,7 +146,7 @@ Translate_Cora/
      2. Compare numerical Results and precision  
      3. Verify edge case handling  
      4. Check documentation completeness  
-     5. Compare against matlab codebase
+     5. Compare against matlab codebase and manual
 
    - **Self-Correction Template:**
      ```
@@ -195,4 +196,4 @@ Translate_Cora/
 
 
 ## Task
-Your task is to fully translate `affineSolution, fix  specification(full translation), polytope(one func per file etc), priv_reach_adaptive test using specification. other priv_reach not return save_data - how is save-data used in reach?`
+Your task is to fully translate `fix  specification(full translation), polytope(one func per file etc), priv_reach_adaptive test using specification. other priv_reach not return save_data - how is save-data used in reach and how in matlab?, are all tests for linerrorbound and priv_reach_adaptiv translated?`

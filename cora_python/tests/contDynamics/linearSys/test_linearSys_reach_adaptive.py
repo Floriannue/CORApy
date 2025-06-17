@@ -286,8 +286,8 @@ class TestLinearSysReachAdaptive:
         errs = LinErrorBound(0.01, 1.0)
         
         # Create interval matrix F
-        F_inf = np.array([[-0.01, 0.005], [0.005, -0.01]])
-        F_sup = np.array([[0.01, -0.005], [-0.005, 0.01]])
+        F_inf = np.array([[-0.01, -0.005], [-0.005, -0.01]])
+        F_sup = np.array([[0.01, 0.005], [0.005, 0.01]])
         F = Interval(F_inf, F_sup)
         
         # Test with zonotope startset
@@ -305,8 +305,8 @@ class TestLinearSysReachAdaptive:
         errs = LinErrorBound(0.01, 1.0)
         
         # Create interval matrix G
-        G_inf = np.array([[-0.01, 0.005], [0.005, -0.01]])
-        G_sup = np.array([[0.01, -0.005], [-0.005, 0.01]])
+        G_inf = np.array([[-0.01, -0.005], [-0.005, -0.01]])
+        G_sup = np.array([[0.01, 0.005], [0.005, 0.01]])
         G = Interval(G_inf, G_sup)
         
         u = np.array([0.1, -0.05])
@@ -378,9 +378,9 @@ class TestLinearSysReachAdaptive:
         
         # Check that time intervals cover the full time horizon
         total_time = sum(
-            interval.supremum() - interval.infimum() 
+            interval[1] - interval[0] 
             for interval in timeInt_adaptive['time'] 
-            if hasattr(interval, 'supremum')
+            if isinstance(interval, list) and len(interval) >= 2
         )
         assert abs(total_time - params['tFinal']) < 1e-6
 

@@ -62,6 +62,35 @@ class VerifyTime:
             self._checkInputArgs(bounds)
             self.bounds = bounds
     
+    @property
+    def intervals(self) -> List[List[float]]:
+        """
+        Get time intervals as list of [start, end] pairs (for compatibility with tests)
+        
+        Returns:
+            List of time intervals
+        """
+        if self.bounds.size == 0:
+            return []
+        return self.bounds.tolist()
+    
+    @intervals.setter
+    def intervals(self, value: List[List[float]]):
+        """
+        Set time intervals from list of [start, end] pairs
+        
+        Args:
+            value: List of time intervals
+        """
+        if not value:
+            self.bounds = np.zeros((0, 2))
+        else:
+            bounds = np.array(value)
+            if bounds.ndim == 1 and len(bounds) == 2:
+                bounds = bounds.reshape(1, -1)
+            self._checkInputArgs(bounds)
+            self.bounds = bounds
+    
     def _checkInputArgs(self, bounds: np.ndarray):
         """
         Check correctness of input arguments
@@ -91,7 +120,7 @@ class VerifyTime:
             raise CORAError('CORA:wrongInputInConstructor',
                            'Time values must be finite.')
         
-        # Check for proper ordering (non-overlapping intervals)
+        # Check for proper ordering (non-overlapping intervals) - matching MATLAB behavior
         if bounds.shape[0] > 1:
             for i in range(bounds.shape[0] - 1):
                 if bounds[i, 1] > bounds[i + 1, 0]:
@@ -240,6 +269,20 @@ class VerifyTime:
         
         return np.allclose(self_compact.bounds, other_compact.bounds)
     
+    def __eq__(self, other) -> bool:
+        """
+        Equality operator
+        
+        Args:
+            other: Other object to compare
+            
+        Returns:
+            True if equal
+        """
+        if not isinstance(other, VerifyTime):
+            return False
+        return self.isequal(other)
+    
     def contains(self, t: float) -> bool:
         """
         Check if time t is contained in any interval
@@ -266,26 +309,27 @@ class VerifyTime:
             Tuple of (time until switch, full computation needed)
         """
         if self.bounds.size == 0:
-            return float('inf'), True
+            return float('inf'), False
         
-        # Find intervals that contain or are after current time
+        # Check if current time is inside any interval
+        inside_interval = self.contains(t)
+        
+        if inside_interval:
+            # Find the end of the current interval
+            current_intervals = self.bounds[(self.bounds[:, 0] <= t) & (t <= self.bounds[:, 1])]
+            if len(current_intervals) > 0:
+                # Time until current interval ends
+                time_until_switch = np.min(current_intervals[:, 1]) - t
+                return time_until_switch, True
+        
+        # Not inside any interval - find next interval start
         future_starts = self.bounds[:, 0][self.bounds[:, 0] > t]
-        current_ends = self.bounds[:, 1][(self.bounds[:, 0] <= t) & (t <= self.bounds[:, 1])]
-        
-        # Time until next interval starts or current interval ends
-        times = []
         if len(future_starts) > 0:
-            times.append(np.min(future_starts) - t)
-        if len(current_ends) > 0:
-            times.append(np.min(current_ends) - t)
+            time_until_switch = np.min(future_starts) - t
+            return time_until_switch, False
         
-        if not times:
-            return float('inf'), True
-        
-        time_until_switch = min(times)
-        full_comp_needed = self.contains(t)
-        
-        return time_until_switch, full_comp_needed
+        # No future intervals
+        return float('inf'), False
     
     def remove(self, t_start: float, t_end: float) -> 'VerifyTime':
         """

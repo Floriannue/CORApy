@@ -38,15 +38,50 @@ def block_mtimes(matrix: np.ndarray, sets: Union[object, List[object]]):
         return matrix @ sets
     
     # If sets is a list (decomposed), we need to handle block operations
-    # For now, implement a simple version that applies the matrix to each block
-    # This is a simplified implementation - the full version would handle
-    # proper block matrix operations
+    # This implements the MATLAB logic: for each output block i, compute
+    # S_i = sum_j M_ij * S_j where M_ij is the block from matrix
     
+    num_blocks = len(sets)
+    
+    # Determine dimensions of each block from the sets
+    if hasattr(sets[0], 'dim') and callable(sets[0].dim):
+        dims = [s.dim() for s in sets]
+    elif hasattr(sets[0], 'shape'):
+        dims = [s.shape[0] for s in sets]
+    else:
+        # Fallback: assume each block has size determined by its content
+        dims = [len(s) if hasattr(s, '__len__') else 1 for s in sets]
+    
+    # Calculate block boundaries (end indices)
+    blocks_end = np.cumsum(dims)
+    blocks = np.column_stack([
+        np.concatenate([[0], blocks_end[:-1]]),  # start indices
+        blocks_end - 1  # end indices (inclusive)
+    ])
+    
+    # Initialize result list
     result = []
-    for i, set_block in enumerate(sets):
-        # Apply matrix multiplication to each block
-        # Note: This assumes the matrix is compatible with each block
-        result_block = matrix @ set_block
+    
+    # Formula: ∀ i: S_i = ∑_j M_ij * S_j
+    for i in range(num_blocks):
+        # Initialize with zeros
+        result_block = None
+        
+        for j in range(num_blocks):
+            # Extract matrix block M_ij
+            row_start, row_end = blocks[i, 0], blocks[i, 1] + 1
+            col_start, col_end = blocks[j, 0], blocks[j, 1] + 1
+            M_block = matrix[row_start:row_end, col_start:col_end]
+            
+            # Compute M_ij * S_j
+            term = M_block @ sets[j]
+            
+            # Add to result
+            if result_block is None:
+                result_block = term
+            else:
+                result_block = result_block + term
+        
         result.append(result_block)
     
     # If there's only one block, return the set directly

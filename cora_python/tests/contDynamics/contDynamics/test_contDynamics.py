@@ -19,6 +19,10 @@ class ConcreteContDynamics(ContDynamics):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+    
+    def _validate_implementation(self):
+        """Implementation of abstract method from ContDynamics"""
+        pass
 
 
 class TestContDynamics:

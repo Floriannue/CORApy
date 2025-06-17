@@ -34,7 +34,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Optional, Union, Any
-from ..g.classes.verifyTime import VerifyTime
+from cora_python.g.classes.verifyTime import VerifyTime
 
 
 class Specification:
@@ -94,39 +94,6 @@ class Specification:
         """Detailed string representation"""
         return self.__str__()
     
-    def check(self, reach_set: Any, time: Optional[float] = None) -> bool:
-        """
-        Check if specification is satisfied by reachable set
-        
-        Args:
-            reach_set: Reachable set to check (contSet object)
-            time: Current time (optional)
-            
-        Returns:
-            bool: True if specification is satisfied, False otherwise
-        """
-        
-        # Check time constraints
-        if self.time is not None and time is not None:
-            if not self.time.contains(time):
-                return True  # Specification not active at this time
-        
-        # Check specification based on type
-        if self.type == 'safeSet':
-            # Safe set: reachable set must be contained in safe set
-            return self.set.contains(reach_set)
-        
-        elif self.type == 'unsafeSet':
-            # Unsafe set: reachable set must not intersect unsafe set
-            return not reach_set.isIntersecting(self.set)
-        
-        elif self.type == 'invariant':
-            # Invariant: reachable set must always be in invariant set
-            return self.set.contains(reach_set)
-        
-        else:
-            raise ValueError(f"Unknown specification type: {self.type}")
-    
     def is_active(self, time: float) -> bool:
         """
         Check if specification is active at given time
@@ -165,6 +132,45 @@ class Specification:
             Specification: Copy of this specification
         """
         return Specification(self.set, self.type, self.time)
+    
+    def __eq__(self, other) -> bool:
+        """Equality operator"""
+        from .eq import eq
+        return eq(self, other)
+    
+    def __ne__(self, other) -> bool:
+        """Not equal operator"""
+        return not self.__eq__(other)
+    
+    def isequal(self, other, tol=None) -> bool:
+        """Check equality with tolerance"""
+        from .isequal import isequal
+        return isequal(self, other, tol)
+    
+    def inverse(self):
+        """Invert specification"""
+        from .inverse import inverse
+        return inverse(self)
+    
+    def isempty(self) -> bool:
+        """Check if specification is empty"""
+        from .isempty import isempty
+        return isempty(self)
+    
+    def project(self, dims):
+        """Project specification onto subspace"""
+        from .project import project
+        return project(self, dims)
+    
+    def check(self, reach_set, time=None) -> bool:
+        """Check if specification is satisfied"""
+        from .check import check
+        return check(self, reach_set, time)
+    
+    def add(self, other):
+        """Add specifications together"""
+        from .add import add
+        return add(self, other)
 
 
 def create_safety_specification(safe_set: Any, time: Optional[Any] = None) -> Specification:

@@ -66,6 +66,17 @@ def priv_reach_adaptive(linsys, params: Dict[str, Any], options: Dict[str, Any])
     
     # initializations ---------------------------------------------------------
     
+    # Handle modern Python specification format
+    # Convert to internal format for compatibility with existing adaptive reachability code
+    if 'specification' in params:
+        # Modern Python approach: single specification object or list
+        spec_list = [params['specification']] if not isinstance(params['specification'], list) else params['specification']
+        # Convert internally but keep the modern API
+        params['_internal_safeSet'], params['_internal_unsafeSet'] = aux_getSetsFromSpec(spec_list)
+    elif 'spec' in params:
+        # Legacy MATLAB-style format support
+        params['_internal_safeSet'], params['_internal_unsafeSet'] = aux_getSetsFromSpec(params['spec'])
+    
     # call from verify?
     if 'verify' not in options:
         options['verify'] = False
@@ -104,9 +115,9 @@ def priv_reach_adaptive(linsys, params: Dict[str, Any], options: Dict[str, Any])
     
     # rewrite equations in canonical form
     linsys, params = aux_canonicalForm(linsys, params)
-    
+
     # init all auxiliary flags
-    isU, G_U, isu, isuconst = aux_initFlags(params)
+    isU, G_U, isu, isuconst = aux_initFlags(linsys, params)
     
     # compute factor for scaling of Hausdorff distance from state space to output space
     if hasattr(linsys, 'C') and linsys.C is not None:
@@ -129,6 +140,13 @@ def priv_reach_adaptive(linsys, params: Dict[str, Any], options: Dict[str, Any])
     # compute first output solution and corresponding error
     V_init = params.get('V', np.zeros((linsys.C.shape[0], 1))) if params.get('V') is not None else np.zeros((linsys.C.shape[0], 1))
     vTrans_init = params.get('vTrans', np.zeros((linsys.C.shape[0], 1))) if params.get('vTrans') is not None else np.zeros((linsys.C.shape[0], 1))
+    
+    # Ensure V_init and vTrans_init have the correct output dimension
+    if V_init.shape[0] != linsys.C.shape[0]:
+        V_init = np.zeros((linsys.C.shape[0], 1))
+    if vTrans_init.shape[0] != linsys.C.shape[0]:
+        vTrans_init = np.zeros((linsys.C.shape[0], 1))
+    
     timePoint['set'].append(linsys.C @ params['R0'] + V_init + vTrans_init)
     timePoint['time'].append(params['tStart'])
     timePoint['error'].append(0.0)
@@ -337,10 +355,14 @@ def priv_reach_adaptive(linsys, params: Dict[str, Any], options: Dict[str, Any])
 
 # --- Auxiliary functions (mirroring MATLAB structure) ---
 
-def aux_initFlags(params: Dict[str, Any]) -> Tuple[bool, np.ndarray, bool, bool]:
+def aux_initFlags(linsys, params: Dict[str, Any]) -> Tuple[bool, np.ndarray, bool, bool]:
     """Initialize auxiliary flags"""
     isU = 'U' in params and not _representsa_origin(params['U'])
-    G_U = params['U'].generators() if isU else np.zeros((params['R0'].dim(), 1))
+    # G_U should be B * U.G to transform input generators to state space
+    if isU and hasattr(params['U'], 'G'):
+        G_U = linsys.B @ params['U'].G  # Transform input generators through B matrix
+    else:
+        G_U = np.zeros((params['R0'].dim(), 1))
     isu = 'uTrans' in params and np.any(params['uTrans'])
     isuconst = isu and ('uTransVec' not in params or params['uTransVec'].shape[1] == 1)
     return isU, G_U, isu, isuconst
@@ -375,15 +397,7 @@ def aux_canonicalForm(linsys, params: Dict[str, Any]) -> Tuple[Any, Dict[str, An
     Convert system to canonical form by ensuring that all required parameters are present
     and properly initialized for the adaptive reachability computation
     """
-    # Ensure required parameters exist with proper defaults
-    if 'V' not in params:
-        params['V'] = np.zeros((linsys.A.shape[0], 1))
-    if 'vTrans' not in params:
-        params['vTrans'] = np.zeros((linsys.A.shape[0], 1))
-    if 'uTrans' not in params:
-        params['uTrans'] = np.zeros((linsys.B.shape[1] if hasattr(linsys, 'B') and linsys.B is not None else 1, 1))
-    
-    # Ensure system has required matrices
+    # Ensure system has required matrices first
     if not hasattr(linsys, 'B') or linsys.B is None:
         # No input matrix - create zero matrix
         linsys.B = np.zeros((linsys.A.shape[0], 1))
@@ -392,10 +406,23 @@ def aux_canonicalForm(linsys, params: Dict[str, Any]) -> Tuple[Any, Dict[str, An
         # No output matrix - use identity (observe all states)
         linsys.C = np.eye(linsys.A.shape[0])
     
+    # Now set output space dimensions for V and vTrans
+    output_dim = linsys.C.shape[0]
+    state_dim = linsys.A.shape[0]
+    input_dim = linsys.B.shape[1]
+    
+    # Ensure required parameters exist with proper defaults
+    if 'V' not in params:
+        params['V'] = np.zeros((output_dim, 1))
+    if 'vTrans' not in params:
+        params['vTrans'] = np.zeros((output_dim, 1))
+    if 'uTrans' not in params:
+        params['uTrans'] = np.zeros((input_dim, 1))
+    
     # Ensure input set exists
     if 'U' not in params:
         from cora_python.contSet.zonotope.zonotope import Zonotope
-        params['U'] = Zonotope(np.zeros((linsys.B.shape[1], 1)), np.zeros((linsys.B.shape[1], 1)))
+        params['U'] = Zonotope(np.zeros((input_dim, 1)), np.zeros((input_dim, 1)))
     
     return linsys, params
 
@@ -451,14 +478,46 @@ def aux_initSavedata(options: Dict[str, Any]) -> Dict[str, Any]:
 
 def aux_initSpecUnsat(params: Dict[str, Any], verify: bool) -> Tuple[VerifyTime, float]:
     """Time intervals where specifications are not yet verified"""
-    if verify and 'specification' in params:
-        # Create VerifyTime object with specification intervals
-        timeSpecUnsat = VerifyTime(params['specification'])
-        tFinal = params['tFinal']
-    else:
-        # No specifications - empty VerifyTime
-        timeSpecUnsat = VerifyTime()
-        tFinal = params['tFinal']
+    timeSpecUnsat = VerifyTime()
+    tFinal = params['tFinal']
+    
+    if verify:
+        times = []
+        
+        # Handle internal specification format (converted from modern Python specs)
+        if '_internal_safeSet' in params:
+            for safe_set in params['_internal_safeSet']:
+                if 'time' in safe_set and safe_set['time'] is not None:
+                    # Convert time to VerifyTime if needed
+                    if hasattr(safe_set['time'], 'bounds'):
+                        times.append(safe_set['time'])
+                    else:
+                        # Assume it's interval format
+                        times.append(VerifyTime(safe_set['time']))
+        
+        if '_internal_unsafeSet' in params:
+            for unsafe_set in params['_internal_unsafeSet']:
+                if 'time' in unsafe_set and unsafe_set['time'] is not None:
+                    # Convert time to VerifyTime if needed
+                    if hasattr(unsafe_set['time'], 'bounds'):
+                        times.append(unsafe_set['time'])
+                    else:
+                        # Assume it's interval format
+                        times.append(VerifyTime(unsafe_set['time']))
+        
+        # Merge all time intervals
+        if times:
+            # Collect all bounds and shift by start time
+            all_bounds = []
+            for t in times:
+                if hasattr(t, 'bounds') and t.bounds.size > 0:
+                    all_bounds.extend(t.bounds.tolist())
+            
+            if all_bounds:
+                # Shift by start time (subtract tStart to normalize to 0)
+                shifted_bounds = np.array(all_bounds) - params['tStart']
+                timeSpecUnsat = VerifyTime(shifted_bounds)
+                tFinal = timeSpecUnsat.finalTime() + params['tStart']
     
     return timeSpecUnsat, tFinal
 
@@ -571,6 +630,15 @@ def aux_errors(linsys, k: int, k_iter: int, errs: LinErrorBound, fullcomp: bool,
         errs.idv_PUtkplus1.append([])
     while len(errs.idv_PUtkplus1[k]) <= k_iter:
         errs.idv_PUtkplus1[k].append(0.0)
+    
+    # Ensure timeSteps is properly initialized
+    while len(errs.timeSteps) <= k:
+        errs.timeSteps.append([])
+    while len(errs.timeSteps[k]) <= k_iter:
+        errs.timeSteps[k].append(0.0)
+    
+    # Set the current time step
+    errs.timeSteps[k][k_iter] = timeStep
     
     # compute accumulating error - consists of eps_PU_tkplus1
     if not isU:
@@ -762,8 +830,8 @@ def aux_reduce(linsys, t: float, set_vars: Dict[str, Any], err_bound_red_k: floa
     # If PUtotal is a zonotope, perform reduction
     if hasattr(PUtotal, 'reduce'):
         # Compute current order
-        if hasattr(PUtotal, 'generators'):
-            current_order = PUtotal.generators().shape[1] / PUtotal.dim()
+        if hasattr(PUtotal, 'G'):
+            current_order = PUtotal.G.shape[1] / PUtotal.dim()
             max_order = 50  # Maximum allowed order
             
             if current_order > max_order:
@@ -775,9 +843,9 @@ def aux_reduce(linsys, t: float, set_vars: Dict[str, Any], err_bound_red_k: floa
                     err_red_k = PUtotal.hausdorffDistance(PUtotal_reduced)
                 else:
                     # Approximate reduction error
-                    if hasattr(PUtotal, 'generators') and hasattr(PUtotal_reduced, 'generators'):
-                        G_orig = PUtotal.generators()
-                        G_red = PUtotal_reduced.generators()
+                    if hasattr(PUtotal, 'G') and hasattr(PUtotal_reduced, 'G'):
+                        G_orig = PUtotal.G
+                        G_red = PUtotal_reduced.G
                         # Estimate error as norm of removed generators
                         if G_orig.shape[1] > G_red.shape[1]:
                             removed_gens = G_orig[:, G_red.shape[1]:]
@@ -1204,3 +1272,69 @@ def _priv_errOp(S) -> float:
             return np.linalg.norm(S)
         except:
             return 0.1  # Small default error 
+
+def aux_getSetsFromSpec(spec_list):
+    """
+    Extract polytopic safe sets and unsafe sets from the specifications
+    
+    Args:
+        spec_list: List of specification objects
+        
+    Returns:
+        tuple: (safeSet, unsafeSet) cell arrays with .set, .time properties
+    """
+    from cora_python.contSet.polytope.polytope import Polytope
+    
+    # All specifications must be of type 'safeSet' or 'unsafeSet'
+    for spec in spec_list:
+        if spec.type not in ['safeSet', 'unsafeSet']:
+            raise CORAError('CORA:notSupported',
+                           "Only specification types 'safeSet' and 'unsafeSet' are supported.")
+    
+    # Pre-allocate length, truncate at the end
+    num_spec = len(spec_list)
+    safe_set = [None] * num_spec
+    unsafe_set = [None] * num_spec
+    idx_safe_set = 0
+    idx_unsafe_set = 0
+    
+    for spec in spec_list:
+        # Convert set to a polytope and normalize constraint vectors
+        if hasattr(spec.set, 'polytope'):
+            P_norm = spec.set.polytope()
+        else:
+            P_norm = Polytope(spec.set)
+        
+        # TODO: Add normalizeConstraints equivalent if needed
+        
+        if spec.type == 'safeSet':
+            safe_set[idx_safe_set] = {
+                'set': P_norm,
+                'time': spec.time
+            }
+            idx_safe_set += 1
+            
+        elif spec.type == 'unsafeSet':
+            # TODO: Check if P_norm represents a halfspace and convert to safe set if so
+            # For now, just add to unsafe set
+            unsafe_set[idx_unsafe_set] = {
+                'set': P_norm,
+                'time': spec.time,
+                'isBounded': P_norm.isBounded() if hasattr(P_norm, 'isBounded') else True
+            }
+            
+            # Pre-compute interval enclosure if bounded
+            if unsafe_set[idx_unsafe_set]['isBounded']:
+                try:
+                    unsafe_set[idx_unsafe_set]['int'] = P_norm.interval()
+                except Exception:
+                    # Fallback: no interval precomputation
+                    unsafe_set[idx_unsafe_set]['int'] = None
+            
+            idx_unsafe_set += 1
+    
+    # Truncate lists according to collected specs
+    safe_set = safe_set[:idx_safe_set]
+    unsafe_set = unsafe_set[:idx_unsafe_set]
+    
+    return safe_set, unsafe_set 

@@ -19,6 +19,7 @@ from .private.priv_reach_standard import priv_reach_standard
 from .private.priv_reach_wrappingfree import priv_reach_wrappingfree
 from .private.priv_outputSet_canonicalForm import priv_outputSet_canonicalForm
 from .homogeneousSolution import homogeneousSolution
+from .affineSolution import affineSolution
 from ..contDynamics.simulateRandom import simulateRandom
 
 # Attach methods to the LinearSys class
@@ -35,4 +36,4 @@ LinearSys.taylorLinSys = lambda self, options=None: TaylorLinSys(self.A)
 
 __all__ = ['LinearSys', 'display', 'eq', 'isequal', 'ne', 'generateRandom', 'simulate', 
            'simulateRandom', 'reach', 'canonicalForm', 'oneStep', 'TaylorLinSys', 'priv_reach_standard', 
-           'priv_reach_wrappingfree', 'priv_outputSet_canonicalForm', 'homogeneousSolution'] 
+           'priv_reach_wrappingfree', 'priv_outputSet_canonicalForm', 'homogeneousSolution', 'affineSolution'] 
