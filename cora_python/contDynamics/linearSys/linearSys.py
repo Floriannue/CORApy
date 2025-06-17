@@ -111,40 +111,44 @@ class LinearSys(ContDynamics):
         def_name = 'linearSys'
         A = B = c = C = D = k = E = F = None
         
-        # Handle keyword arguments
+        # First handle positional arguments
+        if len(args) > 0:
+            # Check if first argument is name (string)
+            if isinstance(args[0], str):
+                # First argument is name
+                name = args[0]
+                remaining_args = args[1:]
+            else:
+                # No name provided, use default
+                name = def_name
+                remaining_args = args
+            
+            # Assign remaining arguments to matrices
+            matrices = [A, B, c, C, D, k, E, F]
+            for i, arg in enumerate(remaining_args):
+                if i < len(matrices):
+                    matrices[i] = arg
+            A, B, c, C, D, k, E, F = matrices
+        else:
+            name = def_name
+        
+        # Then handle keyword arguments (override positional args if provided)
         if kwargs:
-            name = kwargs.get('name', def_name)
+            name = kwargs.get('name', name)
             A = kwargs.get('A', A)
             B = kwargs.get('B', B)
             c = kwargs.get('c', c)
-            C = kwargs.get('C', C)
+            # Support both 'C' and 'output_matrix' keywords
+            if 'C' in kwargs:
+                C = kwargs['C']
+            elif 'output_matrix' in kwargs:
+                C = kwargs['output_matrix']
             D = kwargs.get('D', D)
             k = kwargs.get('k', k)
             E = kwargs.get('E', E)
             F = kwargs.get('F', F)
-            return name, A, B, c, C, D, k, E, F
         
-        # Handle positional arguments
-        if len(args) == 0:
-            return def_name, A, B, c, C, D, k, E, F
-        
-        # Check if first argument is name (string)
-        if len(args) > 0 and isinstance(args[0], str):
-            # First argument is name
-            name = args[0]
-            remaining_args = args[1:]
-        else:
-            # No name provided, use default
-            name = def_name
-            remaining_args = args
-        
-        # Assign remaining arguments to matrices
-        matrices = [A, B, c, C, D, k, E, F]
-        for i, arg in enumerate(remaining_args):
-            if i < len(matrices):
-                matrices[i] = arg
-        
-        return name, *matrices
+        return name, A, B, c, C, D, k, E, F
     
     def _check_input_args(self, name: str, A, B, c, C, D, k, E, F, n_in: int):
         """Check correctness of input arguments"""
@@ -329,7 +333,7 @@ class LinearSys(ContDynamics):
         # Noise matrix and number of noises
         if F is None:
             F = np.zeros((outputs, 1)) if outputs > 0 else np.array([[]])
-            noises = 1 if outputs > 0 else 0
+            noises = 1 if outputs > 0 else 0  # MATLAB behavior: when F is empty, noises = F.shape[1] = 1
         else:
             F = np.asarray(F, dtype=float)
             if np.isscalar(F) or (F.ndim == 0):

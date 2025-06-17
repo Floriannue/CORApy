@@ -80,9 +80,9 @@ def mtimes(factor1, factor2):
                 factor1_mat = factor1_mat.reshape(1, -1)
             
             # Check dimension compatibility
-            if factor2.c.size > 0 and factor1_mat.shape[1] != len(factor2.c):
+            if factor2.c.size > 0 and factor1_mat.shape[1] != factor2.dim():
                 raise CORAError('CORA:dimensionMismatch',
-                              f'Matrix dimensions {factor1_mat.shape} incompatible with zonotope dimension {len(factor2.c)}')
+                              f'Matrix dimensions {factor1_mat.shape} incompatible with zonotope dimension {factor2.dim()}')
             
             # Apply linear transformation
             c = factor1_mat @ factor2.c if factor2.c.size > 0 else np.array([])
@@ -117,9 +117,9 @@ def mtimes(factor1, factor2):
                 factor2_mat = factor2_mat.reshape(-1, 1)
             
             # Check dimension compatibility
-            if factor1.c.size > 0 and len(factor1.c) != factor2_mat.shape[0]:
+            if factor1.c.size > 0 and factor1.dim() != factor2_mat.shape[0]:
                 raise CORAError('CORA:dimensionMismatch',
-                              f'Zonotope dimension {len(factor1.c)} incompatible with matrix dimensions {factor2_mat.shape}')
+                              f'Zonotope dimension {factor1.dim()} incompatible with matrix dimensions {factor2_mat.shape}')
             
             # Apply linear transformation (right multiplication)
             # Handle the case where c is a column vector and needs to be transposed for right multiplication

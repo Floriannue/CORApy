@@ -41,7 +41,12 @@ def vertices_(S: 'ContSet', method: str = 'convHull', *args, **kwargs) -> np.nda
     """
     # Check if the object has a vertices_ method and use it
     if hasattr(S, 'vertices_') and callable(getattr(S, 'vertices_')):
-        return S.vertices_(method, *args, **kwargs)
+        # Try calling with method first, fallback to no method for interval-like classes
+        try:
+            return S.vertices_(method, *args, **kwargs)
+        except TypeError:
+            # Some implementations (like interval) don't take method parameter
+            return S.vertices_(*args, **kwargs)
     
     # Fallback error
     raise CORAError('CORA:noops',

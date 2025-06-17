@@ -18,11 +18,15 @@ import numpy as np
 try:
     from cora_python.g.classes import SimResult
 except ImportError:
-    # Fallback for when running as script
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-    from g.classes import SimResult
+    try:
+        # Fallback for when running as script
+        import sys
+        import os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+        from g.classes import SimResult
+    except ImportError:
+        # Final fallback with relative import
+        from ...g.classes import SimResult
 
 
 def simulateRandom(sys, params: Dict[str, Any], options: Optional[Dict[str, Any]] = None) -> List[SimResult]:
@@ -119,12 +123,14 @@ def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tu
     if 'points' not in options:
         options['points'] = 1
     
+    # Set defaults for fracVert and fracInpVert (used by all simulation types that call _priv_simulateStandard)
+    if 'fracVert' not in options:
+        options['fracVert'] = 0.5
+    if 'fracInpVert' not in options:
+        options['fracInpVert'] = 0.5
+    
     # Type-specific defaults
     if options['type'] == 'standard':
-        if 'fracVert' not in options:
-            options['fracVert'] = 0.5
-        if 'fracInpVert' not in options:
-            options['fracInpVert'] = 0.5
         if 'nrConstInp' not in options:
             options['nrConstInp'] = 1
     
@@ -159,19 +165,22 @@ def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tu
                 # No actual disturbance, create minimal set
                 w_dim = 1
             params['W'] = Zonotope(np.zeros((w_dim, 1)), np.zeros((w_dim, 1)))
-        if 'V' not in params:
-            try:
-                from cora_python.contSet.zonotope import Zonotope
-            except ImportError:
-                from contSet.zonotope import Zonotope
-            # Create noise set with correct dimension
-            # Check if F matrix exists and has non-zero entries
-            if (hasattr(sys, 'F') and sys.F is not None and sys.F.size > 0 and 
-                not np.allclose(sys.F, 0)):
-                v_dim = sys.F.shape[1]
-            else:
-                # No actual noise, create minimal set
-                v_dim = 1
+        # Determine correct V dimension for simulateRandom
+        try:
+            from cora_python.contSet.zonotope import Zonotope
+        except ImportError:
+            from contSet.zonotope import Zonotope
+        
+        # Check if F matrix exists and has non-zero entries
+        if (hasattr(sys, 'F') and sys.F is not None and sys.F.size > 0 and 
+            not np.allclose(sys.F, 0)):
+            v_dim = sys.F.shape[1]  # Use F matrix column dimension
+        else:
+            # No actual noise, create minimal set
+            v_dim = 1
+        
+        # Check if V exists and has correct dimension for simulateRandom
+        if 'V' not in params or params['V'].dim() != v_dim:
             params['V'] = Zonotope(np.zeros((v_dim, 1)), np.zeros((v_dim, 1)))
     else:
         # For systems without output, still need disturbance set for simulation

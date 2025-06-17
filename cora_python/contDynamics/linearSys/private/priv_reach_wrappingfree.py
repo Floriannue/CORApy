@@ -67,8 +67,9 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
                                          params['W'], params['V'], np.zeros((linsys.nr_of_outputs, 1)))
     
     # Time period and number of steps
-    tVec = np.arange(params['tStart'], params['tFinal'] + options['timeStep'], options['timeStep'])
-    steps = len(tVec) - 1
+    # Use proper time vector generation to avoid floating-point accumulation errors
+    steps = int(np.round((params['tFinal'] - params['tStart']) / options['timeStep']))
+    tVec = np.linspace(params['tStart'], params['tFinal'], steps + 1)
     
     # Initialize output variables for reachable sets and output sets
     timeInt = {

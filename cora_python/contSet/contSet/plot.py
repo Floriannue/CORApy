@@ -86,9 +86,23 @@ def _parse_input(S, args, kwargs):
     
     # Convert MATLAB 1-based indexing to Python 0-based if needed
     if isinstance(dims, (list, tuple, np.ndarray)) and len(dims) > 0:
-        # Check if dims looks like MATLAB 1-based indexing (all values >= 1)
         dims_array = np.array(dims)
-        if np.all(dims_array >= 1):
+        # Detect MATLAB-style indexing: convert when it's clearly MATLAB code
+        # MATLAB patterns to convert:
+        # - [1] for 1D set -> [0]
+        # - [1,2] for 2D set -> [0,1] 
+        # - [1,2,3] for 3D set -> [0,1,2]
+        # - [1,3] for 3D+ set -> [0,2] (partial projection)
+        # Don't convert if dimensions are out of valid MATLAB range
+        is_single_dim_matlab = (len(dims_array) == 1 and dims_array[0] == 1)  # [1] -> [0]
+        is_consecutive_from_1 = (len(dims_array) > 1 and 
+                                np.all(dims_array == np.arange(1, len(dims_array) + 1)))
+        is_full_matlab_dims = (len(dims_array) == S.dim() and is_consecutive_from_1)
+        is_partial_matlab_dims = (len(dims_array) > 1 and 
+                                 np.all(dims_array >= 1) and 
+                                 np.max(dims_array) <= S.dim())
+        
+        if is_single_dim_matlab or is_full_matlab_dims or is_partial_matlab_dims:
             # Convert to 0-based indexing
             dims = dims_array - 1
         dims = dims.tolist() if hasattr(dims, 'tolist') else dims
@@ -96,8 +110,14 @@ def _parse_input(S, args, kwargs):
     # Check input arguments
     input_args_check([
         [S, 'att', 'contSet'],
-        [dims, 'att', 'numeric', {'nonempty': True, 'integer': True, 'positive': True, 'vector': True}]
+        [dims, 'att', 'numeric', {'nonempty': True, 'integer': True, 'nonnegative': True, 'vector': True}]
     ])
+    
+    # Additional validation: check if dimensions are valid for the set
+    set_dim = S.dim()
+    for d in dims:
+        if d < 0 or d >= set_dim:
+            raise CORAError('CORA:wrongInput', f'Dimension {d+1} does not exist (set has {set_dim} dimensions)')
     
     # Check dimension constraints
     if len(dims) < 1:
@@ -174,8 +194,8 @@ def _intersect_with_axis_limits(S, plot_kwargs):
         xlim, ylim = get_unbounded_axis_limits(V)
         
         # Create axis interval
-        from cora_python.contSet.interval.interval import interval
-        I_axis = interval(np.array([xlim[0], ylim[0]]), 
+        from cora_python.contSet.interval.interval import Interval
+        I_axis = Interval(np.array([xlim[0], ylim[0]]), 
                          np.array([xlim[1], ylim[1]]))
         
     elif n == 3:
@@ -183,14 +203,14 @@ def _intersect_with_axis_limits(S, plot_kwargs):
         xlim, ylim, zlim = get_unbounded_axis_limits(V)
         
         # Create axis interval
-        from cora_python.contSet.interval.interval import interval
-        I_axis = interval(np.array([xlim[0], ylim[0], zlim[0]]), 
+        from cora_python.contSet.interval.interval import Interval
+        I_axis = Interval(np.array([xlim[0], ylim[0], zlim[0]]), 
                          np.array([xlim[1], ylim[1], zlim[1]]))
     else:
         raise CORAError('CORA:plotProperties', f'Cannot handle {n}-dimensional plotting')
     
-    # Project to given dimensions
-    I_axis = I_axis.project(list(range(1, S.dim() + 1)))
+    # Project to given dimensions (use 0-based indexing)
+    I_axis = I_axis.project(list(range(S.dim())))
     
     # Intersect with set
     S = S.and_(I_axis, 'exact')

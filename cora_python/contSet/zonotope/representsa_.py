@@ -37,7 +37,7 @@ def representsa_(Z, set_type: str, tol: float = 1e-12, **kwargs):
     Checks if a zonotope can also be represented by a different set type
     
     Args:
-        Z: zonotope object
+        Z: zonotope object or numpy array
         set_type: string indicating the target set type
         tol: tolerance (default: 1e-12)
         **kwargs: additional arguments
@@ -49,6 +49,13 @@ def representsa_(Z, set_type: str, tol: float = 1e-12, **kwargs):
     # Import here to avoid circular imports
     from cora_python.contSet.interval import Interval
     from cora_python.contSet.capsule import Capsule
+    
+    # Handle numpy arrays - they cannot represent empty sets
+    if isinstance(Z, np.ndarray):
+        if set_type == 'emptySet':
+            return False
+        # For other types, would need conversion to zonotope first
+        return False
     
     # Check if we need to return the converted set
     return_set = 'return_set' in kwargs and kwargs['return_set']

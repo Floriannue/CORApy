@@ -27,16 +27,17 @@ def box(Z):
     if Z.isemptyobject():
         return Zonotope.empty(Z.dim())
     
-    # Convert to interval to get bounds, then back to zonotope
-    from cora_python.contSet.interval import Interval
-    I = Interval(Z)
+    # Compute bounds directly from zonotope as in MATLAB version
+    # delta = sum(abs(Z.G),2) - sum absolute values of generators per dimension
+    c = Z.c
+    delta = np.sum(np.abs(Z.G), axis=1, keepdims=True)
     
     # Create axis-aligned box zonotope
-    c_box = I.center()
+    c_box = c
     
-    # Create diagonal generator matrix from interval radii
+    # Create diagonal generator matrix from radii (half of delta)
     n = Z.dim()
-    radii = I.rad()
+    radii = delta
     G_box = np.diag(radii.flatten())
     
     # Remove zero generators (dimensions with zero radius)

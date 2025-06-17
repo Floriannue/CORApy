@@ -103,8 +103,17 @@ class Interval(ContSet):
     def _parse_input_args(self, *args):
         """Parse input arguments from user and assign to variables"""
         if len(args) == 1:
-            lb = np.asarray(args[0], dtype=float)
-            ub = lb.copy()
+            # Check if it's a Zonotope object
+            if hasattr(args[0], '__class__') and args[0].__class__.__name__ == 'Zonotope':
+                # Convert zonotope to interval using MATLAB algorithm
+                Z = args[0]
+                c = Z.c.flatten()
+                delta = np.sum(np.abs(Z.G), axis=1)
+                lb = c - delta
+                ub = c + delta
+            else:
+                lb = np.asarray(args[0], dtype=float)
+                ub = lb.copy()
         elif len(args) == 2:
             lb = np.asarray(args[0], dtype=float) if args[0] is not None else np.array([])
             ub = np.asarray(args[1], dtype=float) if args[1] is not None else np.array([])

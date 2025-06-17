@@ -2,3 +2,7 @@ Translated file path : corresponding text path
 
 contSet\interval\plus.py : tests\contSet\interval\test_interval_plus.py
 contSet\interval\mtimes.py : tests\contSet\interval\test_interval_mtimes.py
+cora_python/contDynamics/linearSys/linearSys.py : cora_python/tests/contDynamics/linearSys/test_linearSys.py
+cora_python/contSet/interval/interval.py : cora_python/tests/contSet/interval/test_interval.py
+cora_python/contSet/zonotope/zonotope.py : cora_python/tests/contSet/zonotope/test_zonotope.py
+cora_python/examples/contDynamics/linearSys/example_linear_reach_01_5dim.py : cora_python/tests/contDynamics/linearSys/test_example_linear_reach_01_5dim.py

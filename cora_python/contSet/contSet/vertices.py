@@ -44,7 +44,7 @@ def vertices(S: 'ContSet', method: Optional[str] = None, *args, **kwargs) -> np.
         res = vertices_(S, method, *addargs)
     except Exception as ME:
         # Catch empty set case
-        if representsa_(S, 'emptySet', 1e-15, linearize=0, verbose=1):
+        if representsa_(S, 'emptySet', 1e-15):
             res = np.array([])
         else:
             raise ME

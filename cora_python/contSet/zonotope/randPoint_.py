@@ -162,19 +162,30 @@ def _aux_randPoint_extreme(Z: 'Zonotope', N: Union[int, str]) -> np.ndarray:
             # Generate random vertices
             return _aux_getRandomVertices(Z, N)
         
-        elif N < q:
+        elif N <= q:
             # Select random vertices
             V = vertices_(Z)
-            ind = np.random.permutation(V.shape[1])
-            V = V[:, ind]
-            return V[:, :N]
+            if V.shape[1] >= N:
+                # We have enough vertices, just select N of them
+                ind = np.random.permutation(V.shape[1])
+                V = V[:, ind]
+                return V[:, :N]
+            else:
+                # Need more points than vertices available
+                N_ = N - V.shape[1]
+                V_ = _aux_getRandomBoundaryPoints(Z, N_)
+                return np.hstack([V, V_])
         
         else:
             # Compute vertices and additional points on the boundary
             V = vertices_(Z)
             N_ = N - V.shape[1]
-            V_ = _aux_getRandomBoundaryPoints(Z, N_)
-            return np.hstack([V, V_])
+            if N_ > 0:
+                V_ = _aux_getRandomBoundaryPoints(Z, N_)
+                return np.hstack([V, V_])
+            else:
+                # Just return the vertices
+                return V
     
     else:
         raise ValueError("N must be an integer or 'all'")
@@ -249,7 +260,7 @@ def _aux_getRandomBoundaryPoints(Z: 'Zonotope', N: int) -> np.ndarray:
         factors = -1 + 2 * np.random.rand(nrGen)
         factors[gen_idx] = np.random.choice([-1, 1])  # Fix to boundary
         
-        points[:, i] = Z.c + Z.G @ factors
+        points[:, i] = (Z.c.flatten() + Z.G @ factors).flatten()
     
     return points
 
@@ -268,8 +279,9 @@ def _aux_randPointBilliard(Z: 'Zonotope', N: int) -> np.ndarray:
     n = dim(Z)
     points = np.zeros((n, N))
     
-    # Start from center
-    current_point = Z.c.copy()
+    # Start from center - ensure it's a 1D array
+    current_point = Z.c.flatten()
+    center = Z.c.flatten()
     
     for i in range(N):
         # Random direction
@@ -282,9 +294,13 @@ def _aux_randPointBilliard(Z: 'Zonotope', N: int) -> np.ndarray:
         current_point = current_point + step_size * direction
         
         # Project back to zonotope (simplified)
-        factors = np.linalg.pinv(Z.G) @ (current_point - Z.c)
+        factors = np.linalg.pinv(Z.G) @ (current_point - center)
         factors = np.clip(factors, -1, 1)
-        current_point = Z.c + Z.G @ factors
+        current_point = center + Z.G @ factors
+        
+        # Ensure current_point is 1D
+        if current_point.ndim > 1:
+            current_point = current_point.flatten()
         
         points[:, i] = current_point
     

@@ -62,8 +62,8 @@ def randPoint(S: 'ContSet',
             raise ValueError("If N is string, it must be 'all'")
         if type_ != 'extreme':
             raise ValueError("If N is 'all', type must be 'extreme'")
-    elif not isinstance(N, int) or N <= 0:
-        raise ValueError("N must be a positive integer or 'all'")
+    elif not isinstance(N, int) or N < 0:
+        raise ValueError("N must be a non-negative integer or 'all'")
     
     valid_types = ['standard', 'extreme', 'gaussian', 'uniform', 
                    'uniform:hitAndRun', 'uniform:ballWalk', 'uniform:billiardWalk',

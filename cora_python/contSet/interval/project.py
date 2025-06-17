@@ -42,8 +42,18 @@ def project(I: 'Interval', dims) -> 'Interval':
     # Convert dims to numpy array for indexing
     dims = np.array(dims)
     
-    # Project bounds
-    inf_proj = I.inf[dims]
-    sup_proj = I.sup[dims]
+    # Handle scalar intervals (0-dimensional)
+    if I.inf.ndim == 0:
+        # For scalar intervals, only dimension 0 is valid
+        if len(dims) == 1 and dims[0] == 0:
+            inf_proj = I.inf
+            sup_proj = I.sup
+        else:
+            raise CORAError("CORA:wrongInput", 
+                           f"Invalid dimension {dims} for scalar interval")
+    else:
+        # Project bounds for multi-dimensional intervals
+        inf_proj = I.inf[dims]
+        sup_proj = I.sup[dims]
     
     return Interval(inf_proj, sup_proj) 

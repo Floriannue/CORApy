@@ -11,6 +11,9 @@ import pytest
 import numpy as np
 import warnings
 from unittest.mock import Mock, patch
+# Set matplotlib backend before importing anything that might use it
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 from cora_python.g.classes.reachSet import ReachSet
 from cora_python.contSet.zonotope.zonotope import Zonotope
 
@@ -19,8 +22,8 @@ class TestReachSet:
     def test_reachSet_constructor_empty(self):
         """Test empty constructor"""
         R = ReachSet()
-        assert R.timePoint == {}
-        assert R.timeInterval == {}
+        assert len(R.timePoint.keys()) == 0
+        assert len(R.timeInterval.keys()) == 0
         assert R.loc == 0
         assert R.parent == 0
     
@@ -31,8 +34,9 @@ class TestReachSet:
             'time': [0.0]
         }
         R = ReachSet(timePoint)
-        assert R.timePoint == timePoint
-        assert R.timeInterval == {}
+        assert R.timePoint['set'] == timePoint['set']
+        assert R.timePoint['time'] == timePoint['time']
+        assert len(R.timeInterval.keys()) == 0
     
     def test_reachSet_constructor_both(self):
         """Test constructor with both timePoint and timeInterval"""
@@ -45,8 +49,10 @@ class TestReachSet:
             'time': [[0.0, 0.1]]
         }
         R = ReachSet(timePoint, timeInterval)
-        assert R.timePoint == timePoint
-        assert R.timeInterval == timeInterval
+        assert R.timePoint['set'] == timePoint['set']
+        assert R.timePoint['time'] == timePoint['time']
+        assert R.timeInterval['set'] == timeInterval['set']
+        assert R.timeInterval['time'] == timeInterval['time']
     
     def test_reachSet_constructor_with_location(self):
         """Test constructor with location"""
@@ -66,8 +72,9 @@ class TestReachSet:
         }
         R = ReachSet.initReachSet(timePoint)
         assert isinstance(R, ReachSet)
-        assert R.timePoint == timePoint
-        assert R.timeInterval == {}
+        assert R.timePoint['set'] == timePoint['set']
+        assert R.timePoint['time'] == timePoint['time']
+        assert len(R.timeInterval.keys()) == 0
     
     def test_query_reachSet(self):
         """Test query method for reachSet"""

@@ -41,6 +41,7 @@ Last revision: ---
 Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Optional, Union
 from cora_python.contSet.zonotope import Zonotope
@@ -96,7 +97,7 @@ def particularSolution_timeVarying(linsys, U, timeStep: float, truncationOrder: 
     # truncation order is reached
     for eta in range(1, truncationOrder + 1):
         Apower_mm = linsys.taylor._computeApower(eta)
-        dtoverfac = timeStep**(eta + 1) / np.math.factorial(eta + 1)
+        dtoverfac = timeStep**(eta + 1) / math.factorial(eta + 1)
         
         # Additional term (only matrix)
         addTerm = Apower_mm * dtoverfac

@@ -282,9 +282,9 @@ class TestContSetPlot:
         with pytest.raises(Exception):
             I.plot([1, 2, 3, 4])  # Too many dimensions
         
-        # Test invalid dimension numbers
+        # Test invalid dimension numbers (Python uses 0-based indexing)
         with pytest.raises(Exception):
-            I.plot([0])  # Dimension 0 doesn't exist
+            I.plot([-1])  # Negative dimension doesn't exist
         
         with pytest.raises(Exception):
-            I.plot([5])  # Dimension 5 doesn't exist for 2D interval 
+            I.plot([2])  # Dimension 2 doesn't exist for 2D interval (0-based) 

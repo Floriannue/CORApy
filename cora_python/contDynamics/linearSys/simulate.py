@@ -73,13 +73,9 @@ def simulate(linsys, params: Dict[str, Any], options: Optional[Dict[str, Any]] =
     
     # Set time step
     if 'timeStep' in params:
-        # Time vector
-        t_span = np.arange(0, t_final + params['timeStep'], params['timeStep'])
-        # Append last entry if time step does not divide time horizon exactly
-        if abs(t_span[-1] - t_final) > 1e-10:
-            t_span = np.append(t_span, t_final)
-        # Number of steps
-        steps = len(t_span) - 1
+        # Use proper time vector generation to avoid floating-point accumulation errors
+        steps = int(np.round(t_final / params['timeStep']))
+        t_span = np.linspace(0, t_final, steps + 1)
         time_step_given = True
     else:
         # Time vector and number of steps

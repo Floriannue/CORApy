@@ -17,7 +17,15 @@ Python translation: 2025
 
 import numpy as np
 from typing import List, Any, Union, Callable
-from ....functions.matlab.validate.postprocessing.CORAerror import CORAError
+
+# Robust import for CORAError
+try:
+    from ....functions.matlab.validate.postprocessing.CORAerror import CORAError
+except ImportError:
+    try:
+        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+    except ImportError:
+        from g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def input_args_check(checks: List[List[Any]]) -> None:
@@ -62,8 +70,28 @@ def input_args_check(checks: List[List[Any]]) -> None:
 def _validate_type(value: Any, expected_type: str) -> None:
     """Validate object type"""
     if expected_type == 'contSet':
-        from .....contSet.contSet.contSet import ContSet
-        if not isinstance(value, ContSet):
+        try:
+            # Try multiple import paths to handle different contexts
+            try:
+                from .....contSet.contSet.contSet import ContSet
+            except ImportError:
+                try:
+                    from cora_python.contSet.contSet.contSet import ContSet
+                except ImportError:
+                    from contSet.contSet.contSet import ContSet
+            
+            # Check if the object is an instance of ContSet or has the right base class
+            if not isinstance(value, ContSet):
+                # Also check by class name as a fallback for import issues
+                if hasattr(value, '__class__') and hasattr(value.__class__, '__mro__'):
+                    for base_class in value.__class__.__mro__:
+                        if base_class.__name__ == 'ContSet':
+                            return  # Valid contSet object
+                raise CORAError('CORA:wrongValue', f'Expected contSet object, got {type(value)}')
+        except ImportError as e:
+            # If we can't import ContSet, use duck typing
+            if hasattr(value, 'dim') and hasattr(value, 'plot') and hasattr(value, 'contains'):
+                return  # Looks like a contSet object
             raise CORAError('CORA:wrongValue', f'Expected contSet object, got {type(value)}')
     elif expected_type == 'numeric':
         if not _is_numeric(value):

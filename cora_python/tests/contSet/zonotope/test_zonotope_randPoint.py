@@ -46,7 +46,7 @@ class TestZonotopeRandPoint:
         assert p.shape == (2, 10)
         
         # Test extreme points
-        p_extr = Z.randPoint(4, method='extreme')
+        p_extr = Z.randPoint(4, type_='extreme')
         assert p_extr.shape == (2, 4)
 
     def test_zonotope_randPoint_3d_degenerate(self):
@@ -58,7 +58,7 @@ class TestZonotopeRandPoint:
         numPoints = 10
         
         # Test various methods
-        p_standard = Z.randPoint(numPoints, method='standard')
+        p_standard = Z.randPoint(numPoints, type_='standard')
         assert p_standard.shape == (3, numPoints)
         
         # Test if points are contained (approximately)
@@ -71,11 +71,11 @@ class TestZonotopeRandPoint:
         Z = Zonotope(c, G)
         
         # Test standard method
-        p1 = Z.randPoint(5, method='standard')
+        p1 = Z.randPoint(5, type_='standard')
         assert p1.shape == (2, 5)
         
         # Test extreme method
-        p2 = Z.randPoint(4, method='extreme')
+        p2 = Z.randPoint(4, type_='extreme')
         assert p2.shape == (2, 4)
 
     def test_zonotope_randPoint_large_count(self):

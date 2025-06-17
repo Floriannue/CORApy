@@ -54,7 +54,16 @@ def representsa_(S, set_type, tol=1e-12, method='linearize', iter=1, splits=0):
     """
     # Check if the object has a representsa_ method and use it
     if hasattr(S, 'representsa_') and callable(getattr(S, 'representsa_')):
-        return S.representsa_(set_type, tol, method=method, iter=iter, splits=splits)
+        # Try calling with all parameters first, fallback to basic version for interval-like classes
+        try:
+            return S.representsa_(set_type, tol, method=method, iter=iter, splits=splits)
+        except TypeError:
+            # Some implementations (like interval) don't take method/iter/splits parameters
+            try:
+                return S.representsa_(set_type, tol)
+            except TypeError:
+                # Fallback to just the basic parameters
+                return S.representsa_(set_type)
     
     # Fallback error
     raise CORAError("CORA:noops", f"Function representsa_ not implemented for class {type(S).__name__}") 

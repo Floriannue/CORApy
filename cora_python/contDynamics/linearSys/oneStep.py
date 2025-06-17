@@ -79,11 +79,25 @@ def oneStep(linsys, X, U, u, timeStep: float, truncationOrder: int,
     
     # Compute particular solution due to constant input
     from .particularSolution_constant import particularSolution_constant
-    Pu, C_input_const = particularSolution_constant(linsys, u, timeStep, truncationOrder, blocks)
+    Pu, C_input_const, _ = particularSolution_constant(linsys, u, timeStep, truncationOrder, blocks)
     
     # Compute particular solution due to time-varying input
     from .particularSolution_timeVarying import particularSolution_timeVarying
-    PU, C_input_tv = particularSolution_timeVarying(linsys, U, timeStep, truncationOrder, blocks)
+    PU = particularSolution_timeVarying(linsys, U, timeStep, truncationOrder, blocks)
+    
+    # For now, assume no curvature error from time-varying input (simplified)
+    from cora_python.contSet.zonotope import Zonotope
+    if blocks is None:
+        C_input_tv = Zonotope.origin(linsys.nr_of_dims)
+    else:
+        if blocks.shape[0] == 1:
+            dim = blocks[0, 1] - blocks[0, 0] + 1
+            C_input_tv = Zonotope.origin(dim)
+        else:
+            C_input_tv = []
+            for i in range(blocks.shape[0]):
+                dim = blocks[i, 1] - blocks[i, 0] + 1
+                C_input_tv.append(Zonotope.origin(dim))
     
     # Combine input corrections
     C_input = C_input_const + C_input_tv

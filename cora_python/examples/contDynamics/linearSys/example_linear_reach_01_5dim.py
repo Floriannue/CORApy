@@ -32,9 +32,28 @@ import time
 # Add the cora_python directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
-from contDynamics.linearSys import LinearSys
-from contSet.zonotope import Zonotope
-from contSet.interval import Interval
+# Try multiple import approaches
+try:
+    # Try as module import
+    from cora_python.contDynamics.linearSys import LinearSys
+    from cora_python.contSet.zonotope import Zonotope
+    from cora_python.contSet.interval import Interval
+except ImportError:
+    try:
+        # Try relative import
+        from contDynamics.linearSys import LinearSys
+        from contSet.zonotope import Zonotope
+        from contSet.interval import Interval
+    except ImportError:
+        # Final fallback
+        import sys
+        import os
+        # Add parent directories to path
+        parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        sys.path.insert(0, parent_dir)
+        from cora_python.contDynamics.linearSys import LinearSys
+        from cora_python.contSet.zonotope import Zonotope
+        from cora_python.contSet.interval import Interval
 
 
 def example_linear_reach_01_5dim():

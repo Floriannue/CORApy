@@ -67,7 +67,8 @@ def convHull_(Z: 'Zonotope', S: Optional[Union['ContSet', np.ndarray]] = None, m
         return convHull(S, Z_out, method)
     
     # Convex hull with empty set
-    if hasattr(S, '__class__') and representsa_(S, 'emptySet', 1e-15):
+    # Only check representsa_ for objects that have the necessary methods
+    if hasattr(S, '__class__') and hasattr(S, 'isemptyobject') and representsa_(S, 'emptySet', 1e-15):
         return Z_out
     elif representsa_(Z_out, 'emptySet', 1e-15):
         return S if isinstance(S, Zonotope) else Zonotope(S, np.array([]).reshape(len(S), 0))

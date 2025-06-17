@@ -46,6 +46,12 @@ def withinTol(a, b, tol=1e-8):
     Returns:
         ndarray: Boolean array indicating where values are within tolerance
     """
+    # Handle None values
+    if a is None and b is None:
+        return True
+    if a is None or b is None:
+        return False
+    
     # Convert to numpy arrays
     a = np.asarray(a)
     b = np.asarray(b)

@@ -62,12 +62,14 @@ Translate_Cora/
 
 ## Notes
     - Name the folder cora_matlab/global in your python translation g
-    - if you run terminal command use powershell syntax, for example "command1; command2"
+    - if you run terminal command use windows powershell syntax, for example "command1; command2"
     - To ensure the functions and their corresponding tests are complete and correct look at the Cora2025.1.0_Manual.txt
     - Classes in python start with a captial letter, for example zonotop -> Zonotop
     - Always mirror the matlab codebase, check how it is done there and how it is specified in the Cora2025.1.0_Manual.txt
     - to ensure polymorphic dispatch works even tough every function has its own file use the following template `if hasattr(S, 'func') and callable(getattr(S, 'func')): return S.func()`
     - for some functions their are two version func and func_. func has the parameter handling and func_ the internal logic 
+    - there are over 600 tests - run them in a mode where it only shows failed ones and then focus on a single tests
+    - examples dont need tests, but ensure they can be executed and work correctly
 
 ## Translation Workflow must include but not limited to
 
@@ -139,7 +141,7 @@ Translate_Cora/
 
    - **Required Steps:**
      1. Run the tests (`pytest`)  
-     2. Compare numerical results  
+     2. Compare numerical Results and precision  
      3. Verify edge case handling  
      4. Check documentation completeness  
      5. Compare against matlab codebase
@@ -192,4 +194,4 @@ Translate_Cora/
 
 
 ## Task
-Your task is to translate `run the pytests and fix the translation or tests by comparing against the matlab source and the cora manual`
+Your task is to fully translate `example_linear_reach_01_5dim.py` and make it work

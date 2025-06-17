@@ -129,13 +129,13 @@ def _get_x_min_max(set_obj, dims: int) -> Tuple[float, float]:
     """Get minimum and maximum values for a set in given dimension"""
     if hasattr(set_obj, 'c') and hasattr(set_obj, 'G'):
         # Zonotope case - faster conversion
-        center = set_obj.c[dims - 1] if dims <= len(set_obj.c) else set_obj.c[0]
+        center = float(set_obj.c[dims - 1, 0]) if dims <= set_obj.c.shape[0] else float(set_obj.c[0, 0])
         if hasattr(set_obj.G, 'shape') and len(set_obj.G.shape) > 1:
             generators = set_obj.G[dims - 1, :] if dims <= set_obj.G.shape[0] else set_obj.G[0, :]
-            radius = np.sum(np.abs(generators))
+            radius = float(np.sum(np.abs(generators)))
         else:
-            radius = 0
-        return center - radius, center + radius
+            radius = 0.0
+        return float(center - radius), float(center + radius)
     elif hasattr(set_obj, 'project'):
         # General set with project method
         projected = set_obj.project([dims - 1])  # Convert to 0-based indexing
@@ -147,10 +147,11 @@ def _get_x_min_max(set_obj, dims: int) -> Tuple[float, float]:
     elif isinstance(set_obj, np.ndarray):
         # Numpy array case
         if dims <= len(set_obj):
-            val = set_obj[dims - 1]
+            val = float(set_obj[dims - 1])
             return val, val
         else:
-            return set_obj[0], set_obj[0]
+            val = float(set_obj[0])
+            return val, val
     
     # Fallback
     return 0.0, 0.0
@@ -301,10 +302,10 @@ def _plot_standard(R: List, dims: int, whichset: str, *args, **kwargs) -> object
                 t_min = t_max = float(time_obj)
             
             # Create rectangle
-            width = t_max - t_min if t_max != t_min else 0.01  # Small width for time points
-            height = int_x_max - int_x_min
+            width = float(t_max - t_min) if t_max != t_min else 0.01  # Small width for time points
+            height = float(int_x_max - int_x_min)
             
-            rect = plt.Rectangle((t_min, int_x_min), width, height, 
+            rect = plt.Rectangle((float(t_min), float(int_x_min)), width, height, 
                                alpha=0.5, *args, **kwargs)
             ax.add_patch(rect)
     

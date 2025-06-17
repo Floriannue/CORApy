@@ -58,8 +58,9 @@ def priv_reach_standard(linsys, params: Dict[str, Any], options: Dict[str, Any])
         Tuple of (timeInt, timePoint, res)
     """
     # Time period and number of steps
-    tVec = np.arange(params['tStart'], params['tFinal'] + options['timeStep'], options['timeStep'])
-    steps = len(tVec) - 1
+    # Use proper time vector generation to avoid floating-point accumulation errors
+    steps = int(np.round((params['tFinal'] - params['tStart']) / options['timeStep']))
+    tVec = np.linspace(params['tStart'], params['tFinal'], steps + 1)
     
     # Put system into canonical form: this allows us to compute the output sets
     # much more efficiently (see below)

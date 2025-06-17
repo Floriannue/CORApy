@@ -15,6 +15,36 @@ import numpy as np
 from typing import Dict, Any, Optional, List, Union
 
 
+class _DotDict:
+    """A dictionary that supports dot notation access"""
+    def __init__(self, d):
+        if d is None:
+            d = {}
+        for key, value in d.items():
+            setattr(self, key, value)
+    
+    def __getitem__(self, key):
+        return getattr(self, key)
+    
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+    
+    def __contains__(self, key):
+        return hasattr(self, key)
+    
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+    
+    def keys(self):
+        return vars(self).keys()
+    
+    def items(self):
+        return vars(self).items()
+    
+    def values(self):
+        return vars(self).values()
+
+
 class ReachSet:
     """
     Class for storing reachable sets
@@ -23,11 +53,11 @@ class ReachSet:
     time-point and time-interval reachable sets.
     
     Properties:
-        timePoint: Dictionary containing time-point reachable sets
+        timePoint: Object containing time-point reachable sets
                   - set: List of sets at time points
                   - time: List of time values
                   - error: List of error values (optional)
-        timeInterval: Dictionary containing time-interval reachable sets
+        timeInterval: Object containing time-interval reachable sets
                      - set: List of sets over time intervals
                      - time: List of time intervals
                      - error: List of error values (optional)
@@ -48,8 +78,8 @@ class ReachSet:
         """
         # Initialize empty instantiation
         if timePoint is None and timeInterval is None:
-            self.timePoint = {}
-            self.timeInterval = {}
+            self.timePoint = _DotDict({})
+            self.timeInterval = _DotDict({})
             self.parent = 0
             self.loc = 0
             return
@@ -64,8 +94,8 @@ class ReachSet:
         if not isinstance(loc, int) or loc < 0:
             raise ValueError("loc must be a non-negative integer")
         
-        self.timePoint = timePoint if timePoint is not None else {}
-        self.timeInterval = timeInterval if timeInterval is not None else {}
+        self.timePoint = _DotDict(timePoint if timePoint is not None else {})
+        self.timeInterval = _DotDict(timeInterval if timeInterval is not None else {})
         self.parent = parent
         self.loc = loc
     
@@ -149,6 +179,39 @@ class ReachSet:
         """Check if reachSet is empty"""
         from .isemptyobject import isemptyobject
         return isemptyobject(self)
+    
+    @property
+    def R0(self):
+        """Get initial set (equivalent to MATLAB's R.R0 property)"""
+        try:
+            from ...contSet.emptySet import EmptySet
+            from ..initialSet import InitialSet
+        except ImportError:
+            try:
+                from cora_python.contSet.emptySet import EmptySet
+                from cora_python.g.classes.initialSet import InitialSet
+            except ImportError:
+                # Fallback - create simple wrapper
+                class InitialSet:
+                    def __init__(self, set_obj):
+                        self.set = set_obj
+                    def plot(self, *args, **kwargs):
+                        return self.set.plot(*args, **kwargs)
+                
+                class EmptySet:
+                    def __init__(self, n=3):
+                        self.n = n
+                    def plot(self, *args, **kwargs):
+                        pass
+        
+        if (not hasattr(self.timePoint, 'set') or 
+            not self.timePoint.set or 
+            len(self.timePoint.set) == 0):
+            # Return empty set for plotting compatibility
+            return InitialSet(EmptySet(3))
+        else:
+            # Return the first time-point set wrapped in InitialSet
+            return InitialSet(self.timePoint.set[0])
     
     def plus(self, other: 'ReachSet') -> 'ReachSet':
         """Addition operation"""

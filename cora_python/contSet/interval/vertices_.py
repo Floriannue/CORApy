@@ -73,19 +73,29 @@ def vertices_(I: 'Interval') -> np.ndarray:
         # Compute all possible combinations of lower/upper bounds
         # This is equivalent to MATLAB's combinator(2, dim(I), 'p', 'r') - 1
         n_dim = dim(I)
-        combinations = list(product([0, 1], repeat=n_dim))
-        fac = np.array(combinations, dtype=bool)
-        nr_comb = len(combinations)
         
-        # Initialize all points with lower bound
-        V = np.tile(I.inf.reshape(-1, 1), (1, nr_comb))
-        
-        # Read out supremum
-        ub = I.sup
-        
-        # Loop over all factors
-        for i in range(nr_comb):
-            V[fac[i], i] = ub[fac[i]]
+        # Handle scalar case (1D interval)
+        if n_dim == 1:
+            # For 1D intervals, vertices are just [inf, sup]
+            if I.inf.ndim == 0:  # Scalar interval
+                V = np.array([[I.inf.item(), I.sup.item()]])
+            else:  # 1D array interval
+                V = np.array([[I.inf[0], I.sup[0]]])
+        else:
+            # Multi-dimensional case
+            combinations = list(product([0, 1], repeat=n_dim))
+            fac = np.array(combinations, dtype=bool)
+            nr_comb = len(combinations)
+            
+            # Initialize all points with lower bound
+            V = np.tile(I.inf.reshape(-1, 1), (1, nr_comb))
+            
+            # Read out supremum
+            ub = I.sup
+            
+            # Loop over all factors
+            for i in range(nr_comb):
+                V[fac[i], i] = ub[fac[i]]
     
     # 2D: sort vertices counter-clockwise
     if n == 2 and V.shape[1] == 4:

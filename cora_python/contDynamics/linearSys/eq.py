@@ -10,6 +10,8 @@ Date: 2025-06-08
 
 import numpy as np
 from typing import TYPE_CHECKING, Union
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.g.functions.matlab.validate.check.compareMatrices import compareMatrices
 
 if TYPE_CHECKING:
     from .linearSys import LinearSys
@@ -74,88 +76,43 @@ def isequal(linsys1: 'LinearSys', linsys2: 'LinearSys', tol: float = None) -> bo
         return False
     
     # Check system matrix A
-    if not _compare_matrices(linsys1.A, linsys2.A, tol):
+    if not compareMatrices(linsys1.A, linsys2.A, tol, ordered=True, signed=True):
         return False
     
     # Check input matrix B
-    if not _compare_matrices(linsys1.B, linsys2.B, tol):
+    if not compareMatrices(linsys1.B, linsys2.B, tol, ordered=True, signed=True):
         return False
     
     # Check offset c (differential equation)
-    if not _within_tol(linsys1.c, linsys2.c, tol):
+    result_c = withinTol(linsys1.c, linsys2.c, tol)
+    if not (result_c if isinstance(result_c, bool) else result_c.all()):
         return False
     
     # Check output matrix C
-    if not _within_tol(linsys1.C, linsys2.C, tol):
+    result_C = withinTol(linsys1.C, linsys2.C, tol)
+    if not (result_C if isinstance(result_C, bool) else result_C.all()):
         return False
     
     # Check feedthrough matrix D
-    if not _within_tol(linsys1.D, linsys2.D, tol):
+    result_D = withinTol(linsys1.D, linsys2.D, tol)
+    if not (result_D if isinstance(result_D, bool) else result_D.all()):
         return False
     
     # Check offset k (output equation)
-    if not _within_tol(linsys1.k, linsys2.k, tol):
+    result_k = withinTol(linsys1.k, linsys2.k, tol)
+    if not (result_k if isinstance(result_k, bool) else result_k.all()):
         return False
     
     # Check disturbance matrix E (state)
-    if not _compare_matrices(linsys1.E, linsys2.E, tol):
+    if not compareMatrices(linsys1.E, linsys2.E, tol, ordered=True, signed=True):
         return False
     
     # Check disturbance matrix F (output)
-    if not _compare_matrices(linsys1.F, linsys2.F, tol):
+    if not compareMatrices(linsys1.F, linsys2.F, tol, ordered=True, signed=True):
         return False
     
     # All checks passed
     return True
 
 
-def _compare_matrices(mat1: np.ndarray, mat2: np.ndarray, tol: float) -> bool:
-    """
-    Compare two matrices within tolerance
-    
-    Args:
-        mat1: First matrix
-        mat2: Second matrix
-        tol: Tolerance for comparison
-        
-    Returns:
-        bool: True if matrices are equal within tolerance
-    """
-    # Handle empty matrices
-    if mat1.size == 0 and mat2.size == 0:
-        return True
-    if mat1.size == 0 or mat2.size == 0:
-        return False
-    
-    # Check shapes
-    if mat1.shape != mat2.shape:
-        return False
-    
-    # Check values within tolerance
-    return np.allclose(mat1, mat2, atol=tol, rtol=tol)
-
-
-def _within_tol(arr1: np.ndarray, arr2: np.ndarray, tol: float) -> bool:
-    """
-    Check if all elements of two arrays are within tolerance
-    
-    Args:
-        arr1: First array
-        arr2: Second array
-        tol: Tolerance for comparison
-        
-    Returns:
-        bool: True if all elements are within tolerance
-    """
-    # Handle empty arrays
-    if arr1.size == 0 and arr2.size == 0:
-        return True
-    if arr1.size == 0 or arr2.size == 0:
-        return False
-    
-    # Check shapes
-    if arr1.shape != arr2.shape:
-        return False
-    
-    # Check all elements within tolerance
-    return np.all(np.abs(arr1 - arr2) <= tol) 
+ 

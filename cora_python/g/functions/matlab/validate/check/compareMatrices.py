@@ -71,6 +71,12 @@ def compareMatrices(M1, M2, tol=None, flag='equal', ordered=False, signed=True):
     if tol is None:
         tol = np.finfo(float).eps
     
+    # Handle None matrices
+    if M1 is None and M2 is None:
+        return True
+    if M1 is None or M2 is None:
+        return False
+    
     # Initialize result
     res = True
     

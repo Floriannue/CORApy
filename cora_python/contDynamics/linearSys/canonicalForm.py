@@ -115,12 +115,8 @@ def canonicalForm(linsys, U, uVec, W, V, vVec) -> Tuple:
         # In MATLAB, this would be element-wise multiplication
         # For zonotopes, we need to create a diagonal matrix from F
         F_diag = np.diag(linsys.F.flatten())
-        print(f"DEBUG: In canonicalForm, type(U): {type(U)}, U.c.shape: {U.c.shape}, U.G.shape: {U.G.shape}")
-        print(f"DEBUG: In canonicalForm, type(centerU): {type(centerU)}, centerU.shape: {centerU.shape}")
         V_ = linsys.D @ (U + centerU) + F_diag @ V
     else:
-        print(f"DEBUG: In canonicalForm (else), type(U): {type(U)}, U.c.shape: {U.c.shape}, U.G.shape: {U.G.shape}")
-        print(f"DEBUG: In canonicalForm (else), type(centerU): {type(centerU)}, centerU.shape: {centerU.shape}")
         V_ = linsys.D @ (U + centerU) + linsys.F @ V
     
     # Offset vector for state
