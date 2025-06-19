@@ -11,6 +11,7 @@ Written: 2025
 import pytest
 import numpy as np
 from cora_python.g.classes.verifyTime import VerifyTime
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 class TestVerifyTime:
@@ -122,7 +123,6 @@ class TestVerifyTime:
     
     def test_merge_overlapping_intervals(self):
         """Test handling of overlapping intervals"""
-        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
         
         # Overlapping intervals should raise an error (matching MATLAB behavior)
         with pytest.raises(CORAError):
@@ -168,7 +168,6 @@ class TestVerifyTime:
     
     def test_invalid_intervals(self):
         """Test handling of invalid intervals"""
-        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
         
         # Interval with start > end - should raise CORAError
         with pytest.raises(CORAError):

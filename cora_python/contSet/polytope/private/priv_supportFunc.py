@@ -30,6 +30,8 @@ Python translation: 2025
 
 import numpy as np
 from typing import Tuple, Union
+from cora_python.g.functions.matlab.converter import CORAlinprog
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def priv_supportFunc(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray, 
@@ -50,8 +52,7 @@ def priv_supportFunc(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarra
             val - value of the support function
             x - support vector (or None if infeasible/unbounded)
     """
-    from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
-    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+
     
     if type == 'upper':
         s = -1

@@ -10,6 +10,7 @@ from .simResult import SimResult
 from .taylorLinSys import TaylorLinSys
 from .linErrorBound import LinErrorBound
 from .verifyTime import VerifyTime
+from .setproperty import SetProperty
 
 # Export all classes
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     'SimResult', 
     'TaylorLinSys',
     'LinErrorBound',
-    'VerifyTime'
+    'VerifyTime',
+    'SetProperty'
 ] 

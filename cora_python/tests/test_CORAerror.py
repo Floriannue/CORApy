@@ -10,7 +10,7 @@ Written: 2025
 
 import pytest
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError, CORAerror
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 class TestCORAError:

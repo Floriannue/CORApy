@@ -481,6 +481,44 @@ class TestLinearSysReachAdaptive:
         if valid_errors:
             assert all(err <= error_tol * 1.1 for err in valid_errors)
 
+    def test_adaptive_reach_bugfix_case(self):
+        """
+        Test case from MATLAB test_linearSys_reach_12_adaptive_2.m
+        Checks if the adaptive tuning of time step sizes no longer prohibits
+        itself from using a previously used time step size in case it was
+        the largest time-step tried so far.
+        """
+        # Dynamics from MATLAB test
+        A = np.array([[-0.1, -2.], [2., -0.1]])
+        B = np.eye(2)
+        linsys = LinearSys(A, B)
+
+        # Parameters
+        params = {
+            'tStart': 0.0,
+            'tFinal': 60.0,
+            'U': Zonotope(np.zeros((2, 1)), np.zeros((2,2))),
+            'R0': Zonotope(np.zeros((2, 1)), np.zeros((2,2)))
+        }
+        params['U'].generators[1, 1] = 1.
+
+        # Options to reproduce the specific scenario
+        options = {
+            'linAlg': 'adaptive',
+            'error': 1493.48,
+            'verbose': 0,
+            'verify': False
+        }
+
+        # Reachability analysis should perform with no errors
+        try:
+            priv_reach_adaptive(linsys, params, options)
+            success = True
+        except Exception:
+            success = False
+
+        assert success, "priv_reach_adaptive failed on the bugfix test case."
+
 
 if __name__ == '__main__':
     pytest.main([__file__]) 

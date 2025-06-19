@@ -44,7 +44,7 @@ Python translation: 2025
 import numpy as np
 from typing import Union, Optional, Tuple, Any
 from ..contSet import ContSet
-from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.g.functions.matlab.validate.check import withinTol
 from cora_python.contSet.emptySet.empty import empty as emptySet
 from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.interval import Interval

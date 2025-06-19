@@ -6,12 +6,9 @@ cora_python/contDynamics/linearSys/linearSys.py : cora_python/tests/contDynamics
 cora_python/contSet/interval/interval.py : cora_python/tests/contSet/interval/test_interval.py
 cora_python/contSet/zonotope/zonotope.py : cora_python/tests/contSet/zonotope/test_zonotope.py
 cora_python/examples/contDynamics/linearSys/example_linear_reach_01_5dim.py : cora_python/tests/contDynamics/linearSys/test_example_linear_reach_01_5dim.py
-cora_python/g/classes/linErrorBound.py : 
-cora_python/g/classes/verifyTime.py :
+cora_python/g/classes/linErrorBound.py : tests/g/classes/test_linErrorBound.py
+cora_python/g/classes/verifyTime.py : tests/g/classes/test_verifyTime.py
 cora_python/contDynamics/linearSys/private/priv_reach_adaptive.py : cora_python/tests/contDynamics/linearSys/test_linearSys_reach_adaptive.py
-cora_python/tests/g/classes/test_linErrorBound.py :
-cora_python/tests/g/classes/test_verifyTime.py :
-cora_python/tests/g/classes/test_initialSet.py :
 cora_python/tests/contDynamics/contDynamics/test_contDynamics.py :
 cora_python/contDynamics/linearSys/affineSolution.py : cora_python/tests/contDynamics/linearSys/test_linearSys_affineSolution.py
 cora_python/contSet/polytope/contains_.py : 

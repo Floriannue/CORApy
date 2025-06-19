@@ -12,7 +12,7 @@ import pytest
 import numpy as np
 from cora_python.contSet.zonotope.zonotope import Zonotope
 from cora_python.contSet.zonotope.vertices_ import vertices_
-from cora_python.g.functions.matlab.validate.check.compareMatrices import compareMatrices
+from cora_python.g.functions.matlab.validate.check import compareMatrices
 
 
 def test_zonotope_vertices():

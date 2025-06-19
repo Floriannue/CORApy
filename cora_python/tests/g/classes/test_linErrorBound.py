@@ -153,10 +153,9 @@ class TestLinErrorBound:
         assert hasattr(errs, 'bound_red_max')
         assert errs.bound_red_max >= 0.0
         assert errs.bound_red_max <= errs.emax
-        
+    
     def test_init_invalid_params(self):
         """Test initialization with invalid parameters"""
-        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
         
         # Test negative error
         with pytest.raises(CORAError):
@@ -487,6 +486,47 @@ class TestLinErrorBound:
         assert isinstance(result, float)
         assert result > 0
 
+    def test_print(self):
+        """Test printing functionality"""
+        errs = LinErrorBound(10, 1)
+        
+        # set partial errors and bounds
+        errs.timeSteps = [0.1, 0.2, 0.3, 0.3, 0.1]
+        errs.seq_nonacc = [[0.1], [0.15], [0.15], [0.12], [0.05]]
+        errs.bound_rem = [[0.5], [0.4], [0.4], [0.2], [0.1]]
+        errs.step_acc = [[0.01], [0.01], [0.03], [0.02], [0.02]]
+        errs.bound_acc = [[0.1], [0.2], [0.3], [0.3], [0.1]]
+        errs.step_red = [0, 0.04, 0, 0, 0.05]
+        errs.bound_red = [[0.1], [0.2], [0.2], [0.4], [0.5]]
+
+        # print table
+        table_str = errs.print()
+        assert isinstance(table_str, str)
+        assert "k" in table_str
+        assert "timeStep" in table_str
+
+    def test_plot(self):
+        """Test plotting functionality"""
+        errs = LinErrorBound(10, 10)
+
+        # set partial errors and bounds
+        errs.timeSteps = [1, 2, 1, 3, 2, 1]
+        errs.seq_nonacc = [[4], [3.5], [2], [2.75], [2], [1]]
+        errs.bound_rem = [[5], [4], [3.5], [3], [2.75], [2.5]]
+        errs.step_acc = [[0.1], [0.3], [0.2], [0.5], [0.3], [0.1]]
+        errs.bound_acc = [[0.2], [0.5], [0.3], [1], [0.5], [0.2]]
+        errs.step_red = [0, 0, 0.2, 0.5, 0, 0.1]
+        errs.bound_red = [[0.5], [1.5], [2], [3], [2], [1]]
+
+        # plot errors - check if it runs without error
+        try:
+            errs.plot()
+            plot_success = True
+        except Exception:
+            plot_success = False
+        
+        assert plot_success
+
 
 def test_linErrorBound_integration():
     """Integration test for LinErrorBound with typical adaptive algorithm usage"""
@@ -550,4 +590,6 @@ if __name__ == '__main__':
     test.test_accumulateErrors()
     test.test_fullErrors()
     test.test_computeErrorBoundReduction()
+    test.test_print()
+    test.test_plot()
     print("All LinErrorBound tests passed!") 

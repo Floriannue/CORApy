@@ -25,7 +25,8 @@ Python translation: 2025
 
 import numpy as np
 from typing import Dict, Any, List, Optional
-from cora_python.g import set_default_values, plot_polytope_3d
+from cora_python.g.functions.matlab.validate.preprocessing.set_default_values import set_default_values
+from cora_python.g.functions.verbose.plot import plot_polytope_3d
 
 
 def plot3D(S, plot_kwargs: Optional[Dict[str, Any]] = None, 

@@ -27,6 +27,7 @@ Python translation: 2025
 """
 
 import numpy as np
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def empty(n=0):
@@ -43,7 +44,6 @@ def empty(n=0):
     
     # Parse input - ensure n is non-negative scalar
     if not isinstance(n, (int, np.integer)) or n < 0:
-        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
         raise CORAError('CORA:wrongInputInConstructor',
                       'Dimension must be a non-negative integer')
     

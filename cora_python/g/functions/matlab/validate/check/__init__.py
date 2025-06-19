@@ -1,8 +1,10 @@
-from .compareMatrices import compareMatrices
-from .withinTol import withinTol
+from .equal_dim_check import equal_dim_check
 from .inputArgsCheck import inputArgsCheck
-from .assertNarginConstructor import assertNarginConstructor
-from .checkValueAttributes import checkValueAttributes
+from .withinTol import withinTol
+from .compareMatrices import compareMatrices
 from .checkNameValuePairs import checkNameValuePairs
+from .assertNarginConstructor import assertNarginConstructor
+from .input_args_check import input_args_check
+from .checkValueAttributes import checkValueAttributes
 
-__all__ = ['compareMatrices', 'withinTol', 'inputArgsCheck', 'assertNarginConstructor', 'checkValueAttributes', 'checkNameValuePairs'] 
+__all__ = ['equal_dim_check', 'inputArgsCheck', 'withinTol', 'compareMatrices', 'checkNameValuePairs', 'assertNarginConstructor', 'input_args_check', 'checkValueAttributes'] 

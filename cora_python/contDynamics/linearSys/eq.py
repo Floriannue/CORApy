@@ -10,8 +10,8 @@ Date: 2025-06-08
 
 import numpy as np
 from typing import TYPE_CHECKING, Union
-from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
-from cora_python.g.functions.matlab.validate.check.compareMatrices import compareMatrices
+from cora_python.g.functions.matlab.validate.check import withinTol
+from cora_python.g.functions.matlab.validate.check import compareMatrices
 
 if TYPE_CHECKING:
     from .linearSys import LinearSys

@@ -100,6 +100,16 @@ class Zonotope(ContSet):
         self.c = c
         self.G = G
     
+    @property
+    def center(self):
+        """Returns the center of the zonotope."""
+        return self.c
+
+    @property
+    def generators(self):
+        """Returns the generators of the zonotope."""
+        return self.G
+
     def _parse_input_args(self, *args):
         """Parse input arguments from user and assign to variables"""
         

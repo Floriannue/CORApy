@@ -30,6 +30,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Tuple
+from cora_python.g.functions.matlab.validate.check import withinTol
 
 
 def priv_box_V(V: np.ndarray, n: int) -> Tuple[np.ndarray, np.ndarray, bool]:
@@ -47,7 +48,6 @@ def priv_box_V(V: np.ndarray, n: int) -> Tuple[np.ndarray, np.ndarray, bool]:
             b - inequality constraint offset  
             empty - true/false whether result is the empty set
     """
-    from cora_python.g.functions.matlab.withinTol import withinTol
     
     # check for emptiness
     empty = V.size == 0

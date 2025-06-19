@@ -19,11 +19,7 @@ from .dim import dim
 from .compact_ import compact_
 from .vertices_ import vertices_
 from .project import project
-try:
-    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-except ImportError:
-    # Fallback for when running from within the cora_python directory
-    from g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def randPoint_(Z: 'Zonotope', N: Union[int, str] = 1, type_: str = 'standard') -> np.ndarray:
@@ -251,104 +247,69 @@ def _aux_getRandomBoundaryPoints(Z: 'Zonotope', N: int) -> np.ndarray:
     if N == 0:
         return np.zeros((n, 0))
     
-    # Simple implementation: generate points on random faces
-    points = np.zeros((n, N))
-    
+    p = np.zeros((n, N))
     for i in range(N):
-        # Choose random face by fixing one generator to ±1
-        gen_idx = np.random.randint(0, nrGen)
-        factors = -1 + 2 * np.random.rand(nrGen)
-        factors[gen_idx] = np.random.choice([-1, 1])  # Fix to boundary
+        # Generate a random direction
+        d = np.random.randn(n)
+        d /= np.linalg.norm(d)
         
-        points[:, i] = (Z.c.flatten() + Z.G @ factors).flatten()
+        # Find the support function in this direction
+        s_d = np.sum(np.abs(d.T @ Z.G))
+        p[:, i] = Z.c.flatten() + (d * s_d)
     
-    return points
+    return p
 
 
 def _aux_randPointParallelotopeUniform(Z: 'Zonotope', N: int) -> np.ndarray:
-    """Uniform sampling for parallelotopes"""
-    # For parallelotopes, uniform sampling is straightforward
-    factors = -1 + 2 * np.random.rand(Z.G.shape[1], N)
-    return Z.c.reshape(-1, 1) + Z.G @ factors
+    """Uniform random point generation for parallelotopes"""
+    if isinstance(N, str):
+        N = 1
+    factors = -0.5 + np.random.rand(Z.G.shape[1], N)
+    p = Z.c.reshape(-1, 1) + Z.G @ factors
+    return p
 
 
 def _aux_randPointBilliard(Z: 'Zonotope', N: int) -> np.ndarray:
-    """Billiard walk uniform sampling"""
-    # Simplified billiard walk implementation
-    # This is a complex algorithm, providing a basic version
-    n = dim(Z)
-    points = np.zeros((n, N))
-    
-    # Start from center - ensure it's a 1D array
-    current_point = Z.c.flatten()
-    center = Z.c.flatten()
-    
-    for i in range(N):
-        # Random direction
-        direction = np.random.randn(n)
-        direction = direction / np.linalg.norm(direction)
-        
-        # Find intersection with boundary and reflect
-        # This is a simplified version - full implementation would be more complex
-        step_size = 0.1 * np.min(np.abs(Z.G).sum(axis=0))
-        current_point = current_point + step_size * direction
-        
-        # Project back to zonotope (simplified)
-        factors = np.linalg.pinv(Z.G) @ (current_point - center)
-        factors = np.clip(factors, -1, 1)
-        current_point = center + Z.G @ factors
-        
-        # Ensure current_point is 1D
-        if current_point.ndim > 1:
-            current_point = current_point.flatten()
-        
-        points[:, i] = current_point
-    
-    return points
+    """Billiard walk algorithm for uniform sampling"""
+    raise NotImplementedError("Billiard walk not implemented yet")
 
 
 def _aux_randPointBallWalk(Z: 'Zonotope', N: int) -> np.ndarray:
-    """Ball walk uniform sampling"""
-    # Simplified ball walk implementation
-    return _aux_randPointBilliard(Z, N)  # Use billiard as approximation
+    """Ball walk algorithm for uniform sampling"""
+    raise NotImplementedError("Ball walk not implemented yet")
 
 
 def _aux_randPointHitAndRun(Z: 'Zonotope', N: int) -> np.ndarray:
-    """Hit-and-run uniform sampling"""
-    # Simplified hit-and-run implementation
-    return _aux_randPointBilliard(Z, N)  # Use billiard as approximation
+    """Hit-and-run algorithm for uniform sampling"""
+    raise NotImplementedError("Hit-and-run not implemented yet")
 
 
 def _aux_randPointRadius(Z: 'Zonotope', N: int) -> np.ndarray:
-    """Radius-based sampling"""
-    # Generate points based on radius
-    factors = np.random.rand(Z.G.shape[1], N)
-    factors = 2 * factors - 1  # Scale to [-1, 1]
+    """Radius-based random point generation"""
+    if isinstance(N, str):
+        N = 1
     
-    # Apply random scaling
-    scales = np.random.rand(1, N)
-    factors = factors * scales
+    # Generate random directions
+    p = np.random.randn(dim(Z), N)
+    # Normalize
+    p /= np.linalg.norm(p, axis=0)
+    # Scale by random radius
+    p *= np.random.rand(1, N)
     
-    return Z.c.reshape(-1, 1) + Z.G @ factors
+    # Multiply with generators
+    G_sum = np.sum(np.abs(Z.G), axis=1).reshape(-1, 1)
+    p = Z.c.reshape(-1, 1) + p * G_sum
+    return p
 
 
 def _ndimCross(Q: np.ndarray) -> np.ndarray:
-    """N-dimensional cross product generalization"""
-    n, m = Q.shape
-    if m != n - 1:
-        raise ValueError("Q must have n-1 columns for n-dimensional cross product")
+    """N-dimensional cross product"""
+    if Q.shape[0] != Q.shape[1] + 1:
+        raise ValueError("Input must be a (n, n-1) matrix")
     
-    if n == 2:
-        # 2D case: perpendicular vector
-        return np.array([-Q[1, 0], Q[0, 0]])
-    elif n == 3:
-        # 3D case: standard cross product
-        if m == 2:
-            return np.cross(Q[:, 0], Q[:, 1])
-        else:
-            return Q[:, 0]  # Fallback
-    else:
-        # Higher dimensions: use SVD to find null space
-        U, s, Vt = svd(Q.T)
-        null_space = Vt[-1, :]
-        return null_space 
+    n = Q.shape[0]
+    c = np.zeros(n)
+    for i in range(n):
+        M = np.delete(Q, i, axis=0)
+        c[i] = (-1)**i * np.linalg.det(M)
+    return c.reshape(-1, 1)

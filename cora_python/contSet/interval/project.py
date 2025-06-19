@@ -9,11 +9,7 @@ Python translation: 2025
 """
 
 import numpy as np
-try:
-    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-except ImportError:
-    # Fallback for when running from within the cora_python directory
-    from g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def project(I: 'Interval', dims) -> 'Interval':
@@ -56,4 +52,4 @@ def project(I: 'Interval', dims) -> 'Interval':
         inf_proj = I.inf[dims]
         sup_proj = I.sup[dims]
     
-    return Interval(inf_proj, sup_proj) 
+    return Interval(inf_proj, sup_proj)

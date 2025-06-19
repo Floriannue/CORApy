@@ -29,16 +29,8 @@ Last revision: ---
 
 import numpy as np
 from typing import Union
-try:
-    from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
-    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-except ImportError:
-    try:
-        from ....validate.check.withinTol import withinTol
-        from ....validate.postprocessing.CORAerror import CORAError
-    except ImportError:
-        from g.functions.matlab.validate.check.withinTol import withinTol
-        from g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def sparseOrthMatrix(n: int) -> np.ndarray:

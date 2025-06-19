@@ -27,8 +27,12 @@ Python translation: 2025
 
 import numpy as np
 from typing import List, Any, Optional, Union
-from cora_python.g import (set_default_values, input_args_check, read_name_value_pair, 
-                          read_plot_options, get_unbounded_axis_limits, CORAError)
+from cora_python.g.functions.matlab.validate.preprocessing.set_default_values import set_default_values
+from cora_python.g.functions.matlab.validate.check.input_args_check import input_args_check
+from cora_python.g.functions.verbose.plot import read_name_value_pair
+from cora_python.g.functions.verbose.plot import read_plot_options
+from cora_python.g.functions.verbose.plot import get_unbounded_axis_limits
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def plot(S, *args, **kwargs):

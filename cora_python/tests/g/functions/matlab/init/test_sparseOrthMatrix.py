@@ -9,7 +9,7 @@ Date: 2025
 
 import pytest
 import numpy as np
-from cora_python.g.functions.matlab.init.sparseOrthMatrix import sparseOrthMatrix
+from cora_python.g.functions.matlab.init import sparseOrthMatrix
 
 
 class TestSparseOrthMatrix:

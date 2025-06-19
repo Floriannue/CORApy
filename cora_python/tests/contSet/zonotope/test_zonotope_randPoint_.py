@@ -12,7 +12,7 @@ import numpy as np
 from cora_python.contSet.zonotope.zonotope import Zonotope
 from cora_python.contSet.zonotope.randPoint_ import randPoint_
 from cora_python.contSet.contSet.contains import contains
-from cora_python.g.functions.matlab.validate.check.compareMatrices import compareMatrices
+from cora_python.g.functions.matlab.validate.check import compareMatrices
 
 
 def test_zonotope_randPoint():

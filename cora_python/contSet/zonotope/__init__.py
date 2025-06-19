@@ -6,7 +6,7 @@ Each method is implemented in its own file following the MATLAB structure.
 """
 
 from .zonotope import Zonotope
-from .abs import abs_
+from .abs_ import abs_
 from .box import box
 from .plus import plus
 from .minus import minus
@@ -38,12 +38,15 @@ from .reduce import reduce
 # Attach methods to the class
 Zonotope.abs_ = abs_
 Zonotope.box = box
-Zonotope.plus = plus
-Zonotope.minus = minus
-Zonotope.times = times
-Zonotope.uminus = uminus
-Zonotope.isequal = isequal
-Zonotope.mtimes = mtimes
+Zonotope.__add__ = plus
+Zonotope.__radd__ = plus
+Zonotope.__sub__ = minus
+Zonotope.__mul__ = times
+Zonotope.__rmul__ = times
+Zonotope.__neg__ = uminus
+Zonotope.__eq__ = isequal
+Zonotope.__matmul__ = mtimes
+Zonotope.__rmatmul__ = lambda self, other: mtimes(other, self)
 Zonotope.dim = dim
 Zonotope.empty = empty
 Zonotope.origin = origin
@@ -65,15 +68,4 @@ Zonotope.convHull_ = convHull_
 Zonotope.enclose = enclose
 Zonotope.reduce = reduce
 
-# Special methods
-Zonotope.__abs__ = abs_
-Zonotope.__add__ = plus
-Zonotope.__sub__ = minus
-Zonotope.__neg__ = uminus
-Zonotope.__eq__ = isequal
-Zonotope.__mul__ = mtimes
-Zonotope.__rmul__ = lambda self, other: mtimes(other, self)
-Zonotope.__matmul__ = lambda self, other: mtimes(self, other)
-Zonotope.__rmatmul__ = lambda self, other: mtimes(other, self)
-
-__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce'] 
+__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'is_empty'] 

@@ -38,7 +38,7 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 # Import auxiliary functions
 from .aux_functions import _reorder_numeric, _equal_dim_check
-from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.g.functions.matlab.validate.check import withinTol
 
 
 class Interval(ContSet):

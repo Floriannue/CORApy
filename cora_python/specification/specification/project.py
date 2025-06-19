@@ -31,6 +31,8 @@ Python translation: 2025
 """
 
 from typing import Union, List
+from .specification import Specification
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def project(spec, dims):
@@ -49,8 +51,6 @@ def project(spec, dims):
     """
     
     # Import here to avoid circular imports
-    from .specification import Specification
-    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
     
     # Handle single specification case
     if isinstance(spec, Specification):

@@ -36,10 +36,53 @@ def isequal(S1: 'ContSet', S2: Any, tol: Optional[float] = None, *args, **kwargs
         >>> S2 = interval([1, 2], [3, 4])
         >>> result = isequal(S1, S2)
     """
-    # Use polymorphic dispatch
-    if hasattr(S1, 'isequal') and callable(getattr(S1, 'isequal')):
-        return S1.isequal(S2, tol, *args, **kwargs)
+    # Check if objects are the same instance
+    if S1 is S2:
+        return True
     
-    # Fallback - throw error if not implemented
+    # Check if they're the same type
+    if type(S1) != type(S2):
+        return False
+    
+    # For contSet objects, try to find a specific isequal implementation
+    # Look for class-specific isequal function (e.g., interval/isequal.py)
+    module_name = type(S1).__name__.lower()
+    try:
+        # Try to import the specific isequal function
+        import importlib
+        isequal_module = importlib.import_module(f'cora_python.contSet.{module_name}.isequal')
+        if hasattr(isequal_module, 'isequal'):
+            return isequal_module.isequal(S1, S2, tol, *args, **kwargs)
+    except (ImportError, AttributeError):
+        pass
+    
+    # Fallback - basic comparison for simple cases
+    # For objects with same attributes, compare them
+    if hasattr(S1, '__dict__') and hasattr(S2, '__dict__'):
+        try:
+            import numpy as np
+            s1_dict = S1.__dict__.copy()
+            s2_dict = S2.__dict__.copy()
+            
+            # Compare each attribute
+            if set(s1_dict.keys()) != set(s2_dict.keys()):
+                return False
+                
+            for key in s1_dict.keys():
+                v1, v2 = s1_dict[key], s2_dict[key]
+                if isinstance(v1, np.ndarray) and isinstance(v2, np.ndarray):
+                    if tol is not None:
+                        if not np.allclose(v1, v2, atol=tol, rtol=tol):
+                            return False
+                    else:
+                        if not np.array_equal(v1, v2):
+                            return False
+                elif v1 != v2:
+                    return False
+            return True
+        except:
+            pass
+    
+    # Final fallback - throw error if not implemented
     raise CORAError('CORA:noops', 
                    f'isequal not implemented for {type(S1).__name__} and {type(S2).__name__}') 

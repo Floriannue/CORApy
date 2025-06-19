@@ -2,6 +2,7 @@ import numpy as np
 from typing import Any, Callable, List, Union, Tuple, Optional
 
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.check.checkValueAttributes import checkValueAttributes
 
 # Assume CHECKS_ENABLED is True for now, or needs to be imported from g.macros if it exists.
 # For a more robust solution, CHECKS_ENABLED would be a configuration or global variable.
@@ -96,8 +97,6 @@ def readNameValuePair(NVpairs: List[Any], name: str, *varargin) -> Tuple[List[An
         NVpairs.pop(index_to_remove) # Pop the value as well
         
         if checks_enabled and funcs:
-            # DEFERRED IMPORT: import checkValueAttributes only when needed
-            from cora_python.g.functions.matlab.validate.check.checkValueAttributes import checkValueAttributes
             # check whether name complies with check
             res = checkValueAttributes(value, '', funcs) # class_name empty to only check attributes
             if not res:

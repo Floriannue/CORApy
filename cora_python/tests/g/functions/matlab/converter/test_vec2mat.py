@@ -9,7 +9,7 @@ Date: 2025
 
 import pytest
 import numpy as np
-from cora_python.g.functions.matlab.converter.vec2mat import vec2mat
+from cora_python.g.functions.matlab.converter import vec2mat, mat2vec
 
 
 class TestVec2mat:
@@ -75,7 +75,6 @@ class TestVec2mat:
     
     def test_vec2mat_roundtrip(self):
         """Test roundtrip conversion with mat2vec"""
-        from cora_python.g.functions.matlab.converter.mat2vec import mat2vec
         
         # Test various matrix shapes
         for shape in [(2, 2), (3, 3), (2, 4), (4, 2), (1, 5), (5, 1)]:

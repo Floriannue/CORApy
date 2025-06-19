@@ -3,7 +3,8 @@ from typing import Union, Optional, Tuple, Any
 
 from cora_python.contSet.contSet.contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-from cora_python.g.functions.matlab.validate.check import assertNarginConstructor, inputArgsCheck
+from cora_python.g.functions.matlab.validate.check import assertNarginConstructor
+from cora_python.g.functions.matlab.validate.check import inputArgsCheck
 
 
 class Ellipsoid(ContSet):

@@ -14,9 +14,9 @@ import numpy as np
 import pytest
 from cora_python.contDynamics.linearSys import LinearSys, affineSolution
 from cora_python.contSet.zonotope import Zonotope
-from cora_python.g.functions.matlab.validate.check.compareMatrices import compareMatrices
+from cora_python.g.functions.matlab.validate.check import compareMatrices
 from cora_python.contSet.contSet import isequal, contains
-from cora_python.g.functions.helper.sets.contSet.contSet.enclose import enclose
+from cora_python.g.functions.helper.sets.contSet.contSet import enclose
 import scipy.linalg
 
 

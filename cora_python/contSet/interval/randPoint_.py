@@ -19,11 +19,7 @@ from .dim import dim
 from .project import project
 from .vertices_ import vertices_
 from .isemptyobject import isemptyobject
-try:
-    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-except ImportError:
-    # Fallback for when running from within the cora_python directory
-    from g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
 def randPoint_(I: 'Interval', N: Union[int, str] = 1, type_: str = 'standard') -> np.ndarray:

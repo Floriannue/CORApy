@@ -9,7 +9,7 @@ Date: 2025
 
 import pytest
 import numpy as np
-from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
+from cora_python.g.functions.matlab.converter import CORAlinprog
 
 
 class TestCORAlinprog:

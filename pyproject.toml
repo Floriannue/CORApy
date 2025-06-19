@@ -1,3 +1,22 @@
+[tool.poetry]
+name = "cora-python"
+version = "0.1.0"
+description = "Python translation of the CORA toolbox"
+authors = ["CORA-Group"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^1.26.4"
+scipy = "^1.13.0"
+pytest = "^8.1.1"
+matplotlib = "^3.8.4"
+pypoman = "^1.1.0"
+cvxpy = "1.6.6"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.pytest.ini_options]
 testpaths = ["cora_python/tests"]
 pythonpath = ["."] 

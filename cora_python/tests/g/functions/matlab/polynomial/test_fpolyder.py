@@ -9,7 +9,7 @@ Date: 2025
 
 import pytest
 import numpy as np
-from cora_python.g.functions.matlab.polynomial.fpolyder import fpolyder
+from cora_python.g.functions.matlab.polynomial import fpolyder
 
 
 class TestFpolyder:

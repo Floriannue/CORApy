@@ -9,7 +9,7 @@ Date: 2025
 
 import pytest
 import numpy as np
-from cora_python.g.functions.matlab.polynomial.minMaxDiffPoly import minMaxDiffPoly
+from cora_python.g.functions.matlab.polynomial import minMaxDiffPoly
 
 
 class TestMinMaxDiffPoly:

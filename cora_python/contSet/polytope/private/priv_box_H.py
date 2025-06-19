@@ -33,6 +33,8 @@ Python translation: 2025
 
 import numpy as np
 from typing import Tuple
+from cora_python.g.functions.matlab.init import unitvector
+from .priv_supportFunc import priv_supportFunc
 
 
 def priv_box_H(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray, 
@@ -54,8 +56,6 @@ def priv_box_H(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray,
             b - inequality constraint offset
             empty - true/false whether result is the empty set
     """
-    from cora_python.g.functions.matlab.init.unitvector import unitvector
-    from .priv_supportFunc import priv_supportFunc
     
     # init bounds
     ub = np.full((n, 1), np.inf)

@@ -102,10 +102,10 @@ def _contains_pointcloud(P, points: np.ndarray, method: str, tol: float,
     
     n, num_points = points.shape
     
-    # Check if polytope has halfspace representation
-    if P.A is None or P.b is None:
+    # After calling P.constraints(), we should have H-representation
+    if P.A is None:
         raise CORAError('CORA:notSupported', 
-                       'Polytope containment requires halfspace representation')
+                       'Polytope containment requires halfspace representation (A matrix is missing).')
     
     # Initialize results
     results = np.zeros(num_points, dtype=bool)
@@ -115,34 +115,46 @@ def _contains_pointcloud(P, points: np.ndarray, method: str, tol: float,
     for i in range(num_points):
         point = points[:, i:i+1]
         
-        # Check inequality constraints A*x <= b
-        violations = P.A @ point - P.b
-        max_violation = np.max(violations)
-        
-        # Check if point is contained (within tolerance)
-        is_contained = max_violation <= tol
-        results[i] = is_contained
-        
-        # Compute scaling factor if requested
-        if scalingToggle and is_contained:
-            # For contained points, scaling is at most 1
-            if max_violation <= 0:
-                scaling_factors[i] = 1.0
-            else:
-                # Point is outside but within tolerance
-                scaling_factors[i] = 1.0 + max_violation / (np.max(np.abs(P.b)) + 1e-12)
-        elif scalingToggle:
-            # For non-contained points, compute required scaling
+        # Assume contained until a violation is found
+        is_contained = True
+
+        # Check inequality constraints A*x <= b, if they exist
+        if P.A.shape[0] > 0:
+            violations = P.A @ point - P.b
+            max_violation = np.max(violations)
+            
             if max_violation > tol:
-                scaling_factors[i] = 1.0 + max_violation / (np.max(np.abs(P.b)) + 1e-12)
-        
+                is_contained = False
+
+            # Compute scaling factor if requested
+            if scalingToggle:
+                if is_contained:
+                    scaling_factors[i] = 1.0 # Already inside
+                else:
+                    # For non-contained points, compute required scaling
+                    b_norm = np.linalg.norm(P.b)
+                    if b_norm > 1e-9:
+                        scaling_factors[i] = 1.0 + max_violation / b_norm
+                    else:
+                        scaling_factors[i] = 1.0 + max_violation
+
         # Check equality constraints if present
-        if P.Ae is not None and P.be is not None:
+        if P.Ae is not None and P.Ae.shape[0] > 0:
             eq_violations = np.abs(P.Ae @ point - P.be)
             max_eq_violation = np.max(eq_violations)
-            is_contained = is_contained and (max_eq_violation <= tol)
-            results[i] = is_contained
+            
+            if max_eq_violation > tol:
+                is_contained = False
+        
+        results[i] = is_contained
     
+    # Final check for scaling factors for points that were initially outside
+    # but might be considered inside due to tolerance.
+    if scalingToggle:
+        results_bool = results.astype(bool)
+        scaling_factors[results_bool] = np.minimum(scaling_factors[results_bool], 1.0)
+
+
     # Return results
     if num_points == 1:
         return bool(results[0]), True, float(scaling_factors[0])

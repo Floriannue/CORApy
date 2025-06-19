@@ -50,7 +50,8 @@ import numpy as np
 from typing import Tuple, Optional, Union
 from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.contSet import decompose
-from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes, block_operation
+from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes
+from cora_python.g.functions.helper.sets.contSet.contSet import block_operation
 
 
 def particularSolution_constant(linsys, U, timeStep: float, truncationOrder: int, 

@@ -37,8 +37,8 @@ Python translation: 2025
 import numpy as np
 from typing import Optional, Tuple, List
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-from cora_python.g.functions.matlab.validate.check.auxiliary.combinator import combinator
-from cora_python.g.functions.helper.ndimCross import ndimCross
+from cora_python.g.functions.matlab.validate.check.auxiliary import combinator
+from cora_python.g.functions.helper import ndimCross
 
 
 def zonotope(Z, method: str = 'exact'):

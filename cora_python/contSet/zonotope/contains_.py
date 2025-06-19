@@ -35,10 +35,8 @@ from scipy.optimize import linprog
 from typing import Union, Tuple, Optional
 import warnings
 
-try:
-    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-except ImportError:
-    from ...g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 from .compact_ import compact_
 
@@ -131,40 +129,34 @@ def _set_containment(Z, S, method: str, tol: float, maxEval: int,
             raise ValueError(f"Containment check not implemented for {S_class}")
 
 
-def _zonotope_containment(Z, S, method: str, tol: float, 
-                         certToggle: bool, scalingToggle: bool) -> Union[bool, Tuple]:
-    """
-    Check if zonotope Z contains zonotope S.
-    """
+def _zonotope_containment(Z, S_zono, method, tol, certToggle, scalingToggle):
+    """Helper function for zonotope-in-zonotope containment"""
     
-    if method == 'exact:venum':
-        # Use vertex enumeration method
-        try:
-            from .private.priv_zonotopeContainment_vertexEnumeration import priv_zonotopeContainment_vertexEnumeration
-            res, cert, scaling = priv_zonotopeContainment_vertexEnumeration(S, Z, tol, scalingToggle)
-        except ImportError:
-            # Fallback: check vertices of S
-            vertices = S.vertices_()
-            return _point_containment(Z, vertices, method, tol, certToggle, scalingToggle)
+    if method in ['exact', 'exact:polymax', 'exact:venum']:
+        # Fallback to vertex enumeration for exact methods
+        vertices = S_zono.vertices()
+        # It's a point cloud now, so call the point containment helper
+        res, cert, scaling = _point_containment(Z, vertices, 'exact', tol, certToggle, scalingToggle)
+
+        # For set containment, all vertices must be contained.
+        # Reduce the array results to a single boolean.
+        res_final = np.all(res)
+        cert_final = np.all(cert)
+        # The required scaling is the maximum scaling over all vertices.
+        scaling_final = np.max(scaling) if isinstance(scaling, np.ndarray) and scaling.size > 0 else scaling
+
+        return res_final, cert_final, scaling_final
+
+    elif method == 'approx:st':
+        from .private.priv_zonotopeContainment_SadraddiniTedrake import priv_zonotopeContainment_SadraddiniTedrake
+        return priv_zonotopeContainment_SadraddiniTedrake(S_zono, Z, tol, scalingToggle)
+
     else:
-        # Default: check vertices of S
-        vertices = S.vertices_()
-        res, cert, scaling = _point_containment(Z, vertices, method, tol, certToggle, scalingToggle)
-        
-        # For set containment, all vertices must be contained
-        if isinstance(res, np.ndarray):
-            res_scalar = np.all(res)
-            cert_scalar = np.all(cert)
-            scaling_scalar = np.max(scaling) if isinstance(scaling, np.ndarray) else scaling
-        else:
-            res_scalar = res
-            cert_scalar = cert
-            scaling_scalar = scaling
-        
-        return res_scalar, cert_scalar, scaling_scalar
-    
-    # Always return all three values for consistency
-    return res, cert, scaling
+        # For other approximation methods, we can try to overapproximate S_zono
+        # and check if that overapproximation is contained.
+        # This part is complex and requires more of the library to be ported.
+        # For now, we'll raise an error for unsupported methods.
+        raise ValueError(f"Unsupported method for zonotope-in-zonotope containment: {method}")
 
 
 def _interval_containment(Z, I, method: str, tol: float, 

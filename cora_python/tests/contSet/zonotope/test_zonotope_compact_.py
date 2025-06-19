@@ -15,7 +15,7 @@ Date: 2025-01-11
 import pytest
 import numpy as np
 from cora_python.contSet.zonotope.zonotope import Zonotope
-from cora_python.g.functions.matlab.validate.check.compareMatrices import compareMatrices
+from cora_python.g.functions.matlab.validate.check import compareMatrices
 
 
 class TestZonotopeCompact:

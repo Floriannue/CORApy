@@ -9,7 +9,7 @@ Date: 2025
 
 import pytest
 import numpy as np
-from cora_python.g.functions.matlab.converter.mat2vec import mat2vec
+from cora_python.g.functions.matlab.converter import mat2vec
 
 
 class TestMat2vec:

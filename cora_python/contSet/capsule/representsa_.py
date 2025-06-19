@@ -5,7 +5,7 @@ from cora_python.contSet.emptySet import empty as emptySet
 from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.interval import Interval
 from cora_python.contSet.ellipsoid import Ellipsoid
-from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.g.functions.matlab.validate.check import withinTol
 
 
 def representsa_(capsule_obj, set_type: str, tol: float = 1e-12, **kwargs) -> Union[bool, Tuple[bool, Any]]:

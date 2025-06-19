@@ -23,41 +23,37 @@ Last update: --- (MATLAB)
 Python translation: 2025
 """
 
+from typing import TYPE_CHECKING
 import numpy as np
 from scipy.optimize import linprog
 
+if TYPE_CHECKING:
+    from .polytope import Polytope
 
-def isemptyobject(P) -> bool:
+def isemptyobject(P: 'Polytope') -> bool:
     """
-    Check if polytope represents an empty set
-    
-    Args:
-        P: Polytope object
-        
-    Returns:
-        bool: True if polytope is empty, False otherwise
+    Checks if a polytope object is fully empty.
+
+    In the context of this library's Polytope class:
+    - An empty H-representation (no constraints) means the polytope is the entire space.
+    - An empty V-representation (no vertices) means the polytope is the empty set.
+
+    This function returns true only if the object is "fully empty",
+    meaning it has neither a valid H-rep nor a valid V-rep defined
+    at the time of calling.
     """
-    
-    # Check if marked as empty
-    if hasattr(P, 'emptySet') and P.emptySet:
-        return True
-    
-    # For halfspace representation: A*x <= b
-    if P.A is not None and P.b is not None and P.A.size > 0:
-        return _check_empty_halfspace(P)
-    
-    # For vertex representation
-    if hasattr(P, 'V'):
-        if P.V is None or P.V.size == 0:
-            return True
-        else:
-            return False
-    
-    # If no constraints and no vertices, consider empty
-    if (P.A is None or P.A.size == 0) and (not hasattr(P, 'V') or P.V is None or P.V.size == 0):
-        return True
-    
-    return False
+
+    # Check if H-representation is effectively empty
+    has_h_rep = P._has_h_rep and (
+        (P._A is not None and P._A.size > 0) or
+        (P._Ae is not None and P._Ae.size > 0)
+    )
+
+    # Check if V-representation is effectively empty
+    has_v_rep = P._has_v_rep and (P._V is not None and P._V.size > 0)
+
+    # The object is considered "empty" in this specific sense if neither are present
+    return not has_h_rep and not has_v_rep
 
 
 def _check_empty_halfspace(P) -> bool:

@@ -1,12 +1,17 @@
 """
-polytope - class for polytope objects
+polytope - object constructor for polytope objects
 
-This class represents polytope objects defined as (halfspace representation)
-{ x | A*x <= b }. 
-For convenience, equality constraints { x | A*x <= b, Ae*x == be }
-can be added, too.
-Alternatively, polytopes can be defined as (vertex representation)
-{ sum_i a_i v_i | sum_i a_i = 1, a_i >= 0 }
+Description:
+    This class represents polytope objects defined as (halfspace
+    representation)
+      { x | A*x <= b }. 
+    For convenience, equality constraints
+      { x | A*x <= b, Ae*x == be }
+    can be added, too.
+    Alternatively, polytopes can be defined as (vertex representation)
+      { sum_i a_i v_i | sum_i a_i = 1, a_i >= 0 }
+    Note: A polytope without any constraints represents R^n.
+    Note: A polytope instantiated without input arguments is the empty set.
 
 Syntax:
     P = polytope(V)
@@ -24,375 +29,272 @@ Outputs:
     obj - generated polytope object
 
 Example: 
-    A = [1 0 -1 0 1; 0 1 0 -1 1]';
+    A = [1 0 -1 0 1];
     b = [3; 2; 3; 2; 1];
     P = polytope(A,b);
 
-Authors: Viktor Kotsev, Mark Wetzlinger, Tobias Ladner (MATLAB)
-         Python translation by AI Assistant
-Written: 25-April-2022 (MATLAB)
-Last update: 01-December-2022 (MW, add CORAerrors, checks) (MATLAB)
-             16-July-2024 (MW, allow separate usage of VRep/HRep) (MATLAB)
-Python translation: 2025
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+Authors:       Viktor Kotsev, Mark Wetzlinger, Tobias Ladner
+Written:       25-April-2022
+Last update:   01-December-2022 (MW, add CORAerrors, checks)
+               12-June-2023 (MW, add hidden properties)
+               08-December-2023 (MW, handle -Inf/Inf offsets)
+               01-January-2024 (MW, different meaning of fully empty obj)
+               13-March-2024 (TL, check if input is numeric)
+               16-July-2024 (MW, allow separate usage of VRep/HRep)
+Last revision: 25-July-2023 (MW, restructure constructor)
 """
 
-import numpy as np
-from typing import Union, Optional, Any
-from cora_python.contSet.contSet import ContSet
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+# This file is part of the CORA project.
+# Copyright (c) 2024, System Control and Robotics Group, TU Graz.
+# All rights reserved.
 
+import numpy as np
+from typing import Union, List, Tuple
+
+from cora_python.contSet.contSet.contSet import ContSet
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from .private.priv_V_to_H import priv_V_to_H
+from .vertices_ import vertices_
 
 class Polytope(ContSet):
     """
-    Polytope class for convex polytope objects
-    
-    This class represents polytopes in either halfspace representation 
-    (A*x <= b) or vertex representation (convex hull of vertices).
+    Class for representing polytopes.
+    A polytope can be represented by its vertices (V-representation)
+    or by half-space constraints (H-representation).
+
+    H-representation: {x in R^n | A*x <= b, Ae*x = be}
+    V-representation: conv(V)
     """
-    
+
+    # Give higher priority than numpy arrays for @ operator
+    __array_priority__ = 1000
+
     def __init__(self, *args):
         """
-        Constructor for polytope objects
+        Constructor for the Polytope class.
 
-        Args:
-            *args: Variable arguments for different construction modes:
-                   - Polytope(A, b): From constraints A*x <= b
-                   - Polytope(A, b, Ae, be): From constraints with equalities
-                   - Polytope(V): From vertices V
-                   - Polytope(P): Copy constructor
-                   - Polytope(Z): From zonotope Z
+        Possible calls:
+        P = Polytope()            # Empty polytope
+        P = Polytope(V)           # From vertices V
+        P = Polytope(contSetObj)  # From another set with vertices
+        P = Polytope(A, b)        # From inequalities
+        P = Polytope(A, b, Ae, be)# From inequalities and equalities
         """
-        # Call parent constructor
         super().__init__()
-        
-        # Avoid empty instantiation
-        if len(args) == 0:
-            raise CORAError('CORA:noInputInSetConstructor',
-                           'No input arguments provided to polytope constructor')
+        self.precedence = 80
+        self.dimension = 0
 
-        if len(args) > 4:
-            raise CORAError('CORA:wrongInput',
-                           'Too many input arguments for polytope constructor')
+        # Representations
+        self._V = None
+        self._A = None
+        self._b = None
+        self._Ae = None
+        self._be = None
+        
+        # Internal flags
+        self._has_v_rep = False
+        self._has_h_rep = False
+
+        # --- Constructor Logic ---
+        if len(args) == 0:
+            # Empty polytope
+            self._has_v_rep = True # Empty V-rep
+            self._V = np.array([[]])
+            return
 
         # Copy constructor
         if len(args) == 1 and isinstance(args[0], Polytope):
-            other = args[0]
-            self.A = other.A.copy() if other.A is not None else None
-            self.b = other.b.copy() if other.b is not None else None
-            self.Ae = getattr(other, 'Ae', None)
-            self.be = getattr(other, 'be', None)
-            self.V = other.V.copy() if hasattr(other, 'V') and other.V is not None else None
-            self.bounded = getattr(other, 'bounded', None)
-            self.fullDim = getattr(other, 'fullDim', None)
-            self.precedence = 80
+            p_in = args[0]
+            self._V = p_in._V.copy() if p_in._V is not None else None
+            self._A = p_in._A.copy() if p_in._A is not None else None
+            self._b = p_in._b.copy() if p_in._b is not None else None
+            self._Ae = p_in._Ae.copy() if p_in._Ae is not None else None
+            self._be = p_in._be.copy() if p_in._be is not None else None
+            self._has_v_rep = p_in._has_v_rep
+            self._has_h_rep = p_in._has_h_rep
+            self.dimension = p_in.dimension
             return
 
-        # Handle zonotope conversion
-        if len(args) == 1 and hasattr(args[0], '__class__') and args[0].__class__.__name__ == 'Zonotope':
-            # Convert zonotope to polytope
-            from .zonotope import zonotope as poly_from_zonotope
-            P = poly_from_zonotope(args[0])
-            self.A = P.A
-            self.b = P.b
-            self.Ae = getattr(P, 'Ae', None)
-            self.be = getattr(P, 'be', None)
-            self.V = getattr(P, 'V', None)
-            self.bounded = getattr(P, 'bounded', True)  # Zonotopes are always bounded
-            self.fullDim = getattr(P, 'fullDim', None)
-            self.precedence = 80
-            return
-
-        # Parse input arguments
-        if len(args) == 1:
-            # From vertices
-            V = np.asarray(args[0], dtype=float)
-            if V.ndim != 2:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Vertex matrix must be 2D')
-            
-            self.V = V
-            self.A = None
-            self.b = None
-            self.Ae = None
-            self.be = None
-            
-        elif len(args) == 2:
-            # From constraints A*x <= b
-            A = np.asarray(args[0], dtype=float)
-            b = np.asarray(args[1], dtype=float)
-            
-            if A.ndim != 2:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Constraint matrix A must be 2D')
-            
-            if b.ndim == 1:
-                b = b.reshape(-1, 1)
-            elif b.ndim != 2 or b.shape[1] != 1:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Constraint vector b must be 1D or column vector')
-            
-            if A.shape[0] != b.shape[0]:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Number of rows in A must match length of b')
-            
-            self.A = A
-            self.b = b
-            self.V = None
-            self.Ae = None
-            self.be = None
-            
-        elif len(args) == 4:
-            # From constraints A*x <= b, Ae*x == be
-            A = np.asarray(args[0], dtype=float)
-            b = np.asarray(args[1], dtype=float)
-            Ae = np.asarray(args[2], dtype=float)
-            be = np.asarray(args[3], dtype=float)
-            
-            # Validate A, b
-            if A.ndim != 2:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Constraint matrix A must be 2D')
-            
-            if b.ndim == 1:
-                b = b.reshape(-1, 1)
-            elif b.ndim != 2 or b.shape[1] != 1:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Constraint vector b must be 1D or column vector')
-            
-            if A.shape[0] != b.shape[0]:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Number of rows in A must match length of b')
-                               
-            # Validate Ae, be
-            if Ae.ndim != 2:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Equality constraint matrix Ae must be 2D')
-            
-            if be.ndim == 1:
-                be = be.reshape(-1, 1)
-            elif be.ndim != 2 or be.shape[1] != 1:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Equality constraint vector be must be 1D or column vector')
-            
-            if Ae.shape[0] != be.shape[0]:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Number of rows in Ae must match length of be')
-                               
-            if A.shape[1] != Ae.shape[1]:
-                raise CORAError('CORA:wrongInputInConstructor',
-                               'Number of columns must match between A and Ae')
-            
-            self.A = A
-            self.b = b
-            self.Ae = Ae
-            self.be = be
-            self.V = None
-        
-        # Set properties
-        self.bounded = None  # Computed on demand
-        self.fullDim = None  # Computed on demand
-        self.precedence = 80
-    
-    def dim(self) -> int:
-        """Get dimension of the polytope"""
-        if self.A is not None:
-            return self.A.shape[1]
-        elif self.V is not None:
-            return self.V.shape[0]
-        else:
-            return 0
-    
-    def is_empty(self) -> bool:
-        """Check if polytope is empty"""
-        if self.A is not None and self.b is not None:
-            # Check if constraints are feasible
-            # This is a simplified check - would need proper LP solver
-            return False  # Assume non-empty for now
-        elif self.V is not None:
-            return self.V.shape[1] == 0
-        else:
-            return True
-    
-    def contains(self, point: Union[np.ndarray, 'ContSet']) -> bool:
-        """Check if polytope contains given point(s) or set"""
-        if isinstance(point, np.ndarray):
-            return self._contains_point(point)
-        else:
-            # For sets, would need more sophisticated containment check
-            raise NotImplementedError("Set containment not implemented for polytopes")
-    
-    def _contains_point(self, point: np.ndarray) -> bool:
-        """Check if polytope contains a point"""
-        if self.A is None or self.b is None:
-            raise NotImplementedError("Point containment requires constraint representation")
-        
-        point = np.asarray(point, dtype=float)
-        if point.ndim == 1:
-            point = point.reshape(-1, 1)
-        
-        # Check A*x <= b
-        result = np.all(self.A @ point <= self.b + 1e-12)  # Small tolerance
-        
-        # Check equality constraints if present
-        if self.Ae is not None and self.be is not None:
-            result = result and np.allclose(self.Ae @ point, self.be, atol=1e-12)
-        
-        return result
-    
-    def center(self) -> np.ndarray:
-        """Get center of the polytope"""
-        if self.V is not None:
-            # Centroid of vertices
-            return np.mean(self.V, axis=1, keepdims=True)
-        else:
-            # Would need to compute Chebyshev center
-            raise NotImplementedError("Center computation from constraints not implemented")
-    
-    def is_bounded(self) -> bool:
-        """Check if polytope is bounded"""
-        if self.bounded is not None:
-            return self.bounded
-        
-        if self.V is not None:
-            self.bounded = True  # Vertex representation implies bounded
-        else:
-            # Would need to check if all directions are bounded
-            self.bounded = True  # Assume bounded for now
-        
-        return self.bounded
-    
-    def isIntersecting(self, other: Union['ContSet', np.ndarray]) -> bool:
-        """Check if polytope intersects with another set"""
-        if isinstance(other, np.ndarray):
-            return self.contains(other)
-        else:
-            # Would need sophisticated intersection algorithms
-            raise NotImplementedError("Set intersection not implemented for polytopes")
-    
-    def __add__(self, other):
-        """Minkowski sum"""
-        raise NotImplementedError("Minkowski sum not implemented for polytopes")
-    
-    def __sub__(self, other):
-        """Pontryagin difference"""
-        raise NotImplementedError("Pontryagin difference not implemented for polytopes")
-    
-    def __matmul__(self, other):
-        """Linear transformation"""
-        if isinstance(other, np.ndarray):
-            return self._linear_map(other)
-        else:
-            raise NotImplementedError("Matrix multiplication with sets not implemented")
-    
-    def _linear_map(self, M: np.ndarray) -> 'Polytope':
-        """Apply linear transformation M to polytope"""
-        if self.V is not None:
-            # Transform vertices
-            V_new = M @ self.V
-            return Polytope(V_new)
-        else:
-            # Transform constraints: A*x <= b becomes A*M^(-1)*y <= b
-            # This is complex and requires matrix inversion
-            raise NotImplementedError("Linear map from constraints not implemented")
-    
-    def __and__(self, other):
-        """Intersection"""
-        if isinstance(other, Polytope):
-            return self._intersect_polytope(other)
-        else:
-            raise NotImplementedError("Intersection with other sets not implemented")
-    
-    def _intersect_polytope(self, other: 'Polytope') -> 'Polytope':
-        """Intersect with another polytope"""
-        if self.A is not None and other.A is not None:
-            # Combine constraints
-            A_new = np.vstack([self.A, other.A])
-            b_new = np.vstack([self.b, other.b])
-            
-            # Handle equality constraints
-            Ae_new = None
-            be_new = None
-            if self.Ae is not None or other.Ae is not None:
-                Ae_list = []
-                be_list = []
-                if self.Ae is not None:
-                    Ae_list.append(self.Ae)
-                    be_list.append(self.be)
-                if other.Ae is not None:
-                    Ae_list.append(other.Ae)
-                    be_list.append(other.be)
-                if Ae_list:
-                    Ae_new = np.vstack(Ae_list)
-                    be_new = np.vstack(be_list)
-            
-            if Ae_new is not None:
-                return Polytope(A_new, b_new, Ae_new, be_new)
+        # From another set object that has vertices
+        if len(args) == 1 and isinstance(args[0], ContSet):
+            try:
+                self._V = args[0].vertices()
+                self._has_v_rep = True
+            except (NotImplementedError, CORAerror):
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'The provided set object must have a vertices method.')
+            if self._V is None or self._V.size == 0:
+                 self._has_v_rep = False # Could not get vertices
             else:
-                return Polytope(A_new, b_new)
+                 self.dimension = self._V.shape[0]  # rows are spatial dimensions
+            return
+
+        # From numeric arrays
+        # V-representation
+        if len(args) == 1:
+            self._V = np.asarray(args[0])
+            if self._V.size > 0:
+                self.dimension = self._V.shape[0]  # rows are spatial dimensions
+            self._has_v_rep = True
+        # H-representation
+        elif len(args) in [2, 3, 4]:
+            self._A = np.asarray(args[0])
+            self._b = np.asarray(args[1]).reshape(-1, 1)
+            if self._A.size > 0:
+                self.dimension = self._A.shape[1]
+
+            if len(args) >= 3 and args[2] is not None:
+                self._Ae = np.asarray(args[2])
+                if self.dimension == 0 and self._Ae.size > 0:
+                    self.dimension = self._Ae.shape[1]
+            if len(args) == 4 and args[3] is not None:
+                self._be = np.asarray(args[3]).reshape(-1, 1)
+            self._has_h_rep = True
         else:
-            raise NotImplementedError("Intersection requires constraint representation")
-    
+            raise CORAerror('CORA:wrongInputInConstructor',
+                          'Invalid number of arguments for Polytope constructor.')
+
+    @property
+    def V(self):
+        if not self._has_v_rep:
+            self._V = vertices_(self)
+            self._has_v_rep = True
+        return self._V
+
+    @property
+    def A(self):
+        if not self._has_h_rep:
+            self._convert_V_to_H()
+        return self._A
+
+    @property
+    def b(self):
+        if not self._has_h_rep:
+            self._convert_V_to_H()
+        return self._b
+
+    @property
+    def Ae(self):
+        if not self._has_h_rep:
+            self._convert_V_to_H()
+        return self._Ae
+
+    @property
+    def be(self):
+        if not self._has_h_rep:
+            self._convert_V_to_H()
+        return self._be
+
+    def _convert_V_to_H(self):
+        """Converts vertex representation to half-space representation."""
+        if self._V is None or self._V.size == 0:
+            # Cannot convert empty vertices
+            self._A, self._b, self._Ae, self._be = np.array([]), np.array([]), np.array([]), np.array([])
+        else:
+            # priv_V_to_H expects vertices as columns (d x n_vertices), which is our storage format
+            self._A, self._b, self._Ae, self._be = priv_V_to_H(self._V)
+        self._has_h_rep = True
+
+    def dim(self):
+        return self.dimension
+
+    def __repr__(self):
+        # A simple representation for the polytope
+        if self._V is not None:
+            return f"Polytope(V={self._V.shape})"
+        elif self._A is not None:
+            if self._Ae is not None:
+                return f"Polytope(H-rep: A({self._A.shape}), b({self._b.shape}), Ae({self._Ae.shape}), be({self._be.shape}))"
+            else:
+                return f"Polytope(H-rep: A({self._A.shape}), b({self._b.shape}))"
+        else:
+            return "Polytope(empty)"
+
+    def __mul__(self, other):
+        from .mtimes import mtimes
+        return mtimes(self, other)
+
+    def __rmul__(self, other):
+        from .mtimes import mtimes
+        return mtimes(other, self)
+
+    def __matmul__(self, other):
+        from .mtimes import mtimes
+        return mtimes(self, other)
+
+    def __rmatmul__(self, other):
+        from .mtimes import mtimes
+        return mtimes(other, self)
+
+    def __add__(self, other):
+        return self.plus(self, other)
+
+    def constraints(self):
+        """
+        Computes the half-space representation (A, b) and equality 
+        constraints (Ae, be) of the polytope if it is not already available.
+        
+        If the polytope is defined by vertices, it converts them to half-spaces.
+        
+        Returns:
+            Polytope: The same polytope object with A, b, Ae, and be properties populated.
+        """
+        if self._A is None:
+            if self._V is not None:
+                from .private.priv_V_to_H import priv_V_to_H
+                # priv_V_to_H expects vertices as columns (d x n_vertices), which is our storage format
+                self._A, self._b, self._Ae, self._be = priv_V_to_H(self._V)
+            else:
+                # This is an empty polytope defined with no args
+                pass
+        return self
+
     # Static methods
     @staticmethod
-    def empty(n: int = 0) -> 'Polytope':
-        """Create empty polytope"""
-        # Empty polytope has infeasible constraints
-        A = np.array([[1], [-1]])  # x >= 1 and x <= -1 (infeasible)
-        b = np.array([[-1], [-1]])
-        if n > 1:
-            A = np.hstack([A, np.zeros((2, n-1))])
-        return Polytope(A, b)
-    
+    def generate_random(*args) -> 'Polytope':
+        # P = generateRandom(varargin) % generate random polytope
+        # This will be implemented in a separate file: generate_random.py
+        raise NotImplementedError("This method will be implemented in a separate file.")
+
+    @staticmethod
+    def enclose_points(points: np.ndarray, *args) -> 'Polytope':
+        # P = enclosePoints(points,varargin) % enclose point cloud with polytope
+        # This will be implemented in a separate file: enclose_points.py
+        raise NotImplementedError("This method will be implemented in a separate file.")
+
+    @staticmethod
+    def empty(n: int) -> 'Polytope':
+        # P = empty(n) % instantiate empty polytope
+        # This will be implemented in a separate file: empty.py
+        raise NotImplementedError("This method will be implemented in a separate file.")
+
     @staticmethod
     def Inf(n: int) -> 'Polytope':
-        """Create unbounded polytope (whole space)"""
-        # No constraints means whole space
-        A = np.zeros((0, n))
-        b = np.zeros((0, 1))
-        return Polytope(A, b)
-    
-    def __str__(self) -> str:
-        """String representation"""
-        if self.A is not None:
-            constraints_str = f"{self.A.shape[0]} constraints"
-            if self.Ae is not None:
-                constraints_str += f", {self.Ae.shape[0]} equalities"
-            return f"Polytope: {constraints_str} in R^{self.dim()}"
-        elif self.V is not None:
-            return f"Polytope: {self.V.shape[1]} vertices in R^{self.dim()}"
-        else:
-            return f"Polytope: empty in R^{self.dim()}"
-    
-    def contains_(self, S, method='exact', tol=1e-12, maxEval=0, certToggle=True, scalingToggle=False):
-        """Check if polytope contains another set or points"""
-        from .contains_ import contains_
-        return contains_(self, S, method, tol, maxEval, certToggle, scalingToggle)
-    
-    def dim(self) -> int:
-        """Get dimension of polytope"""
-        from .dim import dim
-        return dim(self)
-    
-    def center(self):
-        """Get center of polytope"""
-        from .center import center
-        return center(self)
-    
-    def isBounded(self) -> bool:
-        """Check if polytope is bounded"""
-        from .isBounded import isBounded
-        return isBounded(self)
-    
-    def isemptyobject(self) -> bool:
-        """Check if polytope is empty"""
-        from .isemptyobject import isemptyobject
-        return isemptyobject(self)
-    
-    def interval(self):
-        """Enclose polytope by an interval"""
-        from .interval import interval
-        return interval(self)
-    
-    def __repr__(self) -> str:
-        """Detailed string representation"""
-        return self.__str__() 
+        # P = Inf(n) % instantiate polytope representing R^n
+        # This will be implemented in a separate file: Inf.py
+        raise NotImplementedError("This method will be implemented in a separate file.")
+
+    @staticmethod
+    def origin(n: int) -> 'Polytope':
+        # P = origin(n) % instantiate polytope representing the origin in R^n
+        # This will be implemented in a separate file: origin.py
+        raise NotImplementedError("This method will be implemented in a separate file.")
+
+    # Protected methods
+    def get_print_set_info(self) -> Tuple[str, List[str]]:
+        # [abbrev,printOrder] = getPrintSetInfo(S)
+        # This will be implemented in a separate file: get_print_set_info.py
+        raise NotImplementedError("This method will be implemented in a separate file.")
+
+    def representsa_(self, set_type: str, tol: float = 1e-9, **kwargs) -> bool:
+        """Internal check if set represents a specific type"""
+        from .representsa_ import representsa_
+        return representsa_(self, set_type, tol, **kwargs)
+
+    def copy(self):
+        """Create a copy of this polytope"""
+        return Polytope(self) 

@@ -12,6 +12,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import TYPE_CHECKING
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 if TYPE_CHECKING:
     from .interval import Interval
@@ -48,8 +49,6 @@ def _equal_dim_check(obj1, obj2):
     Raises:
         CORAError: If dimensions don't match
     """
-    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-    
     if hasattr(obj1, 'inf') and hasattr(obj2, 'inf'):
         if obj1.inf.shape != obj2.inf.shape:
             raise CORAError('CORA:dimensionMismatch', 

@@ -44,6 +44,7 @@ from cora_python.contSet.interval import Interval
 from ..canonicalForm import canonicalForm
 from ..oneStep import oneStep
 from .priv_outputSet_canonicalForm import priv_outputSet_canonicalForm
+from scipy.linalg import expm
 
 
 def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, Any]) -> Tuple[Dict, Dict, bool]:
@@ -84,9 +85,20 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
     # Log information
     _verboseLog(options.get('verbose', 0), 1, params['tStart'], params['tStart'], params['tFinal'])
     
+    # Initialize variables
+    dim = linsys.A.shape[0]
+    m = linsys.B.shape[1] if linsys.B is not None else 0
+    p = linsys.E.shape[1] if linsys.E is not None else 0
+    
+    # Compute the homogeneous solution
+    e_A_th = expm(linsys.A * options['timeStep'])
+    
+    # Initial state
+    Rinit = params['R0']
+    
     # Compute reachable sets for first step
     Rtp, Rti, Htp, Hti, PU, Pu, _, C_input = oneStep(linsys,
-        params['R0'], U, u[:, 0], options['timeStep'], options['taylorTerms'])
+        Rinit, U, u[:, 0], options['timeStep'], options['taylorTerms'])
     
     # Read out propagation matrix and base particular solution
     eAdt = linsys.taylor.getTaylor('eAdt', timeStep=options['timeStep'])
@@ -99,7 +111,7 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
         Pu_c = Pu.center()
         Pu_int = Interval(Pu) - Pu_c
     else:
-        Pu_int = np.zeros((linsys.nr_of_states, 1))
+        Pu_int = np.zeros((linsys.nr_of_dims, 1))
         Pu_c = Pu
     
     # Compute output set of start set and first time-interval solution
@@ -134,7 +146,7 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
                 Pu_c = Pu.center()
                 Pu_int = Interval(Pu) - Pu_c
             else:
-                Pu_int = np.zeros((linsys.nr_of_states, 1))
+                Pu_int = np.zeros((linsys.nr_of_dims, 1))
                 Pu_c = Pu
         else:
             # Propagate affine solution

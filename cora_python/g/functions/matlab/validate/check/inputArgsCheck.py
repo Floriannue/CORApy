@@ -2,7 +2,7 @@ import numpy as np
 from typing import Any, List, Union, Tuple
 
 from .checkValueAttributes import checkValueAttributes
-from cora_python.g.functions.matlab.validate.preprocessing.readNameValuePair import readNameValuePair
+from cora_python.g.functions.matlab.validate.preprocessing import readNameValuePair
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 # Assume CHECKS_ENABLED is True for now, or needs to be imported from g.macros if it exists.

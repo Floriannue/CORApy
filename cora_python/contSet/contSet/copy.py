@@ -10,33 +10,33 @@ Written: 30-September-2024 (MATLAB)
 Python translation: 2025
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def copy(S: 'ContSet') -> 'ContSet':
     """
-    Copies the contSet object (used for dynamic dispatch)
-    
-    This is the base implementation that throws an error. Subclasses should
-    override this method to provide specific copying logic.
-    
+    Copies the contSet object (used for dynamic dispatch).
+
+    This is the base implementation that throws an error. Subclasses must
+    override this method by providing a `copy.py` file in their own
+    module to provide specific copying logic.
+
     Args:
-        S: contSet object to copy
-        
+        S: contSet object to copy.
+
     Returns:
-        ContSet: Copied contSet object
-        
+        A copied contSet object.
+
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
-        
-    Example:
-        >>> S = zonotope([1, 0], [[1, 0, -1], [0, 1, 1]])
-        >>> S_out = copy(S)
+        CORAerror: Always raised, as this method must be overridden.
     """
-    # Check if the object has a copy method and use it
-    if hasattr(S, 'copy') and callable(getattr(S, 'copy')):
-        return S.copy()
-    
-    # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:notSupported',
-                   'The chosen subclass of contSet does not support a dynamic copy operation.') 
+    # This base function should not be called directly.
+    # A subclass that is copyable must have its own `copy` method,
+    # which will be found by Python's method resolution order before
+    # the ContSet's recursive `copy` method is reached. If we get here,
+    # it means no specific implementation was found.
+    raise CORAerror('CORA:notSupported',
+                   f'The class {S.__class__.__name__} does not support the copy operation.') 

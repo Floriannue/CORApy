@@ -23,28 +23,28 @@ Last update: 22-March-2007 (MATLAB)
 Python translation: 2025
 """
 
-def dim(P) -> int:
+import numpy as np
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .polytope import Polytope
+
+def dim(P: 'Polytope') -> int:
     """
-    Compute the dimension of a polytope
+    Returns the dimension of the polytope
     
     Args:
         P: Polytope object
         
     Returns:
-        int: Dimension of the polytope
+        int: Dimension of the polytope (spatial dimensions)
     """
-    
-    # Check if polytope is empty
-    if P.isemptyobject():
-        return 0
-    
-    # For halfspace representation: A*x <= b
-    if P.A is not None and P.A.size > 0:
-        return P.A.shape[1]
-    
-    # For vertex representation: V
-    if hasattr(P, 'V') and P.V is not None and P.V.size > 0:
-        return P.V.shape[0]
-    
-    # Default case - empty polytope
-    return 0 
+    if P._V is not None and P._V.size > 0:
+        return P._V.shape[0]  # spatial dimensions (rows)
+    elif P._A is not None and P._A.size > 0:
+        return P._A.shape[1]  # number of variables
+    elif P._Ae is not None and P._Ae.size > 0:
+        return P._Ae.shape[1]  # number of variables
+    else:
+        return 0 

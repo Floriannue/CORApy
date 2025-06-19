@@ -9,7 +9,7 @@ Date: 2025
 
 import pytest
 import numpy as np
-from cora_python.g.functions.matlab.init.full_fact_mod import full_fact_mod
+from cora_python.g.functions.matlab.init import full_fact_mod
 
 
 class TestFullFactMod:

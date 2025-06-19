@@ -83,7 +83,7 @@ def contains(S1, S2, method='exact', tol=None, maxEval=None, *, return_cert=Fals
         # Default value for maxEval depends on in-body zonotope
         if hasattr(S2, '__class__') and S2.__class__.__name__ == 'Zonotope':
             if hasattr(S2, 'generators'):
-                gen_shape = S2.generators().shape if hasattr(S2.generators(), 'shape') else (0, 0)
+                gen_shape = S2.generators.shape if hasattr(S2.generators, 'shape') else (0, 0)
                 maxEval = max(500, 200 * gen_shape[1])
             else:
                 maxEval = 500

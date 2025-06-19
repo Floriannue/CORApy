@@ -39,7 +39,7 @@ Ensure in the Python translation every function is in its own file like in MATLA
 ```
 Translate_Cora/
 ├── cora_python/  # Target python code that mirrors cora_matlab structure 
-│   ├── g/        # mirrors cora_matlab/global helper and global utils functions
+│   ├── g/        # mirrors cora_matlab/global helper and utility functions
 │   ├── contSet/          
 │   │   ├── contSet/      # Base class implementation
 │   │   │   ├── __init__.py  # Must export all functions
@@ -70,6 +70,7 @@ Translate_Cora/
     - for some functions their are two version func and func_. func has the parameter handling and func_ the internal logic 
     - there are over 600 tests - run them in a mode where it only shows failed ones and then focus on a single tests
     - examples dont need tests, but ensure they can be executed and work correctly
+    - use d x n vertices format np.array([[0, 1, 0], [0, 0, 1]]) == 2×3 matrix
 
 ## Translation Workflow must include but not limited to
 
@@ -123,13 +124,13 @@ Translate_Cora/
     function/class file path : test path. Only fill out the test path if there actually tests!
 
    - **File Creation Rules:**
-     1. Each function **must** be in its own file like in the MATLAB codebase
+     1. Each function **must** be in its own file like in the MATLAB codebase, except if there are multiple functions in one file in matlab they all should also be in one file in python! In doubt copy the matlab structure
      2. Class definition files contain **only** the class  
      3. `__init__.py` files export functionality — update them immediately  
      4. Class file or `__init__.py` should import functions and attach them to the class  
      5. Copy the explanations from the MATLAB files into the Python code as docstrings  
      6. Use the helper functions in cora_python/g/
-     7. Use the typing module instead of lazy imports
+     7. To prevent circular imports use the typing module instead of lazy imports
      8. You can only simplify if still translate all the functionality
 
    - **Testing Requirements:**
@@ -196,4 +197,4 @@ Translate_Cora/
 
 
 ## Task
-Your task is to fully translate `fix  specification(full translation), polytope(one func per file etc), priv_reach_adaptive test using specification. other priv_reach not return save_data - how is save-data used in reach and how in matlab?, are all tests for linerrorbound and priv_reach_adaptiv translated?`
+Your task is to `fix all tests and translate the missing tests of all functions and classes`. if there are missing test cases create them.

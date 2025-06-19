@@ -30,7 +30,7 @@ Last revision: ---
 
 import numpy as np
 from typing import Tuple
-from cora_python.g.functions.matlab.polynomial.fpolyder import fpolyder
+from cora_python.g.functions.matlab.polynomial import fpolyder
 
 
 def minMaxDiffPoly(coeffs1: np.ndarray, coeffs2: np.ndarray, l: float, u: float) -> Tuple[float, float]:

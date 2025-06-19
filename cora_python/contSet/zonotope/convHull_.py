@@ -23,6 +23,10 @@ Python translation: 2025
 
 import numpy as np
 from typing import Optional, Union
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+            
+            
+
 
 
 def convHull_(Z: 'Zonotope', S: Optional[Union['ContSet', np.ndarray]] = None, method: str = 'exact') -> 'Zonotope':
@@ -56,7 +60,6 @@ def convHull_(Z: 'Zonotope', S: Optional[Union['ContSet', np.ndarray]] = None, m
     # Check dimensions
     if hasattr(S, 'dim') and hasattr(Z_out, 'dim'):
         if S.dim() != Z_out.dim():
-            from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
             raise CORAError('CORA:dimensionMismatch',
                           f'Dimension mismatch: {Z_out.dim()} vs {S.dim()}')
     

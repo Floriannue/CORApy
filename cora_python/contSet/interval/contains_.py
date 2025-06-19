@@ -56,7 +56,7 @@ import numpy as np
 from typing import Union, Tuple
 
 from .representsa_ import representsa_
-from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.g.functions.matlab.validate.check import withinTol
 
 
 def contains_(I, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, scalingToggle=False, *varargin):

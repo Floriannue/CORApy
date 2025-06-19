@@ -9,7 +9,7 @@ Date: 2025
 
 import pytest
 import numpy as np
-from cora_python.g.functions.matlab.init.gramSchmidt import gramSchmidt
+from cora_python.g.functions.matlab.init import gramSchmidt
 
 
 class TestGramSchmidt:

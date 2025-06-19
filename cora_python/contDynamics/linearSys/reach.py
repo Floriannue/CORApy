@@ -35,7 +35,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Dict, Any, Optional, Tuple, Union
-from cora_python.g.functions.verbose.plot.set_default_values import set_default_values
+from cora_python.g.functions.matlab.validate.preprocessing.set_default_values import set_default_values
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
@@ -90,7 +90,8 @@ def reach(linsys, params: Dict[str, Any], *args) -> Union['ReachSet', Tuple['Rea
         # Decide which reach function to execute by options.linAlg
         if options['linAlg'] == 'adaptive':
             from .private.priv_reach_adaptive import priv_reach_adaptive
-            timeInt, timePoint, res = priv_reach_adaptive(linsys, params, options)
+            timeInt, timePoint, res, savedata = priv_reach_adaptive(linsys, params, options)
+            # ToDo: Handle savedata for subsequent runs, e.g. options['savedata'] = savedata
         else:
             # All below, const. time step sizes
             if options['linAlg'] == 'standard':

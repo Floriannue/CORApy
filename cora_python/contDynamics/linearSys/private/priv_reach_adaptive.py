@@ -46,7 +46,7 @@ import scipy.linalg
 from typing import Dict, Any, Tuple, List, Optional
 from cora_python.g.classes.linErrorBound import LinErrorBound
 from cora_python.g.classes.verifyTime import VerifyTime
-from cora_python.g.functions.verbose.verboseLog import verboseLog
+from cora_python.g.functions.verbose import verboseLog
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
@@ -1171,11 +1171,11 @@ def compute_eps_linComb(errs: LinErrorBound, eAdt: np.ndarray, startset) -> floa
     
     # Get generators from startset
     if hasattr(startset, 'generators'):
-        G = startset.generators()
-    elif hasattr(startset, 'G'):
-        G = startset.G
+        G = startset.generators
     else:
-        # Fallback for simple sets
+        # Fallback for other set types, might need a more specific method
+        # For now, assume it has a method to get vertices or similar
+        # and we can derive generators. This is a simplification.
         G = np.eye(n) * 0.1  # Small default generators
     
     G_minus = (eAdt - np.eye(n)) @ G

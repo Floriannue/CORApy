@@ -24,66 +24,86 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Optional
+from scipy.optimize import linprog
+from typing import TYPE_CHECKING, Tuple
 
+if TYPE_CHECKING:
+    from .polytope import Polytope
 
-def center(P) -> Optional[np.ndarray]:
+def center(P: 'Polytope') -> Tuple[np.ndarray, float]:
     """
-    Compute the center of a polytope
-    
+    Computes the Chebyshev center of a polytope.
+    The Chebyshev center is the center of the largest inscribed sphere in the
+    polytope. It is found by solving a linear program.
+
     Args:
-        P: Polytope object
-        
+        P: A Polytope object.
+
     Returns:
-        np.ndarray or None: Center of the polytope, None if empty
+        A tuple (c, r) where c is the center (n x 1) and r is the radius.
+        If the polytope is empty, c is an empty array and r is -1.
+        If the polytope is unbounded, c is an array of NaNs and r is inf.
     """
+    n = P.dim()
+
+    if n == 0:
+        return np.array([]), -1 # Empty
+
+    # The H-representation is required
+    A = P.A
+    b = P.b
+    Ae = P.Ae
+    be = P.be
     
-    # Check if polytope is empty
-    if P.isemptyobject():
-        return None
-    
-    # For halfspace representation, compute center using Chebyshev center
-    # This is an approximation - the actual center computation requires solving
-    # a linear programming problem
-    
-    if P.A is not None and P.b is not None and P.A.size > 0:
-        n = P.A.shape[1]  # dimension
-        
-        # Simple approximation: average of vertices if we can compute them
-        try:
-            if hasattr(P, 'vertices') and callable(getattr(P, 'vertices')):
-                V = P.vertices()
-                if V is not None and V.size > 0:
-                    return np.mean(V, axis=1, keepdims=True)
-        except:
-            pass
-        
-        # Fallback: use constraint-based approximation
-        # This is a simplified version - full implementation would use LP
-        
-        # For box constraints, compute center directly
-        if _is_box_polytope(P):
-            return _compute_box_center(P)
-        
-        # General case: use origin if it's inside, otherwise approximate
-        origin = np.zeros((n, 1))
-        if P.contains(origin.flatten()):
-            return origin
-        
-        # Approximate center as weighted average of constraint normals
-        # This is a heuristic and not mathematically precise
-        weights = 1.0 / (np.abs(P.b) + 1e-12)
-        weighted_normals = P.A.T @ weights.reshape(-1, 1)
-        center_approx = weighted_normals / (np.linalg.norm(weighted_normals) + 1e-12)
-        
-        return center_approx
-    
-    # For vertex representation
-    if hasattr(P, 'V') and P.V is not None and P.V.size > 0:
-        return np.mean(P.V, axis=1, keepdims=True)
-    
-    # Default case
-    return None
+    # Setup the linear program for the Chebyshev center
+    # The variables are [c_1, ..., c_n, r]
+    # We want to maximize r, which is equivalent to minimizing -r.
+    # So, the cost function is [0, ..., 0, -1]
+    f = np.zeros(n + 1)
+    f[-1] = -1
+
+    # The constraints are:
+    # A_i * c + r * ||A_i|| <= b_i  for all inequality constraints
+    # Ae_j * c = be_j               for all equality constraints
+    # r >= 0
+
+    # Inequality constraints
+    A_ineq = None
+    b_ineq = None
+    if A is not None and A.size > 0:
+        A_norm = np.linalg.norm(A, axis=1, keepdims=True)
+        A_ineq = np.hstack([A, A_norm])
+        b_ineq = b
+
+    # Equality constraints
+    A_eq = None
+    b_eq = None
+    if Ae is not None and Ae.size > 0:
+        A_eq = np.hstack([Ae, np.zeros((Ae.shape[0], 1))])
+        b_eq = be
+
+    # Bounds for the variables
+    # c can be anything, r must be non-negative
+    bounds = [(None, None)] * n + [(0, None)]
+
+    # Solve the LP
+    # We are minimizing -r, so the result for r will be -res.fun
+    res = linprog(c=f, A_ub=A_ineq, b_ub=b_ineq, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs-ds')
+
+    if res.success:
+        c = res.x[:n].reshape(-1, 1)
+        r = res.x[n]
+        return c, r
+    elif res.status == 2: # Infeasible
+        return np.array([]), -1
+    elif res.status == 3: # Unbounded
+        return np.full((n, 1), np.nan), np.inf
+    else:
+        # Some other solver issue
+        # This might happen for unbounded cases where the solver
+        # doesn't explicitly return status 3.
+        # We'll treat it as unbounded as a fallback.
+        return np.full((n, 1), np.nan), np.inf
 
 
 def _is_box_polytope(P) -> bool:
