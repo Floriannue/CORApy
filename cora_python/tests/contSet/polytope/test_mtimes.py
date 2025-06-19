@@ -24,13 +24,12 @@ def test_mtimes_numeric():
     assert np.allclose(P_scaled.A, A)
     assert np.allclose(P_scaled.b, b * 2)
     
-    # V-rep
-    V = np.array([[1,1,-1,-1], [1,-1,1,-1]]).T
+    # V-rep - use correct d × n_vertices format (2 × 4)
+    V = np.array([[1,1,-1,-1], [1,-1,1,-1]])  # 2D space, 4 vertices
     P_v = Polytope(V)
     P_v_res = mtimes(M, P_v)
-    # In MATLAB: result would be M*V where V is (2x4), result is (2x4)
-    # In Python: V is (4x2), so expected result is V @ M.T = (4x2)
-    V_exp = V @ M.T
+    # Expected result: M @ V = (2×2) @ (2×4) = (2×4)
+    V_exp = M @ V
     assert np.allclose(P_v_res.V, V_exp)
 
 def test_mtimes_interval():
@@ -40,13 +39,14 @@ def test_mtimes_interval():
 
 def test_mtimes_v_rep():
     """Test matrix multiplication of a polytope in V-representation."""
-    V = np.array([[0, 1, 1, 0], [0, 0, 1, 1]]).T  # Unit square
+    # Use correct d × n_vertices format (2 × 4)
+    V = np.array([[0, 1, 1, 0], [0, 0, 1, 1]])  # Unit square: 2D space, 4 vertices
     p = Polytope(V)
     m = np.array([[2, 0], [0, 0.5]])  # Scaling matrix
     
     p_res = m @ p
     
-    V_expected = np.array([[0, 2, 2, 0], [0, 0, 0.5, 0.5]]).T
+    V_expected = m @ V  # (2×2) @ (2×4) = (2×4)
     
     assert isinstance(p_res, Polytope)
     assert np.allclose(p_res.V, V_expected)

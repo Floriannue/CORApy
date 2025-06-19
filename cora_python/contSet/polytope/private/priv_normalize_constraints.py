@@ -1,77 +1,92 @@
+"""
+priv_normalize_constraints - normalizes constraints
+
+Description:
+    Normalizes constraints either with respect to the constraint matrix A
+    or the offset vector b.
+
+Syntax:
+    A, b, Ae, be = priv_normalize_constraints(A, b, Ae, be, mode)
+
+Inputs:
+    A - inequality constraint matrix
+    b - inequality constraint offset
+    Ae - equality constraint matrix
+    be - equality constraint offset
+    mode - 'A' or 'b' for normalization mode
+
+Outputs:
+    A - inequality constraint matrix (normalized)
+    b - inequality constraint offset (normalized)
+    Ae - equality constraint matrix (normalized)
+    be - equality constraint offset (normalized)
+
+Authors:       Mark Wetzlinger (MATLAB)
+               Python translation by AI Assistant
+Written:       03-October-2024 (MATLAB)
+Python translation: 2025
+"""
+
 import numpy as np
 from cora_python.g.functions.matlab.validate.check import withinTol
 
-def priv_normalize_constraints(A, b, Ae, be, type):
-    # priv_normalizeConstraints - normalizes the constraints
-    #
-    # Syntax:
-    #    [A,b,Ae,be] = priv_normalizeConstraints(A,b,Ae,be,type)
-    #
-    # Inputs:
-    #    A - inequality constraint matrix
-    #    b - inequality constraint offset
-    #    Ae - equality constraint matrix
-    #    be - equality constraint offset
-    #    type - (optional) 'b', 'be': normalize offset vectors b and be
-    #                      'A', 'Ae': normalize norm of constraints in A and Ae to 1
-    #
-    # Outputs:
-    #    A - inequality constraint matrix
-    #    b - inequality constraint offset
-    #    Ae - equality constraint matrix
-    #    be - equality constraint offset
-
-    if type == 'b' or type == 'be':
-        # normalize offset vectors b and be to -1|0|1
-
-        # normalize inequality constraints
+def priv_normalize_constraints(A, b, Ae, be, mode):
+    """
+    Normalizes constraints either with respect to A or b
+    
+    Args:
+        A: inequality constraint matrix
+        b: inequality constraint offset
+        Ae: equality constraint matrix
+        be: equality constraint offset
+        mode: 'A' or 'b' for normalization mode
+        
+    Returns:
+        A: inequality constraint matrix (normalized)
+        b: inequality constraint offset (normalized)
+        Ae: equality constraint matrix (normalized)
+        be: equality constraint offset (normalized)
+    """
+    # Make copies to avoid modifying the original arrays
+    if A is not None:
+        A = A.copy()
+    if b is not None:
+        b = b.copy().flatten()  # Ensure b is 1D
+    if Ae is not None:
+        Ae = Ae.copy()
+    if be is not None:
+        be = be.copy().flatten()  # Ensure be is 1D
+    
+    if mode == 'A':
+        # Normalize with respect to A matrix
         if A is not None and A.size > 0:
-            # inequality constraints where A[:,i]*x <= 0 are left unchanged
+            norms = np.linalg.norm(A, axis=1)  # Don't keep dims for broadcasting
+            nonzero_norms = norms != 0
+            if np.any(nonzero_norms):
+                A[nonzero_norms, :] = A[nonzero_norms, :] / norms[nonzero_norms, np.newaxis]
+                if b is not None:
+                    b[nonzero_norms] = b[nonzero_norms] / norms[nonzero_norms]
         
-            # find indices of constraints with b > 0 and b < 0
-            idx_plus = b > 0
-            idx_neg = b < 0
-        
-            # divide constraints with b > 0 by b
-            if np.any(idx_plus):
-                A[idx_plus,:] = A[idx_plus,:] / b[idx_plus, np.newaxis]
-                b[idx_plus] = 1
-        
-            # divide constraints with b < 0 by b, but set b to -1
-            if np.any(idx_neg):
-                A[idx_neg,:] = A[idx_neg,:] / b[idx_neg, np.newaxis]
-                b[idx_neg] = -1
-
-        # normalize equality constraints
         if Ae is not None and Ae.size > 0:
-            # equality constraints where Ae[:,i]*x = 0 are left unchanged
+            norms = np.linalg.norm(Ae, axis=1)
+            nonzero_norms = norms != 0
+            if np.any(nonzero_norms):
+                Ae[nonzero_norms, :] = Ae[nonzero_norms, :] / norms[nonzero_norms, np.newaxis]
+                if be is not None:
+                    be[nonzero_norms] = be[nonzero_norms] / norms[nonzero_norms]
+    
+    elif mode == 'b':
+        # Normalize with respect to b vector
+        if A is not None and A.size > 0 and b is not None and b.size > 0:
+            nonzero_b = b != 0
+            if np.any(nonzero_b):
+                A[nonzero_b, :] = A[nonzero_b, :] / b[nonzero_b, np.newaxis]
+                b[nonzero_b] = np.sign(b[nonzero_b])  # Preserve sign, normalize magnitude to 1
         
-            # find indices of constraints with be > 0 and be < 0
-            idx_nonzero = be != 0
-        
-            # divide constraints with be =!= 0 by be
-            if np.any(idx_nonzero):
-                Ae[idx_nonzero,:] = Ae[idx_nonzero,:] / be[idx_nonzero, np.newaxis]
-                be[idx_nonzero] = 1
-
-    elif type == 'A' or type == 'Ae':
-        # normalize norm of constraints in A and Ae to 1
-        # skip constraints of the form 0*x <= ... or 0*x == ...
-
-        # normalize inequality constraints
-        if A is not None and A.size > 0:
-            normA = np.linalg.norm(A, axis=1)
-            idx_nonzero = ~withinTol(normA, 0)
-            if np.any(idx_nonzero):
-                A[idx_nonzero,:] = A[idx_nonzero,:] / normA[idx_nonzero, np.newaxis]
-                b[idx_nonzero] = b[idx_nonzero] / normA[idx_nonzero]
-
-        # normalize equality constraints
-        if Ae is not None and Ae.size > 0:
-            normA = np.linalg.norm(Ae, axis=1)
-            idx_nonzero = ~withinTol(normA, 0)
-            if np.any(idx_nonzero):
-                Ae[idx_nonzero,:] = Ae[idx_nonzero,:] / normA[idx_nonzero, np.newaxis]
-                be[idx_nonzero] = be[idx_nonzero] / normA[idx_nonzero]
-
+        if Ae is not None and Ae.size > 0 and be is not None and be.size > 0:
+            nonzero_be = be != 0
+            if np.any(nonzero_be):
+                Ae[nonzero_be, :] = Ae[nonzero_be, :] / be[nonzero_be, np.newaxis]
+                be[nonzero_be] = np.sign(be[nonzero_be])  # Preserve sign, normalize magnitude to 1
+    
     return A, b, Ae, be 

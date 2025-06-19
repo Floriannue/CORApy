@@ -31,8 +31,8 @@ def origin(n: int) -> Polytope:
     P = Polytope(A, b)
 
     # init vertex representation - origin is a single point at [0, 0, ..., 0]
-    # In our format, vertices are stored as rows, so shape is (1, n)
-    P._V = np.zeros((1, n))
+    # In our unified format, vertices are d × n_vertices, so shape is (n, 1)
+    P._V = np.zeros((n, 1))
     P._has_v_rep = True
 
     return P 

@@ -6,43 +6,56 @@ if TYPE_CHECKING:
     from cora_python.contSet.polytope.polytope import Polytope
 
 def _aux_fourier_motzkin_elimination(A: np.ndarray, b: np.ndarray, j: int) -> (np.ndarray, np.ndarray):
+    """
+    Project the polytope A*x <= b onto dimension j using Fourier-Motzkin elimination.
+    Algorithm taken from MATLAB CORA implementation.
+    """
+    # number of constraints
+    nr_con = A.shape[0]
     
-    Z_indices = np.where(A[:, j] == 0)[0]
-    N_indices = np.where(A[:, j] < 0)[0]
-    P_indices = np.where(A[:, j] > 0)[0]
+    # divide j-th column of matrix A into entries = 0, > 0, and < 0
+    Z = np.where(A[:, j] == 0)[0]  # zero coefficients
+    N = np.where(A[:, j] < 0)[0]   # negative coefficients  
+    P = np.where(A[:, j] > 0)[0]   # positive coefficients
     
-    A_new = []
-    b_new = []
-
-    # Keep constraints where the j-th variable is not present
-    if len(Z_indices) > 0:
-        A_new.append(A[Z_indices, :])
-        b_new.append(b[Z_indices])
-
-    # Combine positive and negative constraints
-    for p_idx in P_indices:
-        for n_idx in N_indices:
-            A_p, b_p = A[p_idx, :], b[p_idx]
-            A_n, b_n = A[n_idx, :], b[n_idx]
-            
-            # Elimination step
-            A_comb = A_p[j] * A_n - A_n[j] * A_p
-            b_comb = A_p[j] * b_n - A_n[j] * b_p
-            
-            A_new.append(A_comb)
-            b_new.append(b_comb)
-
-    if not A_new:
-        dim = A.shape[1] -1
-        return np.empty((0, dim)), np.empty((0, 1))
-
-    A_res = np.vstack(A_new)
-    b_res = np.vstack(b_new)
+    # compute cartesian product of sets P and N to get all combinations
+    if len(P) > 0 and len(N) > 0:
+        # Create all combinations of P and N
+        list_combinations = []
+        for n_idx in N:
+            for p_idx in P:
+                list_combinations.append([n_idx, p_idx])
+        list_combinations = np.array(list_combinations)
+        nr_comb = len(list_combinations)
+    else:
+        list_combinations = np.array([]).reshape(0, 2)
+        nr_comb = 0
     
-    # Remove the eliminated column j
-    A_res = np.delete(A_res, j, axis=1)
-
-    return A_res, b_res
+    # construct projection matrix: number of columns of the projection
+    # matrix is the number of constraints of the projected polytope
+    m = len(Z)
+    U = np.zeros((m + nr_comb, nr_con))
+    
+    # for all Z, we have the Z(i)-th basis vector
+    for i in range(m):
+        U[i, Z[i]] = 1
+    
+    # for all pairs (s,t) in P x N, we have
+    #   a_(t,j) * e_(s) - a_(s,j) * e_(t)
+    for i in range(nr_comb):
+        n_idx = list_combinations[i, 0]  # negative index
+        p_idx = list_combinations[i, 1]  # positive index
+        U[m + i, n_idx] = A[p_idx, j]   # a_(p,j) coefficient for negative constraint
+        U[m + i, p_idx] = -A[n_idx, j]  # -a_(n,j) coefficient for positive constraint
+    
+    # perform projection
+    A_new = U @ A
+    b_new = U @ b.reshape(-1, 1)
+    
+    # remove the eliminated column j
+    A_new = np.delete(A_new, j, axis=1)
+    
+    return A_new, b_new
 
 
 def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytope':
@@ -67,33 +80,60 @@ def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytop
     from .private.priv_equality_to_inequality import priv_equality_to_inequality
     
     tol = 1e-12
-    if P.isemptyobject:
+    if P.isemptyobject():
         return Polytope.empty(len(dims))
 
     # Normalize and compact constraints
     A, b, Ae, be = priv_normalize_constraints(P.A, P.b, P.Ae, P.be, 'A')
-    A, b, Ae, be = priv_compact_all(A, b, Ae, be, n, tol)
+    A, b, Ae, be, empty, _ = priv_compact_all(A, b, Ae, be, n, tol)
     
+    if empty:
+        return Polytope.empty(len(dims))
+
     if method == 'fourier':
         A, b = priv_equality_to_inequality(A, b, Ae, be)
 
         # Dimensions to be projected away
-        remove_dims = sorted(list(set(range(n)) - set(d - 1 for d in dims)), reverse=True)
+        remove_dims = sorted(list(set(range(n)) - set(d - 1 for d in dims)))
         
         A_proj, b_proj = A, b
-        for j in remove_dims:
-            A_proj, b_proj = _aux_fourier_motzkin_elimination(A_proj, b_proj, j)
-            
-            # Normalize and compact again after each elimination step
-            A_proj, b_proj, _, _ = priv_normalize_constraints(A_proj, b_proj, np.array([]), np.array([]), 'A')
-            A_proj, b_proj, _, _ = priv_compact_all(A_proj, b_proj, np.array([]), np.array([]), A_proj.shape[1], tol)
         
-        # Reorder columns to match 'dims'
-        original_dims_kept = sorted(list(set(range(n)) - set(remove_dims)))
-        if original_dims_kept:
-            py_dims = [d-1 for d in dims]
-            order = [original_dims_kept.index(d) for d in py_dims]
-            A_proj = A_proj[:, order]
+        # Project away each dimension one by one
+        for i in range(len(remove_dims)):
+            # Project away current dimension
+            A_proj, b_proj = _aux_fourier_motzkin_elimination(A_proj, b_proj, remove_dims[i])
+            
+            # Update indices to match projected polytope (dimensions shift down after removal)
+            for k in range(i + 1, len(remove_dims)):
+                if remove_dims[k] > remove_dims[i]:
+                    remove_dims[k] -= 1
+            
+            # Only normalize constraints after each elimination (no compaction)
+            if A_proj.size > 0:
+                A_proj, b_proj, _, _ = priv_normalize_constraints(A_proj, b_proj, np.array([]), np.array([]), 'A')
+        
+        # Remove redundant constraints (all-zero rows)
+        if A_proj.size > 0:
+            zero_rows = []
+            for i in range(A_proj.shape[0]):
+                if np.allclose(A_proj[i], 0, atol=tol):
+                    zero_rows.append(i)
+            
+            if zero_rows:
+                mask = np.ones(A_proj.shape[0], dtype=bool)
+                mask[zero_rows] = False
+                A_proj = A_proj[mask]
+                b_proj = b_proj[mask]
+        
+        # Sort dimensions of the remaining projected polytope according to dims
+        if A_proj.size > 0:
+            # The MATLAB code does: [~,ind] = sort(dims); A(:,ind) = A;
+            # This reorders the columns to match the sorted dimension order
+            dims_sorted = sorted(dims)
+            if dims != dims_sorted:
+                # Find permutation needed to reorder columns
+                perm = [dims.index(d) for d in dims_sorted]
+                A_proj = A_proj[:, perm]
         
         return Polytope(A_proj, b_proj)
 
@@ -101,7 +141,7 @@ def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytop
         import pypoman as pm
 
         ineq = (A, b)
-        eq = (Ae, be) if Ae.size > 0 else None
+        eq = (Ae, be) if Ae is not None and Ae.size > 0 else None
 
         # Define projection matrix
         p = len(dims)
@@ -115,7 +155,7 @@ def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytop
 
         try:
             # Project polytope. This returns vertices of the projected polytope.
-            vertices = pm.project_polytope(proj, ineq, eq, method='bretl')
+            vertices = pm.project_polytope(proj, ineq, eq, method='cdd')
             # Convert vertices back to half-space representation
             A_proj, b_proj = pm.compute_polytope_halfspaces(vertices)
             return Polytope(A_proj, b_proj)

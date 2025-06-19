@@ -29,7 +29,7 @@ Python translation: 2025
 """
 
 import numpy as np
-from cora_python.g.functions.matlab.auxiliary.withinTol import withinTol
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 
 def priv_compact_toEquality(A, b, Ae, be, tol):

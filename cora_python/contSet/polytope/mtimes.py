@@ -15,37 +15,41 @@ if TYPE_CHECKING:
 
 def mtimes(factor1: object, factor2: object) -> 'Polytope':
     """
-    Overloaded '*' operator for the multiplication of a matrix with a polytope.
+    Matrix multiplication with polytope.
     
-    Syntax:
-        P_out = mtimes(factor1,factor2)
-    
-    Inputs:
-        factor1 - numerical matrix/interval matrix/polytope object
-        factor2 - numerical matrix/interval matrix/polytope object
-    
-    Outputs:
-        P_out - polytope object
-    
-    Example: 
-        P = polytope([1 0; -1 1; -1 -1],[1;1;1]);
-        M = [2 1; -1 2];
-        P_mtimes = M*P;
-    
-    Reference: 
-        [1] M. Wetzlinger, V. Kotsev, A. Kulmburg, M. Althoff. "Implementation
-            of Polyhedral Operations in CORA 2024", ARCH'24.
+    Args:
+        factor1: Matrix or scalar or polytope
+        factor2: Polytope or scalar
+        
+    Returns:
+        Polytope: Result of matrix multiplication
     """
     from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
     from cora_python.g.functions.matlab.validate.preprocessing.find_class_arg import find_class_arg
     from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
     from .polytope import Polytope
     
-    # check dimensions
-    equal_dim_check(factor1, factor2)
-    
     # order arguments correctly
     P_copy, matrix = find_class_arg(factor1, factor2, 'Polytope')
+    
+    # For scalar operations, no dimension check needed
+    if np.isscalar(matrix):
+        pass  # Skip dimension check for scalars
+    # For matrix operations, check dimensions
+    elif isinstance(matrix, np.ndarray):
+        # Check if matrix-polytope multiplication is valid
+        if isinstance(factor1, np.ndarray) and hasattr(factor2, 'dim'):
+            # matrix @ polytope: matrix.shape[1] should equal polytope.dim()
+            if matrix.shape[1] != factor2.dim():
+                from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+                raise CORAerror('CORA:dimensionMismatch', factor1, factor2)
+        elif hasattr(factor1, 'dim') and isinstance(factor2, np.ndarray):
+            # polytope @ matrix: only scalars allowed for polytope * matrix
+            if matrix.size > 1:
+                raise ValueError("polytope * matrix case not supported (only scalars)")
+    else:
+        # For other types, use the general dimension check
+        equal_dim_check(factor1, factor2)
     
     # copy polytope
     P_out = P_copy.copy()
@@ -97,9 +101,9 @@ def mtimes(factor1: object, factor2: object) -> 'Polytope':
         
         # quicker computation using V-representation
         if hasattr(P_out, '_has_v_rep') and P_out._has_v_rep and P_out._V is not None:
-            # In MATLAB: V is (d x n_vertices), so M*V works directly
-            # In Python: V is (n_vertices x d), so we use V @ M.T to get the same result
-            V_new = P_out._V @ matrix.T
+            # For d × n_vertices format: M @ V where M is (m × d) and V is (d × n_vertices)
+            # Result should be (m × n_vertices)
+            V_new = matrix @ P_out._V
             return Polytope(V_new)
         else:
             # method for general mappings
@@ -154,6 +158,7 @@ def _aux_mtimes_scaling(P: 'Polytope', fac: float) -> 'Polytope':
     
     # map vertices if given
     if hasattr(P_new, '_has_v_rep') and P_new._has_v_rep and P_new._V is not None:
+        # For d × n_vertices format: V_new = fac * V
         P_new._V = P_new._V * fac
         
     return P_new
@@ -173,9 +178,8 @@ def _aux_mtimes_square_inv(P: 'Polytope', M: np.ndarray) -> 'Polytope':
     
     # map vertices if given
     if hasattr(P_new, '_has_v_rep') and P_new._has_v_rep and P_new._V is not None:
-        # In MATLAB: V is (d x n_vertices), so M*V works directly
-        # In Python: V is (n_vertices x d), so we use V @ M.T to get the same result
-        P_new._V = P_new._V @ M.T
+        # For d × n_vertices format: V_new = M @ V where M is (d × d) and V is (d × n_vertices)
+        P_new._V = M @ P_new._V
     
     return P_new
 

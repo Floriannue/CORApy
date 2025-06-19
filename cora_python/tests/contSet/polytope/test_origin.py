@@ -19,8 +19,9 @@ class TestOrigin:
         assert P.dim() == 2
         
         # Check vertex representation - should contain only the origin
-        assert P._V.shape == (1, 2)  # 1 vertex with 2 coordinates
-        assert np.array_equal(P._V, np.array([[0, 0]]))
+        # In d × n_vertices format: (2, 1) for 1 vertex in 2D space
+        assert P._V.shape == (2, 1)
+        assert np.array_equal(P._V, np.array([[0], [0]]))
         assert P._has_v_rep == True
         
         # Check halfspace representation
@@ -37,8 +38,9 @@ class TestOrigin:
         assert P.dim() == 3
         
         # Check vertex representation - should contain only the origin
-        assert P._V.shape == (1, 3)  # 1 vertex with 3 coordinates
-        assert np.array_equal(P._V, np.array([[0, 0, 0]]))
+        # In d × n_vertices format: (3, 1) for 1 vertex in 3D space
+        assert P._V.shape == (3, 1)
+        assert np.array_equal(P._V, np.array([[0], [0], [0]]))
         assert P._has_v_rep == True
         
         # Check halfspace representation

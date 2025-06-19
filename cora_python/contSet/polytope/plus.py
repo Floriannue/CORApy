@@ -51,9 +51,13 @@ def _aux_plus_Vpoly_Vpoly(P1: 'Polytope', P2: 'Polytope', n: int) -> 'Polytope':
     V1, V2 = P1.V, P2.V
     num_v1, num_v2 = V1.shape[1], V2.shape[1]
     
+    # Create all combinations of vertices from V1 and V2
     V = np.zeros((n, num_v1 * num_v2))
+    idx = 0
     for i in range(num_v2):
-        V[:, i * num_v1:(i + 1) * num_v1] = V1 + V2[:, i, np.newaxis]
+        for j in range(num_v1):
+            V[:, idx] = V1[:, j] + V2[:, i]
+            idx += 1
         
     return Polytope(V)
 
@@ -100,21 +104,30 @@ def plus(p1: Union['Polytope', np.ndarray], p2: Union['Polytope', np.ndarray]) -
     tol = 1e-10
     
     from cora_python.contSet.polytope.polytope import Polytope
-    if p1.representsa('fullspace', tol) or (hasattr(p2, 'representsa') and p2.representsa('fullspace', tol)):
-        return Polytope.Inf(n)
-        
+    
     if isinstance(p2, Polytope):
+        # Check representation flags BEFORE representsa calls that might change them
+        has_v1_orig = p1._has_v_rep
+        has_v2_orig = p2._has_v_rep
+        has_h1_orig = p1._has_h_rep
+        has_h2_orig = p2._has_h_rep
+        
+        # Special case checks
+        if p1.representsa('fullspace', tol) or p2.representsa('fullspace', tol):
+            return Polytope.Inf(n)
         if p1.representsa('emptySet', tol) or p2.representsa('emptySet', tol):
             return Polytope.empty(n)
         if p1.representsa('origin', tol):
             return p2
         if p2.representsa('origin', tol):
             return p1
-            
-        if p1._has_h_rep and p2._has_h_rep:
-            s_out = _aux_plus_Hpoly_Hpoly(p1, p2, n)
-        elif p1._has_v_rep and p2._has_v_rep:
+        
+        # Use the original representation flags for path determination
+        # Prioritize V-representation over H-representation for efficiency
+        if has_v1_orig and has_v2_orig:
             s_out = _aux_plus_Vpoly_Vpoly(p1, p2, n)
+        elif has_h1_orig and has_h2_orig:
+            s_out = _aux_plus_Hpoly_Hpoly(p1, p2, n)
         else:
             # Force conversion to H-representation
             p1.constraints()
@@ -122,6 +135,10 @@ def plus(p1: Union['Polytope', np.ndarray], p2: Union['Polytope', np.ndarray]) -
             s_out = _aux_plus_Hpoly_Hpoly(p1, p2, n)
             
         return _aux_setproperties(s_out, p1, p2)
+    
+    # Check fullspace for non-polytope p2
+    if p1.representsa('fullspace', tol) or (hasattr(p2, 'representsa') and p2.representsa('fullspace', tol)):
+        return Polytope.Inf(n)
     
     if isinstance(p2, np.ndarray) and p2.ndim == 2 and p2.shape[1] == 1:
         s_out = _aux_plus_poly_point(p1, p2)
