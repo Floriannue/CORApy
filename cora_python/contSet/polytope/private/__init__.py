@@ -16,7 +16,7 @@ from .priv_supportFunc import priv_supportFunc
 from .priv_normalize_constraints import priv_normalize_constraints
 from .priv_box_H import priv_box_H
 from .priv_box_V import priv_box_V
-from .priv_V_to_H import priv_V_to_H
+
 from .priv_plus_minus_vector import priv_plus_minus_vector
 from .priv_equality_to_inequality import priv_equality_to_inequality
 from .priv_compact_all import priv_compact_all

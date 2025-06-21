@@ -47,7 +47,7 @@ class InitialSet:
         
         Args:
             dims: Dimensions to plot (default: [0, 1] for Python 0-indexing)
-            **kwargs: Additional plotting options
+            **kwargs: Additional plotting options including DisplayName for MATLAB compatibility
         
         Returns:
             Handle to the plot
@@ -55,20 +55,9 @@ class InitialSet:
         if dims is None:
             dims = [0, 1]  # Python uses 0-based indexing
         
-        # Extract plotting options for initial set
-        try:
-            from ...functions.verbose.plot.read_plot_options import readPlotOptions
-            plot_options = readPlotOptions(kwargs, 'initialSet')
-        except ImportError:
-            try:
-                from cora_python.g.functions.verbose.plot.read_plot_options import readPlotOptions
-                plot_options = readPlotOptions(kwargs, 'initialSet')
-            except ImportError:
-                # Fallback: use kwargs directly
-                plot_options = kwargs
-        
-        # Plot the underlying set
-        return self.set.plot(dims, **plot_options)
+        # Just pass the original kwargs and let contSet.plot() handle all processing
+        # This avoids double-processing issues
+        return self.set.plot(dims, purpose='initialSet', **kwargs)
     
     def plotOverTime(self, dim: int = 0, **kwargs):
         """

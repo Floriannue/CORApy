@@ -106,7 +106,20 @@ def simulateRandom(sys, params: Dict[str, Any], options: Optional[Dict[str, Any]
     else:
         raise ValueError(f"Unknown simulation type: {sim_type}")
     
-    return simRes
+    # Make the list plottable (MATLAB-style behavior)
+    try:
+        from cora_python.g.classes.simResult.plot import plot as simres_plot
+    except ImportError:
+        from ...g.classes.simResult.plot import plot as simres_plot
+    
+    class SimResultList(list):
+        """A list that behaves like a SimResult for plotting"""
+        
+        def plot(self, *args, **kwargs):
+            """Plot method for list of SimResult objects"""
+            return simres_plot(self, *args, **kwargs)
+    
+    return SimResultList(simRes)
 
 
 def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tuple:
@@ -301,6 +314,10 @@ def _priv_simulateStandard(sys, params: Dict[str, Any], options: Dict[str, Any])
             
             # Create simulation options without simulateRandom-specific keys
             sim_options = {}
+            
+            # Pass timeStep if provided for smoother trajectories
+            if 'timeStep' in options:
+                sim_options['timeStep'] = options['timeStep']
             
             # Simulate dynamical system
             if comp_y:

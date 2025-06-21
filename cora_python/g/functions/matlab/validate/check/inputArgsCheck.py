@@ -130,7 +130,19 @@ def inputArgsCheck(inputArgs: List[List[Any]]) -> None:
         res = any(resvec)
         if not res:
             # find best guess for given class
-            classresvec = [isinstance(value, eval(cls_name)) if isinstance(cls_name, str) else False for cls_name in classes]
+            classresvec = []
+            for cls_name in classes:
+                if isinstance(cls_name, str):
+                    try:
+                        # Handle numpy.ndarray specifically
+                        if cls_name == 'numpy.ndarray':
+                            classresvec.append(isinstance(value, np.ndarray))
+                        else:
+                            classresvec.append(isinstance(value, eval(cls_name)))
+                    except:
+                        classresvec.append(False)
+                else:
+                    classresvec.append(False)
             idx = [k for k, x in enumerate(classresvec) if x]
 
             if len(idx) == 1:

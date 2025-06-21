@@ -12,6 +12,7 @@ pytest = "^8.1.1"
 matplotlib = "^3.8.4"
 pypoman = "^1.1.0"
 cvxpy = "1.6.6"
+shapely = "2.1.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

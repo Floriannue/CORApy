@@ -1,78 +1,128 @@
+"""
+display - Displays the properties of a polytope object (inequality and
+   equality constraints) on the command window
+
+Syntax:
+   display(P)
+
+Inputs:
+   P - polytope object
+
+Outputs:
+   (to console)
+
+Example: 
+   A = np.array([[1, 2], [-1, 2], [-2, -2], [1, -2]])
+   b = np.ones((4, 1))
+   P = Polytope(A, b)
+   display(P)
+
+Authors:       Viktor Kotsev, Mark Wetzlinger
+Written:       06-June-2022
+Last update:   01-December-2022 (MW, adapt to other CORA display)
+Last revision: ---
+"""
+
 from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
     from .polytope import Polytope
 
-def display(P: 'Polytope', name: str = "P") -> str:
+
+def display(P: 'Polytope', name: str = None) -> str:
     """
-    Creates a string representation of a polytope object's properties,
-    mirroring the format of the MATLAB CORA library's display function.
+    Displays the properties of a polytope object, mirroring MATLAB behavior.
+    Only shows computed representations without triggering conversions.
+    
+    Args:
+        P: Polytope object
+        name: Variable name to display
+        
+    Returns:
+        String representation for display
     """
     
     def displayMatrixVector(mat, mat_name):
+        """Helper function to format matrix/vector display"""
         lines = []
-        header = f"  {mat_name} ="
-        lines.append(header)
-        
         if mat is None or mat.size == 0:
-            lines.append("     []")
             return lines
-
-        # Define a custom formatter to match MATLAB's output style
-        float_formatter = lambda x: f"{x: >1.4f}".rstrip('0').rstrip('.') if x != 0 else " 0."
+            
+        # Format similar to MATLAB
+        if mat.ndim == 1:
+            mat = mat.reshape(-1, 1)
+            
+        lines.append(f"    {mat_name} =")
         
-        # Use np.array2string with the custom formatter
-        mat_str = np.array2string(
-            mat.astype(float),
-            precision=4,
-            suppress_small=True,
-            prefix='     ',
-            formatter={'float_kind': float_formatter}
-        )
-
-        lines.append("     " + mat_str)
+        # Simple formatting for matrices
+        for i in range(mat.shape[0]):
+            if mat.shape[1] == 1:
+                lines.append(f"        {mat[i, 0]:8.4f}")
+            else:
+                row_str = "        " + "  ".join(f"{mat[i, j]:8.4f}" for j in range(mat.shape[1]))
+                lines.append(row_str)
+        
         return lines
 
-    output_lines = [f"\n{name} =", ""]
-    output_lines.append(f"Polytope object with dimension: {P.dim()}\n")
-
-    # Display vertex representation
-    try:
-        V = P._V
-        if P._has_v_rep:
-            output_lines.append('Vertex representation:')
-            output_lines.extend(displayMatrixVector(V, 'V'))
+    def aux_prop2string(prop_val):
+        """Helper function to display three-valued logic in set properties"""
+        if prop_val is None:
+            return 'Unknown'
+        elif prop_val:
+            return 'true'
         else:
-            output_lines.append('Vertex representation: (not computed)')
-    except AttributeError:
+            return 'false'
+
+    output_lines = []
+    output_lines.append("")
+    
+    # If no name provided, try to get variable name (like MATLAB inputname)
+    if name is None:
+        name = "ans"  # Default like MATLAB
+    
+    output_lines.append(f"{name} =")
+    output_lines.append("")
+    
+    # Display dimension (from base class)
+    output_lines.append(f"Polytope object with dimension: {P.dimension}")
+    output_lines.append("")
+
+    # Display vertex representation - check flag first
+    if P._has_v_rep and P._V is not None:
+        output_lines.append('Vertex representation:')
+        output_lines.extend(displayMatrixVector(P._V, 'V'))
+    else:
         output_lines.append('Vertex representation: (not computed)')
     output_lines.append("")
 
-    # Display inequality constraints
-    try:
-        A, b = P.A, P.b
-        if A is None or A.size == 0:
-            output_lines.append('Inequality constraints (A*x <= b): (none)')
-        else:
-            output_lines.append('Inequality constraints (A*x <= b):')
-            output_lines.extend(displayMatrixVector(A, 'A'))
-            output_lines.extend(displayMatrixVector(b, 'b'))
-    except (NotImplementedError, AttributeError):
-        output_lines.append('Inequality constraints (A*x <= b): (not computed)')
+    # Display inequality constraints - check internal properties directly
+    if P._A is None or P._A.size == 0:
+        output_lines.append('Inequality constraints (A*x <= b): (none)')
+    else:
+        output_lines.append('Inequality constraints (A*x <= b):')
+        output_lines.extend(displayMatrixVector(P._A, 'A'))
+        output_lines.extend(displayMatrixVector(P._b, 'b'))
     output_lines.append("")
 
     # Display equality constraints
-    try:
-        Ae, be = P.Ae, P.be
-        if Ae is None or Ae.size == 0:
-            output_lines.append('Equality constraints (Ae*x = be): (none)')
-        else:
-            output_lines.append('Equality constraints (Ae*x = be):')
-            output_lines.extend(displayMatrixVector(Ae, 'Ae'))
-            output_lines.extend(displayMatrixVector(be, 'be'))
-    except (NotImplementedError, AttributeError):
-        output_lines.append('Equality constraints (Ae*x = be): (not computed)')
+    if P._Ae is None or P._Ae.size == 0:
+        output_lines.append('Equality constraints (Ae*x = be): (none)')
+    else:
+        output_lines.append('Equality constraints (Ae*x = be):')
+        output_lines.extend(displayMatrixVector(P._Ae, 'Ae'))
+        output_lines.extend(displayMatrixVector(P._be, 'be'))
+    output_lines.append("")
+    
+    # Display set properties (if available)
+    # Note: These would need to be computed/cached in the polytope class
+    # For now, we'll show basic info
+    output_lines.append("Set properties:")
+    output_lines.append(f"Bounded?                          Unknown")
+    output_lines.append(f"Empty set?                        Unknown") 
+    output_lines.append(f"Full-dimensional set?             Unknown")
+    output_lines.append(f"Minimal halfspace representation? Unknown")
+    output_lines.append(f"Minimal vertex representation?    Unknown")
     output_lines.append("")
     
     return "\n".join(output_lines) 

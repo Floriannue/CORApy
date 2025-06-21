@@ -111,9 +111,9 @@ class Ellipsoid(ContSet):
                 return
 
             inputArgsCheck([
-                [Q, 'att', ['numpy.ndarray'], {'finite', 'matrix'}],
-                [q, 'att', ['numpy.ndarray'], {'finite', 'column'}],
-                [TOL, 'att', ['numeric'], {'nonnegative', 'scalar'}],
+                [Q, 'att', ['numpy.ndarray'], ['finite', 'matrix']],
+                [q, 'att', ['numpy.ndarray'], ['finite', 'column']],
+                [TOL, 'att', ['numeric'], ['nonnegative', 'scalar']],
             ])
 
             # shape matrix needs to be square

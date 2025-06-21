@@ -71,10 +71,15 @@ def simulate(linsys, params: Dict[str, Any], options: Optional[Dict[str, Any]] =
     # Shift time horizon to start at 0
     t_final = params['tFinal'] - params['tStart']
     
-    # Set time step
+    # Set time step and evaluation points for smooth plotting
     if 'timeStep' in params:
         # Use proper time vector generation to avoid floating-point accumulation errors
         steps = int(np.round(t_final / params['timeStep']))
+        t_span = np.linspace(0, t_final, steps + 1)
+        time_step_given = True
+    elif 'timeStep' in options if options else False:
+        # Use timeStep from options for smooth plotting
+        steps = int(np.round(t_final / options['timeStep']))
         t_span = np.linspace(0, t_final, steps + 1)
         time_step_given = True
     else:
@@ -82,6 +87,14 @@ def simulate(linsys, params: Dict[str, Any], options: Optional[Dict[str, Any]] =
         t_span = np.array([0, t_final])
         steps = 1
         time_step_given = False
+        
+    # For simulation purposes, create dense evaluation points for smooth curves
+    if not time_step_given:
+        # Create dense evaluation points for smooth plotting (like MATLAB)
+        n_eval_points = max(100, int(t_final * 50))  # At least 50 points per time unit
+        t_eval = np.linspace(0, t_final, n_eval_points)
+    else:
+        t_eval = t_span
     
     # Check values of u, w, and v
     params, steps, t_span = _aux_uwv(linsys, params, steps, t_span)
@@ -108,12 +121,19 @@ def simulate(linsys, params: Dict[str, Any], options: Optional[Dict[str, Any]] =
         def dynamics(t_val, x_val):
             return _getfcn(linsys, params_)(t_val, x_val)
         
-        # Simulate using scipy's solve_ivp function
+        # Simulate using scipy's solve_ivp function with dense output for smooth curves
         try:
-            if is_opt:
-                sol = solve_ivp(dynamics, t_span, x0, **options)
+            # Use t_eval for smooth curves, but respect options if provided
+            solve_options = options.copy() if options else {}
+            
+            # For smooth plotting, use dense evaluation points
+            if steps == 1:  # Single step simulation
+                solve_options['t_eval'] = t_eval  # Don't add tStart here, will be added later
+            
+            if solve_options:
+                sol = solve_ivp(dynamics, t_span, x0, **solve_options)
             else:
-                sol = solve_ivp(dynamics, t_span, x0)
+                sol = solve_ivp(dynamics, t_span, x0, t_eval=t_eval if steps == 1 else None)
             
             if not sol.success:
                 raise RuntimeError(f"Integration failed: {sol.message}")

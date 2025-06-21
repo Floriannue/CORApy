@@ -144,6 +144,8 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
                 res = (isinstance(val, np.ndarray) and val.ndim == 2 and val.shape[1] == 1)
             elif attribute == 'vector':
                 res = (isinstance(val, np.ndarray) and (val.ndim == 1 or (val.ndim == 2 and (val.shape[0] == 1 or val.shape[1] == 1))))
+            elif attribute == 'matrix':
+                res = (isinstance(val, np.ndarray) and val.ndim == 2)
             else:
                 # Attempt to evaluate as a built-in function or class check (e.g., 'isinstance')
                 try:
@@ -217,6 +219,8 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
         class_check_passed = isinstance(value, dict)
     elif class_name == 'function_handle':
         class_check_passed = isinstance(value, Callable)
+    elif class_name == 'numpy.ndarray':
+        class_check_passed = isinstance(value, np.ndarray)
     else:
         try:
             # Try to evaluate class_name as a Python class

@@ -24,7 +24,7 @@ Python translation: 2025
 """
 
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -32,19 +32,28 @@ if TYPE_CHECKING:
 
 def dim(P: 'Polytope') -> int:
     """
-    Returns the dimension of the polytope
+    Returns the dimension of the ambient space of a polytope
     
     Args:
         P: Polytope object
         
     Returns:
-        int: Dimension of the polytope (spatial dimensions)
+        int: Dimension of the polytope
     """
-    if P._V is not None and P._V.size > 0:
-        return P._V.shape[0]  # spatial dimensions (rows)
-    elif P._A is not None and P._A.size > 0:
-        return P._A.shape[1]  # number of variables
-    elif P._Ae is not None and P._Ae.size > 0:
-        return P._Ae.shape[1]  # number of variables
+    if P._has_h_rep:
+        # either constraints A*x <= b  or  Ae*x == be  given
+        if P._A is not None and P._A.size > 0:
+            n = P._A.shape[1]
+        elif P._Ae is not None and P._Ae.size > 0:
+            n = P._Ae.shape[1]
+        else:
+            # constraints, such as zeros(0,n) given
+            A_cols = P._A.shape[1] if P._A is not None else 0
+            Ae_cols = P._Ae.shape[1] if P._Ae is not None else 0
+            n = max(A_cols, Ae_cols)
+    elif P._has_v_rep:
+        n = P._V.shape[0] if P._V is not None and P._V.size > 0 else 0
     else:
-        return 0 
+        n = 0
+    
+    return n 

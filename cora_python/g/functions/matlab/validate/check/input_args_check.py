@@ -127,13 +127,29 @@ def _check_numeric_property(value: Any, prop: str, expected: Any) -> None:
         if isinstance(value, np.ndarray):
             if not np.all(np.equal(np.mod(value, 1), 0)):
                 raise CORAError('CORA:wrongInput', 'Value must be integer')
-        elif not isinstance(value, int):
+        elif isinstance(value, (list, tuple)):
+            # Check if all elements in list/tuple are integers
+            for item in value:
+                if isinstance(item, np.ndarray):
+                    if not np.all(np.equal(np.mod(item, 1), 0)):
+                        raise CORAError('CORA:wrongInput', 'Value must be integer')
+                elif not isinstance(item, (int, np.integer)):
+                    raise CORAError('CORA:wrongInput', 'Value must be integer')
+        elif not isinstance(value, (int, np.integer)):
             raise CORAError('CORA:wrongInput', 'Value must be integer')
             
     elif prop == 'positive':
         if isinstance(value, np.ndarray):
             if not np.all(value > 0):
                 raise CORAError('CORA:wrongInput', 'Value must be positive')
+        elif isinstance(value, (list, tuple)):
+            # Check if all elements in list/tuple are positive
+            for item in value:
+                if isinstance(item, np.ndarray):
+                    if not np.all(item > 0):
+                        raise CORAError('CORA:wrongInput', 'Value must be positive')
+                elif item <= 0:
+                    raise CORAError('CORA:wrongInput', 'Value must be positive')
         elif value <= 0:
             raise CORAError('CORA:wrongInput', 'Value must be positive')
             
@@ -141,6 +157,14 @@ def _check_numeric_property(value: Any, prop: str, expected: Any) -> None:
         if isinstance(value, np.ndarray):
             if not np.all(value >= 0):
                 raise CORAError('CORA:wrongInput', 'Value must be non-negative')
+        elif isinstance(value, (list, tuple)):
+            # Check if all elements in list/tuple are non-negative
+            for item in value:
+                if isinstance(item, np.ndarray):
+                    if not np.all(item >= 0):
+                        raise CORAError('CORA:wrongInput', 'Value must be non-negative')
+                elif item < 0:
+                    raise CORAError('CORA:wrongInput', 'Value must be non-negative')
         elif value < 0:
             raise CORAError('CORA:wrongInput', 'Value must be non-negative')
             

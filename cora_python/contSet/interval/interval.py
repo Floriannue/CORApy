@@ -297,6 +297,21 @@ class Interval(ContSet):
         from .and_ import and_
         return and_(other, self)
     
+    def __neg__(self):
+        """Unary minus operation"""
+        from .uminus import uminus
+        return uminus(self)
+    
+    def __pos__(self):
+        """Unary plus operation (returns self)"""
+        return self
+    
+    @property
+    def T(self):
+        """Transpose property"""
+        from .transpose import transpose
+        return transpose(self)
+    
     # Numpy integration
     def __array__(self, dtype=None):
         """Prevent automatic numpy array conversion"""
@@ -360,14 +375,13 @@ class Interval(ContSet):
     
     # String representation
     def __str__(self) -> str:
-        """String representation of interval"""
-        if self.inf.size == 0:
-            return "interval: empty"
-        return f"interval: inf={self.inf}, sup={self.sup}"
+        """String representation that calls the display method"""
+        from .display import display
+        return display(self)
     
     def __repr__(self) -> str:
-        """Detailed string representation of interval"""
-        return self.__str__()
+        """Brief string representation for Python's repr() function"""
+        return f"Interval(dim={self.dim()})"
     
     def __getitem__(self, key):
         """Indexing operation (e.g., I[0:2, 1:3])"""

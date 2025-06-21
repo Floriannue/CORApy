@@ -71,6 +71,8 @@ Translate_Cora/
     - there are over 600 tests - run them in a mode where it only shows failed ones and then focus on a single tests
     - examples dont need tests, but ensure they can be executed and work correctly
     - use d x n vertices format np.array([[0, 1, 0], [0, 0, 1]]) == 2×3 matrix
+    - if you are testing a function that plots anything save the plot as png and look at it
+    - function-call > output.txt rides the console ouput inside the fill in case somehow you dont get the result from the console
 
 ## Translation Workflow must include but not limited to
 
@@ -197,4 +199,4 @@ Translate_Cora/
 
 
 ## Task
-Your task is to `fix all tests and translate the missing tests of all functions and classes`. if there are missing test cases create them.
+Your task is to `fix all erros and translate missing tests for interval, zonotope, polytope, capsule, elipsoid, emptySet, contDynamics, linearSys, g`. if there are no test files to translate for a function or class create approate ones by looking at the manual. also add missing test cases. Also change all the lazy imports (imports inside functions to prevent circular imports) to imports with the typing module!

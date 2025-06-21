@@ -42,16 +42,20 @@ def plot(S, *args, **kwargs):
     Args:
         S: contSet object
         *args: Variable arguments (dims, linespec, etc.)
-        **kwargs: Keyword arguments for plotting options
+        **kwargs: Keyword arguments for plotting options including:
+                 purpose: str - plotting purpose ('initialSet', 'reachSet', 'simulation', etc.)
         
     Returns:
         Matplotlib graphics object handle
     """
+    # Extract purpose from kwargs if provided
+    purpose = kwargs.pop('purpose', 'none')
+    
     # Parse input arguments
     S, dims, plot_kwargs, nvpairs_interval, nvpairs_polygon, nvpairs_vertices = _parse_input(S, args, kwargs)
     
     # Process the set and plotting options
-    S, plot_kwargs = _process(S, dims, plot_kwargs)
+    S, plot_kwargs = _process(S, dims, plot_kwargs, purpose)
     
     # Call subfunction depending on number of dimensions to plot
     n = S.dim()
@@ -157,14 +161,11 @@ def _parse_input(S, args, kwargs):
     return S, dims, plot_kwargs, nvpairs_interval, nvpairs_polygon, nvpairs_vertices
 
 
-def _process(S, dims, plot_kwargs):
+def _process(S, dims, plot_kwargs, purpose='none'):
     """Process set and plotting options"""
     
     # Project set to requested dimensions
     S = S.project(dims)
-    
-    # Determine purpose for plot options
-    purpose = 'none'
     
     # Check if set is bounded
     I = S.interval()
@@ -173,10 +174,11 @@ def _process(S, dims, plot_kwargs):
         S = _intersect_with_axis_limits(S, plot_kwargs)
         
         # Fill unbounded sets (fullspace, halfspace, etc.)
-        purpose = 'fill'
+        if purpose == 'none':  # Don't override reachSet purpose
+            purpose = 'fill'
     
     # Apply purpose-specific plot options
-    plot_kwargs = read_plot_options([], purpose)
+    plot_kwargs = read_plot_options(plot_kwargs, purpose)
     
     return S, plot_kwargs
 

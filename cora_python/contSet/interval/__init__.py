@@ -32,9 +32,17 @@ from .vertices_ import vertices_
 from .and_ import and_
 from .randPoint_ import randPoint_
 from .generateRandom import generateRandom
+from .display import display
+from .uminus import uminus
+from .transpose import transpose
 
 # Import auxiliary functions
 from .aux_functions import _reorder_numeric, _equal_dim_check, _representsa
+
+# Attach methods to the Interval class
+Interval.display = display
+Interval.uminus = uminus
+Interval.transpose = transpose
 
 # Export the Interval class and all methods
 __all__ = [
@@ -59,8 +67,10 @@ __all__ = [
     'and_',
     'randPoint_',
     'generateRandom',
+    'display',
+    'uminus',
+    'transpose',
     # Auxiliary functions (for internal use)
-
     '_reorder_numeric', 
     '_equal_dim_check',
     '_representsa'

@@ -43,9 +43,24 @@ def plot_polygon(V: np.ndarray, *args, **kwargs) -> Any:
     # Convert args to list for processing
     args_list = list(args)
     
-    # Process plotting options
-    plot_options = read_plot_options(args_list)
-    plot_options.update(kwargs)
+    # Process plotting options - avoid double processing if already processed with purpose
+    # Check if options already contain purpose-specific keys (facecolor, label)
+    if ('facecolor' in kwargs or 'FaceColor' in kwargs or 
+        'edgecolor' in kwargs or 'EdgeColor' in kwargs or 
+        'label' in kwargs or 'DisplayName' in kwargs):
+        # Options already processed by higher-level functions with purpose
+        plot_options = kwargs.copy()
+        # Only process args for linespec if provided
+        if args_list:
+            line_options = read_plot_options(args_list)
+            # Only add non-conflicting options
+            for key, value in line_options.items():
+                if key not in plot_options:
+                    plot_options[key] = value
+    else:
+        # Standard processing for direct calls
+        plot_options = read_plot_options(args_list)
+        plot_options.update(kwargs)
     
     # Extract special options
     conv_hull = plot_options.pop('ConvHull', False)
@@ -59,7 +74,16 @@ def plot_polygon(V: np.ndarray, *args, **kwargs) -> Any:
     V = _cut_infinity_at_limits(V)
     
     # Check if we need face color (filled plot)
-    has_face_color = 'facecolor' in plot_options and plot_options['facecolor'] != 'none'
+    # Check both lowercase and MATLAB-style capitalization
+    facecolor_val = plot_options.get('facecolor', plot_options.get('FaceColor', None))
+    # Handle both string and array comparisons safely
+    if facecolor_val is None:
+        has_face_color = False
+    elif isinstance(facecolor_val, str):
+        has_face_color = facecolor_val != 'none'
+    else:
+        # For numpy arrays or other types, consider it as having face color
+        has_face_color = True
     
     # Get current axes
     ax = plt.gca()
@@ -163,7 +187,7 @@ def _cut_infinity_at_limits(V: np.ndarray) -> np.ndarray:
 
 def _plot_empty(has_face_color: bool, plot_options: Dict[str, Any]) -> Any:
     """Plot empty set (NaN values for visibility in legend)"""
-    if np.any(has_face_color):
+    if has_face_color:
         return plt.fill([np.nan], [np.nan], **plot_options)
     else:
         return plt.plot([np.nan], [np.nan], **plot_options)[0]
@@ -194,8 +218,19 @@ def _plot_2d(V: np.ndarray, plot_options: Dict[str, Any], conv_hull: bool,
     x_coords = V[0, :]
     y_coords = V[1, :]
     
-    # Compute convex hull if requested
-    if conv_hull and len(x_coords) > 2:
+    # For filled polygons, always compute convex hull to ensure proper vertex ordering
+    # This fixes the issue where zonotope vertices create "bowtie" shapes
+    if has_face_color and len(x_coords) > 2:
+        try:
+            points = np.column_stack((x_coords, y_coords))
+            hull = ConvexHull(points)
+            hull_indices = hull.vertices
+            x_coords = x_coords[hull_indices]
+            y_coords = y_coords[hull_indices]
+            conv_hull = True  # Mark that we used convex hull
+        except:
+            pass  # Use original points if convex hull fails
+    elif conv_hull and len(x_coords) > 2:
         try:
             points = np.column_stack((x_coords, y_coords))
             hull = ConvexHull(points)
@@ -212,16 +247,57 @@ def _plot_2d(V: np.ndarray, plot_options: Dict[str, Any], conv_hull: bool,
             y_coords = np.append(y_coords, y_coords[0])
     
     # Plot
-    if np.any(has_face_color):
+    if has_face_color:
+        # Extract label for separate handling  
+        label = plot_options.pop('label', None)
+        
+        # Filter out invalid polygon options and convert MATLAB parameter names
+        valid_polygon_options = {}
+        matlab_to_mpl = {
+            'FaceColor': 'facecolor',
+            'EdgeColor': 'edgecolor', 
+            'LineWidth': 'linewidth',
+            'LineStyle': 'linestyle',
+            'FaceAlpha': 'alpha'
+        }
+        valid_keys = ['facecolor', 'edgecolor', 'linewidth', 'linestyle', 'alpha', 
+                      'closed', 'capstyle', 'joinstyle', 'antialiased', 'hatch', 'zorder']
+        
+        for key, value in plot_options.items():
+            # Convert MATLAB parameter names to matplotlib
+            mpl_key = matlab_to_mpl.get(key, key)
+            if mpl_key in valid_keys:
+                valid_polygon_options[mpl_key] = value
+        
         # Use polygon patch for filled plotting
         vertices = np.column_stack((x_coords, y_coords))
-        polygon = Polygon(vertices, **plot_options)
+        polygon = Polygon(vertices, **valid_polygon_options)
+        
+        # Set label after creation for legend registration
+        if label is not None and label != '_nolegend_':
+            polygon.set_label(label)
+        
         ax = plt.gca()
         ax.add_patch(polygon)
+        
+        # Ensure the patch is included in the legend by updating the axes limits
+        ax.relim()
+        ax.autoscale_view()
+        
         return polygon
     else:
-        # Line plot
-        return plt.plot(x_coords, y_coords, **plot_options)[0]
+        # Line plot - filter out polygon-specific options
+        valid_line_options = {}
+        valid_line_keys = ['color', 'linewidth', 'linestyle', 'alpha', 'marker', 
+                          'markersize', 'markerfacecolor', 'markeredgecolor', 
+                          'label', 'zorder', 'antialiased', 'solid_capstyle', 
+                          'solid_joinstyle', 'dash_capstyle', 'dash_joinstyle']
+        
+        for key, value in plot_options.items():
+            if key in valid_line_keys:
+                valid_line_options[key] = value
+        
+        return plt.plot(x_coords, y_coords, **valid_line_options)[0]
 
 
 def _plot_3d(V: np.ndarray, plot_options: Dict[str, Any], conv_hull: bool, has_face_color: bool) -> Any:

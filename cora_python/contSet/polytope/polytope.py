@@ -53,11 +53,11 @@ Last revision: 25-July-2023 (MW, restructure constructor)
 # All rights reserved.
 
 import numpy as np
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, TYPE_CHECKING
 
 from cora_python.contSet.contSet.contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-from .private.priv_V_to_H import priv_V_to_H
+
 from .vertices_ import vertices_
 
 class Polytope(ContSet):
@@ -168,133 +168,45 @@ class Polytope(ContSet):
     @property
     def A(self):
         if not self._has_h_rep:
-            self._convert_V_to_H()
+            raise CORAerror('CORA:specialError',
+                           "The halfspace representation is not available. " +
+                           "Call the function 'polytope/constraints'.")
         return self._A
 
     @property
     def b(self):
         if not self._has_h_rep:
-            self._convert_V_to_H()
+            raise CORAerror('CORA:specialError',
+                           "The halfspace representation is not available. " +
+                           "Call the function 'polytope/constraints'.")
         return self._b
 
     @property
     def Ae(self):
         if not self._has_h_rep:
-            self._convert_V_to_H()
+            raise CORAerror('CORA:specialError',
+                           "The halfspace representation is not available. " +
+                           "Call the function 'polytope/constraints'.")
         return self._Ae
 
     @property
     def be(self):
         if not self._has_h_rep:
-            self._convert_V_to_H()
+            raise CORAerror('CORA:specialError',
+                           "The halfspace representation is not available. " +
+                           "Call the function 'polytope/constraints'.")
         return self._be
 
-    def _convert_V_to_H(self):
-        """Converts vertex representation to half-space representation."""
-        if self._V is None or self._V.size == 0:
-            # Cannot convert empty vertices
-            self._A, self._b, self._Ae, self._be = np.array([]), np.array([]), np.array([]), np.array([])
-        else:
-            # priv_V_to_H expects vertices as columns (d x n_vertices), which is our storage format
-            self._A, self._b, self._Ae, self._be = priv_V_to_H(self._V)
-        self._has_h_rep = True
 
-    def dim(self):
-        return self.dimension
 
     def __repr__(self):
-        # A simple representation for the polytope
-        if self._V is not None:
-            return f"Polytope(V={self._V.shape})"
-        elif self._A is not None:
-            if self._Ae is not None:
-                return f"Polytope(H-rep: A({self._A.shape}), b({self._b.shape}), Ae({self._Ae.shape}), be({self._be.shape}))"
-            else:
-                return f"Polytope(H-rep: A({self._A.shape}), b({self._b.shape}))"
-        else:
-            return "Polytope(empty)"
-
-    def __mul__(self, other):
-        from .mtimes import mtimes
-        return mtimes(self, other)
-
-    def __rmul__(self, other):
-        from .mtimes import mtimes
-        return mtimes(other, self)
-
-    def __matmul__(self, other):
-        from .mtimes import mtimes
-        return mtimes(self, other)
-
-    def __rmatmul__(self, other):
-        from .mtimes import mtimes
-        return mtimes(other, self)
-
-    def __add__(self, other):
-        return self.plus(self, other)
-
-    def constraints(self):
         """
-        Computes the half-space representation (A, b) and equality 
-        constraints (Ae, be) of the polytope if it is not already available.
-        
-        If the polytope is defined by vertices, it converts them to half-spaces.
-        
-        Returns:
-            Polytope: The same polytope object with A, b, Ae, and be properties populated.
+        Brief string representation for Python's repr() function.
+        For detailed display, use the display() method.
         """
-        if self._A is None:
-            if self._V is not None:
-                from .private.priv_V_to_H import priv_V_to_H
-                # priv_V_to_H expects vertices as columns (d x n_vertices), which is our storage format
-                self._A, self._b, self._Ae, self._be = priv_V_to_H(self._V)
-            else:
-                # This is an empty polytope defined with no args
-                pass
-        return self
+        return f"Polytope(dim={self.dimension})"
+    
 
-    # Static methods
-    @staticmethod
-    def generate_random(*args) -> 'Polytope':
-        # P = generateRandom(varargin) % generate random polytope
-        # This will be implemented in a separate file: generate_random.py
-        raise NotImplementedError("This method will be implemented in a separate file.")
 
-    @staticmethod
-    def enclose_points(points: np.ndarray, *args) -> 'Polytope':
-        # P = enclosePoints(points,varargin) % enclose point cloud with polytope
-        # This will be implemented in a separate file: enclose_points.py
-        raise NotImplementedError("This method will be implemented in a separate file.")
 
-    @staticmethod
-    def empty(n: int) -> 'Polytope':
-        # P = empty(n) % instantiate empty polytope
-        # This will be implemented in a separate file: empty.py
-        raise NotImplementedError("This method will be implemented in a separate file.")
-
-    @staticmethod
-    def Inf(n: int) -> 'Polytope':
-        # P = Inf(n) % instantiate polytope representing R^n
-        # This will be implemented in a separate file: Inf.py
-        raise NotImplementedError("This method will be implemented in a separate file.")
-
-    @staticmethod
-    def origin(n: int) -> 'Polytope':
-        # P = origin(n) % instantiate polytope representing the origin in R^n
-        # This will be implemented in a separate file: origin.py
-        raise NotImplementedError("This method will be implemented in a separate file.")
-
-    # Protected methods
-    def get_print_set_info(self) -> Tuple[str, List[str]]:
-        # [abbrev,printOrder] = getPrintSetInfo(S)
-        # This will be implemented in a separate file: get_print_set_info.py
-        raise NotImplementedError("This method will be implemented in a separate file.")
-
-    def representsa_(self, set_type: str, tol: float = 1e-9, **kwargs) -> bool:
-        """Internal check if set represents a specific type"""
-        from .representsa_ import representsa_
-        return representsa_(self, set_type, tol, **kwargs)
-
-    def copy(self):
-        """Create a copy of this polytope"""
-        return Polytope(self) 
+ 

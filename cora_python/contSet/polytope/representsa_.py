@@ -1,6 +1,28 @@
+"""
+representsa_ - checks if a polytope represents a specific type
+
+Syntax:
+    res = representsa_(P, type, tol)
+
+Inputs:
+    P - polytope object
+    type - string specifying the type ('emptySet', 'fullspace', 'origin', etc.)
+    tol - tolerance for checks
+
+Outputs:
+    res - true/false
+
+Authors:       Mark Wetzlinger
+Written:       19-July-2023
+Last update:   ---
+Last revision: ---
+"""
+
 from typing import Tuple, Union
 import numpy as np
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from .private.priv_representsa_emptySet import priv_representsa_emptySet
+
 
 def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool, Tuple[bool, 'Polytope']]:
     """
@@ -28,8 +50,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
             res = p._V.size == 0 or p._V.shape[1] == 0
         else:
             # For H-representation, need to call the private function
-            from .private.priv_representsa_emptySet import priv_representsa_emptySet
-            res = priv_representsa_emptySet(p.A, p.b, p.Ae, p.be, n, tol)
+            res = priv_representsa_emptySet(p._A, p._b, p._Ae, p._be, n, tol)
         
         # Cache the result
         p._empty_set_cached = res
@@ -59,7 +80,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         # MATLAB behavior: check H-rep constraints if available, otherwise check V-rep for 1D infinite vertices
         if p._has_h_rep:
             # All constraints must be trivially fulfilled: A*x <= b with A=0, b>=0, Ae=0, be=0
-            A, b, Ae, be = p.A, p.b, p.Ae, p.be
+            A, b, Ae, be = p._A, p._b, p._Ae, p._be
             res = (np.all(withinTol(A, 0, tol)) and
                    np.all(b >= 0) or np.all(withinTol(b, 0, tol))) and \
                   (Ae is None or Ae.size == 0 or np.all(withinTol(Ae, 0, tol))) and \

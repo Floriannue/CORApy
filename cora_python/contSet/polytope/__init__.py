@@ -10,10 +10,12 @@ convex polytopes defined by linear constraints.
 # All rights reserved.
 
 from .polytope import Polytope
+
+# Import all method functions
 from .zonotope import zonotope
 from .contains_ import contains_
-from .dim import dim
 from .center import center
+from .dim import dim
 from .isBounded import isBounded
 from .isemptyobject import isemptyobject
 from .interval import interval
@@ -29,8 +31,11 @@ from .representsa_ import representsa_
 from .constraints import constraints
 from .vertices_ import vertices_
 from .minus import minus, rminus
+from .generate_random import generate_random
+from .get_print_set_info import get_print_set_info
+from .enclose_points import enclose_points
 
-
+# Attach methods to the class
 Polytope.zonotope = zonotope
 Polytope.contains_ = contains_
 Polytope.dim = dim
@@ -38,9 +43,9 @@ Polytope.center = center
 Polytope.isBounded = isBounded
 Polytope.isemptyobject = isemptyobject
 Polytope.interval = interval
-Polytope.empty = empty
-Polytope.Inf = Inf
-Polytope.origin = origin
+Polytope.empty = staticmethod(empty)
+Polytope.Inf = staticmethod(Inf)
+Polytope.origin = staticmethod(origin)
 Polytope.copy = copy
 Polytope.display = display
 Polytope.mtimes = mtimes
@@ -49,10 +54,19 @@ Polytope.project = project
 Polytope.representsa_ = representsa_
 Polytope.constraints = constraints
 Polytope.vertices_ = vertices_
-Polytope.__sub__ = minus
-Polytope.__rsub__ = rminus
-Polytope.__mul__ = mtimes
-Polytope.__rmul__ = mtimes
+Polytope.generate_random = staticmethod(generate_random)
+Polytope.get_print_set_info = get_print_set_info
+Polytope.enclose_points = staticmethod(enclose_points)
+
+# Attach operator overloads
+Polytope.__add__ = lambda self, other: plus(self, other)
+Polytope.__radd__ = lambda self, other: plus(other, self)
+Polytope.__sub__ = lambda self, other: minus(self, other)
+Polytope.__rsub__ = lambda self, other: rminus(self, other)
+Polytope.__mul__ = lambda self, other: mtimes(self, other)
+Polytope.__rmul__ = lambda self, other: mtimes(other, self)
+Polytope.__matmul__ = lambda self, other: mtimes(self, other)
+Polytope.__rmatmul__ = lambda self, other: mtimes(other, self)
 
 __all__ = [
     'Polytope',

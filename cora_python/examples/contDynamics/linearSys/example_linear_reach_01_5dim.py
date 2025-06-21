@@ -29,6 +29,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
+# Configure matplotlib for smooth rendering like MATLAB
+plt.rcParams['figure.dpi'] = 100
+plt.rcParams['savefig.dpi'] = 300
+plt.rcParams['lines.antialiased'] = True
+plt.rcParams['patch.antialiased'] = True
+plt.rcParams['lines.linewidth'] = 1.0
+plt.rcParams['lines.solid_capstyle'] = 'round'
+plt.rcParams['lines.solid_joinstyle'] = 'round'
+plt.rcParams['axes.linewidth'] = 0.8
+plt.rcParams['grid.linewidth'] = 0.5
+plt.rcParams['patch.linewidth'] = 0.5
+
 # Add the cora_python directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
@@ -113,7 +125,7 @@ def example_linear_reach_01_5dim():
     
     print("Running random simulations...")
     simOpt = {}
-    simOpt['points'] = 25
+    simOpt['points'] = 25  # Match MATLAB exactly
     simOpt['type'] = 'gaussian'
     
     simRes = fiveDimSys.simulateRandom(params, simOpt)
@@ -126,55 +138,23 @@ def example_linear_reach_01_5dim():
     
     for k, projDims in enumerate(dims):
         
-        plt.figure(figsize=(8, 6))
-        plt.hold = True  # Enable hold for multiple plots
-        plt.box(True)
+        plt.figure()
+        plt.hold = True if hasattr(plt, 'hold') else None
         
-        # Note: useCORAcolors functionality would be implemented separately
-        # For now, we'll use matplotlib's default color cycle
+        # Plot reachable sets (MATLAB-style simplicity)
+        R.plot(projDims, DisplayName='Reachable set', Unify=True)
         
-        # Plot reachable sets
-        if hasattr(R, 'plot'):
-            R.plot(projDims, label='Reachable set', Unify=True)
-        else:
-            print(f"Warning: Plot method not yet implemented for reachSet")
-            # Fallback: plot time-point sets if available
-            if hasattr(R, 'timePoint') and 'set' in R.timePoint:
-                for i, rset in enumerate(R.timePoint['set']):
-                    if hasattr(rset, 'plot'):
-                        if i == 0:
-                            rset.plot(projDims, label='Reachable set', alpha=0.7)
-                        else:
-                            rset.plot(projDims, alpha=0.7)
+        # Plot initial set (MATLAB-style simplicity)
+        R.R0.plot(projDims, DisplayName='Initial set')
         
-        # Plot initial set
-        if hasattr(R, 'R0'):
-            if hasattr(R.R0, 'plot'):
-                R.R0.plot(projDims, label='Initial set', facecolor='green', alpha=0.8)
-        elif hasattr(params['R0'], 'plot'):
-            params['R0'].plot(projDims, label='Initial set', facecolor='green', alpha=0.8)
-        else:
-            print(f"Warning: Plot method not yet implemented for initial set")
+        # Plot simulation results (MATLAB-style simplicity)
+        simRes.plot(projDims, DisplayName='Simulations')
         
-        # Plot simulation results
-        if hasattr(simRes[0], 'plot'):
-            simRes[0].plot(projDims, label='Simulations')
-        else:
-            print(f"Warning: Plot method not yet implemented for simResult")
-            # Fallback: plot trajectories manually
-            for sim in simRes:
-                if hasattr(sim, 'x') and hasattr(sim, 't'):
-                    traj = sim.x[0]  # First trajectory
-                    if traj.shape[1] > max(projDims):
-                        plt.plot(traj[:, projDims[0]], traj[:, projDims[1]], 
-                                'b-', alpha=0.6, linewidth=0.8)
-        
-        # Label plot
-        plt.xlabel(f'x_{projDims[0]+1}')  # Display 1-based indexing for user
-        plt.ylabel(f'x_{projDims[1]+1}')
-        plt.legend(loc='upper left')
-        plt.grid(True, alpha=0.3)
-        plt.title(f'Reachable Set Projection: Dimensions {projDims[0]+1}-{projDims[1]+1}')
+        # Label plot (MATLAB-style with proper LaTeX formatting)
+        plt.xlabel(f'$x_{{{projDims[0]+1}}}$')
+        plt.ylabel(f'$x_{{{projDims[1]+1}}}$')
+        plt.legend(loc='upper left')  # Position legend outside plot area
+        plt.tight_layout()  # Adjust layout to prevent overlap
     
     plt.show()
     
