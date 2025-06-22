@@ -11,10 +11,15 @@ from .origin import origin
 from .display import display
 from .representsa_ import representsa_
 from .isemptyobject import isemptyobject
+from .dim import dim
+from .center import center
 
-# Attach static methods to the class
-Capsule.empty = empty
-Capsule.origin = origin
+# Attach methods to the class (dim and is_empty implemented directly in class)
+Capsule.empty = staticmethod(empty)
+Capsule.origin = staticmethod(origin)
 Capsule.display = display
+Capsule.representsa_ = representsa_
+Capsule.isemptyobject = isemptyobject
+Capsule.center = center
 
-__all__ = ['Capsule', 'empty', 'origin', 'display'] 
+__all__ = ['Capsule', 'empty', 'origin', 'display', 'representsa_', 'isemptyobject', 'dim', 'center'] 

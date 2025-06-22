@@ -31,14 +31,27 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Union, Optional, Any
+from typing import Union, Optional, Any, TYPE_CHECKING
 from ..contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
+from .dim import dim
+from .isemptyobject import isemptyobject
 
-# Import auxiliary functions
-from .aux_functions import _reorder_numeric, _equal_dim_check
-from cora_python.g.functions.matlab.validate.check import withinTol
+
+# Import helper functions from g
+try:
+    from cora_python.g.functions.helper.sets.contSet.reorder_numeric import reorder_numeric
+    from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
+    from cora_python.g.functions.matlab.validate.check import withinTol
+except ImportError:
+    # Fallback for when running from within the cora_python directory
+    import sys
+    import os
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    from g.functions.helper.sets.contSet.reorder_numeric import reorder_numeric
+    from g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
+    from g.functions.matlab.validate.check import withinTol
 
 
 class Interval(ContSet):
@@ -170,45 +183,18 @@ class Interval(ContSet):
         return self.inf.shape[k-1] if k <= len(self.inf.shape) else 1
     
     # Method implementations (imported from separate files)
+    # Methods moved to __init__.py for proper attachment
+    
+    # More methods moved to __init__.py
+    
+    # Abstract methods implementation (required by ContSet)
     def dim(self) -> int:
         """Get dimension of the interval"""
-        from .dim import dim
         return dim(self)
     
     def is_empty(self) -> bool:
         """Check if interval is empty"""
-        from .isemptyobject import isemptyobject
         return isemptyobject(self)
-    
-    def representsa_(self, set_type: str, tol: float = 1e-9) -> bool:
-        """Check if interval represents a specific set type"""
-        from .representsa_ import representsa_
-        return representsa_(self, set_type, tol)
-    
-    def __eq__(self, other) -> bool:
-        """Equality comparison"""
-        from .isequal import isequal
-        return isequal(self, other)
-    
-    def isequal(self, other, tol: float = 1e-12) -> bool:
-        """Check if intervals are equal"""
-        from .isequal import isequal
-        return isequal(self, other, tol)
-    
-    def contains_(self, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, scalingToggle=False, *varargin):
-        """Check if interval contains given point(s) or set"""
-        from .contains_ import contains_
-        return contains_(self, S, method, tol, maxEval, certToggle, scalingToggle, *varargin)
-    
-    def center(self) -> np.ndarray:
-        """Get center of the interval"""
-        from .center import center
-        return center(self)
-    
-    def rad(self) -> np.ndarray:
-        """Get radius of the interval"""
-        from .rad import rad
-        return rad(self)
     
     def infimum(self) -> np.ndarray:
         """Get infimum (lower bound) of the interval"""
@@ -218,34 +204,9 @@ class Interval(ContSet):
         """Get supremum (upper bound) of the interval"""
         return self.sup
     
-    def project(self, dims):
-        """Project interval to lower-dimensional subspace"""
-        from .project import project
-        return project(self, dims)
-    
-    def is_bounded(self) -> bool:
-        """Check if interval is bounded"""
-        from .is_bounded import is_bounded
-        return is_bounded(self)
-    
-    def vertices_(self):
-        """Get vertices of the interval (internal version)"""
-        from .vertices_ import vertices_
-        return vertices_(self)
-    
-    def randPoint_(self, N=1, type_='standard'):
-        """Generate random points within the interval (internal version)"""
-        from .randPoint_ import randPoint_
-        return randPoint_(self, N, type_)
-    
     def interval(self, *args):
         """Return self (already an Interval)"""
         return self
-    
-    def and_(self, other, method: str = 'exact'):
-        """Intersection with another set"""
-        from .and_ import and_
-        return and_(self, other, method)
     
     # Operator overloads
     def __add__(self, other):
@@ -373,15 +334,42 @@ class Interval(ContSet):
         """Get abbreviation and print order for set"""
         raise NotImplementedError("_getPrintSetInfo not implemented")
     
-    # String representation
-    def __str__(self) -> str:
-        """String representation that calls the display method"""
-        from .display import display
-        return display(self)
-    
+    # String representation following Python best practices
     def __repr__(self) -> str:
-        """Brief string representation for Python's repr() function"""
-        return f"Interval(dim={self.dim()})"
+        """
+        Official string representation for programmers.
+        Should be unambiguous and allow object reconstruction.
+        """
+        try:
+            dim_val = self.dim()
+            if self.is_empty():
+                return f"Interval.empty({dim_val})"
+            elif self.representsa_('point'):
+                # For point intervals, show the point value
+                point = (self.inf + self.sup) / 2
+                if point.size == 1:
+                    return f"Interval({point.item()})"
+                else:
+                    return f"Interval({point.tolist()})"
+            else:
+                # General case - show bounds
+                if self.inf.size == 1:
+                    return f"Interval({self.inf.item()}, {self.sup.item()})"
+                else:
+                    return f"Interval({self.inf.tolist()}, {self.sup.tolist()})"
+        except:
+            return f"Interval(dim=unknown)"
+    
+    def __str__(self) -> str:
+        """
+        Informal string representation for users.
+        Uses the display method for MATLAB-style output.
+        """
+        try:
+            from .display import display
+            return display(self)
+        except:
+            return self.__repr__()
     
     def __getitem__(self, key):
         """Indexing operation (e.g., I[0:2, 1:3])"""

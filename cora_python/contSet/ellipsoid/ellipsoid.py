@@ -5,6 +5,8 @@ from cora_python.contSet.contSet.contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check import assertNarginConstructor
 from cora_python.g.functions.matlab.validate.check import inputArgsCheck
+from .dim import dim
+from .isemptyobject import isemptyobject
 
 
 class Ellipsoid(ContSet):
@@ -95,6 +97,18 @@ class Ellipsoid(ContSet):
         # For now, let's manually handle the defaults.
         q = np.zeros((Q.shape[0], 1)) if len(varargin) < 2 else varargin[1]
         TOL = 1e-6 if len(varargin) < 3 else varargin[2]
+        
+        # Convert center vector to column vector if needed
+        if q is not None and hasattr(q, 'shape'):
+            q = np.asarray(q)
+            if q.ndim == 1:
+                # Convert 1D array to column vector
+                q = q.reshape(-1, 1)
+            elif q.ndim == 2 and q.shape[1] != 1:
+                # If it's a row vector, transpose it (but not if it's empty like zeros(n,0))
+                if q.shape[0] == 1 and q.shape[1] > 0:
+                    q = q.T
+        
         return Q, q, TOL
 
     def _aux_checkInputArgs(self, Q, q, TOL):
@@ -104,7 +118,8 @@ class Ellipsoid(ContSet):
         if CHECKS_ENABLED:
             # allow empty Q matrix for ellipsoid.empty
             if Q.size == 0:
-                # only ensure that q is also empty
+                # For empty ellipsoids, q should be zeros(n,0) which has size 0 in MATLAB terms
+                # but preserves dimension information
                 if q.size != 0:
                     raise CORAerror('CORA:wrongInputInConstructor',
                                     'Shape matrix is empty, but center is not.')
@@ -138,7 +153,48 @@ class Ellipsoid(ContSet):
     def _aux_computeProperties(self, Q, q):
         # returns zero values in case Q or q are empty
         if Q.size == 0:
+            # For empty ellipsoids, Q becomes zeros(0,0) but q should preserve its dimensions
+            # In MATLAB: Q=zeros(0,0), q=zeros(n,0) where n is the dimension
             Q = np.zeros((0, 0))
-            if q.size != 0:
-                q = np.zeros((0, 0))
-        return Q, q 
+            # Don't modify q - keep it as zeros(n,0) to preserve dimension information
+        return Q, q
+    
+    # Abstract methods implementation (required by ContSet)
+    def dim(self) -> int:
+        """Get dimension of the ellipsoid"""
+        return dim(self)
+    
+    def is_empty(self) -> bool:
+        """Check if ellipsoid is empty"""
+        return isemptyobject(self)
+    
+    def __repr__(self) -> str:
+        """
+        Official string representation for programmers.
+        Should be unambiguous and allow object reconstruction.
+        """
+        try:
+            if self.is_empty():
+                return f"Ellipsoid.empty({self.dim()})"
+            else:
+                # For small ellipsoids, show the actual values
+                if self.Q.size <= 9 and self.q.size <= 3:
+                    if np.allclose(self.q, 0):
+                        return f"Ellipsoid({self.Q.tolist()})"
+                    else:
+                        return f"Ellipsoid({self.Q.tolist()}, {self.q.flatten().tolist()})"
+                else:
+                    return f"Ellipsoid(dim={self.dim()})"
+        except:
+            return "Ellipsoid()"
+    
+    def __str__(self) -> str:
+        """
+        Informal string representation for users.
+        Uses the display method for MATLAB-style output.
+        """
+        try:
+            from .display import display
+            return display(self)
+        except:
+            return self.__repr__() 

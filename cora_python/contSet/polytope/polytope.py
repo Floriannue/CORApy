@@ -59,6 +59,8 @@ from cora_python.contSet.contSet.contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 from .vertices_ import vertices_
+from .dim import dim
+from .isemptyobject import isemptyobject
 
 class Polytope(ContSet):
     """
@@ -124,7 +126,7 @@ class Polytope(ContSet):
             try:
                 self._V = args[0].vertices()
                 self._has_v_rep = True
-            except (NotImplementedError, CORAerror):
+            except (NotImplementedError, Exception):
                 raise CORAerror('CORA:wrongInputInConstructor',
                               'The provided set object must have a vertices method.')
             if self._V is None or self._V.size == 0:
@@ -197,14 +199,47 @@ class Polytope(ContSet):
                            "Call the function 'polytope/constraints'.")
         return self._be
 
+    # Abstract methods implementation (required by ContSet)
+    def dim(self) -> int:
+        """Get dimension of the polytope"""
+        return dim(self)
+    
+    def is_empty(self) -> bool:
+        """Check if polytope is empty"""
+        return isemptyobject(self)
 
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
-        Brief string representation for Python's repr() function.
-        For detailed display, use the display() method.
+        Official string representation for programmers.
+        Should be unambiguous and allow object reconstruction.
         """
-        return f"Polytope(dim={self.dimension})"
+        try:
+            if self.is_empty():
+                return f"Polytope.empty({self.dimension})"
+            elif self._has_v_rep and self._V is not None and self._V.size <= 12:
+                # For small polytopes, show vertices
+                return f"Polytope({self._V.tolist()})"
+            elif self._has_h_rep and self._A is not None and self._A.size <= 12:
+                # For small polytopes, show constraints
+                if self._Ae is not None and self._be is not None:
+                    return f"Polytope({self._A.tolist()}, {self._b.flatten().tolist()}, {self._Ae.tolist()}, {self._be.flatten().tolist()})"
+                else:
+                    return f"Polytope({self._A.tolist()}, {self._b.flatten().tolist()})"
+            else:
+                return f"Polytope(dim={self.dimension})"
+        except:
+            return "Polytope()"
+    
+    def __str__(self) -> str:
+        """
+        Informal string representation for users.
+        Uses the display method for MATLAB-style output.
+        """
+        try:
+            from .display import display
+            return display(self)
+        except:
+            return self.__repr__()
     
 
 

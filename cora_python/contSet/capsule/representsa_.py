@@ -1,11 +1,13 @@
 import numpy as np
 from typing import Union, Tuple, Any
 
-from cora_python.contSet.emptySet import empty as emptySet
-from cora_python.contSet.zonotope import Zonotope
-from cora_python.contSet.interval import Interval
-from cora_python.contSet.ellipsoid import Ellipsoid
-from cora_python.g.functions.matlab.validate.check import withinTol
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cora_python.contSet.emptySet.emptySet import EmptySet
+    from cora_python.contSet.zonotope.zonotope import Zonotope
+    from cora_python.contSet.interval.interval import Interval
+    from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
 
 
 def representsa_(capsule_obj, set_type: str, tol: float = 1e-12, **kwargs) -> Union[bool, Tuple[bool, Any]]:
@@ -30,7 +32,8 @@ def representsa_(capsule_obj, set_type: str, tol: float = 1e-12, **kwargs) -> Un
         else:
             res = False
         if return_set and res:
-            S = emptySet(capsule_obj.dim())
+            from cora_python.contSet.emptySet.emptySet import EmptySet
+            S = EmptySet(capsule_obj.dim())
         elif return_set and not res:
             S = None
         if return_set:
@@ -47,11 +50,13 @@ def representsa_(capsule_obj, set_type: str, tol: float = 1e-12, **kwargs) -> Un
             # Case: Capsule is a ball (g is zero)
             res = True
             if return_set:
-                S = Zonotope(capsule_obj.c, np.zeros((capsule_obj.dim(), 0)), capsule_obj.r)
+                from cora_python.contSet.zonotope.zonotope import Zonotope
+                S = Zonotope(capsule_obj.c, np.zeros((capsule_obj.dim(), 0)))
         elif capsule_obj.r < tol:
             # Case: Capsule is a line segment (r is zero)
             res = True
             if return_set:
+                from cora_python.contSet.zonotope.zonotope import Zonotope
                 S = Zonotope(capsule_obj.c, capsule_obj.g)
         else:
             # general case: Capsule is a zonotope
@@ -63,6 +68,7 @@ def representsa_(capsule_obj, set_type: str, tol: float = 1e-12, **kwargs) -> Un
                 # as a zonotope, but it's an over-approximation of a ball.
                 # The actual representation of a ball as a zonotope needs care.
                 # For now, we approximate by adding generators representing the ball.
+                from cora_python.contSet.zonotope.zonotope import Zonotope
                 G_ball = np.eye(capsule_obj.dim()) * capsule_obj.r
                 G = np.hstack((capsule_obj.g, G_ball))
                 S = Zonotope(capsule_obj.c, G)
@@ -72,6 +78,7 @@ def representsa_(capsule_obj, set_type: str, tol: float = 1e-12, **kwargs) -> Un
         if capsule_obj.r < tol and np.sum(np.abs(capsule_obj.g) > tol) == 1:
             res = True
             if return_set:
+                from cora_python.contSet.interval.interval import Interval
                 # min/max for interval
                 min_val = capsule_obj.c - np.abs(capsule_obj.g)
                 max_val = capsule_obj.c + np.abs(capsule_obj.g)
@@ -82,10 +89,11 @@ def representsa_(capsule_obj, set_type: str, tol: float = 1e-12, **kwargs) -> Un
         if np.all(np.abs(capsule_obj.g) < tol):
             res = True
             if return_set:
+                from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
                 # An ellipsoid is defined by center and shape matrix P
                 # For a ball, P is r^2 * I
                 P = (capsule_obj.r**2) * np.eye(capsule_obj.dim())
-                S = Ellipsoid(capsule_obj.c, P)
+                S = Ellipsoid(P, capsule_obj.c)
 
     elif set_type == 'origin':
         # Capsule contains origin if 0 is in the set

@@ -42,17 +42,12 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Union, Optional, Tuple, Any
+from typing import Union, Optional, Tuple, Any, TYPE_CHECKING
 from ..contSet import ContSet
 from cora_python.g.functions.matlab.validate.check import withinTol
-from cora_python.contSet.emptySet.empty import empty as emptySet
-from cora_python.contSet.zonotope import Zonotope
-from cora_python.contSet.interval import Interval
-from cora_python.contSet.ellipsoid import Ellipsoid # Assuming ellipsoid is implemented
-from cora_python.contSet.capsule.representsa_ import representsa_ # Import the new function
-from cora_python.contSet.capsule.isemptyobject import isemptyobject # Import the new function
-from cora_python.contSet.capsule.empty import empty # Import the empty method
-from cora_python.contSet.capsule.display import display # Import the display method
+
+from .dim import dim
+from .isemptyobject import isemptyobject
 
 
 class Capsule(ContSet):
@@ -207,39 +202,45 @@ class Capsule(ContSet):
         
         return c, g, r
     
+    # Abstract methods implementation (required by ContSet)
     def dim(self) -> int:
-        """
-        Get dimension of the capsule
-        
-        Returns:
-            Dimension of the capsule
-        """
-        if self.c is not None:
-            return self.c.shape[0]
-        return 0
+        """Get dimension of the capsule"""
+        return dim(self)
     
     def is_empty(self) -> bool:
         """Check if capsule is empty"""
         return isemptyobject(self)
     
-    def __str__(self) -> str:
-        """String representation of the capsule"""
-        return f"capsule (dimension: {self.dim()})"
-    
     def __repr__(self) -> str:
-        """Detailed string representation"""
-        return f"Capsule(c={self.c.flatten() if self.c is not None else None}, " \
-               f"g={self.g.flatten() if self.g is not None else None}, r={self.r})"
-
-    # Assign the function to the class
-    representsa_ = representsa_
-    isemptyobject = isemptyobject
+        """
+        Official string representation for programmers.
+        Should be unambiguous and allow object reconstruction.
+        """
+        try:
+            if self.is_empty():
+                return f"Capsule.empty({self.dim()})"
+            else:
+                # For small capsules, show the actual values
+                c_list = self.c.flatten().tolist() if self.c is not None and self.c.size <= 5 else None
+                g_list = self.g.flatten().tolist() if self.g is not None and self.g.size <= 5 else None
+                
+                if c_list is not None and g_list is not None:
+                    if self.r == 0:
+                        return f"Capsule({c_list}, {g_list})"
+                    else:
+                        return f"Capsule({c_list}, {g_list}, {self.r})"
+                else:
+                    return f"Capsule(dim={self.dim()})"
+        except:
+            return "Capsule()"
     
-    @staticmethod
-    def empty(n: int = 0):
-        """Create an empty capsule"""
-        return empty(n)
-    
-    def display(self):
-        """Display capsule properties"""
-        return display(self) 
+    def __str__(self) -> str:
+        """
+        Informal string representation for users.
+        Uses the display method for MATLAB-style output.
+        """
+        try:
+            from .display import display
+            return display(self)
+        except:
+            return self.__repr__() 

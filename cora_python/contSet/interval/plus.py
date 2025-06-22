@@ -23,7 +23,7 @@ Python translation: 2025
 import numpy as np
 from typing import Union
 from .interval import Interval
-from .aux_functions import _reorder_numeric, _equal_dim_check, _representsa
+# Removed static helper imports - use object methods and proper validation instead
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 
@@ -38,8 +38,11 @@ def plus(I: Interval, S: Union[Interval, np.ndarray, float, int]) -> Interval:
     Returns:
         S_out: Minkowski sum
     """
-    # Ensure that numeric is second input argument
-    S_out, S = _reorder_numeric(I, S)
+    # Ensure that numeric is second input argument (reorder if needed)
+    if not isinstance(I, Interval) and isinstance(S, Interval):
+        S_out, S = S, I  # Swap so interval is first
+    else:
+        S_out, S = I, S
     
     # Since Interval has highest precedence (120), it should handle all operations
     # No need to delegate to lower precedence functions
@@ -85,11 +88,14 @@ def plus(I: Interval, S: Union[Interval, np.ndarray, float, int]) -> Interval:
             
     except Exception as e:
         # Check whether different dimension of ambient space
-        _equal_dim_check(S_out, S)
+        if hasattr(S_out, 'dim') and hasattr(S, 'dim'):
+            if S_out.dim() != S.dim():
+                raise CORAError('CORA:dimensionMismatch', 
+                               f'Dimension mismatch: {S_out.dim()} vs {S.dim()}')
         
-        # Check for empty sets
-        if (_representsa(S_out, 'emptySet', 1e-9) or 
-            _representsa(S, 'emptySet', 1e-9)):
+        # Check for empty sets using object methods
+        if (S_out.representsa_('emptySet', 1e-9) or 
+            (hasattr(S, 'representsa_') and S.representsa_('emptySet', 1e-9))):
             return Interval.empty(S_out.dim())
         
         # Re-raise the original error

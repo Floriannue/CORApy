@@ -141,14 +141,14 @@ class TestInterval:
         """Test string representation"""
         I = Interval([-2, -1], [3, 4])
         str_repr = str(I)
-        assert "interval" in str_repr
-        assert "inf" in str_repr
-        assert "sup" in str_repr
+        assert "Interval object" in str_repr
+        assert "[-2, 3]" in str_repr
+        assert "[-1, 4]" in str_repr
         
         # Empty interval
         I_empty = Interval.empty(2)
         str_empty = str(I_empty)
-        assert "empty" in str_empty
+        assert "empty set" in str_empty
     
     def test_matrix_intervals(self):
         """Test matrix interval operations"""

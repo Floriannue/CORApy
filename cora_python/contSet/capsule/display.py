@@ -31,45 +31,51 @@ Python translation: 2025
 import numpy as np
 
 
-def display(C) -> None:
+def display(C) -> str:
     """
     Displays the properties of a capsule object
     
     Args:
         C: capsule object
+        
+    Returns:
+        str: formatted display string
     """
-    print()
+    lines = []
+    lines.append("")
     
     # Check for empty capsule
     if C.is_empty():
-        print(f"Empty capsule in R^{C.dim()}")
-        print()
-        return
+        lines.append(f"Empty capsule in R^{C.dim()}")
+        lines.append("")
+        return "\n".join(lines)
     
-    print("capsule")
-    print()
+    lines.append("capsule")
+    lines.append("")
     
     # Display dimension
-    print(f"dimension: {C.dim()}")
-    print()
+    lines.append(f"dimension: {C.dim()}")
+    lines.append("")
     
     # Display center
-    print("center:")
+    lines.append("center:")
     if C.c is not None:
-        print(C.c.flatten())
+        lines.append(str(C.c.flatten()))
     else:
-        print("[]")
-    print()
+        lines.append("[]")
+    lines.append("")
     
     # Display generator
-    print("generator:")
+    lines.append("generator:")
     if C.g is not None:
-        print(C.g.flatten())
+        lines.append(str(C.g.flatten()))
     else:
-        print("[]")
-    print()
+        lines.append("[]")
+    lines.append("")
     
     # Display radius
-    print("radius:")
-    print(C.r)
-    print() 
+    lines.append("radius:")
+    lines.append(str(C.r))
+    lines.append("")
+    
+    return "\n".join(lines) 

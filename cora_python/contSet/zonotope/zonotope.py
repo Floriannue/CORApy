@@ -36,9 +36,12 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Union, Optional, Any
+from typing import Union, Optional, Any, TYPE_CHECKING
 from ..contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+
+from .dim import dim
+from .isemptyobject import isemptyobject
 
 
 class Zonotope(ContSet):
@@ -207,12 +210,10 @@ class Zonotope(ContSet):
     
     def dim(self) -> int:
         """Get dimension of the zonotope"""
-        from .dim import dim
         return dim(self)
     
     def is_empty(self) -> bool:
         """Check if zonotope is empty"""
-        from .isemptyobject import isemptyobject
         return isemptyobject(self)
     
     @staticmethod
@@ -258,15 +259,32 @@ class Zonotope(ContSet):
         return zonotopeNorm(self, p, return_minimizer)
     
     def __repr__(self) -> str:
-        """String representation of zonotope"""
-        if self.is_empty():
-            return f"zonotope (empty, dimension: {self.dim()})"
-        else:
-            return f"zonotope (dimension: {self.dim()}, generators: {self.G.shape[1] if self.G.size > 0 else 0})"
+        """
+        Official string representation for programmers.
+        Should be unambiguous and allow object reconstruction.
+        """
+        try:
+            if self.is_empty():
+                return f"Zonotope.empty({self.dim()})"
+            else:
+                # For small zonotopes, show the actual values
+                if self.c.size <= 3 and self.G.shape[1] <= 3:
+                    return f"Zonotope({self.c.tolist()}, {self.G.tolist()})"
+                else:
+                    return f"Zonotope(dim={self.dim()}, generators={self.G.shape[1] if self.G.size > 0 else 0})"
+        except:
+            return "Zonotope()"
     
     def __str__(self) -> str:
-        """String representation for display"""
-        return self.__repr__()
+        """
+        Informal string representation for users.
+        Uses the display method for MATLAB-style output.
+        """
+        try:
+            from .display import display
+            return display(self)
+        except:
+            return self.__repr__()
     
     # Operator overloading
     def __add__(self, other):

@@ -10,7 +10,14 @@ Authors: Matthias Althoff, Mark Wetzlinger (MATLAB)
 
 # Import the main ContSet class
 from .contSet import ContSet
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+try:
+    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+except ImportError:
+    # Fallback for when running from within the cora_python directory
+    import sys
+    import os
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    from g.functions.matlab.validate.postprocessing.CORAerror import CORAError
 
 # Import all method implementations
 from .plot import plot

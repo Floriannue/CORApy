@@ -33,3 +33,6 @@ cora_python/contSet/polytope/interval.py :
 cora_python/contSet/polytope/private/priv_box_V.py :
 cora_python/contSet/polytope/private/priv_box_H.py :
 cora_python/contSet/polytope/private/priv_supportFunc.py : 
+cora_python/contSet/interval/display.py : cora_python/tests/contSet/interval/test_interval_display.py
+cora_python/contSet/interval/uminus.py : cora_python/tests/contSet/interval/test_interval_uminus.py
+cora_python/contSet/interval/transpose.py : cora_python/tests/contSet/interval/test_interval_transpose.py

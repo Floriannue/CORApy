@@ -46,7 +46,6 @@ def display(Z):
     # Check for special cases
     if Z.isemptyobject():
         result = f"Empty zonotope in R^{Z.dim()}"
-        print(result)
         return result
     
     # Display basic information
@@ -72,5 +71,4 @@ def display(Z):
     lines.append("")
     
     result = "\n".join(lines)
-    print(result)
     return result 

@@ -6,6 +6,7 @@ This module contains verbose output functions including plotting utilities.
 
 from .plot import *
 from .verboseLog import verboseLog, verboseLogReach, verboseLogAdaptive, verboseLogHeader, verboseLogFooter
+from .dispEmptySet import dispEmptySet
 
 __all__ = [
     'plot_polygon',
@@ -19,5 +20,6 @@ __all__ = [
     'verboseLogReach', 
     'verboseLogAdaptive',
     'verboseLogHeader',
-    'verboseLogFooter'
+    'verboseLogFooter',
+    'dispEmptySet'
 ] 

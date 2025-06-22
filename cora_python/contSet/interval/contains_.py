@@ -55,7 +55,7 @@ Last revision: 27-March-2023 (MW, rename contains_)
 import numpy as np
 from typing import Union, Tuple
 
-from .representsa_ import representsa_
+# Removed static import - use object method instead
 from cora_python.g.functions.matlab.validate.check import withinTol
 
 
@@ -83,9 +83,9 @@ def contains_(I, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, sc
     res = False
     
     # Set in empty set
-    if representsa_(I, 'emptySet', 0):
+    if I.representsa_('emptySet', 0):
         # Empty interval logic: empty contains empty, but not non-empty
-        if hasattr(S, 'inf') and hasattr(S, 'sup') and representsa_(S, 'emptySet', 0):
+        if hasattr(S, 'representsa_') and S.representsa_('emptySet', 0):
             # Empty interval contains empty interval
             res = True
             cert = True

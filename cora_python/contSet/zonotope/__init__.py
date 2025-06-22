@@ -34,6 +34,7 @@ from .copy import copy
 from .convHull_ import convHull_
 from .enclose import enclose
 from .reduce import reduce
+from .minnorm import minnorm
 
 # Attach methods to the class
 Zonotope.abs_ = abs_
@@ -67,5 +68,6 @@ Zonotope.copy = copy
 Zonotope.convHull_ = convHull_
 Zonotope.enclose = enclose
 Zonotope.reduce = reduce
+Zonotope.minnorm = minnorm
 
-__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'is_empty'] 
+__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'is_empty'] 
