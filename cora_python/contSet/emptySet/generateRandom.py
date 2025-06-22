@@ -1,8 +1,12 @@
 import numpy as np
+from typing import TYPE_CHECKING
 
 from cora_python.g.functions.matlab.validate.check import checkNameValuePairs
 from cora_python.g.functions.matlab.validate.preprocessing import readNameValuePair
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+
+if TYPE_CHECKING:
+    from .emptySet import EmptySet
 
 def generateRandom(*varargin) -> 'EmptySet':
     """
@@ -35,25 +39,32 @@ def generateRandom(*varargin) -> 'EmptySet':
     Last revision: ---
     """
 
-    # name-value pair input
-    # Use checkNameValuePairs (translated) and readNameValuePair (translated)
-    opt = {}
-    opt['Dimension'] = 0
-
-    # parse input
-    # MATLAB's checkNameValuePairs and readNameValuePair need to be properly used here
-    # For now, a simplified direct assignment for 'Dimension'
+    # parse input arguments
     dimension = None
-    NVpairs = list(varargin) # Convert tuple to list for modification
+    
+    # Process name-value pairs
+    if len(varargin) > 0:
+        # Check if we have name-value pairs
+        if len(varargin) % 2 != 0:
+            raise CORAerror('CORA:evenNumberInputArgs')
+        
+        # Process pairs
+        for i in range(0, len(varargin), 2):
+            name = varargin[i]
+            value = varargin[i + 1]
+            
+            if name == 'Dimension':
+                # Basic validation - check if it's a number
+                if not isinstance(value, (int, float)) or value < 0:
+                    raise CORAerror('CORA:wrongValue', 'third', 'Dimension must be a non-negative number')
+                dimension = int(value)
+            else:
+                raise CORAerror('CORA:wrongNameValuePair', f'Unknown name-value pair: {name}')
 
-    # Check name-value pairs using the translated function
-    # Assuming fullList is dynamically generated or defined elsewhere
-    # For now, hardcode relevant names for generateRandom
-    checkNameValuePairs(NVpairs, ['Dimension'])
-
-    NVpairs, dimension = readNameValuePair(NVpairs, 'Dimension', 'numeric', dimension)
-
+    # Default dimension if not specified
     if dimension is None:
         dimension = np.random.randint(1, 10)  # Random dimension between 1 and 9
 
+    # Import EmptySet here to avoid circular imports
+    from .emptySet import EmptySet
     return EmptySet(dimension) 

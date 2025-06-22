@@ -28,6 +28,7 @@ from .plot3D import plot3D
 # Import core infrastructure functions
 from .representsa import representsa
 from .representsa_ import representsa_
+from .representsa_emptyObject import representsa_emptyObject
 from .isemptyobject import isemptyobject
 from .dim import dim
 from .center import center
@@ -127,6 +128,7 @@ __all__ = [
     'plot3D',
     'representsa',
     'representsa_',
+    'representsa_emptyObject',
     'isemptyobject', 
     'dim',
     'center',

@@ -44,4 +44,4 @@ def display(O: 'EmptySet') -> str:
     Returns:
         str: formatted display string
     """
-    return f"emptyset:\n- dimension: {O.dimension}\n- {O.dimension}-dimensional empty set" 
+    return f"emptySet:\n- dimension: {O.dimension}\n- {O.dimension}-dimensional empty set" 

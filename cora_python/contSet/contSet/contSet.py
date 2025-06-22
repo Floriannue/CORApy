@@ -159,8 +159,14 @@ class ContSet(ABC):
     
     def contains(self, point: np.ndarray) -> bool:
         """Check if set contains given point(s)"""
-        if hasattr(self, 'contains') and callable(getattr(self, 'contains')):
-            return self.contains(point)
+        # Check if subclass has overridden contains_ method
+        if hasattr(self, 'contains_') and callable(getattr(self, 'contains_')):
+            # Call contains_ and return just the boolean result
+            result = self.contains_(point)
+            if isinstance(result, tuple):
+                return result[0]  # Return just the boolean part
+            else:
+                return result
         else:
             from .contains import contains
             return contains(self, point)
@@ -215,84 +221,102 @@ class ContSet(ABC):
     
     def isempty(self) -> bool:
         """Check if set is empty (deprecated)"""
-        if hasattr(self, 'isempty') and callable(getattr(self, 'isempty')):
-            return self.isempty()
+        # Check if subclass has overridden isempty method
+        if type(self).isempty is not ContSet.isempty:
+            return type(self).isempty(self)
         else:
             from .isempty import isempty
             return isempty(self)
     
     def copy(self) -> 'ContSet':
         """Create a copy of the set"""
-        if hasattr(self, 'copy') and callable(getattr(self, 'copy')):
-            return self.copy()
+        # Check if subclass has overridden copy method
+        if type(self).copy is not ContSet.copy:
+            return type(self).copy(self)
         else:
             from .copy import copy
             return copy(self)
-    
+
     def __add__(self, other) -> 'ContSet':
         """Addition operator (+)"""
-        if hasattr(self, '__add__') and callable(getattr(self, '__add__')):
-            return self.__add__(other)
+        # Check if subclass has overridden __add__ method
+        if type(self).__add__ is not ContSet.__add__:
+            return type(self).__add__(self, other)
         else:
             from .plus import plus
             return plus(self, other)
-    
+
     def __radd__(self, other) -> 'ContSet':
         """Right addition operator"""
-        if hasattr(self, '__radd__') and callable(getattr(self, '__radd__')):
-            return self.__radd__(other)
+        # Check if subclass has overridden __radd__ method
+        if type(self).__radd__ is not ContSet.__radd__:
+            return type(self).__radd__(self, other)
         else:
             from .plus import plus
             return plus(other, self)
-    
+
     def __sub__(self, other) -> 'ContSet':
         """Subtraction operator (-)"""
-        if hasattr(self, '__sub__') and callable(getattr(self, '__sub__')):
-            return self.__sub__(other)
+        # Check if subclass has overridden __sub__ method
+        if type(self).__sub__ is not ContSet.__sub__:
+            return type(self).__sub__(self, other)
         else:
             from .minus import minus
             return minus(self, other)
-    
+
     def __rsub__(self, other) -> 'ContSet':
         """Right subtraction operator"""
-        if hasattr(self, '__rsub__') and callable(getattr(self, '__rsub__')):
-            return self.__rsub__(other)
+        # Check if subclass has overridden __rsub__ method
+        if type(self).__rsub__ is not ContSet.__rsub__:
+            return type(self).__rsub__(self, other)
         else:
             from .minus import minus
             return minus(other, self)
-    
+
     def __neg__(self) -> 'ContSet':
         """Unary minus operator"""
-        if hasattr(self, '__neg__') and callable(getattr(self, '__neg__')):
-            return self.__neg__()
+        # Check if subclass has overridden __neg__ method
+        if type(self).__neg__ is not ContSet.__neg__:
+            return type(self).__neg__(self)
         else:
             from .uminus import uminus
             return uminus(self)
-    
+
     def __pos__(self) -> 'ContSet':
         """Unary plus operator"""
-        if hasattr(self, '__pos__') and callable(getattr(self, '__pos__')):
-            return self.__pos__()
+        # Check if subclass has overridden __pos__ method
+        if type(self).__pos__ is not ContSet.__pos__:
+            return type(self).__pos__(self)
         else:
             from .uplus import uplus
             return uplus(self)
-    
+
     def __mul__(self, other) -> 'ContSet':
         """Multiplication operator (*)"""
-        if hasattr(self, '__mul__') and callable(getattr(self, '__mul__')):
-            return self.__mul__(other)
+        # Check if subclass has overridden __mul__ method
+        if type(self).__mul__ is not ContSet.__mul__:
+            return type(self).__mul__(self, other)
         else:
             from .mtimes import mtimes
             return mtimes(other, self)  # Note: order is reversed for matrix multiplication
-    
+
     def __rmul__(self, other) -> 'ContSet':
         """Right multiplication operator"""
-        if hasattr(self, '__rmul__') and callable(getattr(self, '__rmul__')):
-            return self.__rmul__(other)
+        # Check if subclass has overridden __rmul__ method
+        if type(self).__rmul__ is not ContSet.__rmul__:
+            return type(self).__rmul__(self, other)
         else:
             from .mtimes import mtimes
             return mtimes(other, self)
-    
+
+    def __and__(self, other) -> 'ContSet':
+        """Intersection operator (&)"""
+        return self.and_(other)
+
+    def __or__(self, other) -> 'ContSet':
+        """Union operator (|)"""
+        return self.or_(other)
+
     def is_bounded(self) -> bool:
         """Check if set is bounded"""
         if hasattr(self, 'is_bounded') and callable(getattr(self, 'is_bounded')):
@@ -312,24 +336,27 @@ class ContSet(ABC):
     
     def vertices_(self) -> np.ndarray:
         """Get vertices of the set (internal)"""
-        if hasattr(self, 'vertices_') and callable(getattr(self, 'vertices_')):
-            return self.vertices_()
+        # Check if subclass has overridden vertices_ method
+        if type(self).vertices_ is not ContSet.vertices_:
+            return type(self).vertices_(self)
         else:
             from .vertices_ import vertices_
             return vertices_(self)
     
     def and_(self, other: 'ContSet') -> 'ContSet':
         """Intersection operator (internal)"""
-        if hasattr(self, 'and_') and callable(getattr(self, 'and_')):
-            return self.and_(other)
+        # Check if subclass has overridden and_ method
+        if type(self).and_ is not ContSet.and_:
+            return type(self).and_(self, other)
         else:
             from .and_ import and_
             return and_(self, other)
     
     def or_(self, other: 'ContSet') -> 'ContSet':
         """Union operator (internal)"""
-        if hasattr(self, 'or_') and callable(getattr(self, 'or_')):
-            return self.or_(other)
+        # Check if subclass has overridden or_ method
+        if type(self).or_ is not ContSet.or_:
+            return type(self).or_(self, other)
         else:
             from .or_ import or_
             return or_(self, other)

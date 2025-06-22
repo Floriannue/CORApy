@@ -43,7 +43,7 @@ def center(O: 'EmptySet') -> np.ndarray:
         O: emptySet object
         
     Returns:
-        c: center (raises error since empty set has no center)
+        c: center (empty array with shape (dimension, 0))
     """
-    # The center of an empty set is undefined, so we raise an error
-    raise CORAerror("CORA:emptySet", "The center of an empty set is undefined.") 
+    # Return empty array with shape (dimension, 0) to match MATLAB behavior
+    return np.empty((O.dimension, 0)) 

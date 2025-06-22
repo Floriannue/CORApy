@@ -1,5 +1,5 @@
 import numpy as np # Keep numpy import if it's used elsewhere in the file
-from cora_python.g.functions.matlab.validate.check import inputArgsCheck
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 def empty(n=0) -> 'EmptySet':
     """
@@ -29,9 +29,13 @@ def empty(n=0) -> 'EmptySet':
     Last revision: ---
     """
 
-    # parse input
-    inputArgsCheck([[n, 'att', 'numeric', {'scalar', 'nonnegative'}]])
+    # Basic validation
+    if not isinstance(n, (int, float)) or n < 0:
+        raise CORAerror('CORA:wrongValue', 'first', 'Dimension must be a non-negative number')
+    
+    n = int(n)  # Convert to integer
 
     # call constructor (and check n there)
+    from .emptySet import EmptySet
     O = EmptySet(n)
     return O 

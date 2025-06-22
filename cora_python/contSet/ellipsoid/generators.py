@@ -19,13 +19,25 @@ def generators(E: 'Ellipsoid') -> np.ndarray:
     Returns:
         G: generator matrix
     """
-    from cora_python.contSet.ellipsoid.dim import dim
     
     Q = E.Q
     if Q is None or Q.size == 0:
-        return np.zeros((dim(E), 0))
+        return np.zeros((E.dim(), 0))
     
     U, D, _ = np.linalg.svd(Q)
-    G = U @ np.sqrt(np.diag(D))
+    
+    # Only keep non-zero singular values (for degenerate ellipsoids)
+    tol = 1e-10
+    nonzero_idx = D > tol
+    
+    if not np.any(nonzero_idx):
+        # All singular values are zero (completely degenerate)
+        return np.zeros((E.dim(), 0))
+    
+    # Keep only columns corresponding to non-zero singular values
+    U_reduced = U[:, nonzero_idx]
+    D_reduced = D[nonzero_idx]
+    
+    G = U_reduced @ np.diag(np.sqrt(D_reduced))
     
     return G 

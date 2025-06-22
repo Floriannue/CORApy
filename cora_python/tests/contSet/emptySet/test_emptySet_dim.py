@@ -37,9 +37,13 @@ class TestEmptySetDim:
         assert O.dim() == 0
         
     def test_dim_default(self):
-        """Test dimension of default empty set"""
-        O = EmptySet()
-        assert O.dim() == 0
+        """Test dimension of empty set (matching MATLAB test)"""
+        # init empty set
+        n = 2
+        O = EmptySet(n)
+        
+        # check dimension
+        assert O.dim() == n
 
 
 if __name__ == '__main__':

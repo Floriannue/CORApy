@@ -1,56 +1,58 @@
 """
-contains_ - internal implementation of containment checking for contSet
-
-This function should be overridden by subclasses to provide specific
-containment checking algorithms.
+contains_ - determines if a set contains a set or a point (internal method)
 
 Syntax:
-    res = contains_(S1, S2, method, tol, maxEval, cert_toggle, scaling_toggle)
+    [res,cert,scaling] = contains_(S1,S2,method,tol,maxEval,certToggle,scalingToggle)
 
 Inputs:
     S1 - contSet object
-    S2 - contSet object or numeric array
-    method - method for computation
-    tol - tolerance
-    maxEval - maximal number of iterations
-    cert_toggle - whether to compute certification
-    scaling_toggle - whether to compute scaling
+    S2 - contSet object or numerical vector
+    method - method used for the containment check
+    tol - tolerance for the containment check
+    maxEval - maximum number of evaluations
+    certToggle - if set to True, cert will be computed
+    scalingToggle - if set to True, scaling will be computed
 
 Outputs:
-    res - containment result
-    cert - (optional) certification result
-    scaling - (optional) scaling factor
+    res - true/false
+    cert - certificate
+    scaling - scaling factor
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: contSet/contains
 
 Authors:       Mark Wetzlinger (MATLAB)
                Python translation by AI Assistant
-Written:       18-August-2022
-Last update:   ---
-Last revision: ---
+Written:       22-March-2023 (MATLAB)
+Python translation: 2025
 """
 
+import numpy as np
+from typing import Union, Tuple
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+
 
 def contains_(S1, S2, method='exact', tol=1e-12, maxEval=200, cert_toggle=False, scaling_toggle=False):
     """
-    Internal implementation of containment checking.
-    
-    This function delegates to the object's contains_ method if available,
-    otherwise raises an error.
+    Determines if a set contains a set or a point (internal method)
     
     Args:
         S1: contSet object
-        S2: contSet object or numeric array
-        method: method for computation
-        tol: tolerance
-        maxEval: maximal number of iterations
-        cert_toggle: whether to compute certification
-        scaling_toggle: whether to compute scaling
+        S2: contSet object or numerical vector
+        method: method used for the containment check
+        tol: tolerance for the containment check
+        maxEval: maximum number of evaluations
+        cert_toggle: if True, cert will be computed
+        scaling_toggle: if True, scaling will be computed
         
     Returns:
-        bool or tuple: containment result, optionally with certification and scaling
-        
-    Raises:
-        CORAError: If contains_ is not implemented for the specific set type
+        tuple: (res, cert, scaling) where:
+            - res: True/False
+            - cert: certificate
+            - scaling: scaling factor
     """
     # Check if the object has a contains_ method and use it
     if hasattr(S1, 'contains_') and callable(getattr(S1, 'contains_')):

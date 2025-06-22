@@ -50,7 +50,7 @@ class EmptySet(ContSet):
         # 0. avoid empty instantiation
         if len(varargin) == 0:
             raise CORAerror('CORA:noInputInSetConstructor')
-        assertNarginConstructor(1, len(varargin))
+        assertNarginConstructor([1], len(varargin))
 
         # 1. copy constructor
         if len(varargin) == 1 and isinstance(varargin[0], EmptySet):

@@ -57,10 +57,8 @@ def _aux_check_if_empty(E: 'Ellipsoid') -> bool:
     Returns:
         res: True if ellipsoid is empty, False otherwise
     """
-    # Check if Q is empty (0,0) - this indicates an empty ellipsoid
-    # For empty ellipsoids: Q is (0,0) and q is (n,0) where n >= 0
-    # Both have size == 0, but Q.shape == (0,0) while q.shape == (n,0)
-    return (hasattr(E, 'Q') and isinstance(E.Q, np.ndarray) and 
-            E.Q.shape == (0, 0) and
-            hasattr(E, 'q') and isinstance(E.q, np.ndarray) and 
-            E.q.size == 0 and E.q.ndim == 2 and E.q.shape[1] == 0) 
+    # Following MATLAB logic: check if Q, q are numeric and empty, and TOL is default or empty
+    return (hasattr(E, 'Q') and isinstance(E.Q, np.ndarray) and E.Q.size == 0 and
+            hasattr(E, 'q') and isinstance(E.q, np.ndarray) and E.q.size == 0 and
+            hasattr(E, 'TOL') and isinstance(E.TOL, (int, float)) and 
+            (E.TOL == 1e-6 or E.TOL is None)) 

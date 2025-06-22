@@ -82,15 +82,26 @@ Translate_Cora/
 - Name the folder `cora_matlab/global` as `g` and `aux` as `auxiliary` in the Python translation.
 - If you run a terminal command, use Windows PowerShell syntax, e.g.,  
   ```powershell
-  command1; command2
+  command1; command2 | Select-String "string"
   ```
 - To ensure the functions and their corresponding tests are complete and correct, refer to `Cora2025.1.0_Manual.txt`.
 - Classes in Python start with a capital letter. For example, `zonotop` → `Zonotop`.
 - Always mirror the MATLAB codebase and verify against the manual.
-- Use the following polymorphic dispatch template:
+- Use the following two polymorphic dispatch templates depending on the situation:
   ```python
-  if hasattr(S, 'func') and callable(getattr(S, 'func')):
-      return S.func()
+  #1
+  def func():
+    # Check if subclass has overridden func method
+    if type(self).func is not parent.func:
+        return type(self).func(self)
+    else:
+        from .func import func
+        return func(self)
+
+  #2
+  def otherFunc():
+    if hasattr(self, 'func') and callable(getattr(self, 'func')):
+      return self.func(point)
   ```
 - For functions with `func` and `func_`, `func` handles parameters, and `func_` is the internal logic.
 - There are over 600 tests. Run them in a mode that shows **only failed** ones, then debug one by one.
@@ -182,7 +193,7 @@ Identify dependencies like inheritance.
 2. Compare numerical Results and precision  
 3. Verify edge case handling  
 4. Check documentation completeness  
-5. Compare against matlab codebase and manual
+5. Translated code or test can be wrong therefore compare against matlab codebase and manual
 
 #### Self-Correction Template:
  ```

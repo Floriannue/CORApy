@@ -59,6 +59,9 @@ Polytope.get_print_set_info = get_print_set_info
 Polytope.enclose_points = staticmethod(enclose_points)
 
 # Attach operator overloads
+Polytope.__contains__ = lambda self, other: contains_(self, other)
+Polytope.__rcontains__ = lambda self, other: contains_(other, self)
+Polytope.__str__ = display
 Polytope.__add__ = lambda self, other: plus(self, other)
 Polytope.__radd__ = lambda self, other: plus(other, self)
 Polytope.__sub__ = lambda self, other: minus(self, other)

@@ -39,9 +39,13 @@ class TestEmptySetIsEmptyObject:
         assert O.isemptyobject() == False
         
     def test_isemptyobject_false_default(self):
-        """Test isemptyobject returns False for default empty set"""
-        O = EmptySet()
-        assert O.isemptyobject() == False
+        """Test isemptyobject returns False for empty set (matching MATLAB test)"""
+        # init empty set
+        n = 2
+        O = EmptySet(n)
+        
+        # check result
+        assert not O.isemptyobject()
 
 
 if __name__ == '__main__':

@@ -41,7 +41,7 @@ def priv_containsPoint(E: 'Ellipsoid', S: np.ndarray, tol: float) -> Tuple[Union
     scaling = np.zeros(N)
     
     for i in range(N):
-        scaling[i] = ellipsoidNorm(E, S[:, i:i+1] - c)
+        scaling[i] = ellipsoidNorm(E, S[:, i:i+1])
         if scaling[i] <= 1 + tol:
             res[i] = True
         elif np.isnan(scaling[i]):
