@@ -38,11 +38,12 @@ Last revision: ---
 import numpy as np
 from .interval import Interval
 
-def generateRandom(**kwargs):
+def generateRandom(*args, **kwargs):
     """
     Generates a random interval.
     
     Args:
+        *args: MATLAB-style name-value pairs ('Dimension', n, 'Center', c, 'MaxRadius', r)
         **kwargs: keyword arguments including:
             Dimension (int or tuple): dimension of the interval
             Center (array): center of the interval
@@ -51,6 +52,16 @@ def generateRandom(**kwargs):
     Returns:
         Interval: randomly generated interval
     """
+    # Parse MATLAB-style name-value pairs
+    if len(args) % 2 != 0:
+        raise ValueError("Number of input arguments must be even (name-value pairs)")
+    
+    # Convert args to kwargs
+    for i in range(0, len(args), 2):
+        key = args[i]
+        value = args[i + 1]
+        kwargs[key] = value
+    
     # Extract named arguments
     n = kwargs.get('Dimension', None)
     c = kwargs.get('Center', None)

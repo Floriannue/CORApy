@@ -64,9 +64,9 @@ Translate_Cora/
 
 ## Validate and Fix Steps (for already translated parts)
 - identify which already translated parts are missing tests
-- translate all the missing tests from matlab to python. If test cases are missing implement them so that everything is fully tested!
+- for the already translate parts translate all the missing tests from matlab to python. If test cases are missing implement them so that everything is fully tested!
 - Ensure all methods are correctly attached in the __init__.py except for methods that have to be in the main class file - like abstract inherited methods 
-- Remove lazy imports and use normal ones. If there is a circular import problem use the typing module. Only use lazy imports as last resort
+- Remove lazy imports and use normal ones if possible. If there is a circular import problem due to type hints use the typing module. Only use lazy imports as last resort
 - compare against the matlab implementation and the cora manual - ensure everything is fully and accurately translated
 - run the test (`pytest`) - fix errors by looking at how it is done in matlab and expected by the manual
 
@@ -75,4 +75,4 @@ Translate_Cora/
 
 
 ## Task
-Your task is to validate and fix `emptySet`
+Your task is to validate and fix `Interval`

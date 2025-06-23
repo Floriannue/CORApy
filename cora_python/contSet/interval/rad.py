@@ -30,8 +30,8 @@ def rad(I: Interval) -> np.ndarray:
     Returns:
         r: radius of interval (vector)
     """
-    # Empty set check
-    if I.representsa_('emptySet', 1e-9):
+    # Empty set check - check directly to avoid circular dependency
+    if I.isemptyobject():
         return np.zeros((I.dim(), 0))
     
     r = 0.5 * (I.sup - I.inf)

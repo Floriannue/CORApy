@@ -154,16 +154,17 @@ class TestIntervalDisplay(unittest.TestCase):
         except Exception as e:
             self.fail(f"print() integration failed: {e}")
     
-    def test_repr_brief_format(self):
-        """Test that repr() gives brief format"""
+    def test_repr_format(self):
+        """Test that repr() gives informative format"""
         I = Interval([1, 2, 3], [4, 5, 6])
         repr_result = repr(I)
         
-        # repr should be brief
-        self.assertEqual(repr_result, "Interval(dim=3)")
+        # repr should show the bounds for debugging purposes
+        self.assertEqual(repr_result, "Interval([1.0, 2.0, 3.0], [4.0, 5.0, 6.0])")
         
-        # Should not contain the full interval bounds
-        self.assertNotIn('[1, 4]', repr_result)
+        # Should contain the interval bounds for debugging
+        self.assertIn('[1.0, 2.0, 3.0]', repr_result)
+        self.assertIn('[4.0, 5.0, 6.0]', repr_result)
 
 
 if __name__ == '__main__':

@@ -31,27 +31,38 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Union, Optional, Any, TYPE_CHECKING
-from ..contSet import ContSet
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+import sys
+import os
+from typing import TYPE_CHECKING, Union, List, Tuple
 
-from .dim import dim
-from .isemptyobject import isemptyobject
-
-
-# Import helper functions from g
-try:
-    from cora_python.g.functions.helper.sets.contSet.reorder_numeric import reorder_numeric
-    from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
-    from cora_python.g.functions.matlab.validate.check import withinTol
-except ImportError:
-    # Fallback for when running from within the cora_python directory
-    import sys
+# Add paths for imports
+if __name__ == "__main__":
     import os
     sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     from g.functions.helper.sets.contSet.reorder_numeric import reorder_numeric
     from g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
-    from g.functions.matlab.validate.check import withinTol
+    from g.functions.matlab.validate.check.withinTol import withinTol
+
+from ..contSet import ContSet
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+
+from .dim import dim
+from .isemptyobject import isemptyobject
+
+# Type imports to avoid circular imports
+if TYPE_CHECKING:
+    from .plus import plus
+    from .minus import minus
+    from .mtimes import mtimes
+    from .and_ import and_
+    from .uminus import uminus
+    from .transpose import transpose
+    from .generateRandom import generateRandom
+    from .empty import empty
+    from .Inf import Inf
+    from .origin import origin
+    from .display import display
 
 
 class Interval(ContSet):

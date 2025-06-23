@@ -197,16 +197,18 @@ class ContSet(ABC):
     
     def __eq__(self, other) -> bool:
         """Equality comparison"""
-        if hasattr(self, '__eq__') and callable(getattr(self, '__eq__')):
-            return self.__eq__(other)
+        # Check if subclass has overridden __eq__ method
+        if type(self).__eq__ is not ContSet.__eq__:
+            return type(self).__eq__(self, other)
         else:
             from .eq import eq
             return eq(self, other)
     
     def __ne__(self, other) -> bool:
         """Inequality comparison"""
-        if hasattr(self, '__ne__') and callable(getattr(self, '__ne__')):
-            return self.__ne__(other)
+        # Check if subclass has overridden __ne__ method
+        if type(self).__ne__ is not ContSet.__ne__:
+            return type(self).__ne__(self, other)
         else:
             from .ne import ne
             return ne(self, other)

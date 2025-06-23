@@ -108,8 +108,9 @@ Translate_Cora/
 - Examples do not need tests, but they **must** execute correctly.
 - Use `d x n` vertices format:  
   ```python
+  #Ensure the matric and vector format work togther
   np.array([[0, 1, 0], [0, 0, 1]])  # == 2×3 matrix
-  np.array([[1], [0]]); np.array([1, 0])  #both allowed- convert vector to column vector
+  np.array([1, 0])  #vector
   ```
 - For functions that plot, save the output as PNG and verify visually.
 - To capture large function output:

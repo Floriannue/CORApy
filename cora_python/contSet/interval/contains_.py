@@ -269,7 +269,7 @@ def contains_(I, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, sc
     # Interval in interval containment
     elif hasattr(S, 'inf') and hasattr(S, 'sup'):
         # We know I is not an empty set, so only check S
-        if representsa_(S, 'emptySet', 0):
+        if S.representsa_('emptySet', 0):
             scaling = 0
             cert = True
             res = True
