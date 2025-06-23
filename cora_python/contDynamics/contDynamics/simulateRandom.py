@@ -11,22 +11,11 @@ Authors: Florian Nüssel (Python implementation)
 Date: 2025-01-08
 """
 
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List
 import numpy as np
 
-# Use absolute import to avoid relative import issues
-try:
-    from cora_python.g.classes import SimResult
-except ImportError:
-    try:
-        # Fallback for when running as script
-        import sys
-        import os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-        from g.classes import SimResult
-    except ImportError:
-        # Final fallback with relative import
-        from ...g.classes import SimResult
+from cora_python.g.classes import SimResult
+from cora_python.contSet.zonotope import Zonotope
 
 
 def simulateRandom(sys, params: Dict[str, Any], options: Optional[Dict[str, Any]] = None) -> List[SimResult]:
@@ -106,18 +95,13 @@ def simulateRandom(sys, params: Dict[str, Any], options: Optional[Dict[str, Any]
     else:
         raise ValueError(f"Unknown simulation type: {sim_type}")
     
-    # Make the list plottable (MATLAB-style behavior)
-    try:
-        from cora_python.g.classes.simResult.plot import plot as simres_plot
-    except ImportError:
-        from ...g.classes.simResult.plot import plot as simres_plot
-    
     class SimResultList(list):
         """A list that behaves like a SimResult for plotting"""
         
         def plot(self, *args, **kwargs):
             """Plot method for list of SimResult objects"""
-            return simres_plot(self, *args, **kwargs)
+            from cora_python.g.classes.simResult.plot import plot
+            return plot(self, *args, **kwargs)
     
     return SimResultList(simRes)
 
@@ -156,19 +140,12 @@ def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tu
     # Set default input set if not provided
     if 'U' not in params:
         # Create zero input set
-        try:
-            from cora_python.contSet.zonotope import Zonotope
-        except ImportError:
-            from contSet.zonotope import Zonotope
         params['U'] = Zonotope(np.zeros((sys.nr_of_inputs, 1)), np.zeros((sys.nr_of_inputs, 1)))
     
     # Set default disturbance and noise sets for output computation
     if hasattr(sys, 'C') and sys.C is not None and sys.C.size > 0:
         if 'W' not in params:
-            try:
-                from cora_python.contSet.zonotope import Zonotope
-            except ImportError:
-                from contSet.zonotope import Zonotope
+
             # Create disturbance set with correct dimension
             # Check if E matrix exists and has non-zero entries
             if (hasattr(sys, 'E') and sys.E is not None and sys.E.size > 0 and 
@@ -179,10 +156,6 @@ def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tu
                 w_dim = 1
             params['W'] = Zonotope(np.zeros((w_dim, 1)), np.zeros((w_dim, 1)))
         # Determine correct V dimension for simulateRandom
-        try:
-            from cora_python.contSet.zonotope import Zonotope
-        except ImportError:
-            from contSet.zonotope import Zonotope
         
         # Check if F matrix exists and has non-zero entries
         if (hasattr(sys, 'F') and sys.F is not None and sys.F.size > 0 and 
@@ -198,10 +171,6 @@ def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tu
     else:
         # For systems without output, still need disturbance set for simulation
         if 'W' not in params:
-            try:
-                from cora_python.contSet.zonotope import Zonotope
-            except ImportError:
-                from contSet.zonotope import Zonotope
             # Create disturbance set with correct dimension
             # Check if E matrix exists and has non-zero entries
             if (hasattr(sys, 'E') and sys.E is not None and sys.E.size > 0 and 
@@ -375,16 +344,10 @@ def _randPoint(set_obj, N: int = 1, type_: str = 'standard') -> np.ndarray:
         return set_obj.randPoint(N, type_)
     
     # Try to import and use specific randPoint functions
-    try:
-        from cora_python.contSet.zonotope import randPoint as zonotope_randPoint
-        from cora_python.contSet.interval import randPoint as interval_randPoint
-        
-        if hasattr(set_obj, 'c') and hasattr(set_obj, 'G'):
+    try:   
+        if (hasattr(set_obj, 'c') and hasattr(set_obj, 'G')) or hasattr(set_obj, 'inf') and hasattr(set_obj, 'sup'):
             # Likely a zonotope
-            return zonotope_randPoint(set_obj, N, type_)
-        elif hasattr(set_obj, 'inf') and hasattr(set_obj, 'sup'):
-            # Likely an interval
-            return interval_randPoint(set_obj, N, type_)
+            return set_obj.randPoint(N, type_)
         else:
             raise ValueError(f"Unknown set type: {type(set_obj)}")
     

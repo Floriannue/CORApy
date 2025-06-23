@@ -11,16 +11,13 @@ Last update: 22-May-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union, Optional
+from typing import TYPE_CHECKING, Union, Optional
 import numpy as np
 from scipy.stats import chi2, multivariate_normal
-from .dim import dim
-from .representsa_ import representsa_
-from .randPoint_ import randPoint_
-from .contains import contains
-from .center import center
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def randPoint(S: 'ContSet', 
               N: Union[int, str] = 1, 
@@ -48,7 +45,7 @@ def randPoint(S: 'ContSet',
         np.ndarray: Random points (each column is a point)
         
     Raises:
-        CORAError: If method not supported for set type
+        CORAerror: If method not supported for set type
         ValueError: If invalid parameters
         
     Example:
@@ -80,13 +77,13 @@ def randPoint(S: 'ContSet',
     
     # For other types, delegate to subclass
     try:
-        x = randPoint_(S, N, type_)
+        x = S.randPoint_(N, type_)
     except Exception as ME:
         # Handle special cases
-        if representsa_(S, 'emptySet', 1e-15):
-            return np.empty((dim(S), 0))
-        elif representsa_(S, 'origin', 1e-15):
-            return np.tile(np.zeros((dim(S), 1)), (1, N if isinstance(N, int) else 1))
+        if S.representsa_('emptySet', 1e-15):
+            return np.empty((S.dim(), 0))
+        elif S.representsa_('origin', 1e-15):
+            return np.tile(np.zeros((S.dim(), 1)), (1, N if isinstance(N, int) else 1))
         else:
             raise ME
     
@@ -105,7 +102,7 @@ def _randPoint_gaussian(S: 'ContSet', N: Union[int, str], pr: float) -> np.ndarr
     class_name = type(S).__name__
     
     if class_name not in supported_classes:
-        raise CORAError('CORA:notSupported',
+        raise CORAerror('CORA:notSupported',
                        f"The function randPoint for {class_name} does not support type = 'gaussian'.")
     
     # Handle degenerate zonotope case
@@ -123,7 +120,7 @@ def _randPoint_gaussian(S: 'ContSet', N: Union[int, str], pr: float) -> np.ndarr
         E = S
     
     # Get center and covariance matrix
-    c = center(E)
+    c = E.center()
     
     # For ellipsoid, we would need access to the Q matrix
     # This is a placeholder implementation
@@ -131,10 +128,10 @@ def _randPoint_gaussian(S: 'ContSet', N: Union[int, str], pr: float) -> np.ndarr
         Q = E.Q
     else:
         # Fallback - would need proper ellipsoid implementation
-        Q = np.eye(dim(E))
+        Q = np.eye(E.dim())
     
     # Quantile function for probability pr of the chi-squared distribution
-    quantile_value = chi2.ppf(pr, dim(E))
+    quantile_value = chi2.ppf(pr, E.dim())
     
     # Obtain covariance matrix
     Sigma = Q / quantile_value
@@ -143,7 +140,7 @@ def _randPoint_gaussian(S: 'ContSet', N: Union[int, str], pr: float) -> np.ndarr
     if isinstance(N, str):  # N == 'all'
         N = 1  # For 'all' with gaussian, generate one point
     
-    x = np.zeros((dim(S), N))
+    x = np.zeros((S.dim(), N))
     remaining_samples = N
     idx = 0
     
@@ -156,7 +153,7 @@ def _randPoint_gaussian(S: 'ContSet', N: Union[int, str], pr: float) -> np.ndarr
             pt = pt.T
         
         # Check containment
-        pt_inside = contains(S, pt)
+        pt_inside = S.contains(pt)
         if isinstance(pt_inside, bool):
             pt_inside = [pt_inside]
         

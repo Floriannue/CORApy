@@ -34,9 +34,12 @@ Last revision: ---
 """
 
 import numpy as np
-from .project import project
+from typing import TYPE_CHECKING, List
 
-def decompose(S, blocks):
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+
+def decompose(S: 'ContSet', blocks: np.ndarray) -> List['ContSet']:
     """
     Block decomposition of a set into projected sets.
     
@@ -71,7 +74,7 @@ def decompose(S, blocks):
         dims = list(range(start, end))
         
         # Project the set to the specified dimensions
-        projected_set = project(S, dims)
+        projected_set = S.project(dims)
         S_out.append(projected_set)
     
     return S_out 

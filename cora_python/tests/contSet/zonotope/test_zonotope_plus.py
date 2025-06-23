@@ -12,7 +12,7 @@ Python translation: 2025
 import pytest
 import numpy as np
 from cora_python.contSet.zonotope import Zonotope
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestZonotopePlus:
@@ -175,7 +175,7 @@ class TestZonotopePlus:
         Z1 = Zonotope(np.array([[1], [2]]), np.array([[1, 0], [0, 1]]))  # 2D
         Z2 = Zonotope(np.array([[1], [2], [3]]), np.array([[1, 0], [0, 1], [1, 0]]))  # 3D
         
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             Z1.plus(Z2)
     
     def test_vector_dimension_mismatch(self):
@@ -183,7 +183,7 @@ class TestZonotopePlus:
         Z = Zonotope(np.array([[1], [2]]), np.array([[1, 0], [0, 1]]))  # 2D
         v = np.array([[1], [2], [3]])  # 3D vector
         
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             Z.plus(v)
 
     def test_zonotope_plus_interval(self):

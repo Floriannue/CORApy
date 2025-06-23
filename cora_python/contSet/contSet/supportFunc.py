@@ -10,12 +10,12 @@ Last update: 27-March-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union, Tuple, Optional
+from typing import TYPE_CHECKING, Union, Tuple, Optional
 import numpy as np
-from .dim import dim
-from .representsa_ import representsa_
-from .supportFunc_ import supportFunc_
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
 def supportFunc(S: 'ContSet', 
@@ -41,7 +41,7 @@ def supportFunc(S: 'ContSet',
         Union[float, Tuple]: Support function value, or tuple of (val, x, fac)
         
     Raises:
-        CORAError: If dimensions don't match or invalid parameters
+        CORAerror: If dimensions don't match or invalid parameters
         ValueError: If invalid type or method
         
     Example:
@@ -73,9 +73,9 @@ def supportFunc(S: 'ContSet',
         direction = direction.T
     
     # Check dimension compatibility
-    if dim(S) != len(direction):
-        raise CORAError('CORA:wrongValue', 
-                       f'Direction must be a {dim(S)}-dimensional column vector.')
+    if S.dim() != len(direction):
+        raise CORAerror('CORA:wrongValue', 
+                       f'Direction must be a {S.dim()}-dimensional column vector.')
     
     # Validate numerical parameters
     if not isinstance(max_order_or_splits, int) or max_order_or_splits <= 0:
@@ -86,11 +86,11 @@ def supportFunc(S: 'ContSet',
     
     try:
         # Call subclass method
-        result = supportFunc_(S, direction, type_, method, max_order_or_splits, tol)
+        result = S.supportFunc_(direction, type_, method, max_order_or_splits, tol)
         return result
     except Exception as ME:
         # Handle empty set case
-        if representsa_(S, 'emptySet', 1e-15):
+        if S.representsa_('emptySet', 1e-15):
             if type_ == 'upper':
                 val = float('-inf')
             elif type_ == 'lower':

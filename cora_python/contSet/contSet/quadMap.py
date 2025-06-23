@@ -11,10 +11,12 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import List, Union
+from typing import TYPE_CHECKING, List
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def quadMap(S1: 'ContSet', S2: 'ContSet', Q: List[np.ndarray]) -> 'ContSet':
     """
@@ -32,7 +34,7 @@ def quadMap(S1: 'ContSet', S2: 'ContSet', Q: List[np.ndarray]) -> 'ContSet':
         ContSet: Quadratically mapped set
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAerror: Always raised as this method should be overridden in subclasses
         
     Example:
         >>> # This will be overridden in specific set classes
@@ -42,5 +44,5 @@ def quadMap(S1: 'ContSet', S2: 'ContSet', Q: List[np.ndarray]) -> 'ContSet':
         >>> S_quad = quadMap(S1, S2, Q)
     """
     # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:noops',
+    raise CORAerror('CORA:noops',
                    f'quadMap not implemented for {type(S1).__name__} and {type(S2).__name__}') 

@@ -27,9 +27,9 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union, Optional
+from .zonotope import Zonotope
 
-
-def enclose(Z: 'Zonotope', Z2_or_M=None, Zplus: Optional['Zonotope'] = None) -> 'Zonotope':
+def enclose(Z: Zonotope, Z2_or_M=None, Zplus: Optional[Zonotope] = None) -> Zonotope:
     """
     Encloses a zonotope and its affine transformation
     
@@ -47,7 +47,6 @@ def enclose(Z: 'Zonotope', Z2_or_M=None, Zplus: Optional['Zonotope'] = None) -> 
         >>> Z2 = M @ Z1 + [0.5, 0.5]
         >>> Z = enclose(Z1, Z2)
     """
-    from .zonotope import Zonotope
     
     # Parse input arguments
     if Zplus is None:

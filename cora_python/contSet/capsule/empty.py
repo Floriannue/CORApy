@@ -28,9 +28,9 @@ Python translation: 2025
 
 import numpy as np
 from typing import Optional
+from .capsule import Capsule
 
-
-def empty(n: Optional[int] = None) -> 'Capsule':
+def empty(n: Optional[int] = None) -> Capsule:
     """
     Instantiates an empty capsule
     
@@ -40,8 +40,6 @@ def empty(n: Optional[int] = None) -> 'Capsule':
     Returns:
         Empty capsule object
     """
-    from .capsule import Capsule
-    
     # Parse input
     if n is None:
         n = 0

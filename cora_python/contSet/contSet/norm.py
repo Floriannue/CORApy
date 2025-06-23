@@ -11,11 +11,11 @@ Last update: 27-March-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union, Tuple, Optional
+from typing import TYPE_CHECKING, Union, Tuple, Optional
 import numpy as np
-from .representsa_ import representsa_
-from .norm_ import norm_
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def norm(S: 'ContSet', norm_type: Union[int, float, str] = 2, mode: str = 'ub') -> Union[float, Tuple[float, np.ndarray]]:
     """
@@ -53,11 +53,11 @@ def norm(S: 'ContSet', norm_type: Union[int, float, str] = 2, mode: str = 'ub') 
     
     try:
         # Call subclass method
-        result = norm_(S, norm_type, mode)
+        result = S.norm_(norm_type, mode)
         return result
     except Exception as ME:
         # Empty set case
-        if representsa_(S, 'emptySet', 1e-15):
+        if S.representsa_('emptySet', 1e-15):
             return float('-inf'), np.array([])
         else:
             raise ME 

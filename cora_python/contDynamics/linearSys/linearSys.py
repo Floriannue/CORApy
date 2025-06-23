@@ -377,29 +377,4 @@ class LinearSys(ContDynamics):
                 f"B.shape={self.B.shape}, states={self.nr_of_dims}, "
                 f"inputs={self.nr_of_inputs}, outputs={self.nr_of_outputs})")
     
-    def __eq__(self, other) -> bool:
-        """Equality comparison operator"""
-        from .eq import eq
-        if not isinstance(other, LinearSys):
-            return False
-        return eq(self, other)
-    
-    def __ne__(self, other) -> bool:
-        """Not-equal comparison operator"""
-        return not self.__eq__(other)
-    
-    def display(self) -> None:
-        """Display the linear system"""
-        from .display import display
-        display(self)
-    
-    @staticmethod
-    def generateRandom(state_dimension: Optional[int] = None,
-                      input_dimension: Optional[int] = None,
-                      output_dimension: Optional[int] = None,
-                      real_interval: Optional[tuple] = None,
-                      imaginary_interval: Optional[tuple] = None) -> 'LinearSys':
-        """Generate a random linear system"""
-        from .generateRandom import generateRandom
-        return generateRandom(state_dimension, input_dimension, output_dimension,
-                            real_interval, imaginary_interval) 
+ 

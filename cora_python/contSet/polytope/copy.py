@@ -23,7 +23,7 @@ Last revision: ---
 from .polytope import Polytope
 
 
-def copy(P):
+def copy(P: Polytope) -> Polytope:
     """
     Creates a copy of the polytope object.
     

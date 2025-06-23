@@ -34,10 +34,14 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union, Tuple, Any
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from .polytope import Polytope
+    from cora_python.contSet.contSet import ContSet
 
-def contains_(P, S: Union[np.ndarray, 'ContSet'], method: str = 'exact', 
+def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exact', 
               tol: float = 1e-12, maxEval: int = 0, certToggle: bool = True, 
               scalingToggle: bool = False) -> Tuple[Union[bool, np.ndarray], bool, Union[float, np.ndarray]]:
     """
@@ -104,7 +108,7 @@ def _contains_pointcloud(P, points: np.ndarray, method: str, tol: float,
     
     # After calling P.constraints(), we should have H-representation
     if P.A is None:
-        raise CORAError('CORA:notSupported', 
+        raise CORAerror('CORA:notSupported', 
                        'Polytope containment requires halfspace representation (A matrix is missing).')
     
     # Initialize results

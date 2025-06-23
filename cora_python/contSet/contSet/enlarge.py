@@ -10,7 +10,10 @@ Python translation: 2025
 """
 
 import numpy as np
-from .center import center
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
 def enlarge(S: 'ContSet', factor: np.ndarray) -> 'ContSet':
@@ -40,7 +43,7 @@ def enlarge(S: 'ContSet', factor: np.ndarray) -> 'ContSet':
         raise ValueError("factor must be a column vector")
     
     # Shift to origin
-    c = center(S)
+    c = S.center()
     S_shifted = S - c
     
     # Enlarge set (element-wise multiplication)

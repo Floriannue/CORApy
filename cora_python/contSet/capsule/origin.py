@@ -26,6 +26,7 @@ Python translation: 2025
 """
 
 import numpy as np
+from .capsule import Capsule
 
 
 def origin(n: int) -> 'Capsule':
@@ -38,8 +39,6 @@ def origin(n: int) -> 'Capsule':
     Returns:
         Capsule representing the origin
     """
-    from .capsule import Capsule
-    
     if not isinstance(n, int) or n < 1:
         raise ValueError("Dimension must be a positive integer")
     

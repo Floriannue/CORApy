@@ -18,39 +18,38 @@ Python translation: 2025
 """
 
 import numpy as np
+from .interval import Interval
 
 
-def isequal(obj1, obj2, tol: float = 1e-12) -> bool:
+def isequal(I1:Interval, I2:Interval, tol: float = 1e-12) -> bool:
     """
     Check if two intervals are equal
     
     Args:
-        obj1: First interval object
-        obj2: Second interval object
+        I1: First interval object
+        I2: Second interval object
         tol: Tolerance for comparison (default: 1e-12)
         
     Returns:
         True if intervals are equal, False otherwise
     """
-    # Import here to avoid circular imports
-    from .interval import Interval
     
-    if not isinstance(obj2, Interval) :
+    if not isinstance(I2, Interval) :
         return False
     
     # Check if both are empty
-    if obj1.inf.size == 0 and obj2.inf.size == 0:
+    if I1.inf.size == 0 and I2.inf.size == 0:
         # Empty intervals are equal only if they have the same dimensions
-        return obj1.inf.shape == obj2.inf.shape
+        return I1.inf.shape == I2.inf.shape
     
     # Check if one is empty and the other is not
-    if obj1.inf.size == 0 or obj2.inf.size == 0:
+    if I1.inf.size == 0 or I2.inf.size == 0:
         return False
     
     # Check if shapes are different
-    if obj1.inf.shape != obj2.inf.shape or obj1.sup.shape != obj2.sup.shape:
+    if I1.inf.shape != I2.inf.shape or I1.sup.shape != I2.sup.shape:
         return False
     
     # Check if bounds are equal with given tolerance
-    return (np.allclose(obj1.inf, obj2.inf, rtol=tol, atol=tol) and
-            np.allclose(obj1.sup, obj2.sup, rtol=tol, atol=tol)) 
+    return (np.allclose(I1.inf, I2.inf, rtol=tol, atol=tol) and
+            np.allclose(I1.sup, I2.sup, rtol=tol, atol=tol)) 

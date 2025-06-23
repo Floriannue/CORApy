@@ -32,7 +32,7 @@ Python translation: 2025
 
 from typing import Union, List
 from .specification import Specification
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def project(spec, dims):
@@ -47,7 +47,7 @@ def project(spec, dims):
         Projected specification object(s)
         
     Raises:
-        CORAError: If projection is not supported for the specification type
+        CORAerror: If projection is not supported for the specification type
     """
     
     # Import here to avoid circular imports
@@ -68,15 +68,15 @@ def project(spec, dims):
             if hasattr(s.set, 'project') and callable(s.set.project):
                 s.set = s.set.project(dims)
             else:
-                raise CORAError('CORA:notSupported',
+                raise CORAerror('CORA:notSupported',
                               f"Set type {type(s.set).__name__} does not support projection")
         
         elif s.type in ['custom', 'logic']:
-            raise CORAError('CORA:notSupported',
+            raise CORAerror('CORA:notSupported',
                           "Projection of a specification of types 'custom' or "
                           "'logic' is not yet supported.")
         else:
-            raise CORAError('CORA:notSupported',
+            raise CORAerror('CORA:notSupported',
                           f"Projection not supported for specification type '{s.type}'")
     
     # Return single spec or list based on input

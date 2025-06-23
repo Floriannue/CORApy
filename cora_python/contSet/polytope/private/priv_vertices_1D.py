@@ -65,15 +65,10 @@ def priv_vertices_1D(A: Optional[np.ndarray], b: Optional[np.ndarray],
     if lb == ub:
         # Single point
         return np.array([[lb]])
-    elif lb == -np.inf and ub == np.inf:
-        # Unbounded in both directions -> fullspace in 1D
-        return np.array([[-np.inf, np.inf]])
-    elif lb == -np.inf:
-        # Unbounded below, bounded above
-        return np.array([[-np.inf, ub]])
-    elif ub == np.inf:
-        # Bounded below, unbounded above
-        return np.array([[lb, np.inf]])
+    elif lb == -np.inf or ub == np.inf:
+        # Unbounded polytope - return None as vertices are not well-defined
+        # This is consistent with MATLAB behavior for unbounded polytopes
+        return None
     else:
         # Bounded interval
         return np.array([[lb, ub]]) 

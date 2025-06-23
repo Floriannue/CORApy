@@ -15,7 +15,7 @@ import pytest
 import numpy as np
 from cora_python.contSet.zonotope.zonotope import Zonotope
 from cora_python.contSet.interval.interval import Interval
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestZonotopeRepresentsa:
@@ -157,7 +157,7 @@ class TestZonotopeRepresentsa:
         Z = Zonotope(np.array([[1], [1]]), np.array([[1], [0]]))
         
         # Test unsupported type
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             Z.representsa_('unsupported_type')
 
 

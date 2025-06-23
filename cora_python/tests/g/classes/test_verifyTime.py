@@ -11,7 +11,7 @@ Written: 2025
 import pytest
 import numpy as np
 from cora_python.g.classes.verifyTime import VerifyTime
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestVerifyTime:
@@ -125,7 +125,7 @@ class TestVerifyTime:
         """Test handling of overlapping intervals"""
         
         # Overlapping intervals should raise an error (matching MATLAB behavior)
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             vt = VerifyTime([[1, 3], [2, 5], [7, 9]])
         
         # Non-overlapping intervals should work fine
@@ -169,8 +169,8 @@ class TestVerifyTime:
     def test_invalid_intervals(self):
         """Test handling of invalid intervals"""
         
-        # Interval with start > end - should raise CORAError
-        with pytest.raises(CORAError):
+        # Interval with start > end - should raise CORAerror
+        with pytest.raises(CORAerror):
             vt = VerifyTime([5, 2])  # Invalid: start > end
         
         # Empty interval list - should work

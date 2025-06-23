@@ -22,8 +22,9 @@ Python translation: 2025
 import numpy as np
 from typing import Union
 
+from .zonotope import Zonotope
 
-def minus(Z1: 'Zonotope', Z2: Union['Zonotope', np.ndarray]) -> 'Zonotope':
+def minus(Z1: Zonotope, Z2: Union[Zonotope, np.ndarray]) -> Zonotope:
     """
     Overloaded '-' operator for zonotope objects
     
@@ -34,17 +35,16 @@ def minus(Z1: 'Zonotope', Z2: Union['Zonotope', np.ndarray]) -> 'Zonotope':
     Returns:
         Zonotope: Resulting zonotope object
     """
-    from .zonotope import Zonotope
+
     
     if isinstance(Z2, (np.ndarray, list, tuple)) or np.isscalar(Z2):
         # Subtraction with vector: Z1 - p = Z1 + (-p)
-        from .plus import plus
-        return plus(Z1, -np.array(Z2))
+
+        return Z1.plus(-np.array(Z2))
     
     elif hasattr(Z2, 'c') and hasattr(Z2, 'G'):
         # Zonotope-to-zonotope subtraction: Z1 - Z2 = Z1 + (-Z2)
         # This implements the Minkowski difference approximation
-        from .plus import plus
         
         # Create -Z2 by negating center and generators
         neg_Z2_c = -Z2.c
@@ -53,7 +53,7 @@ def minus(Z1: 'Zonotope', Z2: Union['Zonotope', np.ndarray]) -> 'Zonotope':
         neg_Z2 = Zonotope(neg_Z2_c, neg_Z2_G)
         
         # Compute Z1 + (-Z2)
-        return plus(Z1, neg_Z2)
+        return Z1.plus(neg_Z2)
     
     else:
         raise TypeError(f"Unsupported operand type for -: zonotope and {type(Z2)}") 

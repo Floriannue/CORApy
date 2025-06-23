@@ -19,7 +19,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .reachSet import ReachSet
 
 def plus(R1, R2):
     """
@@ -32,12 +32,10 @@ def plus(R1, R2):
     Returns:
         Resulting reachSet object
     """
-    from .reachSet import ReachSet
     
     # If R2 is another reachSet, use add function
     if hasattr(R2, 'timePoint') and hasattr(R2, 'timeInterval'):
-        from .add import add
-        return add(R1, R2)
+        return R1.add(R2)
     
     # If R2 is numeric, add to all sets
     if isinstance(R2, (int, float, np.ndarray)):

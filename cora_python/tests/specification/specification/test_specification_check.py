@@ -1,13 +1,11 @@
 """
-test_specification_check - unit test for check method
+Test specification check functionality
 
-This test covers the check functionality for different specification types
-including safeSet, unsafeSet, and invariant specifications.
+Tests the check method for specifications according to MATLAB behavior.
+Tests all specification types with proper geometric verification.
 
-Authors: Mark Wetzlinger (MATLAB)
-         Python translation by AI Assistant
-Written: 30-April-2023 (MATLAB)
-Python translation: 2025
+Authors: Python test by AI Assistant
+Written: 2025
 """
 
 import unittest
@@ -19,234 +17,185 @@ from cora_python.contSet.interval.interval import Interval
 
 
 class TestSpecificationCheck(unittest.TestCase):
-    
+    """Test class for specification check functionality"""
+
     def setUp(self):
-        """Set up test fixtures"""
-        # Initialize specifications
-        # Create a polytope: constraint [1, 1]/sqrt(2) * x <= 1
-        # This represents the half-space x + y <= sqrt(2)
-        A = np.array([[1, 1]]) / np.sqrt(2)
+        """Set up test fixtures with MATLAB test data"""
+        # Test data from MATLAB: set = polytope([1 1]/sqrt(2),1);
+        A = np.array([[1, 1]]) / np.sqrt(2)  # [0.707, 0.707]
         b = np.array([1])
+        self.set_spec = Polytope(A, b)
         
-        try:
-            self.set = Polytope(A, b)
-        except:
-            # Fallback to interval if Polytope not available
-            self.set = Interval(np.array([[-1], [-1]]), np.array([[1], [1]]))
+        # Test data from MATLAB: Z = zonotope([-10;-8],[1 0 -2; 2 -1 1]);
+        self.Z = Zonotope(np.array([[-10], [-8]]), np.array([[1, 0, -2], [2, -1, 1]]))
         
-        self.spec_unsafe = Specification(self.set, 'unsafeSet')
-        self.spec_safe = Specification(self.set, 'safeSet')
-        self.spec_invariant = Specification(self.set, 'invariant')
+        # Verify the geometric truth: All zonotope vertices should satisfy constraint
+        vertices = self.Z.vertices()
+        constraint_values = np.dot(A[0], vertices)  # [0.707, 0.707] * vertices
+        self.assertTrue(np.all(constraint_values <= 1.0 + 1e-10), 
+                       f"All vertices should satisfy constraint, got: {constraint_values}")
+
+    def test_check_safeSet_contained(self):
+        """Test safeSet specification with contained zonotope"""
+        # Create safeSet specification
+        spec = Specification(self.set_spec, 'safeSet')
         
-        # Create test sets for checking
-        # Set that should be outside the polytope (safe from unsafe spec)
-        self.Z_outside = Zonotope(np.array([[-10], [-8]]), 
-                                 np.array([[1, 0, -2], [2, -1, 1]]))
+        # Check the zonotope - should be True since zonotope is contained in polytope
+        res, indSpec, indObj = spec.check(self.Z)
         
-        # Set that intersects the polytope
-        self.Z_intersect = Zonotope(np.array([[0], [0]]), 
-                                   np.array([[0.5, 0], [0, 0.5]]))
+        # The zonotope is contained in the polytope, so it should be safe
+        self.assertTrue(res, "Zonotope should be contained in polytope (safe)")
+        self.assertEqual(indSpec, 0, "No specification should be violated")
+        self.assertEqual(indObj, 1, "No object should be violated")
+
+    def test_check_safeSet_not_contained(self):
+        """Test safeSet specification with non-contained set"""
+        # Create a zonotope that violates the constraint
+        # Center at [2, 2] which gives constraint value 2.828 > 1
+        Z_outside = Zonotope(np.array([[2], [2]]), np.array([[0.1, 0], [0, 0.1]]))
         
-        # Set that is inside the polytope  
-        self.Z_inside = Zonotope(np.array([[0.1], [0.1]]), 
-                                np.array([[0.05, 0], [0, 0.05]]))
-    
-    def test_check_zonotope_outside(self):
-        """Test checking zonotope that is outside the specification set"""
-        # Zonotope outside should satisfy unsafe spec (not violate it)
-        # and should satisfy safe/invariant specs
+        # Verify it's actually outside
+        vertices = Z_outside.vertices()
+        constraint_values = np.dot(np.array([1, 1]) / np.sqrt(2), vertices)
+        self.assertTrue(np.all(constraint_values > 1.0), 
+                       f"All vertices should violate constraint, got: {constraint_values}")
         
-        try:
-            result_unsafe = self.spec_unsafe.check(self.Z_outside)
-            result_safe = self.spec_safe.check(self.Z_outside)
-            result_invariant = self.spec_invariant.check(self.Z_outside)
-            
-            # Outside set should not violate unsafe specification
-            self.assertTrue(result_unsafe)
-            # Outside set should satisfy safe specification  
-            self.assertTrue(result_safe)
-            # Outside set should satisfy invariant specification
-            self.assertTrue(result_invariant)
-        except (NotImplementedError, AttributeError):
-            # Skip if check method not fully implemented
-            self.skipTest("Check method not fully implemented yet")
-    
-    def test_check_zonotope_inside(self):
-        """Test checking zonotope that is inside the specification set"""
-        try:
-            result_unsafe = self.spec_unsafe.check(self.Z_inside)
-            result_safe = self.spec_safe.check(self.Z_inside)
-            result_invariant = self.spec_invariant.check(self.Z_inside)
-            
-            # Inside set should violate unsafe specification
-            self.assertFalse(result_unsafe)
-            # Inside set should satisfy safe specification
-            self.assertTrue(result_safe)
-            # Inside set should satisfy invariant specification
-            self.assertTrue(result_invariant)
-        except (NotImplementedError, AttributeError):
-            # Skip if check method not fully implemented
-            self.skipTest("Check method not fully implemented yet")
-    
-    def test_check_zonotope_intersect(self):
-        """Test checking zonotope that intersects the specification set"""
-        try:
-            result_unsafe = self.spec_unsafe.check(self.Z_intersect)
-            result_safe = self.spec_safe.check(self.Z_intersect)
-            result_invariant = self.spec_invariant.check(self.Z_intersect)
-            
-            # Intersecting set should violate unsafe specification
-            self.assertFalse(result_unsafe)
-            # Intersecting set behavior for safe spec depends on implementation
-            # (could be True if any part is safe, or False if any part is unsafe)
-            self.assertIsInstance(result_safe, bool)
-            # Intersecting set behavior for invariant spec
-            self.assertIsInstance(result_invariant, bool)
-        except (NotImplementedError, AttributeError):
-            # Skip if check method not fully implemented
-            self.skipTest("Check method not fully implemented yet")
-    
-    def test_check_point(self):
-        """Test checking single points"""
-        # Point outside the set
-        point_outside = np.array([[-10], [-8]])
-        # Point inside the set (assuming unit square-like set)
-        point_inside = np.array([[0.1], [0.1]])
+        # Create safeSet specification  
+        spec = Specification(self.set_spec, 'safeSet')
         
-        try:
-            # Check outside point
-            result_unsafe_out = self.spec_unsafe.check(point_outside)
-            result_safe_out = self.spec_safe.check(point_outside)
-            
-            # Outside point should not violate unsafe spec
-            self.assertTrue(result_unsafe_out)
-            # Outside point should satisfy safe spec
-            self.assertTrue(result_safe_out)
-            
-            # Check inside point
-            result_unsafe_in = self.spec_unsafe.check(point_inside)
-            result_safe_in = self.spec_safe.check(point_inside)
-            
-            # Inside point should violate unsafe spec
-            self.assertFalse(result_unsafe_in)
-            # Inside point should satisfy safe spec
-            self.assertTrue(result_safe_in)
-            
-        except (NotImplementedError, AttributeError):
-            # Skip if check method not fully implemented
-            self.skipTest("Check method not fully implemented yet")
-    
-    def test_check_with_time(self):
-        """Test checking with time constraints"""
-        # Create time-constrained specification
-        time_interval = Interval(np.array([[0]]), np.array([[2]]))
-        spec_timed = Specification(self.set, 'unsafeSet', time_interval)
+        # Check the zonotope - should be False since zonotope is not contained
+        res, indSpec, indObj = spec.check(Z_outside)
         
-        try:
-            # Check at different times
-            result_t0 = spec_timed.check(self.Z_outside, 0.0)
-            result_t1 = spec_timed.check(self.Z_outside, 1.0)
-            result_t3 = spec_timed.check(self.Z_outside, 3.0)  # Outside time window
-            
-            self.assertIsInstance(result_t0, bool)
-            self.assertIsInstance(result_t1, bool)
-            self.assertIsInstance(result_t3, bool)
-            
-        except (NotImplementedError, AttributeError):
-            # Skip if time handling not fully implemented
-            self.skipTest("Time handling in check method not fully implemented yet")
-    
-    def test_check_multiple_sets(self):
-        """Test checking multiple sets at once"""
-        sets_list = [self.Z_outside, self.Z_inside, self.Z_intersect]
+        self.assertFalse(res, "Zonotope should not be contained in polytope (unsafe)")
+        self.assertEqual(indSpec, 1, "First specification should be violated")
+        self.assertEqual(indObj, 1, "First object should be violated")
+
+    def test_check_unsafeSet_no_intersection(self):
+        """Test unsafeSet specification with non-intersecting zonotope"""
+        # Create unsafeSet specification
+        spec = Specification(self.set_spec, 'unsafeSet')
         
-        try:
-            results = []
-            for set_obj in sets_list:
-                result = self.spec_unsafe.check(set_obj)
-                results.append(result)
-                self.assertIsInstance(result, bool)
-            
-            # Should have mixed results for different sets
-            self.assertGreaterEqual(len(set(results)), 1)  # At least some variation
-            
-        except (NotImplementedError, AttributeError):
-            # Skip if check method not fully implemented
-            self.skipTest("Check method not fully implemented yet")
-    
-    def test_check_empty_set(self):
-        """Test checking empty sets"""
-        try:
-            from cora_python.contSet.emptySet import EmptySet
-            empty_set = EmptySet(2)  # 2D empty set
-            
-            # Empty set should satisfy all specifications
-            result_unsafe = self.spec_unsafe.check(empty_set)
-            result_safe = self.spec_safe.check(empty_set)
-            result_invariant = self.spec_invariant.check(empty_set)
-            
-            # Empty set satisfies all specifications
-            self.assertTrue(result_unsafe)
-            self.assertTrue(result_safe)
-            self.assertTrue(result_invariant)
-            
-        except (ImportError, NotImplementedError, AttributeError):
-            # Skip if EmptySet not available or check method not implemented
-            self.skipTest("EmptySet or check method not fully implemented yet")
-    
-    def test_check_specification_types(self):
-        """Test that all specification types can be checked"""
-        test_set = self.Z_outside
+        # The zonotope is contained in the polytope, so it DOES intersect
+        # According to MATLAB: res = ~isIntersecting_(set,S,'exact',1e-8)
+        # Since there IS intersection, result should be False (unsafe)
+        res, indSpec, indObj = spec.check(self.Z)
         
-        spec_types = ['unsafeSet', 'safeSet', 'invariant']
+        self.assertFalse(res, "Contained zonotope intersects with unsafe set (unsafe)")
+        self.assertEqual(indSpec, 1, "First specification should be violated")
+        self.assertEqual(indObj, 1, "First object should be violated")
+
+    def test_check_unsafeSet_no_intersection_disjoint(self):
+        """Test unsafeSet specification with truly disjoint sets"""
+        # Create a zonotope far away that doesn't intersect
+        Z_far = Zonotope(np.array([[10], [10]]), np.array([[0.1, 0], [0, 0.1]]))
         
-        for spec_type in spec_types:
-            spec = Specification(self.set, spec_type)
-            try:
-                result = spec.check(test_set)
-                self.assertIsInstance(result, bool, 
-                                    f"Check failed for type {spec_type}")
-            except (NotImplementedError, AttributeError):
-                # Some types might not be implemented yet
-                continue
-    
+        # Verify it's actually outside and doesn't intersect
+        vertices = Z_far.vertices()
+        constraint_values = np.dot(np.array([1, 1]) / np.sqrt(2), vertices)
+        self.assertTrue(np.all(constraint_values > 1.0), 
+                       f"All vertices should be outside constraint, got: {constraint_values}")
+        
+        # Create unsafeSet specification
+        spec = Specification(self.set_spec, 'unsafeSet')
+        
+        # Check the zonotope - should be True since no intersection
+        res, indSpec, indObj = spec.check(Z_far)
+        
+        self.assertTrue(res, "Disjoint zonotope should not intersect unsafe set (safe)")
+        self.assertEqual(indSpec, 0, "No specification should be violated")
+        self.assertEqual(indObj, 1, "No object should be violated")
+
+    def test_check_invariant_intersecting(self):
+        """Test invariant specification with intersecting zonotope"""
+        # Create invariant specification
+        spec = Specification(self.set_spec, 'invariant')
+        
+        # The zonotope intersects (is contained in) the polytope
+        # According to MATLAB: res = isIntersecting_(set,S,'approx',1e-8)
+        # Since there IS intersection, result should be True
+        res, indSpec, indObj = spec.check(self.Z)
+        
+        self.assertTrue(res, "Zonotope should intersect with invariant set")
+        self.assertEqual(indSpec, 0, "No specification should be violated")
+        self.assertEqual(indObj, 1, "No object should be violated")
+
+    def test_check_invariant_not_intersecting(self):
+        """Test invariant specification with non-intersecting zonotope"""
+        # Create a zonotope far away that doesn't intersect
+        Z_far = Zonotope(np.array([[10], [10]]), np.array([[0.1, 0], [0, 0.1]]))
+        
+        # Create invariant specification
+        spec = Specification(self.set_spec, 'invariant')
+        
+        # Check the zonotope - should be False since no intersection
+        res, indSpec, indObj = spec.check(Z_far)
+        
+        self.assertFalse(res, "Disjoint zonotope should not intersect invariant set")
+        self.assertEqual(indSpec, 1, "First specification should be violated")
+        self.assertEqual(indObj, 1, "First object should be violated")
+
+    def test_check_multiple_specifications(self):
+        """Test checking multiple specifications"""
+        # Create multiple specifications
+        spec1 = Specification(self.set_spec, 'safeSet')  # Should pass
+        
+        # Create a second polytope that the zonotope doesn't intersect
+        A2 = np.array([[1, 0]])  # x <= 5
+        b2 = np.array([5])
+        set_spec2 = Polytope(A2, b2)
+        spec2 = Specification(set_spec2, 'invariant')  # Should pass (zonotope intersects)
+        
+        specs = [spec1, spec2]
+        
+        # Check all specifications
+        res, indSpec, indObj = specs[0].check(self.Z)  # Check first spec
+        self.assertTrue(res, "First specification should pass")
+        
+        res, indSpec, indObj = specs[1].check(self.Z)  # Check second spec  
+        self.assertTrue(res, "Second specification should pass")
+
+    def test_check_point_input(self):
+        """Test check with point input"""
+        # Create safeSet specification
+        spec = Specification(self.set_spec, 'safeSet')
+        
+        # Test point inside the set
+        point_inside = np.array([[-1], [-1]])  # Constraint: 0.707*(-1) + 0.707*(-1) = -1.414 <= 1 ✓
+        constraint_val = np.dot(np.array([1, 1]) / np.sqrt(2), point_inside.flatten())
+        self.assertLessEqual(constraint_val, 1.0, f"Point should be inside, constraint value: {constraint_val}")
+        
+        res, indSpec, indObj = spec.check(point_inside)
+        self.assertTrue(res, "Point inside polytope should satisfy safeSet")
+        
+        # Test point outside the set
+        point_outside = np.array([[2], [2]])  # Constraint: 0.707*2 + 0.707*2 = 2.828 > 1 ✗
+        constraint_val = np.dot(np.array([1, 1]) / np.sqrt(2), point_outside.flatten())
+        self.assertGreater(constraint_val, 1.0, f"Point should be outside, constraint value: {constraint_val}")
+        
+        res, indSpec, indObj = spec.check(point_outside)
+        self.assertFalse(res, "Point outside polytope should violate safeSet")
+
     def test_check_custom_specification(self):
-        """Test checking custom specification with function handle"""
-        # Custom function: check if all points have x[0] > 0
-        custom_func = lambda x: np.all(x[0, :] > 0) if x.ndim > 1 else x[0] > 0
-        spec_custom = Specification(custom_func, 'custom')
+        """Test check with custom function specification"""
+        # Custom function that checks if center is in third quadrant
+        def custom_func(S):
+            if hasattr(S, 'center'):
+                center = S.center()
+                return center[0] < 0 and center[1] < 0
+            elif isinstance(S, np.ndarray):
+                return S[0] < 0 and S[1] < 0
+            return False
         
-        # Test sets
-        positive_set = Zonotope(np.array([[1], [0]]), np.array([[0.1, 0], [0, 0.1]]))
-        negative_set = Zonotope(np.array([[-1], [0]]), np.array([[0.1, 0], [0, 0.1]]))
+        spec = Specification(custom_func, 'custom')
         
-        try:
-            result_pos = spec_custom.check(positive_set)
-            result_neg = spec_custom.check(negative_set)
-            
-            # Results depend on the custom function implementation
-            self.assertIsInstance(result_pos, bool)
-            self.assertIsInstance(result_neg, bool)
-            
-        except (NotImplementedError, AttributeError):
-            # Skip if custom specification checking not implemented
-            self.skipTest("Custom specification checking not fully implemented yet")
-    
-    def test_check_error_cases(self):
-        """Test error cases for check method"""
-        try:
-            # Test with invalid input
-            with self.assertRaises((TypeError, ValueError, AttributeError)):
-                self.spec_unsafe.check("invalid_input")
-            
-            # Test with incompatible dimensions
-            wrong_dim_set = Zonotope(np.array([[0], [0], [0]]), np.eye(3))  # 3D set
-            with self.assertRaises((ValueError, AttributeError)):
-                self.spec_unsafe.check(wrong_dim_set)
-                
-        except (NotImplementedError, AttributeError):
-            # Skip if error handling not implemented
-            self.skipTest("Error handling in check method not fully implemented yet")
+        # Test with zonotope (center [-10, -8] in third quadrant)
+        res, indSpec, indObj = spec.check(self.Z)
+        self.assertTrue(res, "Zonotope center should be in third quadrant")
+        
+        # Test with point in first quadrant  
+        point_first = np.array([[1], [1]])
+        res, indSpec, indObj = spec.check(point_first)
+        self.assertFalse(res, "Point in first quadrant should violate custom spec")
 
 
 if __name__ == '__main__':

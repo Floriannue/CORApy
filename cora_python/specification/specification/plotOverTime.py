@@ -23,9 +23,10 @@ Python translation: 2025
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from typing import Optional, List, Any, Union
 from cora_python.g.functions.matlab.validate.check import inputArgsCheck
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def plotOverTime(specs, dims: Optional[int] = None, **plot_options):
@@ -66,7 +67,7 @@ def _parse_input(specs, dims, plot_options):
     # Check that all items are specification objects
     for spec in specs:
         if not hasattr(spec, 'type') or not hasattr(spec, 'set'):
-            raise CORAError('CORA:wrongInput',
+            raise CORAerror('CORA:wrongInput',
                 'Input must be specification object(s)')
     
     # Set default dimension
@@ -75,11 +76,11 @@ def _parse_input(specs, dims, plot_options):
     
     # Validate dimension
     if not isinstance(dims, int):
-        raise CORAError('CORA:wrongInput',
+        raise CORAerror('CORA:wrongInput',
             'Dimension must be a single integer for time plots')
     
     if dims < 0:
-        raise CORAError('CORA:wrongInput',
+        raise CORAerror('CORA:wrongInput',
             'Dimension must be non-negative integer')
     
     return specs, dims, plot_options
@@ -102,7 +103,7 @@ def _preprocess(specs):
     
     # Check if any specifications have time defined
     if all(no_time_given):
-        raise CORAError('CORA:specialError',
+        raise CORAerror('CORA:specialError',
             'No specification has a defined time frame.')
     
     # Set empty .time fields to min/max of others
@@ -164,7 +165,7 @@ def _plot_specs(specs, dims, plot_opts, spectime):
         elif spec_type == 'custom':
             type_opts = plot_opts.copy()
         else:
-            raise CORAError('CORA:notSupported',
+            raise CORAerror('CORA:notSupported',
                 f"Plotting specifications of type '{spec_type}' over time is not yet supported.")
         
         # Create time-extended sets
@@ -286,7 +287,6 @@ def _plot_multiple_sets_as_one(sets, dims, plot_opts):
             x_min, x_max = set_data['space_bounds']
             
             # Create rectangle
-            from matplotlib.patches import Rectangle
             rect = Rectangle((t_min, x_min), t_max - t_min, x_max - x_min,
                            facecolor=set_opts.get('color', 'blue'),
                            alpha=set_opts.get('alpha', 0.3),

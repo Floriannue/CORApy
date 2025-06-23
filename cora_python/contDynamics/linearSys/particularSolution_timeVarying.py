@@ -45,9 +45,9 @@ import math
 import numpy as np
 from typing import Optional, Union
 from cora_python.contSet.zonotope import Zonotope
-from cora_python.contSet.contSet import decompose
 from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes
 from cora_python.g.functions.helper.sets.contSet.contSet import block_operation
+from cora_python.g.classes.taylorLinSys import TaylorLinSys
 
 
 def particularSolution_timeVarying(linsys, U, timeStep: float, truncationOrder: int, 
@@ -76,7 +76,6 @@ def particularSolution_timeVarying(linsys, U, timeStep: float, truncationOrder: 
     # Since this function is public, we cannot assume that taylorLinSys has
     # already been instantiated
     if not hasattr(linsys, 'taylor') or not hasattr(linsys.taylor, 'getTaylor'):
-        from cora_python.g.classes.taylorLinSys import TaylorLinSys
         linsys.taylor = TaylorLinSys(linsys.A)
     
     # Set a maximum order in case truncation order is given as Inf (adaptive)
@@ -89,10 +88,10 @@ def particularSolution_timeVarying(linsys, U, timeStep: float, truncationOrder: 
     
     # First term (eta = 0: A^0*dt^1/1 * U = dt*U)
     Ptp = timeStep * U
-    Ptp = decompose(Ptp, blocks)
+    Ptp = Ptp.decompose(blocks)
     
     # Decompose input set for iterative operations below
-    U_decomp = decompose(U, blocks)
+    U_decomp = U.decompose(blocks)
     
     # Loop until Asum no longer changes (additional values too small) or
     # truncation order is reached
@@ -123,7 +122,6 @@ def particularSolution_timeVarying(linsys, U, timeStep: float, truncationOrder: 
 
 def _block_zeros(blocks):
     """Create block of zero sets"""
-    from cora_python.contSet.zonotope import Zonotope
     
     if blocks.shape[0] == 1:
         # Single block

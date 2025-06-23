@@ -27,9 +27,8 @@ Python translation: 2025
 from typing import Union, List
 import numpy as np
 from .specification import Specification
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.contSet.polytope import Polytope
-from .add import add
 
 
 def inverse(spec):
@@ -43,7 +42,7 @@ def inverse(spec):
         Inverted specification object(s)
         
     Raises:
-        CORAError: If operation is not supported
+        CORAerror: If operation is not supported
     """
 
     # Handle single specification
@@ -58,10 +57,10 @@ def inverse(spec):
         # Check if time specification is empty (not supported for timed specs)
         if hasattr(s, 'time') and s.time is not None:
             if hasattr(s, 'representsa_') and not s.time.representsa_('emptySet', np.finfo(float).eps):
-                raise CORAError('CORA:notSupported',
+                raise CORAerror('CORA:notSupported',
                               'Computing the inverse is not yet supported for timed specifications!')
             elif not _is_empty_time(s.time):
-                raise CORAError('CORA:notSupported',
+                raise CORAerror('CORA:notSupported',
                               'Computing the inverse is not yet supported for timed specifications!')
         
         if s.type == 'safeSet':
@@ -69,12 +68,12 @@ def inverse(spec):
         elif s.type == 'unsafeSet':
             unsafe.append(i)
         else:
-            raise CORAError('CORA:notSupported',
+            raise CORAerror('CORA:notSupported',
                           f"Computing the inverse is not yet supported for "
                           f"other types than 'safeSet' and 'unsafeSet'.")
     
     if safe and unsafe:
-        raise CORAError('CORA:notSupported',
+        raise CORAerror('CORA:notSupported',
                       "Computing the inverse is not yet supported for "
                       "mixed types 'safeSet' and 'unsafeSet'.")
     
@@ -100,7 +99,7 @@ def inverse(spec):
             sets = _safeSet2unsafeSet(sets)
             result_spec = []
             for s in sets:
-                result_spec = add(result_spec, Specification(s, 'unsafeSet'))
+                result_spec = Specification(s, 'unsafeSet').add(result_spec)
             
             return result_spec
 

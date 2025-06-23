@@ -14,10 +14,12 @@ Python translation: 2025
 import numpy as np
 from scipy.spatial import ConvexHull
 from scipy.linalg import svd
-from .dim import dim
-from .representsa_ import representsa_
-from .compact_ import compact_
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from typing import TYPE_CHECKING
+from itertools import product
+
+if TYPE_CHECKING:
+    from .zonotope import Zonotope
 
 
 def vertices_(Z: 'Zonotope', alg: str = 'convHull') -> np.ndarray:
@@ -35,14 +37,14 @@ def vertices_(Z: 'Zonotope', alg: str = 'convHull') -> np.ndarray:
         np.ndarray: Vertices (each column is a vertex)
         
     Raises:
-        CORAError: If computation fails
+        CORAerror: If computation fails
         
     Example:
         >>> Z = Zonotope([1, -1], [[1, 3, -2, 1, 0], [0, 2, 1, -2, 1]])
         >>> V = vertices_(Z)
     """
     # Different cases for different dimensions
-    n = dim(Z)
+    n = Z.dim()
     
     if n == 1:
         # Compute the two vertices for one-dimensional case
@@ -75,11 +77,11 @@ def vertices_(Z: 'Zonotope', alg: str = 'convHull') -> np.ndarray:
 def _aux_vertices2Dfast(Z: 'Zonotope') -> np.ndarray:
     """Fast method for 2D zonotopes"""
     # Empty case
-    if representsa_(Z, 'emptySet', 1e-15):
-        return np.zeros((dim(Z), 0))
+    if Z.representsa_('emptySet', 1e-15):
+        return np.zeros((Z.dim(), 0))
     
     # Delete zero generators
-    Z = compact_(Z, 'zeros', 1e-15)
+    Z = Z.compact_('zeros', 1e-15)
     
     # Obtain center and generator matrix
     c = Z.c
@@ -140,7 +142,7 @@ def _aux_verticesConvHull(Z: 'Zonotope') -> np.ndarray:
     # First vertex is the center of the zonotope
     c = Z.c
     G = Z.G
-    n = dim(Z)
+    n = Z.dim()
     nrGens = G.shape[1]
     
     if nrGens == 0:
@@ -217,7 +219,7 @@ def _aux_verticesIterate(Z: 'Zonotope') -> np.ndarray:
     """Iterative vertex computation"""
     c = Z.c
     G = Z.G
-    n = dim(Z)
+    n = Z.dim()
     nrGens = G.shape[1]
     
     if nrGens == 0:
@@ -226,11 +228,10 @@ def _aux_verticesIterate(Z: 'Zonotope') -> np.ndarray:
     # Generate all possible combinations of ±1 for generators
     # This is exponential in the number of generators!
     if nrGens > 20:  # Prevent memory explosion
-        raise CORAError('CORA:dimensionMismatch', 
+        raise CORAerror('CORA:dimensionMismatch', 
                        'Too many generators for iterative method')
     
     # Generate all combinations
-    from itertools import product
     combinations = list(product([-1, 1], repeat=nrGens))
     
     # Compute all potential vertices

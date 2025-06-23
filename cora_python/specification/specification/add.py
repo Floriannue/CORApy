@@ -35,6 +35,9 @@ def add(spec1: Union[Specification, List[Specification]],
     """
     Join two specification objects or lists of specifications
     
+    This function mirrors MATLAB's simple concatenation behavior:
+    spec = [spec1;spec2];
+    
     Args:
         spec1: First specification(s) 
         spec2: Second specification(s)
@@ -43,16 +46,20 @@ def add(spec1: Union[Specification, List[Specification]],
         List of combined specifications
     """
     
-    # Convert to lists if they aren't already
+    # Convert to lists if they aren't already (following MATLAB behavior)
     if isinstance(spec1, Specification):
         spec1_list = [spec1]
-    else:
+    elif hasattr(spec1, '__iter__'):
         spec1_list = list(spec1)
+    else:
+        spec1_list = [spec1]  # Let any errors happen later
     
     if isinstance(spec2, Specification):
         spec2_list = [spec2]
-    else:
+    elif hasattr(spec2, '__iter__'):
         spec2_list = list(spec2)
+    else:
+        spec2_list = [spec2]  # Let any errors happen later
     
-    # Combine the lists
+    # Simple concatenation like MATLAB: [spec1;spec2]
     return spec1_list + spec2_list 

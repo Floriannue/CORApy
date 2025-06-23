@@ -10,10 +10,12 @@ Written: 02-May-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union, Optional
+from typing import TYPE_CHECKING, Union, Optional
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def minkDiff(S1: 'ContSet', S2: Union['ContSet', np.ndarray], method: Optional[str] = None) -> 'ContSet':
     """
@@ -30,7 +32,7 @@ def minkDiff(S1: 'ContSet', S2: Union['ContSet', np.ndarray], method: Optional[s
         ContSet: Minkowski difference S₁ ⊖ S₂
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAerror: Always raised as this method should be overridden in subclasses
         
     Example:
         >>> # This will be overridden in specific set classes
@@ -39,5 +41,5 @@ def minkDiff(S1: 'ContSet', S2: Union['ContSet', np.ndarray], method: Optional[s
         >>> S_diff = minkDiff(S1, S2)
     """
     # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:noops',
+    raise CORAerror('CORA:noops',
                    f'minkDiff not implemented for {type(S1).__name__} and {type(S2).__name__}') 

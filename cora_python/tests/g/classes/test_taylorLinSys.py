@@ -121,7 +121,7 @@ class TestTaylorLinSys:
         A = np.array([[1, 0], [0, 1]])
         taylor = TaylorLinSys(A)
         
-        with pytest.raises(Exception):  # CORAError
+        with pytest.raises(Exception):  # CORAerror
             taylor.computeField('unknown_field')
     
     def test_getTaylor(self):
@@ -214,7 +214,7 @@ class TestTaylorLinSys:
         A = np.array([[1, 0], [0, 1]])
         taylor = TaylorLinSys(A)
         
-        with pytest.raises(Exception):  # CORAError
+        with pytest.raises(Exception):  # CORAerror
             taylor._computeEAt()  # No timeStep provided
 
 

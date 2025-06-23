@@ -1,11 +1,11 @@
 """
 CORAerror - central hub for all error messages thrown by CORA functions
 
-This module provides the CORAError exception class that mimics MATLAB's CORAerror
+This module provides the CORAerror exception class that mimics MATLAB's CORAerror
 functionality for centralized error handling in CORA.
 
 Syntax:
-    raise CORAError(identifier, message)
+    raise CORAerror(identifier, message)
 
 Inputs:
     identifier - name of CORA error (e.g., 'CORA:wrongInputInConstructor')
@@ -21,7 +21,7 @@ import inspect
 from typing import Optional, Any
 
 
-class CORAError(Exception):
+class CORAerror(Exception):
     """
     Custom exception class for CORA errors
     
@@ -38,7 +38,7 @@ class CORAError(Exception):
     
     def __init__(self, identifier: str, message: str = "", *args):
         """
-        Initialize CORAError
+        Initialize CORAerror
         
         Args:
             identifier: Error identifier string
@@ -176,19 +176,3 @@ class CORAError(Exception):
             # Default case for unknown identifiers
             return f"{self.identifier}: {self.message}"
 
-
-# Convenience function to match MATLAB syntax
-def CORAerror(identifier: str, *args, **kwargs):
-    """
-    Create and raise a CORAError
-    
-    Args:
-        identifier: Error identifier
-        *args: Additional arguments
-        **kwargs: Additional keyword arguments
-    """
-    if args:
-        message = args[0] if isinstance(args[0], str) else ""
-        raise CORAError(identifier, message, *args[1:])
-    else:
-        raise CORAError(identifier, "") 

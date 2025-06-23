@@ -10,8 +10,11 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from typing import TYPE_CHECKING
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def linComb(S1: 'ContSet', S2: 'ContSet') -> 'ContSet':
     """
@@ -27,7 +30,7 @@ def linComb(S1: 'ContSet', S2: 'ContSet') -> 'ContSet':
         ContSet: Linear combination of S₁ and S₂
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAerror: Always raised as this method should be overridden in subclasses
         
     Example:
         >>> # This will be overridden in specific set classes
@@ -36,5 +39,5 @@ def linComb(S1: 'ContSet', S2: 'ContSet') -> 'ContSet':
         >>> S_comb = linComb(S1, S2)
     """
     # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:noops',
+    raise CORAerror('CORA:noops',
                    f'linComb not implemented for {type(S1).__name__} and {type(S2).__name__}') 

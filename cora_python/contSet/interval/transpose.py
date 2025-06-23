@@ -21,13 +21,11 @@ Last revision: ---
 """
 
 import numpy as np
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .interval import Interval
+from .interval import Interval
 
 
-def transpose(I: 'Interval') -> 'Interval':
+def transpose(I: Interval) -> Interval:
     """
     Overloaded transpose operator for intervals.
     
@@ -37,7 +35,5 @@ def transpose(I: 'Interval') -> 'Interval':
     Returns:
         Interval object with transposed bounds
     """
-    from .interval import Interval
-    
     # Transpose both inf and sup
     return Interval(I.inf.T, I.sup.T) 

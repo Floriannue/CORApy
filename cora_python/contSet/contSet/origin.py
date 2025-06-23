@@ -8,11 +8,13 @@ Authors: Mark Wetzlinger (MATLAB)
 Written: 21-September-2024 (MATLAB)
 Python translation: 2025
 """
+from typing import TYPE_CHECKING
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
-
-def origin(n: int) -> 'ContSet':
+def origin(S: 'ContSet', n: int) -> 'ContSet':
     """
     Instantiates a set representing only the origin
     
@@ -23,7 +25,7 @@ def origin(n: int) -> 'ContSet':
         ContSet: Set representing only the origin
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAerror: Always raised as this method should be overridden in subclasses
         ValueError: If n is not a positive integer
         
     Example:
@@ -35,5 +37,5 @@ def origin(n: int) -> 'ContSet':
         raise ValueError("n must be a positive integer")
     
     # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:notSupported',
+    raise CORAerror('CORA:notSupported',
                    'The chosen subclass of contSet does not support representing only the origin.') 

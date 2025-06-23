@@ -10,6 +10,10 @@ Written: 06-April-2023 (MATLAB)
 Python translation: 2025
 """
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def uminus(S: 'ContSet') -> 'ContSet':
     """
@@ -28,10 +32,12 @@ def uminus(S: 'ContSet') -> 'ContSet':
         >>> S = zonotope([1, 0], [[1, 0], [0, 1]])
         >>> neg_S = uminus(S)  # or neg_S = -S
     """
-    # Check if the object has an uminus method and use it
-    if hasattr(S, 'uminus') and callable(getattr(S, 'uminus')):
-        return S.uminus()
+    # Check if subclass has overridden uminus method
+    base_class = type(S).__bases__[0] if type(S).__bases__ else None
+    if (hasattr(type(S), 'uminus') and 
+        base_class and hasattr(base_class, 'uminus') and
+        type(S).uminus is not base_class.uminus):
+        return type(S).uminus(S)
     
     # Fallback: implement as multiplication by -1
-    from .times import times
-    return times(-1, S) 
+    return S.times(-1) 

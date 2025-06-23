@@ -49,9 +49,10 @@ import math
 import numpy as np
 from typing import Tuple, Optional, Union
 from cora_python.contSet.zonotope import Zonotope
-from cora_python.contSet.contSet import decompose
+from cora_python.contSet.interval import Interval
 from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes
 from cora_python.g.functions.helper.sets.contSet.contSet import block_operation
+from cora_python.g.classes.taylorLinSys import TaylorLinSys
 
 
 def particularSolution_constant(linsys, U, timeStep: float, truncationOrder: int, 
@@ -91,7 +92,6 @@ def particularSolution_constant(linsys, U, timeStep: float, truncationOrder: int
     # Since this function is public, we cannot assume that taylorLinSys has
     # already been instantiated
     if not hasattr(linsys, 'taylor') or not hasattr(linsys.taylor, 'getTaylor'):
-        from cora_python.g.classes.taylorLinSys import TaylorLinSys
         linsys.taylor = TaylorLinSys(linsys.A)
     
     # Set a maximum order in case truncation order is given as Inf (adaptive)
@@ -100,7 +100,7 @@ def particularSolution_constant(linsys, U, timeStep: float, truncationOrder: int
         truncationOrder = 75
     
     # Decompose input set (remains the same unless more than one block)
-    U_decomp = decompose(U, blocks)
+    U_decomp = U.decompose(blocks)
     
     # Check if inverse can be used
     Ainv = linsys.taylor.Ainv
@@ -165,7 +165,6 @@ def particularSolution_constant(linsys, U, timeStep: float, truncationOrder: int
 
 def _block_zeros(blocks):
     """Create block of zero sets"""
-    from cora_python.contSet.zonotope import Zonotope
     
     if blocks.shape[0] == 1:
         # Single block - note: blocks are 1-indexed from MATLAB but 0-indexed ranges in Python
@@ -186,7 +185,6 @@ def _block_zeros(blocks):
 
 def _priv_curvatureInput(linsys, U_decomp, timeStep, truncationOrder):
     """Compute curvature error for the input (simplified implementation)"""
-    from cora_python.contSet.zonotope import Zonotope
     
     # This is a simplified implementation
     # The full implementation would compute the curvature error based on
@@ -214,7 +212,6 @@ def _convHull(set1, set2):
         return set2.convHull(set1)
     
     # Fallback: use interval hull
-    from cora_python.contSet.interval import Interval
     
     # Convert to intervals using their interval() method if available
     if hasattr(set1, 'interval'):

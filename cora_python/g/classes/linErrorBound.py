@@ -35,7 +35,7 @@ Python translation: 2025
 import numpy as np
 import scipy.linalg
 from typing import List, Dict, Any, Optional, Union
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class LinErrorBound:
@@ -54,11 +54,11 @@ class LinErrorBound:
         """
         # Check input arguments
         if not isinstance(emax, (int, float)) or not np.isfinite(emax) or emax <= 0:
-            raise CORAError('CORA:wrongInputInConstructor',
+            raise CORAerror('CORA:wrongInputInConstructor',
                            'Error margin must be a scalar, positive, real number.')
         
         if not isinstance(tFinal, (int, float)) or not np.isfinite(tFinal) or tFinal < 0:
-            raise CORAError('CORA:wrongInputInConstructor',
+            raise CORAerror('CORA:wrongInputInConstructor',
                            'Time horizon must be a scalar, non-negative, real number.')
         
         # --- errors ---
@@ -493,7 +493,7 @@ class LinErrorBound:
                 
                 # sanity check of singularity of Deltatmat
                 if abs(1/np.linalg.cond(Deltatmat)) < np.finfo(float).eps:
-                    raise CORAError('CORA:notConverged', 'Estimation of time step size')
+                    raise CORAerror('CORA:notConverged', 'Estimation of time step size')
                 
                 # update coefficient of approximation function for eps_PU
                 eps_vec = np.array([self.idv_PUtkplus1[k][k_iter-1], self.idv_PUtkplus1[k][k_iter]])

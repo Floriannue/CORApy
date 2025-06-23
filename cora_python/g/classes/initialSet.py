@@ -9,8 +9,11 @@ Written: 01-March-2023 (MATLAB)
 Python translation: 2025
 """
 
+import numpy as np
 from typing import List, Any, Optional
-
+from cora_python.contSet.contSet.contSet import ContSet
+from cora_python.contSet.zonotope.zonotope import Zonotope
+from cora_python.g.functions.verbose.plot.read_plot_options import read_plot_options
 
 class InitialSet:
     """
@@ -23,7 +26,7 @@ class InitialSet:
         set: The initial set object
     """
     
-    def __init__(self, set_obj):
+    def __init__(self, set_obj: ContSet):
         """
         Constructor for InitialSet
         
@@ -31,13 +34,8 @@ class InitialSet:
             set_obj: The initial set (should be a contSet object)
         """
         # Validate that set_obj is a contSet (if available)
-        try:
-            from ..contSet.contSet.contSet import ContSet
-            if not isinstance(set_obj, ContSet):
-                raise ValueError("set must be a contSet object")
-        except ImportError:
-            # If ContSet is not available, skip validation
-            pass
+        if not isinstance(set_obj, ContSet):
+            raise ValueError("set must be a contSet object")
         
         self.set = set_obj
     
@@ -75,40 +73,18 @@ class InitialSet:
             raise ValueError("dim must be a non-negative integer")
         
         # Extract plotting options for initial set
-        try:
-            from ...functions.verbose.plot.read_plot_options import readPlotOptions
-            plot_options = readPlotOptions(kwargs, 'initialSet')
-        except ImportError:
-            try:
-                from cora_python.g.functions.verbose.plot.read_plot_options import readPlotOptions
-                plot_options = readPlotOptions(kwargs, 'initialSet')
-            except ImportError:
-                # Fallback: use kwargs directly
-                plot_options = kwargs
+        plot_options = read_plot_options(kwargs, 'initialSet')
+
         
         # Project to specified dimension
-        try:
-            from ...contSet.contSet.project import project
-            projected_set = project(self.set, [dim])
-        except ImportError:
-            try:
-                from cora_python.contSet.contSet.project import project
-                projected_set = project(self.set, [dim])
-            except ImportError:
-                # Fallback: use the set's project method if available
-                if hasattr(self.set, 'project'):
-                    projected_set = self.set.project([dim])
-                else:
-                    projected_set = self.set
+        projected_set = self.set.project([dim])
+
         
         # For zonotope-like objects, create time-extended set
         if hasattr(projected_set, 'c') and hasattr(projected_set, 'G'):
-            try:
-                from ...contSet.zonotope.zonotope import Zonotope
-            except ImportError:
-                from cora_python.contSet.zonotope.zonotope import Zonotope
-            
-            import numpy as np
+
+
+
             
             # Ensure we have proper arrays
             c = np.asarray(projected_set.c, dtype=float)

@@ -11,74 +11,94 @@ Last update: 27-March-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union, Optional
 import numpy as np
-from .representsa_ import representsa_
-from .and_ import and_
-from .reorder import reorder
+from typing import TYPE_CHECKING, Union
 
+from cora_python.g.functions.matlab.validate.check import input_args_check
+from cora_python.g.functions.matlab.validate.preprocessing import set_default_values
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
-def and_op(S1: Union['ContSet', np.ndarray], S2: Union['ContSet', np.ndarray, list], 
-           method: str = 'exact') -> 'ContSet':
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+
+def and_op(S1: 'ContSet', S2: Union['ContSet', np.ndarray], *varargin) -> 'ContSet':
     """
-    Overloads '&' operator, computes the intersection of two sets
+    and - overloads '&' operator, computes the intersection of two sets
     
-    Computes the set {s | s ∈ S₁, s ∈ S₂}
+    Description:
+        computes the set { s | s ∈ S₁, s ∈ S₂ }
     
-    Args:
-        S1: First contSet object or numeric
-        S2: Second contSet object, numeric, or cell array
-        method: Type of computation ('exact', 'inner', 'outer', 'conZonotope', 'averaging')
-        
-    Returns:
-        ContSet: Intersection of the two sets
-        
-    Raises:
-        ValueError: If dimensions don't match or invalid method
-        
-    Example:
-        >>> S1 = interval([1, 2], [3, 4])
-        >>> S2 = interval([2, 1], [4, 3])
-        >>> result = and_op(S1, S2)  # or result = S1 & S2
+    Syntax:
+        res = S1 & S2
+        res = and(S1, S2)  
+        res = and(S1, S2, type)
+    
+    Inputs:
+        S1, S2 - ContSet object
+        type - type of computation ('exact', 'inner', 'outer')
+    
+    Outputs:
+        res - intersection set
+    
+    Other m-files required: none
+    Subfunctions: none
+    MAT-files required: none
+    
+    See also: none
+    
+    Authors:       Mark Wetzlinger
+    Written:       18-August-2022
+    Last update:   23-November-2022 (MW, add classname as input argument)
+    Last revision: 27-March-2023 (MW, restructure relation to subclass)
     """
-    # Validate method based on set types
-    if hasattr(S1, '__class__'):
-        class_name = S1.__class__.__name__
-        if class_name == 'Ellipsoid':
-            if method not in ['inner', 'outer']:
-                method = 'outer'  # default for ellipsoid
-        elif class_name == 'Zonotope':
-            if method not in ['conZonotope', 'averaging']:
-                method = 'conZonotope'  # default for zonotope
-        else:
-            if method not in ['exact']:
-                method = 'exact'  # default for other sets
     
-    # Order input arguments according to their precedence
+    # check number of input arguments (note: andAveraging submethod of
+    # zonotope/and has up to 6 input arguments, leave that to calling and_)
+    if len(varargin) > 1:
+        raise CORAerror('CORA:tooManyInputArgs', 3)
+    
+    # check input arguments
+    input_args_check([
+        [S1, 'att', ['ContSet', 'numeric']],
+        [S2, 'att', ['ContSet', 'numeric', 'cell']]
+    ])
+    
+    # order input arguments according to their precedence
+    from cora_python.g.functions.helper.sets.contSet.reorder import reorder
     S1, S2 = reorder(S1, S2)
     
-    # Check dimension compatibility
-    if hasattr(S1, 'dim') and hasattr(S2, 'dim'):
-        if S1.dim() != S2.dim():
-            raise ValueError(f"Dimension mismatch: S1 has dimension {S1.dim()}, S2 has dimension {S2.dim()}")
+    # handle different default types based on class
+    if S1.__class__.__name__ == 'Ellipsoid':
+        # parse input arguments
+        type_ = set_default_values(['outer'], varargin)
+        # check additional input arguments
+        input_args_check([[type_, 'str', ['inner', 'outer']]])
+    elif S1.__class__.__name__ == 'Zonotope':
+        # parse input arguments  
+        type_ = set_default_values(['conZonotope'], varargin)
+        # check additional input arguments
+        input_args_check([[type_, 'str', ['conZonotope', 'averaging']]])
+    else:
+        type_ = set_default_values(['exact'], varargin)
     
+    # check dimension mismatch
+    from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
+    equal_dim_check(S1, S2)
+    
+    # call subclass method
     try:
-        # Call subclass method
-        res = and_(S1, S2, method)
+        return S1.and_(S2, type_)
     except Exception as ME:
         # Handle empty set cases
-        if hasattr(S1, '__class__') and hasattr(S1, 'representsa_'):
-            if representsa_(S1, 'emptySet', 1e-15, linearize=0, verbose=1):
-                return S1
+        if (hasattr(S1, '__class__') and hasattr(S1, 'representsa_') and 
+            S1.representsa_('emptySet', 1e-15, linearize=0, verbose=1)):
+            return S1
         elif isinstance(S1, np.ndarray) and S1.size == 0:
             return np.array([])
-        
-        if hasattr(S2, '__class__') and hasattr(S2, 'representsa_'):
-            if representsa_(S2, 'emptySet', 1e-15, linearize=0, verbose=1):
-                return S2
+        elif (hasattr(S2, '__class__') and hasattr(S2, 'representsa_') and 
+              S2.representsa_('emptySet', 1e-15, linearize=0, verbose=1)):
+            return S2
         elif isinstance(S2, np.ndarray) and S2.size == 0:
             return np.array([])
-        
-        raise ME
-    
-    return res 
+        else:
+            raise ME 

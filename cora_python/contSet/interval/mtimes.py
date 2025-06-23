@@ -22,7 +22,7 @@ Python translation: 2025
 import numpy as np
 from typing import Union
 from .interval import Interval
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 # Optional scipy import for sparse matrix support
 try:
@@ -47,13 +47,13 @@ def mtimes(factor1: Union[Interval, np.ndarray, float, int],
     # Handle contSet cases (not implemented yet, but structure for future)
     if hasattr(factor2, '__class__') and factor2.__class__.__name__ in [
         'polyZonotope', 'zonotope', 'conZonotope', 'zonoBundle']:
-        raise CORAError('CORA:noops', f'Operation not supported with {type(factor2)}')
+        raise CORAerror('CORA:noops', f'Operation not supported with {type(factor2)}')
     
     # Other contSet cases not supported
     if (hasattr(factor2, 'precedence') and 
         not isinstance(factor2, Interval) and 
         hasattr(factor2, '__class__')):
-        raise CORAError('CORA:noops', f'Operation not supported between {type(factor1)} and {type(factor2)}')
+        raise CORAerror('CORA:noops', f'Operation not supported between {type(factor1)} and {type(factor2)}')
     
     # Convert inputs to intervals if needed
     if not isinstance(factor1, Interval):
@@ -85,7 +85,7 @@ def _numeric_to_Interval(value):
     elif isinstance(value, np.ndarray):
         return Interval(value, value)
     else:
-        raise CORAError('CORA:wrongInput', f'Cannot convert {type(value)} to interval')
+        raise CORAerror('CORA:wrongInput', f'Cannot convert {type(value)} to interval')
 
 
 def _is_scalar(obj):
@@ -219,7 +219,7 @@ def _mtimes_nonsparse(factor1: Interval, factor2: Interval) -> Interval:
     
     # Check dimension compatibility
     if f1_inf.shape[1] != f2_inf.shape[0]:
-        raise CORAError('CORA:wrongInput', 
+        raise CORAerror('CORA:wrongInput', 
                        f'Matrix dimensions incompatible: {f1_inf.shape} * {f2_inf.shape}')
     
     # Perform matrix multiplication for all combinations
@@ -265,7 +265,7 @@ def _mtimes_sparse(factor1: Interval, factor2: Interval) -> Interval:
         k2, n = f2_shape
     
     if k != k2:
-        raise CORAError('CORA:wrongInput', 
+        raise CORAerror('CORA:wrongInput', 
                        f'Matrix dimensions incompatible: {factor1.inf.shape} * {factor2.inf.shape}')
     
     # Preallocate output bounds

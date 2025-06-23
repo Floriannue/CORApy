@@ -11,48 +11,37 @@ Last update: 30-September-2024 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union, Optional
-import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from typing import TYPE_CHECKING, Optional
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
-def convHull_(S1: Union['ContSet', np.ndarray], 
-              S2: Optional[Union['ContSet', np.ndarray]] = None, 
-              method: str = 'exact') -> 'ContSet':
+def convHull_(S: 'ContSet', S2: Optional['ContSet'] = None, method: str = 'exact'):
     """
-    Computes an enclosure for the convex hull of a set and another set or a point (internal use)
+    Computes the convex hull of a set or two sets (internal use)
     
-    This is the base implementation that throws an error. Subclasses should
-    override this method to provide specific convex hull logic.
+    This function uses polymorphic dispatch to call the appropriate subclass
+    implementation of convHull_, or provides the base implementation.
     
     Args:
-        S1: First contSet object
-        S2: Second contSet object or numeric (optional)
-        method: Method for computation
+        S: contSet object
+        S2: optional second contSet object
+        method: method for convex hull computation
         
     Returns:
-        ContSet: Convex hull of the sets
+        ContSet: Convex hull of the set(s)
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
-        
-    Example:
-        >>> # This will be overridden in specific set classes
-        >>> S1 = interval([1, 2], [3, 4])
-        >>> S2 = interval([4, 3], [6, 5])
-        >>> result = convHull_(S1, S2, 'exact')
+        CORAerror: If convHull_ is not implemented for the specific set type
     """
-    # Check if the object has a convHull_ method and use it
-    if hasattr(S1, 'convHull_') and callable(getattr(S1, 'convHull_')):
-        if S2 is None:
-            return S1.convHull_(method=method)
-        else:
-            return S1.convHull_(S2, method=method)
-    
-    # This is overridden in subclass if implemented; throw error
-    if S2 is None:
-        raise CORAError('CORA:noops',
-                       f'convHull_ not implemented for single argument {type(S1).__name__}')
+    # Check if subclass has overridden convHull_ method
+    base_class = type(S).__bases__[0] if type(S).__bases__ else None
+    if (hasattr(type(S), 'convHull_') and 
+        base_class and hasattr(base_class, 'convHull_') and
+        type(S).convHull_ is not base_class.convHull_):
+        return type(S).convHull_(S2, method)
     else:
-        raise CORAError('CORA:noops',
-                       f'convHull_ not implemented for {type(S1).__name__} and {type(S2).__name__} with method {method}') 
+        # Base implementation - throw error as this method should be overridden
+        raise CORAerror("CORA:noops", f"Function convHull_ not implemented for class {type(S).__name__}") 

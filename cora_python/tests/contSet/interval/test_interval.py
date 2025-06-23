@@ -17,7 +17,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
 from cora_python.contSet import Interval
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestInterval:
@@ -47,15 +47,15 @@ class TestInterval:
     def test_constructor_errors(self):
         """Test constructor error cases"""
         # No arguments
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             Interval()
         
         # Lower bound larger than upper bound
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             Interval([3, 4], [1, 2])
         
         # Different dimensions
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             Interval([1, 2], [3])
     
     def test_empty_interval(self):

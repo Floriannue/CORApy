@@ -14,7 +14,7 @@ import numpy as np
 from cora_python.specification.specification.specification import Specification
 from cora_python.contSet.interval.interval import Interval
 from cora_python.contSet.zonotope.zonotope import Zonotope
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestSpecificationAdd(unittest.TestCase):
@@ -147,7 +147,7 @@ class TestSpecificationAdd(unittest.TestCase):
             # Should handle empty specifications appropriately
             self.assertIsNotNone(result)
             
-        except (NotImplementedError, AttributeError, CORAError):
+        except (NotImplementedError, AttributeError, CORAerror):
             # Might raise error for empty specifications
             self.skipTest("Empty specification addition not implemented yet")
     
@@ -159,7 +159,7 @@ class TestSpecificationAdd(unittest.TestCase):
         
         try:
             # Should raise error or handle gracefully
-            with self.assertRaises((ValueError, CORAError, AttributeError)):
+            with self.assertRaises((ValueError, CORAerror, AttributeError)):
                 result = self.spec1 + spec_3d  # 2D + 3D
                 
         except (NotImplementedError, AttributeError):
@@ -231,7 +231,7 @@ class TestSpecificationAdd(unittest.TestCase):
             # Should handle custom specifications
             self.assertIsNotNone(result)
             
-        except (NotImplementedError, AttributeError, CORAError):
+        except (NotImplementedError, AttributeError, CORAerror):
             # Custom specs might not support addition
             self.skipTest("Custom specification addition not implemented yet")
     

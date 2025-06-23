@@ -10,8 +10,10 @@ Written: 09-October-2024 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Any
-from .isequal import isequal
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
 def eq(S1: 'ContSet', S2: Any, *args, **kwargs) -> bool:
@@ -33,4 +35,4 @@ def eq(S1: 'ContSet', S2: Any, *args, **kwargs) -> bool:
         >>> result = eq(S1, S2)
         >>> # result is True
     """
-    return isequal(S1, S2, *args, **kwargs) 
+    return S1.isequal(S2, *args, **kwargs) 

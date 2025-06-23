@@ -24,7 +24,7 @@ Python translation: 2025
 import numpy as np
 from typing import Union
 from .interval import Interval
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def minus(minuend: Union[Interval, np.ndarray, float, int], 
@@ -61,7 +61,7 @@ def minus(minuend: Union[Interval, np.ndarray, float, int],
     else:
         # minuend is numeric, subtrahend must be interval
         if not isinstance(subtrahend, Interval):
-            raise CORAError('CORA:wrongInput', 
+            raise CORAerror('CORA:wrongInput', 
                            'At least one operand must be an interval')
         
         # Initialize result with subtrahend structure

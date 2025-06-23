@@ -16,7 +16,7 @@ Written: 02-June-2020 (MATLAB)
 Last update: ---
 Python translation: 2025
 """
-
+from .reachSet import ReachSet
 
 def uplus(R1):
     """
@@ -28,7 +28,6 @@ def uplus(R1):
     Returns:
         Resulting reachSet object (unchanged copy)
     """
-    from .reachSet import ReachSet
     
     # Create a copy of the reachSet (unary plus doesn't change anything)
     new_timePoint = {}

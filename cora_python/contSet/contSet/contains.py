@@ -56,10 +56,14 @@ Last revision: 27-March-2023 (MW, restructure relation to subclass)
 """
 
 import numpy as np
-from .isemptyobject import isemptyobject
-from .contains_ import contains_
+from typing import TYPE_CHECKING, Union, Tuple
 
-def contains(S1, S2, method='exact', tol=None, maxEval=None, *, return_cert=False, return_scaling=False):
+from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+
+def contains(S1: 'ContSet', S2: Union['ContSet', np.ndarray], method='exact', tol=None, maxEval=None, *, return_cert=False, return_scaling=False):
     """
     Determines if a set contains another set or a point.
     
@@ -110,14 +114,13 @@ def contains(S1, S2, method='exact', tol=None, maxEval=None, *, return_cert=Fals
         raise ValueError("maxEval must be a non-negative number")
     
     try:
-        # Check dimension mismatch (would need to implement equalDimCheck)
-        # For now, skip this check
+        # Check dimension mismatch
+        equal_dim_check(S1, S2)
         
         # Call subclass method with appropriate toggles
-        from .contains_ import contains_
         cert_toggle = return_cert or return_scaling  # Only compute cert if needed
         scaling_toggle = return_scaling  # Only compute scaling if needed
-        res, cert, scaling = contains_(S1, S2, method, tol, maxEval, cert_toggle, scaling_toggle)
+        res, cert, scaling = S1.contains_(S2, method, tol, maxEval, cert_toggle, scaling_toggle)
         
         # Return based on what's requested
         if return_scaling:
@@ -142,10 +145,10 @@ def contains(S1, S2, method='exact', tol=None, maxEval=None, *, return_cert=Fals
         
         # Inner-body is empty numeric array or empty contSet
         if (isinstance(S2, np.ndarray) and S2.size == 0) or \
-           (hasattr(S2, '__class__') and hasattr(S2, 'isemptyobject') and isemptyobject(S2)):
+           (hasattr(S2, '__class__') and hasattr(S2, 'isemptyobject') and S2.isemptyobject()):
             res, cert, scaling = True, True, 0
         # Outer body is empty
-        elif hasattr(S1, 'isemptyobject') and isemptyobject(S1):
+        elif hasattr(S1, 'isemptyobject') and S1.isemptyobject():
             res, cert, scaling = False, True, np.inf
         else:
             # Re-raise if not an empty set case

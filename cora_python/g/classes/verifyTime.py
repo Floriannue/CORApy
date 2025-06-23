@@ -34,7 +34,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import List, Optional, Union, Tuple
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class VerifyTime:
@@ -102,29 +102,29 @@ class VerifyTime:
             return
         
         if bounds.ndim != 2 or bounds.shape[1] != 2:
-            raise CORAError('CORA:wrongInputInConstructor',
+            raise CORAerror('CORA:wrongInputInConstructor',
                            'Time intervals must be specified as nx2 array.')
         
         # Check for valid intervals
         if np.any(bounds[:, 0] > bounds[:, 1]):
-            raise CORAError('CORA:wrongInputInConstructor',
+            raise CORAerror('CORA:wrongInputInConstructor',
                            'Start time must be less than or equal to end time.')
         
         # Check for non-negative times
         if np.any(bounds < 0):
-            raise CORAError('CORA:wrongInputInConstructor',
+            raise CORAerror('CORA:wrongInputInConstructor',
                            'Time values must be non-negative.')
         
         # Check for finite values
         if np.any(~np.isfinite(bounds)):
-            raise CORAError('CORA:wrongInputInConstructor',
+            raise CORAerror('CORA:wrongInputInConstructor',
                            'Time values must be finite.')
         
         # Check for proper ordering (non-overlapping intervals) - matching MATLAB behavior
         if bounds.shape[0] > 1:
             for i in range(bounds.shape[0] - 1):
                 if bounds[i, 1] > bounds[i + 1, 0]:
-                    raise CORAError('CORA:wrongInputInConstructor',
+                    raise CORAerror('CORA:wrongInputInConstructor',
                                    'Time intervals must be non-overlapping and ordered.')
     
     def shift(self, t: float) -> 'VerifyTime':
@@ -234,7 +234,7 @@ class VerifyTime:
             compacted = self.compact(tol)
             return compacted.bounds.shape[0] == 1
         else:
-            raise CORAError('CORA:notSupported',
+            raise CORAerror('CORA:notSupported',
                            'Only comparison to emptySet and interval supported.')
     
     def isequal(self, other: 'VerifyTime') -> bool:
@@ -248,7 +248,7 @@ class VerifyTime:
             True if equal
         """
         if not isinstance(other, VerifyTime):
-            raise CORAError('CORA:wrongInputInConstructor',
+            raise CORAerror('CORA:wrongInputInConstructor',
                            'Comparison only implemented for VerifyTime objects.')
         
         # Case where one or both are empty

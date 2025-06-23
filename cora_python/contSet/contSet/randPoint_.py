@@ -10,38 +10,38 @@ Written: 19-November-2020 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
-def randPoint_(S: 'ContSet', N: Union[int, str] = 1, type_: str = 'standard') -> np.ndarray:
+def randPoint_(S: 'ContSet', N: int = 1, method: str = 'standard') -> np.ndarray:
     """
-    Generates a random point within a given continuous set (internal use)
+    Generates random points inside a set (internal use)
     
-    This is the base implementation that throws an error. Subclasses should
-    override this method to provide specific random point generation logic.
+    This function uses polymorphic dispatch to call the appropriate subclass
+    implementation of randPoint_, or provides the base implementation.
     
     Args:
         S: contSet object
-        N: Number of random points or 'all'
-        type_: Type of random point generation
+        N: number of points to generate
+        method: method for point generation
         
     Returns:
-        np.ndarray: Random points (each column is a point)
+        np.ndarray: Random points
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
-        
-    Example:
-        >>> # This will be overridden in specific set classes
-        >>> S = interval([1, 2], [3, 4])
-        >>> points = randPoint_(S, 10, 'standard')
+        CORAerror: If randPoint_ is not implemented for the specific set type
     """
-    # Check if the object has a randPoint_ method and use it
-    if hasattr(S, 'randPoint_') and callable(getattr(S, 'randPoint_')):
-        return S.randPoint_(N, type_)
-    
-    # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:noops',
-                   f'randPoint_ not implemented for {type(S).__name__} with N={N} and type={type_}') 
+    # Check if subclass has overridden randPoint_ method
+    base_class = type(S).__bases__[0] if type(S).__bases__ else None
+    if (hasattr(type(S), 'randPoint_') and 
+        base_class and hasattr(base_class, 'randPoint_') and
+        type(S).randPoint_ is not base_class.randPoint_):
+        return type(S).randPoint_(S, N, method)
+    else:
+        # Base implementation - throw error as this method should be overridden
+        raise CORAerror("CORA:noops", f"Function randPoint_ not implemented for class {type(S).__name__}") 

@@ -36,7 +36,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Optional, Tuple, List
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.auxiliary import combinator
 from cora_python.g.functions.helper import ndimCross
 
@@ -60,11 +60,11 @@ def zonotope(Z, method: str = 'exact'):
 
     # Validate input
     if not hasattr(Z, 'c') or not hasattr(Z, 'G'):
-        raise CORAError('CORA:wrongInputInConstructor',
+        raise CORAerror('CORA:wrongInputInConstructor',
                        'Input must be a zonotope object')
 
     if method not in ['exact', 'outer:tight', 'outer:volume']:
-        raise CORAError('CORA:wrongInput',
+        raise CORAerror('CORA:wrongInput',
                        'Invalid method. Must be exact, outer:tight, or outer:volume')
 
     if method == 'exact':

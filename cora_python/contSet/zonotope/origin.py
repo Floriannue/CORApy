@@ -26,8 +26,8 @@ Python translation: 2025
 """
 
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from .zonotope import Zonotope
 
 def origin(n):
     """
@@ -39,11 +39,10 @@ def origin(n):
     Returns:
         zonotope: zonotope representing the origin
     """
-    from .zonotope import Zonotope
     
     # Input validation
     if not isinstance(n, (int, np.integer)) or n < 0:
-        raise CORAError('CORA:wrongInputInConstructor',
+        raise CORAerror('CORA:wrongInputInConstructor',
                        'Dimension must be a non-negative integer')
     
     # Handle 0-dimensional case (no disturbances/inputs)

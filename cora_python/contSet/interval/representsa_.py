@@ -22,9 +22,10 @@ Python translation: 2025
 
 import numpy as np
 from typing import Tuple, Union, Any, Optional
+from .interval import Interval
+from cora_python.g.functions.matlab.validate.check import withinTol 
 
-
-def representsa_(obj, set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool, Tuple[bool, Any]]:
+def representsa_(obj: Interval, set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool, Tuple[bool, Any]]:
     """
     Check if interval represents a specific set type
     
@@ -40,9 +41,11 @@ def representsa_(obj, set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool,
     """
     return_set = kwargs.get('return_set', False)
     
+    # Normalize set_type to handle case-insensitive comparison
+    set_type = set_type.lower()
+    
     # Check empty object case using base class method
-    from cora_python.contSet.contSet.representsa_emptyObject import representsa_emptyObject
-    empty, res, S = representsa_emptyObject(obj, set_type)
+    empty, res, S = obj.representsa_emptyObject(set_type)
     if empty:
         if return_set:
             return res, S
@@ -67,18 +70,13 @@ def representsa_(obj, set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool,
         # Use first two dimensions as r, c
         r, c = shape[0], shape[1]
     # Allow fullspace check for matrix intervals since they can represent fullspace
-    if (set_type not in ['emptySet', 'origin', 'fullspace'] and r > 1 and c > 1):
+    if (set_type not in ['emptyset', 'origin', 'fullspace'] and r > 1 and c > 1):
         raise ValueError(
             "representsa only supports vector interval objects (except type = 'emptySet', 'origin', 'fullspace')."
         )
     
     # Check if interval is a point
-    from cora_python.g.functions.matlab.validate.check import withinTol
-    # Compute radius directly to avoid circular dependency
-    if obj.inf.size == 0:
-        radius = np.zeros((n, 0))
-    else:
-        radius = 0.5 * (obj.sup - obj.inf)
+    radius = obj.rad()
     is_point = np.all(withinTol(radius, 0, tol))
     
     # Handle different set types using switch-like structure
@@ -96,26 +94,29 @@ def representsa_(obj, set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool,
     
     elif set_type == 'capsule':
         # Either 1D, a point, or at most one dimension has non-zero width
+        # This means at least (n-1) dimensions should have zero width
         res = (n == 1 or is_point or 
-               np.sum(~withinTol(radius, 0, tol)) <= 1)
+               np.sum(withinTol(radius, 0, tol)) >= n - 1)
         if return_set and res:
             # Would need capsule implementation
             from cora_python.contSet.capsule import Capsule
             S = Capsule(obj)
     
-    elif set_type == 'conHyperplane':
+    elif set_type == 'conhyperplane':
         # Only if 1D, a point, or at least one dimension has zero width
+        # MATLAB: nnz(withinTol(rad(I),0,tol)) >= 1
+        # This counts the number of zero-width dimensions
         res = (n == 1 or is_point or 
                np.sum(withinTol(radius, 0, tol)) >= 1)
         # No conversion supported
     
-    elif set_type == 'conPolyZono':
+    elif set_type == 'conpolyzono':
         res = True
         if return_set:
             from cora_python.contSet.conPolyZono import ConPolyZono
             S = ConPolyZono(obj)
     
-    elif set_type == 'conZonotope':
+    elif set_type == 'conzonotope':
         res = True
         if return_set:
             from cora_python.contSet.conZonotope import ConZonotope
@@ -123,8 +124,9 @@ def representsa_(obj, set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool,
     
     elif set_type == 'ellipsoid':
         # Either 1D, a point, or at most one dimension has non-zero width
+        # This means at least (n-1) dimensions should have zero width
         res = (n == 1 or is_point or 
-               np.sum(~withinTol(radius, 0, tol)) <= 1)
+               np.sum(withinTol(radius, 0, tol)) >= n - 1)
         if return_set and res:
             raise NotImplementedError("Conversion from interval to ellipsoid not supported")
     
@@ -143,7 +145,7 @@ def representsa_(obj, set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool,
         if return_set:
             S = obj
     
-    elif set_type == 'levelSet':
+    elif set_type == 'levelset':
         res = True
         if return_set:
             # No direct transformation from interval to levelSet available
@@ -157,17 +159,17 @@ def representsa_(obj, set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool,
             from cora_python.contSet.polytope import Polytope
             S = Polytope(obj)
     
-    elif set_type == 'polyZonotope':
+    elif set_type == 'polyzonotope':
         res = True
         if return_set:
             from cora_python.contSet.polyZonotope import PolyZonotope
             S = PolyZonotope(obj)
     
-    elif set_type == 'probZonotope':
+    elif set_type == 'probzonotope':
         # Cannot be true
         res = False
     
-    elif set_type == 'zonoBundle':
+    elif set_type == 'zonobundle':
         res = True
         if return_set:
             from cora_python.contSet.zonoBundle import ZonoBundle
@@ -191,10 +193,10 @@ def representsa_(obj, set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool,
             from cora_python.contSet.zonotope import Zonotope
             S = Zonotope(obj)
     
-    elif set_type == 'convexSet':
+    elif set_type == 'convexset':
         res = True
     
-    elif set_type == 'emptySet':
+    elif set_type == 'emptyset':
         # Already handled in isemptyobject
         res = False
     

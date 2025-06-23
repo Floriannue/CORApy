@@ -47,9 +47,10 @@ class TestCapsuleEmpty:
 
     def test_empty_zero_dimension(self):
         """Test empty capsule with zero dimension"""
-        # This might not be valid, but test that it handles gracefully
-        with pytest.raises((ValueError, AssertionError)):
-            Capsule.empty(0)
+        # Zero dimension should be allowed as per MATLAB (nonnegative validation)
+        C = Capsule.empty(0)
+        assert C.dim() == 0
+        assert C.representsa_('emptySet')
 
     def test_empty_negative_dimension(self):
         """Test empty capsule with negative dimension"""

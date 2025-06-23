@@ -208,7 +208,7 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
     if not class_name:
         class_check_passed = True
     elif class_name == 'numeric':
-        class_check_passed = isinstance(value, (int, float, np.number))
+        class_check_passed = isinstance(value, (int, float, np.number)) or (isinstance(value, np.ndarray) and np.issubdtype(value.dtype, np.number))
     elif class_name == 'char' or class_name == 'string':
         class_check_passed = isinstance(value, str)
     elif class_name == 'logical':

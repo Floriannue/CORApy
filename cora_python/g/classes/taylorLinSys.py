@@ -14,7 +14,7 @@ Python translation: 2025
 import numpy as np
 from typing import Dict, Any, Optional, List
 from scipy.linalg import expm, inv
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TaylorLinSys:
@@ -88,7 +88,7 @@ class TaylorLinSys:
         elif name == 'Apower':
             return self._computeApower(**kwargs)
         else:
-            raise CORAError('CORA:specialError', f'Unknown field: {name}')
+            raise CORAerror('CORA:specialError', f'Unknown field: {name}')
     
     def _computeEAt(self, timeStep: Optional[float] = None) -> np.ndarray:
         """
@@ -104,7 +104,7 @@ class TaylorLinSys:
             timeStep = self.timeStep
         
         if timeStep is None:
-            raise CORAError('CORA:specialError', 'Time step not specified')
+            raise CORAerror('CORA:specialError', 'Time step not specified')
         
         # Check if already computed for this time step
         if (self.eAt is not None and self.timeStep is not None and 

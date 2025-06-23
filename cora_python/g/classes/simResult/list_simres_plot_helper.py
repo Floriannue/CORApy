@@ -6,7 +6,6 @@ This allows simRes.plot() to work when simRes is a list returned by simulateRand
 """
 
 from typing import List, Any
-from cora_python.g.classes.simResult.plot import plot as simres_plot
 
 
 class SimResultList(list):
@@ -14,7 +13,8 @@ class SimResultList(list):
     
     def plot(self, *args, **kwargs):
         """Plot method for list of SimResult objects"""
-        return simres_plot(self, *args, **kwargs)
+        from cora_python.g.classes.simResult.plot import plot
+        return plot(self, *args, **kwargs)
     
     def plotOverTime(self, *args, **kwargs):
         """PlotOverTime method for list of SimResult objects"""

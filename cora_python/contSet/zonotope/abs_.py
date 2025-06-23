@@ -1,7 +1,8 @@
 import numpy as np
 
+from .zonotope import Zonotope
 
-def abs_(Z):
+def abs_(Z: 'Zonotope') -> 'Zonotope':
     """
     Returns a zonotope with absolute values of the center and the generators.
     
@@ -22,10 +23,9 @@ def abs_(Z):
         >>> Z_abs = abs_(Z)
         >>> # Z_abs.c = [[1], [2]], Z_abs.G = [[2, 1], [3, 1]]
     """
-    from .zonotope import Zonotope
     
     # Handle empty zonotope
-    if Z.isemptyobject():
+    if Z.is_empty():
         return Zonotope.empty(Z.dim())
     
     # Apply absolute value to center and generators

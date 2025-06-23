@@ -21,7 +21,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Any, Optional, Union
-
+from cora_python.contSet.interval.interval import Interval
 
 def find(R, prop: str, val: Any):
     """
@@ -63,8 +63,7 @@ def find(R, prop: str, val: Any):
     
     elif prop == 'time':
         # Find reachSet objects inside the specified time interval
-        from ....contSet.interval.interval import Interval
-        
+
         # Convert val to interval if it's not already
         if not isinstance(val, Interval):
             if isinstance(val, (int, float)):

@@ -14,7 +14,7 @@ import numpy as np
 from cora_python.specification.specification.specification import Specification
 from cora_python.contSet.interval.interval import Interval
 from cora_python.contSet.zonotope.zonotope import Zonotope
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestSpecificationRobustness(unittest.TestCase):
@@ -182,9 +182,9 @@ class TestSpecificationRobustness(unittest.TestCase):
         try:
             robustness_val = spec_custom.robustness(self.point_inside)
             # Custom specs should raise not supported error
-            self.fail("Custom specification robustness should raise CORAError")
+            self.fail("Custom specification robustness should raise CORAerror")
             
-        except CORAError as e:
+        except CORAerror as e:
             # Expected behavior
             self.assertIn('not supported', str(e))
         except (NotImplementedError, AttributeError):
@@ -202,12 +202,12 @@ class TestSpecificationRobustness(unittest.TestCase):
             # Test with invalid point dimensions
             wrong_dim_point = np.array([[1], [2], [3]])  # 3D point for 2D set
             
-            with self.assertRaises((ValueError, AttributeError, CORAError)):
+            with self.assertRaises((ValueError, AttributeError, CORAerror)):
                 self.spec_safe.robustness(wrong_dim_point)
             
             # Test with timed specification but no time provided
             spec_timed = Specification(self.safe_set, 'safeSet', self.time_interval)
-            with self.assertRaises(CORAError):
+            with self.assertRaises(CORAerror):
                 spec_timed.robustness(self.point_inside)  # Missing time argument
                 
         except (NotImplementedError, AttributeError):
@@ -218,7 +218,7 @@ class TestSpecificationRobustness(unittest.TestCase):
         spec_empty = Specification()
         
         try:
-            with self.assertRaises((ValueError, AttributeError, CORAError)):
+            with self.assertRaises((ValueError, AttributeError, CORAerror)):
                 spec_empty.robustness(self.point_inside)
                 
         except (NotImplementedError, AttributeError):

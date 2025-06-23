@@ -52,10 +52,12 @@ Python translation: 2025
 
 import numpy as np
 from typing import Tuple, Optional, Union
-from cora_python.contSet.contSet import decompose
 from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes
 from cora_python.g.functions.helper.sets.contSet.contSet import block_operation
 from cora_python.g.functions.helper.sets.contSet.contSet import enclose
+
+from cora_python.g.classes.taylorLinSys import TaylorLinSys
+from cora_python.contSet.zonotope import Zonotope
 
 
 def homogeneousSolution(linsys, X, timeStep: float, truncationOrder: int, 
@@ -84,14 +86,13 @@ def homogeneousSolution(linsys, X, timeStep: float, truncationOrder: int,
     # Since this function is public, we cannot assume that taylorLinSys has
     # already been instantiated
     if not hasattr(linsys, 'taylor') or not hasattr(linsys.taylor, 'getTaylor'):
-        from cora_python.g.classes.taylorLinSys import TaylorLinSys
         linsys.taylor = TaylorLinSys(linsys.A)
     
     # Propagation matrix
     eAdt = linsys.taylor.getTaylor('eAdt', timeStep=timeStep)
     
     # Decompose start set (remains the same if no blocks given)
-    X_decomposed = decompose(X, blocks)
+    X_decomposed = X.decompose(blocks)
     
     # Homogeneous time-point solution
     Htp = block_mtimes(eAdt, X_decomposed)
@@ -139,7 +140,6 @@ def priv_curvatureState(linsys, X, timeStep: float, truncationOrder: int):
     # higher-order terms in the Taylor expansion
     
     # For now, return a zero set of appropriate dimension
-    from cora_python.contSet.zonotope import Zonotope
     
     if isinstance(X, list):
         # Decomposed case - return list of zero sets

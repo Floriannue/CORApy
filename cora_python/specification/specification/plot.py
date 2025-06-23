@@ -25,7 +25,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Optional, List, Any, Union
 from cora_python.g.functions.matlab.validate.check import inputArgsCheck
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def plot(specs, dims: Optional[List[int]] = None, **plot_options):
@@ -66,7 +66,7 @@ def _parse_input(specs, dims, plot_options):
     # Check that all items are specification objects
     for spec in specs:
         if not hasattr(spec, 'type') or not hasattr(spec, 'set'):
-            raise CORAError('CORA:wrongInput',
+            raise CORAerror('CORA:wrongInput',
                 'Input must be specification object(s)')
     
     # Set default dimensions
@@ -80,15 +80,15 @@ def _parse_input(specs, dims, plot_options):
     dims = np.array(dims, dtype=int)
     
     if len(dims) < 2:
-        raise CORAError('CORA:plotProperties', 
+        raise CORAerror('CORA:plotProperties', 
             'At least 2 dimensions required for plotting')
     elif len(dims) > 3:
-        raise CORAError('CORA:plotProperties',
+        raise CORAerror('CORA:plotProperties',
             'At most 3 dimensions supported for plotting')
     
     # Validate that dimensions are non-negative integers
     if np.any(dims < 0):
-        raise CORAError('CORA:wrongInput',
+        raise CORAerror('CORA:wrongInput',
             'Dimensions must be non-negative integers')
     
     return specs, dims, plot_options
@@ -129,7 +129,7 @@ def _plot_specs(specs, dims, plot_opts):
         elif spec_type == 'custom':
             type_opts = plot_opts.copy()
         else:
-            raise CORAError('CORA:notSupported',
+            raise CORAerror('CORA:notSupported',
                 f"Plotting specifications of type '{spec_type}' is not yet supported.")
         
         # Plot all sets of this type

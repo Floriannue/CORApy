@@ -25,6 +25,7 @@ See also: none
 
 from typing import TYPE_CHECKING, Optional, Union, List, Tuple
 import numpy as np
+from cora_python.contSet.interval.interval import Interval
 
 if TYPE_CHECKING:
     from .reachSet import ReachSet
@@ -151,7 +152,6 @@ def _find_points_in_interval(simRes_list: List['SimResult'], nrPoints: int,
         - ptsChecked: Boolean array indicating which points were checked
     """
     # check whether time interval or time point given
-    from ...contSet.interval.interval import Interval
     ti = isinstance(time, Interval)
     
     # init points and logical value for contained points

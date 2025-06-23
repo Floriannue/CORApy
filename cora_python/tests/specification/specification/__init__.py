@@ -12,6 +12,11 @@ from .test_specification_add import TestSpecificationAdd
 from .test_specification_robustness import TestSpecificationRobustness
 from .test_specification_plot import TestSpecificationPlot
 from .test_specification_printSpec import TestSpecificationPrintSpec
+from .test_specification_plotOverTime import TestSpecificationPlotOverTime
+from .test_specification_project import TestSpecificationProject
+from .test_specification_inverse import TestSpecificationInverse
+from .test_specification_isempty import TestSpecificationIsEmpty
+from .test_specification_ne import TestSpecificationNe
 
 __all__ = [
     'TestSpecificationConstructor',
@@ -21,5 +26,10 @@ __all__ = [
     'TestSpecificationAdd',
     'TestSpecificationRobustness',
     'TestSpecificationPlot',
-    'TestSpecificationPrintSpec'
+    'TestSpecificationPrintSpec',
+    'TestSpecificationPlotOverTime',
+    'TestSpecificationProject',
+    'TestSpecificationInverse',
+    'TestSpecificationIsEmpty',
+    'TestSpecificationNe'
 ] 

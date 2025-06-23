@@ -10,9 +10,11 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Any, Optional
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from typing import TYPE_CHECKING, Any, Optional
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def isequal(S1: 'ContSet', S2: Any, tol: Optional[float] = None, *args, **kwargs) -> bool:
     """
@@ -84,5 +86,5 @@ def isequal(S1: 'ContSet', S2: Any, tol: Optional[float] = None, *args, **kwargs
             pass
     
     # Final fallback - throw error if not implemented
-    raise CORAError('CORA:noops', 
+    raise CORAerror('CORA:noops', 
                    f'isequal not implemented for {type(S1).__name__} and {type(S2).__name__}') 

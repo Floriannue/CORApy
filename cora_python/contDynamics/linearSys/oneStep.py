@@ -53,7 +53,6 @@ Python translation: 2025
 import numpy as np
 from typing import Tuple, Optional, Union
 from cora_python.contSet.zonotope import Zonotope
-from cora_python.contSet.interval import Interval
 
 
 def oneStep(linsys, X, U, u, timeStep: float, truncationOrder: int, 
@@ -74,19 +73,15 @@ def oneStep(linsys, X, U, u, timeStep: float, truncationOrder: int,
         Tuple of (Rtp, Rti, Htp, Hti, PU, Pu, C_state, C_input)
     """
     # Compute homogeneous solution
-    from .homogeneousSolution import homogeneousSolution
-    Htp, Hti, C_state = homogeneousSolution(linsys, X, timeStep, truncationOrder, blocks)
+    Htp, Hti, C_state = linsys.homogeneousSolution(X, timeStep, truncationOrder, blocks)
     
     # Compute particular solution due to constant input
-    from .particularSolution_constant import particularSolution_constant
-    Pu, C_input_const, _ = particularSolution_constant(linsys, u, timeStep, truncationOrder, blocks)
+    Pu, C_input_const, _ = linsys.particularSolution_constant(u, timeStep, truncationOrder, blocks)
     
     # Compute particular solution due to time-varying input
-    from .particularSolution_timeVarying import particularSolution_timeVarying
-    PU = particularSolution_timeVarying(linsys, U, timeStep, truncationOrder, blocks)
+    PU = linsys.particularSolution_timeVarying(U, timeStep, truncationOrder, blocks)
     
     # For now, assume no curvature error from time-varying input (simplified)
-    from cora_python.contSet.zonotope import Zonotope
     if blocks is None:
         C_input_tv = Zonotope.origin(linsys.nr_of_dims)
     else:

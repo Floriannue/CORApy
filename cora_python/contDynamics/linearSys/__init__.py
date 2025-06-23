@@ -21,17 +21,27 @@ from .private.priv_outputSet_canonicalForm import priv_outputSet_canonicalForm
 from .homogeneousSolution import homogeneousSolution
 from .affineSolution import affineSolution
 from ..contDynamics.simulateRandom import simulateRandom
+from .particularSolution_constant import particularSolution_constant
+from .particularSolution_timeVarying import particularSolution_timeVarying
 
 # Attach methods to the LinearSys class
-LinearSys.display = lambda self: display(self)
-LinearSys.eq = lambda self, other, tol=None: eq(self, other, tol)
-LinearSys.isequal = lambda self, other, tol=None: isequal(self, other, tol)
-LinearSys.ne = lambda self, other, tol=None: ne(self, other, tol)
-LinearSys.simulate = lambda self, params, options=None: simulate(self, params, options)
-LinearSys.simulateRandom = lambda self, params, options=None: simulateRandom(self, params, options)
-LinearSys.reach = lambda self, params, options=None: reach(self, params, options)
-LinearSys.canonicalForm = lambda self: canonicalForm(self)
-LinearSys.oneStep = lambda self, params, options=None: oneStep(self, params, options)
+LinearSys.display = display
+LinearSys.__eq__ = lambda self, other: eq(self, other) if isinstance(other, LinearSys) else False
+LinearSys.__ne__ = lambda self, other: ne(self, other)
+LinearSys.display = display
+LinearSys.isequal = isequal
+LinearSys.simulate = simulate
+LinearSys.simulateRandom = simulateRandom
+LinearSys.reach = reach
+LinearSys.canonicalForm = canonicalForm
+LinearSys.oneStep = oneStep
+LinearSys.homogeneousSolution = homogeneousSolution
+LinearSys.affineSolution = affineSolution
+LinearSys.particularSolution_constant = particularSolution_constant
+LinearSys.particularSolution_timeVarying = particularSolution_timeVarying
+
+# Attach static methods
+LinearSys.generateRandom = staticmethod(generateRandom)
 LinearSys.taylorLinSys = lambda self, options=None: TaylorLinSys(self.A)
 
 __all__ = ['LinearSys', 'display', 'eq', 'isequal', 'ne', 'generateRandom', 'simulate', 

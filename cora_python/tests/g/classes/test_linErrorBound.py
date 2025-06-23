@@ -12,7 +12,7 @@ import pytest
 import numpy as np
 import scipy.linalg
 from cora_python.g.classes.linErrorBound import LinErrorBound
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestLinErrorBound:
@@ -158,15 +158,15 @@ class TestLinErrorBound:
         """Test initialization with invalid parameters"""
         
         # Test negative error
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             LinErrorBound(-0.1, 5.0)
         
         # Test zero error
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             LinErrorBound(0.0, 5.0)
         
         # Test negative time
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             LinErrorBound(0.1, -5.0)
     
     def test_checkErrors_basic(self):

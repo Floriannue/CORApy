@@ -9,8 +9,11 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from typing import TYPE_CHECKING
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def isFullDim(S: 'ContSet') -> bool:
     """
@@ -23,7 +26,7 @@ def isFullDim(S: 'ContSet') -> bool:
         bool: True if set is full-dimensional, False otherwise
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAerror: Always raised as this method should be overridden in subclasses
         
     Example:
         >>> # This will be overridden in specific set classes
@@ -31,5 +34,5 @@ def isFullDim(S: 'ContSet') -> bool:
         >>> result = isFullDim(S)
     """
     # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:noops',
+    raise CORAerror('CORA:noops',
                    f'isFullDim not implemented for {type(S).__name__}') 

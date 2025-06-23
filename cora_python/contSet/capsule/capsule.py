@@ -46,8 +46,7 @@ from typing import Union, Optional, Tuple, Any, TYPE_CHECKING
 from ..contSet import ContSet
 from cora_python.g.functions.matlab.validate.check import withinTol
 
-from .dim import dim
-from .isemptyobject import isemptyobject
+
 
 
 class Capsule(ContSet):
@@ -202,14 +201,6 @@ class Capsule(ContSet):
         
         return c, g, r
     
-    # Abstract methods implementation (required by ContSet)
-    def dim(self) -> int:
-        """Get dimension of the capsule"""
-        return dim(self)
-    
-    def is_empty(self) -> bool:
-        """Check if capsule is empty"""
-        return isemptyobject(self)
     
     def __repr__(self) -> str:
         """
@@ -234,13 +225,3 @@ class Capsule(ContSet):
         except:
             return "Capsule()"
     
-    def __str__(self) -> str:
-        """
-        Informal string representation for users.
-        Uses the display method for MATLAB-style output.
-        """
-        try:
-            from .display import display
-            return display(self)
-        except:
-            return self.__repr__() 

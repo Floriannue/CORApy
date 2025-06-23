@@ -8,7 +8,7 @@ import pytest
 from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
 from cora_python.contSet.ellipsoid.contains_ import contains_
 from cora_python.contSet.ellipsoid.empty import empty
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestEllipsoidContains:
@@ -214,7 +214,7 @@ class TestEllipsoidContains:
         
         p = np.array([[0.5], [0]])
         
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             contains_(E, p, method='unknown')
     
     def test_contains_high_dimensional(self):
@@ -292,5 +292,5 @@ class TestEllipsoidContains:
         mock_set = MockSet()
         
         # Should raise error for unsupported set type with exact method
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             contains_(E, mock_set, method='exact') 

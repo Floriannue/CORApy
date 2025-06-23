@@ -26,7 +26,7 @@ Python translation: 2025
 """
 
 from typing import Tuple, List, Union
-
+from .specification import Specification
 
 def splitLogic(spec) -> Tuple[List, List]:
     """
@@ -41,10 +41,6 @@ def splitLogic(spec) -> Tuple[List, List]:
         - specLogic: List of temporal logic specifications
     """
     
-    # Import here to avoid circular imports
-    from .specification import Specification
-    from .add import add
-    
     # Handle single specification case
     if isinstance(spec, Specification):
         spec_list = [spec]
@@ -57,9 +53,9 @@ def splitLogic(spec) -> Tuple[List, List]:
     for s in spec_list:
         if s.type == 'logic':
             # Temporal logic specifications
-            spec_logic = add(spec_logic, s)
+            spec_logic = s.add(spec_logic)
         else:
             # Non-temporal logic specifications
-            spec_non_logic = add(spec_non_logic, s)
+            spec_non_logic = s.add(spec_non_logic)
     
     return spec_non_logic, spec_logic 

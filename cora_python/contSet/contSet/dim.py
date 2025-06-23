@@ -27,8 +27,12 @@ Written:       17-June-2022
 Last update:   22-March-2023 (MW, adapt to new constructor syntax)
 Last revision: ---
 """
+from typing import TYPE_CHECKING
 
-def dim(S):
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+
+def dim(S: 'ContSet') -> int:
     """
     Returns the dimension of the ambient space of a continuous set.
     
@@ -41,9 +45,11 @@ def dim(S):
     Returns:
         int: dimension of the ambient space
     """
-    # Check if the object has a dim method and use it
-    if hasattr(S, 'dim') and callable(getattr(S, 'dim')):
-        return S.dim()
-    
-    # Fallback for base contSet objects
-    return 0 
+    # Check if subclass has overridden dim method
+    base_class = type(S).__bases__[0] if type(S).__bases__ else None
+    if (hasattr(type(S), 'dim') and 
+        base_class and hasattr(base_class, 'dim') and
+        type(S).dim is not base_class.dim):
+        return type(S).dim(S)
+    else:
+        return 0

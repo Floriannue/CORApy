@@ -17,16 +17,19 @@ Python translation: 2025
 """
 
 import numpy as np
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from .interval import Interval
 
-def isemptyobject(obj) -> bool:
+def isemptyobject(I: 'Interval') -> bool:
     """
     Check if interval is empty
     
     Args:
-        obj: Interval object
+        I: Interval
         
     Returns:
         True if interval is empty, False otherwise
     """
-    return obj.inf.size == 0 
+    return I.inf.size == 0 

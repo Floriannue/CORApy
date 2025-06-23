@@ -20,10 +20,11 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Union
+
+from .interval import Interval
 
 
-def and_(I1, I2, method: str = 'exact'):
+def and_(I1: Interval, I2: Interval, method: str = 'exact') -> Interval:
     """
     Compute intersection of two intervals
     
@@ -35,8 +36,6 @@ def and_(I1, I2, method: str = 'exact'):
     Returns:
         Intersection of the intervals
     """
-    # Import here to avoid circular imports
-    from .interval import Interval
     
     # Convert I2 to interval if it's not already
     if not isinstance(I2, Interval) :

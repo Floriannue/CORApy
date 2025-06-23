@@ -23,9 +23,14 @@ Last update:   ---
 Last revision: ---
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+import numpy as np
+from typing import TYPE_CHECKING
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
-def center(S):
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+
+def center(S: 'ContSet') -> np.ndarray:
     """
     Returns the center of a set.
     
@@ -39,11 +44,8 @@ def center(S):
         numpy.ndarray: center of the set
         
     Raises:
-        CORAError: If center is not implemented for the specific set type
+        CORAerror: If center is not implemented for the specific set type
     """
-    # Check if the object has a center method and use it
-    if hasattr(S, 'center') and callable(getattr(S, 'center')):
-        return S.center()
     
     # Fallback error
-    raise CORAError("CORA:noops", f"Function center not implemented for class {type(S).__name__}") 
+    raise CORAerror("CORA:noops", f"Function center not implemented for class {type(S).__name__}") 

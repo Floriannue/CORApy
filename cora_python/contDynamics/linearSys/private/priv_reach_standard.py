@@ -38,10 +38,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Dict, Any, Tuple
-from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.interval import Interval
-from ..canonicalForm import canonicalForm
-from ..oneStep import oneStep
 from .priv_outputSet_canonicalForm import priv_outputSet_canonicalForm
 
 
@@ -65,10 +62,10 @@ def priv_reach_standard(linsys, params: Dict[str, Any], options: Dict[str, Any])
     # Put system into canonical form: this allows us to compute the output sets
     # much more efficiently (see below)
     if 'uTransVec' in params:
-        linsys, U, u, V, v = canonicalForm(linsys, params['U'], params['uTransVec'],
+        linsys, U, u, V, v = linsys.canonicalForm(params['U'], params['uTransVec'],
                                          params['W'], params['V'], np.zeros((linsys.nr_of_outputs, 1)))
     else:
-        linsys, U, u, V, v = canonicalForm(linsys, params['U'], params['uTrans'],
+        linsys, U, u, V, v = linsys.canonicalForm(params['U'], params['uTrans'],
                                          params['W'], params['V'], np.zeros((linsys.nr_of_outputs, 1)))
     
     # Check if time-varying inputs given
@@ -88,7 +85,7 @@ def priv_reach_standard(linsys, params: Dict[str, Any], options: Dict[str, Any])
     _verboseLog(options.get('verbose', 0), 1, params['tStart'], params['tStart'], params['tFinal'])
     
     # Compute reachable sets for first step
-    Rtp, Rti, Htp, Hti, PU, Pu, _, C_input = oneStep(linsys,
+    Rtp, Rti, Htp, Hti, PU, Pu, _, C_input = linsys.oneStep(
         params['R0'], U, u[:, 0], options['timeStep'], options['taylorTerms'])
     
     # Read out propagation matrix and base particular solution
@@ -119,8 +116,7 @@ def priv_reach_standard(linsys, params: Dict[str, Any], options: Dict[str, Any])
         # in our affine solution, we recompute Htp, Hti, and Pu, incl. errors
         if 'uTransVec' in params:
             Htp_start = Htp
-            from ..affineSolution import affineSolution
-            Htp, Pu, _, C_state, C_input = affineSolution(
+            Htp, Pu, _, C_state, C_input = linsys.affineSolution(
                 linsys, Htp_start, u[:, k], options['timeStep'], options['taylorTerms'])
             Hti = _enclose(Htp_start, Htp) + C_state
         else:
@@ -189,7 +185,6 @@ def _enclose(set1, set2):
             return set1.convHull(set2)
         else:
             # Fallback: use interval hull
-            from cora_python.contSet.interval import Interval
             int1 = Interval(set1) if not isinstance(set1, Interval) else set1
             int2 = Interval(set2) if not isinstance(set2, Interval) else set2
             return int1 + int2

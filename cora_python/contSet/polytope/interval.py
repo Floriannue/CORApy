@@ -33,10 +33,17 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Tuple
+from typing import TYPE_CHECKING
+from cora_python.contSet.interval.interval import Interval
+
+if TYPE_CHECKING:
+    from .polytope import Polytope
+
+from .private.priv_box_V import priv_box_V
+from .private.priv_box_H import priv_box_H
 
 
-def interval(P):
+def interval(P: 'Polytope') -> Interval:
     """
     Encloses a polytope by an interval
     
@@ -46,15 +53,12 @@ def interval(P):
     Returns:
         Interval object enclosing the polytope
     """
-    from cora_python.contSet.interval.interval import Interval
-    from .private.priv_box_V import priv_box_V
-    from .private.priv_box_H import priv_box_H
     
     # dimension
     n = P.dim()
     
     # obtain bounding box in halfspace representation
-    if hasattr(P, 'isVRep') and P.isVRep:
+    if P._has_v_rep:
         # vertex representation
         A, b, empty = priv_box_V(P.V, n)
     else:

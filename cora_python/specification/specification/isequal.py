@@ -26,6 +26,7 @@ Python translation: 2025
 """
 
 from typing import Optional
+from .specification import Specification
 
 
 def isequal(spec1, spec2, tol: Optional[float] = None) -> bool:
@@ -42,7 +43,6 @@ def isequal(spec1, spec2, tol: Optional[float] = None) -> bool:
     """
     
     # Import here to avoid circular imports
-    from .specification import Specification
     
     # Check if both are specification objects
     if not isinstance(spec1, Specification) or not isinstance(spec2, Specification):

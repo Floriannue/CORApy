@@ -1,0 +1,2 @@
+def bfunc():
+    return "bfunc"

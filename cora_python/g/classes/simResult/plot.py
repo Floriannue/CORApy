@@ -26,7 +26,11 @@ Python translation: 2025
 
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import List, Optional, Any, Union
+from typing import List, Optional, Any, Union, TYPE_CHECKING
+from cora_python.g.functions.verbose.plot.read_plot_options import read_plot_options
+
+if TYPE_CHECKING:
+    from .simResult import SimResult
 
 
 def plot(simRes: Union['SimResult', List['SimResult']], dims: Optional[List[int]] = None, **kwargs) -> Any:
@@ -72,8 +76,7 @@ def _plot_simres_list(simRes_list: List['SimResult'], dims: List[int], **kwargs)
     # Check if any simResult is non-empty
     has_data = False
     for sr in simRes_list:
-        from .isemptyobject import isemptyobject
-        if not isemptyobject(sr):
+        if not sr.isemptyobject():
             has_data = True
             break
     
@@ -94,8 +97,7 @@ def _plot_simres_list(simRes_list: List['SimResult'], dims: List[int], **kwargs)
     first_plot = True
     
     for sr_idx, sr in enumerate(simRes_list):
-        from .isemptyobject import isemptyobject
-        if isemptyobject(sr):
+        if sr.isemptyobject():
             continue
         
         # Get trajectories from this simResult
@@ -145,8 +147,7 @@ def _plot_single_simres(simRes: 'SimResult', dims: List[int], **kwargs) -> Any:
     whichtraj = kwargs.pop('Traj', 'x')  # 'x', 'y', or 'a'
     
     # Check if simResult is empty
-    from .isemptyobject import isemptyobject
-    if isemptyobject(simRes):
+    if simRes.isemptyobject():
         # Plot empty trajectory
         if len(dims) == 2:
             return plt.plot([], [], **kwargs)
@@ -238,7 +239,6 @@ def _plot_trajectory(traj_proj: np.ndarray, dims: List[int], **kwargs) -> Any:
     """Plot a single trajectory projection"""
     
     # Apply simulation purpose for color defaults
-    from cora_python.g.functions.verbose.plot.read_plot_options import read_plot_options
     kwargs = read_plot_options(kwargs, purpose='simulation')
     
     # Set default alpha

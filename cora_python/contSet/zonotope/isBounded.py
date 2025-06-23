@@ -16,7 +16,10 @@ Written: 24-July-2023 (MATLAB)
 Last update: ---
 Python translation: 2025
 """
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from .zonotope import Zonotope
 
 def isBounded(Z: 'Zonotope') -> bool:
     """

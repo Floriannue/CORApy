@@ -45,6 +45,5 @@ def ne(spec1, spec2, tol: Optional[float] = None) -> bool:
     """
     
     # Import here to avoid circular imports
-    from .isequal import isequal
     
-    return not isequal(spec1, spec2, tol) 
+    return not spec1.isequal(spec2, tol) 

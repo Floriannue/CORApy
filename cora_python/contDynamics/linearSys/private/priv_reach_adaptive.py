@@ -47,7 +47,10 @@ from typing import Dict, Any, Tuple, List, Optional
 from cora_python.g.classes.linErrorBound import LinErrorBound
 from cora_python.g.classes.verifyTime import VerifyTime
 from cora_python.g.functions.verbose import verboseLog
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.classes.taylorLinSys import TaylorLinSys
+from cora_python.contSet.interval import Interval
+from cora_python.contSet.zonotope import Zonotope
 
 
 def priv_reach_adaptive(linsys, params: Dict[str, Any], options: Dict[str, Any]) -> Tuple[Dict, Dict, bool, Dict]:
@@ -83,7 +86,6 @@ def priv_reach_adaptive(linsys, params: Dict[str, Any], options: Dict[str, Any])
     
     # for safety, init taylor helper class if not there already
     if not hasattr(linsys, 'taylor') or linsys.taylor is None or not hasattr(linsys.taylor, 'computeField'):
-        from cora_python.g.classes.taylorLinSys import TaylorLinSys
         linsys.taylor = TaylorLinSys(linsys.A)
     
     # init struct which keeps sets and timeStep to avoid recomputations
@@ -421,7 +423,6 @@ def aux_canonicalForm(linsys, params: Dict[str, Any]) -> Tuple[Any, Dict[str, An
     
     # Ensure input set exists
     if 'U' not in params:
-        from cora_python.contSet.zonotope.zonotope import Zonotope
         params['U'] = Zonotope(np.zeros((input_dim, 1)), np.zeros((input_dim, 1)))
     
     return linsys, params
@@ -946,7 +947,6 @@ def enclose(set1, set2):
         return set1.convHull(set2)
     elif hasattr(set1, 'c') and hasattr(set1, 'G') and hasattr(set2, 'c') and hasattr(set2, 'G'):
         # Both are zonotopes - compute convex hull
-        from cora_python.contSet.zonotope.zonotope import Zonotope
         
         # Simple convex hull for zonotopes: 
         # Z = 0.5*(Z1 + Z2) + 0.5*(Z1 - Z2)
@@ -959,7 +959,6 @@ def enclose(set1, set2):
         return Zonotope(c_new, G_new)
     elif hasattr(set1, 'infimum') and hasattr(set1, 'supremum'):
         # Interval sets - compute interval hull
-        from cora_python.contSet.interval.interval import Interval
         if hasattr(set2, 'infimum') and hasattr(set2, 'supremum'):
             inf_new = np.minimum(set1.infimum(), set2.infimum())
             sup_new = np.maximum(set1.supremum(), set2.supremum())
@@ -977,8 +976,7 @@ def enclose(set1, set2):
 
 def particularSolution_constant(linsys, u, timeStep: float, truncationOrder: float):
     """Compute particular solution for constant input"""
-    from cora_python.contDynamics.linearSys.particularSolution_constant import particularSolution_constant as ps_const
-    return ps_const(linsys, u, timeStep, truncationOrder)[0]  # Return only Ptp
+    return linsys.particularSolution_constant(u, timeStep, truncationOrder)[0]  # Return only Ptp
 
 
 def priv_correctionMatrixState(linsys, timeStep: float, truncationOrder: float):
@@ -989,7 +987,6 @@ def priv_correctionMatrixState(linsys, timeStep: float, truncationOrder: float):
         [1] M. Althoff. "Reachability Analysis and its Application to the
             Safety Assessment of Autonomous Cars", PhD Dissertation, 2010.
     """
-    from cora_python.contSet.interval import Interval
     
     # Check if it has already been computed
     if hasattr(linsys.taylor, 'F') and timeStep in getattr(linsys.taylor, '_F_cache', {}):
@@ -1024,7 +1021,7 @@ def priv_correctionMatrixState(linsys, timeStep: float, truncationOrder: float):
                 np.all(np.abs(Asum_add_pos) <= np.finfo(float).eps * np.abs(Asum_neg_F))):
                 break
             elif eta == truncationOrder:
-                raise CORAError('CORA:notConverged', 'Time step size too big for computation of F.')
+                raise CORAerror('CORA:notConverged', 'Time step size too big for computation of F.')
         
         # Compute powers; factor is always negative
         Asum_pos_F = Asum_pos_F + Asum_add_neg
@@ -1054,7 +1051,6 @@ def priv_correctionMatrixInput(linsys, timeStep: float, truncationOrder: float):
         [1] M. Althoff. "Reachability Analysis and its Application to the
             Safety Assessment of Autonomous Cars", PhD Dissertation, 2010.
     """
-    from cora_python.contSet.interval import Interval
     
     # Check if it has already been computed
     if hasattr(linsys.taylor, 'G') and timeStep in getattr(linsys.taylor, '_G_cache', {}):
@@ -1089,7 +1085,7 @@ def priv_correctionMatrixInput(linsys, timeStep: float, truncationOrder: float):
                 np.all(np.abs(Asum_add_pos) <= np.finfo(float).eps * np.abs(Asum_neg_G))):
                 break
             elif eta == truncationOrder + 1:
-                raise CORAError('CORA:notConverged', 'Time step size too big for computation of G.')
+                raise CORAerror('CORA:notConverged', 'Time step size too big for computation of G.')
         
         # Compute powers; factor is always negative
         Asum_pos_G = Asum_pos_G + Asum_add_neg
@@ -1115,7 +1111,6 @@ def priv_expmRemainder(linsys, timeStep: float, truncationOrder: int):
     """
     Computation of remainder term of exponential matrix
     """
-    from cora_python.contSet.interval import Interval
     
     # Check if it has already been computed
     if hasattr(linsys.taylor, 'E') and timeStep in getattr(linsys.taylor, '_E_cache', {}):
@@ -1189,7 +1184,6 @@ def compute_eps_F(errs: LinErrorBound, F, startset) -> Tuple[float, np.ndarray, 
     Compute curvature error (state), see [1, Prop. 1]:
     eps_F = 2 * errOp(F * startset)
     """
-    from cora_python.contSet.zonotope import Zonotope
     
     if hasattr(startset, 'c') and hasattr(startset, 'G'):
         # Zonotope case - small speed up
@@ -1283,12 +1277,11 @@ def aux_getSetsFromSpec(spec_list):
     Returns:
         tuple: (safeSet, unsafeSet) cell arrays with .set, .time properties
     """
-    from cora_python.contSet.polytope.polytope import Polytope
     
     # All specifications must be of type 'safeSet' or 'unsafeSet'
     for spec in spec_list:
         if spec.type not in ['safeSet', 'unsafeSet']:
-            raise CORAError('CORA:notSupported',
+            raise CORAerror('CORA:notSupported',
                            "Only specification types 'safeSet' and 'unsafeSet' are supported.")
     
     # Pre-allocate length, truncate at the end

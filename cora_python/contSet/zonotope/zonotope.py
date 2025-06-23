@@ -36,12 +36,9 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Union, Optional, Any, TYPE_CHECKING
+from typing import Union, Optional, Any
 from ..contSet import ContSet
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-
-from .dim import dim
-from .isemptyobject import isemptyobject
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class Zonotope(ContSet):
@@ -70,7 +67,7 @@ class Zonotope(ContSet):
                    - zonotope(other_zonotope): copy constructor
         
         Raises:
-            CORAError: If no input arguments provided or invalid arguments
+            CORAerror: If no input arguments provided or invalid arguments
         """
         # Call parent constructor
         super().__init__()
@@ -80,7 +77,7 @@ class Zonotope(ContSet):
         
         # Avoid empty instantiation
         if len(args) == 0:
-            raise CORAError('CORA:noInputInSetConstructor',
+            raise CORAerror('CORA:noInputInSetConstructor',
                           'No input arguments provided to zonotope constructor')
         
         # Copy constructor
@@ -126,11 +123,9 @@ class Zonotope(ContSet):
                 interval_obj = args[0]
                 
                 # Get center and radius
-                from ..interval.center import center
-                from ..interval.rad import rad
                 
-                c = center(interval_obj)
-                r = rad(interval_obj)
+                c = interval_obj.center()
+                r = interval_obj.rad()
                 
                 # Create generator matrix as diagonal matrix of radii
                 # Remove zero generators (where radius is 0)
@@ -159,7 +154,7 @@ class Zonotope(ContSet):
             return c, G
         
         else:
-            raise CORAError('CORA:wrongInputInConstructor',
+            raise CORAerror('CORA:wrongInputInConstructor',
                           'Too many input arguments')
     
     def _check_input_args(self, c, G, n_in):
@@ -173,22 +168,22 @@ class Zonotope(ContSet):
         
         # Check for NaN values
         if c.size > 0 and np.any(np.isnan(c)):
-            raise CORAError('CORA:wrongInputInConstructor',
+            raise CORAerror('CORA:wrongInputInConstructor',
                           'Center contains NaN values')
         if G.size > 0 and np.any(np.isnan(G)):
-            raise CORAError('CORA:wrongInputInConstructor',
+            raise CORAerror('CORA:wrongInputInConstructor',
                           'Generator matrix contains NaN values')
         
         if n_in == 2:
             # Check dimensions
             if c.size == 0 and G.size > 0:
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                               'Center is empty')
             elif c.size > 0 and c.ndim > 1 and min(c.shape) > 1:
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                               'Center is not a vector')
             elif G.size > 0 and c.size > 0 and len(c) != G.shape[0]:
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                               'Dimension mismatch between center and generator matrix')
     
     def _compute_properties(self, c, G):
@@ -208,56 +203,6 @@ class Zonotope(ContSet):
         
         return c, G
     
-    def dim(self) -> int:
-        """Get dimension of the zonotope"""
-        return dim(self)
-    
-    def is_empty(self) -> bool:
-        """Check if zonotope is empty"""
-        return isemptyobject(self)
-    
-    @staticmethod
-    def empty(n: int = 0) -> 'Zonotope':
-        """Create an empty zonotope of dimension n"""
-        from .empty import empty
-        return empty(n)
-    
-    @staticmethod
-    def origin(n: int) -> 'Zonotope':
-        """Create a zonotope representing the origin in dimension n"""
-        from .origin import origin
-        return origin(n)
-    
-    def display(self):
-        """Display zonotope properties"""
-        from .display import display
-        return display(self)
-    
-    def randPoint_(self, N=1, type_='standard'):
-        """Generate random points within the zonotope (internal version)"""
-        from .randPoint_ import randPoint_
-        return randPoint_(self, N, type_)
-    
-    def vertices_(self, method='convHull', *args):
-        """Get vertices of the zonotope (internal version)"""
-        from .vertices_ import vertices_
-        return vertices_(self, method, *args)
-    
-    def project(self, dims):
-        """Project zonotope to lower-dimensional subspace"""
-        from .project import project
-        return project(self, dims)
-    
-    def norm_(self, norm_type=2, mode='ub', return_vertex=False):
-        """Compute maximum norm value of the zonotope"""
-        from .norm_ import norm_
-        return norm_(self, norm_type, mode, return_vertex)
-    
-    def zonotopeNorm(self, p, return_minimizer=False):
-        """Compute zonotope norm of point p with respect to this zonotope"""
-        from .zonotopeNorm import zonotopeNorm
-        return zonotopeNorm(self, p, return_minimizer)
-    
     def __repr__(self) -> str:
         """
         Official string representation for programmers.
@@ -275,71 +220,6 @@ class Zonotope(ContSet):
         except:
             return "Zonotope()"
     
-    def __str__(self) -> str:
-        """
-        Informal string representation for users.
-        Uses the display method for MATLAB-style output.
-        """
-        try:
-            from .display import display
-            return display(self)
-        except:
-            return self.__repr__()
-    
-    # Operator overloading
-    def __add__(self, other):
-        """Addition operator (+)"""
-        from .plus import plus
-        return plus(self, other)
-    
-    def __radd__(self, other):
-        """Right addition operator (other + self)"""
-        from .plus import plus
-        return plus(other, self)
-    
-    def __mul__(self, other):
-        """Multiplication operator (*)"""
-        from .mtimes import mtimes
-        return mtimes(self, other)
-    
-    def __rmul__(self, other):
-        """Right multiplication operator (other * self)"""
-        from .mtimes import mtimes
-        return mtimes(other, self)
-    
-    def __matmul__(self, other):
-        """Matrix multiplication operator (@)"""
-        from .mtimes import mtimes
-        return mtimes(self, other)
-    
-    def __rmatmul__(self, other):
-        """Right matrix multiplication operator (other @ self)"""
-        from .mtimes import mtimes
-        return mtimes(other, self)
-    
-    def __sub__(self, other):
-        """Subtraction operator (-)"""
-        from .minus import minus
-        return minus(self, other)
-    
-    def __rsub__(self, other):
-        """Right subtraction operator (other - self)"""
-        from .minus import minus
-        return minus(other, self)
-    
-    def __neg__(self):
-        """Unary minus operator (-self)"""
-        from .uminus import uminus
-        return uminus(self)
-    
-    def __eq__(self, other):
-        """Equality operator (==)"""
-        from .isequal import isequal
-        return isequal(self, other)
-    
-    def __ne__(self, other):
-        """Inequality operator (!=)"""
-        return not self.__eq__(other)
     
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Handle numpy universal functions"""

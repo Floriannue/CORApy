@@ -74,21 +74,8 @@ class EmptySet(ContSet):
         # 5. set precedence (fixed)
         self.precedence = 0
 
-    # Abstract methods implementation (required by ContSet)
-    def dim(self) -> int:
-        """Get dimension of the empty set"""
-        return self.dimension
-    
-    def is_empty(self) -> bool:
-        """Empty set is always empty"""
-        return True
 
     def __repr__(self) -> str:
         """Return programmer-friendly representation."""
         return f"EmptySet({self.dimension})"
 
-    def __str__(self) -> str:
-        """Return user-friendly representation."""
-        if hasattr(self, 'display') and callable(getattr(self, 'display')):
-            return self.display()
-        return self.__repr__() 

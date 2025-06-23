@@ -19,9 +19,9 @@ Python translation: 2025
 """
 
 import numpy as np
+from .zonotope import Zonotope
 
-
-def uminus(Z: 'Zonotope') -> 'Zonotope':
+def uminus(Z: Zonotope) -> Zonotope:
     """
     Overloaded unary '-' operator for zonotope objects
     
@@ -31,7 +31,6 @@ def uminus(Z: 'Zonotope') -> 'Zonotope':
     Returns:
         Zonotope: Negated zonotope object (-Z)
     """
-    from .zonotope import Zonotope
     
     # Handle empty zonotope case
     if Z.is_empty():

@@ -32,11 +32,42 @@ def priv_representsa_emptySet(A: np.ndarray, b: np.ndarray,
     Returns:
         bool: True if polytope is empty, False otherwise
     """
-    # Special case: 1D
+    # Special case: 1D with bounded polytope
     if n == 1:
-        # Compute vertices (fast for 1D) and check whether empty
-        V = priv_vertices_1D(A, b, Ae, be)
-        return V is None or V.size == 0
+        # For 1D, use constraint satisfaction check instead of vertex computation
+        # to properly handle unbounded polytopes
+        
+        # Check for inconsistent equality constraints first
+        if Ae is not None and Ae.size > 0 and be is not None and be.size > 0:
+            # For 1D, equality constraint Ae*x = be means x = be/Ae
+            eq_values = []
+            for i in range(len(be)):
+                if abs(Ae[i, 0]) < 1e-12:  # Ae[i] ≈ 0
+                    if abs(be[i]) > 1e-12:  # be[i] ≠ 0
+                        # Constraint 0*x = be[i] with be[i] ≠ 0 -> infeasible
+                        return True
+                    # else: constraint 0*x = 0 -> always satisfied, ignore
+                else:
+                    # x = be[i] / Ae[i, 0]
+                    x_eq = be[i] / Ae[i, 0]
+                    eq_values.append(x_eq)
+            
+            # Check if all equality constraints are consistent
+            if len(eq_values) > 1:
+                for i in range(1, len(eq_values)):
+                    if not withinTol(eq_values[i], eq_values[0], 1e-12):
+                        return True  # Inconsistent equality constraints
+        
+        # Check inequality constraints for feasibility
+        if A is not None and A.size > 0 and b is not None and b.size > 0:
+            for i in range(len(b)):
+                if abs(A[i, 0]) < 1e-12:  # A[i] ≈ 0
+                    if b[i] < -1e-12:  # b[i] < 0
+                        # Constraint 0*x <= b[i] with b[i] < 0 -> infeasible
+                        return True
+        
+        # If we reach here, the 1D polytope is feasible (might be unbounded)
+        return False
     
     # Quick check: no constraints
     if (b is None or b.size == 0) and (be is None or be.size == 0):

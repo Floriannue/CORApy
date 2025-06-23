@@ -39,13 +39,16 @@ Last revision: ---
 
 from __future__ import annotations
 import numpy as np
-from scipy.optimize import linprog
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Tuple, Union
+from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
+from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from scipy.sparse import eye as speye
 
 if TYPE_CHECKING:
     from .zonotope import Zonotope
 
-def zonotopeNorm(Z: Zonotope, p: np.ndarray) -> Tuple[float, np.ndarray]:
+def zonotopeNorm(Z: 'Zonotope', p: np.ndarray) -> Tuple[float, np.ndarray]:
     """
     Computes the norm of the point p w.r.t. the zonotope-norm
     induced by the zonotope Z (see [1, Definition 4]).
@@ -64,57 +67,88 @@ def zonotopeNorm(Z: Zonotope, p: np.ndarray) -> Tuple[float, np.ndarray]:
         [1] A. Kulmburg, M. Althoff. "On the co-NP-Completeness of the
             Zonotope Containment Problem", European Journal of Control 2021
     """
-
-    # from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
-    # equal_dim_check(Z, p)
-
-    if Z.is_empty():
-        if p.size == 0:
-            return 0, np.array([])
-        else:
-            return np.inf, np.array([])
-
-    if Z.G is None or Z.G.shape[1] == 0:
-        if not np.any(p):
-            return 0, np.array([])
-        else:
-            return np.inf, np.array([])
-
-    n, num_gen = Z.G.shape
-
-    # Set up the linear program as defined in [1, Equation (8)]
-    # min t
-    # s.t. G*beta = p
-    #      -t <= beta_i <= t  for all i
     
-    # Objective function: [t, beta_1, ..., beta_m]
-    c = np.zeros(num_gen + 1)
-    c[0] = 1
-
-    # Equality constraints: G*beta = p  ->  -G*beta + p = 0
-    # Rearranged for linprog: [0, G] * [t, beta]^T = p
-    A_eq = np.hstack([np.zeros((n, 1)), Z.G])
-    b_eq = p.flatten()
-
-    # Inequality constraints: 
-    # beta_i - t <= 0  -> [-1, 0, ..., 1, ..., 0] * [t, beta]^T <= 0
-    # -beta_i - t <= 0 -> [-1, 0, ...,-1, ..., 0] * [t, beta]^T <= 0
-    A_ub_1 = np.hstack([-np.ones((num_gen, 1)), np.eye(num_gen)])
-    A_ub_2 = np.hstack([-np.ones((num_gen, 1)), -np.eye(num_gen)])
-    A_ub = np.vstack([A_ub_1, A_ub_2])
-    b_ub = np.zeros(2 * num_gen)
-
-    # Bounds for t (>=0) and beta (unbounded, handled by inequalities)
-    bounds = [(0, None)] + [(None, None)] * num_gen
-
-    # Solve the linear program
-    res_lp = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
-
-    if not res_lp.success:
-        # Infeasible or unbounded
+    # Check number of input arguments (Python equivalent of narginchk(2,2))
+    # This is implicitly handled by Python function signature
+    
+    # Input arguments check
+    if not hasattr(Z, '__class__') or Z.__class__.__name__ != 'Zonotope':
+        raise ValueError("First argument must be a zonotope")
+    
+    if not isinstance(p, np.ndarray):
+        raise ValueError("Second argument must be a numeric array")
+    
+    # Ensure p is a column vector
+    p = np.array(p, dtype=float)
+    if p.ndim == 1:
+        p = p.reshape(-1, 1)
+    elif p.ndim == 2:
+        if p.shape[1] == 0:
+            # Handle empty case: (n, 0) array
+            pass  # Keep as is for empty point
+        elif p.shape[1] != 1:
+            raise ValueError("Point p must be a column vector")
+    
+    # Handle empty point case first
+    if p.size == 0 or (p.ndim == 2 and p.shape[1] == 0):
+        # Empty point - return 0 norm regardless of zonotope
+        return 0.0, np.array([])
+    
+    # Check dimension of Z and p
+    equal_dim_check(Z, p)
+    
+    # Empty set
+    if Z.representsa_('emptySet', np.finfo(float).eps):
         return np.inf, np.array([])
-
-    res = res_lp.fun
-    minimizer = res_lp.x[1:]
-
+    
+    # Retrieve generator-representation of Z
+    if Z.G is None or Z.G.size == 0:
+        if not np.any(p):
+            return 0.0, np.array([])
+        else:
+            return np.inf, np.array([])
+    
+    # Retrieve dimensions of the generator matrix of Z
+    n, numGen = Z.G.shape
+    
+    # Set up objective and constraints of the linear program as defined in
+    # [1, Equation (8)]
+    problem = {}
+    problem['f'] = np.concatenate([[1.0], np.zeros(numGen)])
+    
+    problem['Aeq'] = np.hstack([np.zeros((n, 1)), Z.G])
+    problem['beq'] = p.flatten()
+    
+    # Inequality constraints: -t <= beta_i <= t for all i
+    # This is equivalent to: beta_i - t <= 0 and -beta_i - t <= 0
+    # In matrix form: [-1, I; -1, -I] * [t; beta] <= 0
+    Aineq_1 = np.hstack([-np.ones((numGen, 1)), speye(numGen).toarray()])
+    Aineq_2 = np.hstack([-np.ones((numGen, 1)), -speye(numGen).toarray()])
+    problem['Aineq'] = np.vstack([Aineq_1, Aineq_2])
+    problem['bineq'] = np.zeros(2 * numGen)
+    
+    # Bounds integrated in inequality constraints
+    problem['lb'] = []
+    problem['ub'] = []
+    
+    # Solve the linear program: If the problem is infeasible, this means that
+    # the zonotope must be degenerate, and that the point can not be realized
+    # as a linear combination of the generators of the zonotope. In that case,
+    # the norm is defined as Inf. The same goes when the problem is 'unbounded'
+    minimizer_p, res, exitflag, output, lambda_out = CORAlinprog(problem)
+    
+    if exitflag == -2 or exitflag == -3:
+        res = np.inf
+        minimizer = np.array([])
+    elif exitflag != 1:
+        # In case anything else went wrong, throw out an error
+        raise CORAerror('CORA:solverIssue', 'Linear programming solver failed')
+    else:
+        # Extract the minimizer (beta values, excluding t)
+        if minimizer_p is not None:
+            minimizer = minimizer_p.flatten()[1:]  # Skip first element (t)
+        else:
+            minimizer = np.array([])
+    
+    # Always return both values - caller can choose to ignore minimizer
     return res, minimizer 

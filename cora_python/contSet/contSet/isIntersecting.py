@@ -10,11 +10,11 @@ Last update: 20-September-2024 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 import numpy as np
-from .reorder import reorder
-from .representsa_ import representsa_
-from .isIntersecting_ import isIntersecting_
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
 def isIntersecting(S1: Union['ContSet', np.ndarray], 
@@ -51,7 +51,7 @@ def isIntersecting(S1: Union['ContSet', np.ndarray],
         raise ValueError("tol must be a non-negative number")
     
     # Right order of objects
-    S1, S2 = reorder(S1, S2)
+    S1, S2 = S1.reorder(S2)
     
     # Check dimension compatibility
     if hasattr(S1, 'dim') and hasattr(S2, 'dim'):
@@ -60,11 +60,11 @@ def isIntersecting(S1: Union['ContSet', np.ndarray],
     
     try:
         # Call subclass method
-        res = isIntersecting_(S1, S2, type_, tol)
+        res = S1.isIntersecting_(S2, type_, tol)
     except Exception as ME:
         # Handle empty set case
-        if (hasattr(S1, 'representsa_') and representsa_(S1, 'emptySet', 1e-8)) or \
-           (hasattr(S2, 'representsa_') and representsa_(S2, 'emptySet', 1e-8)):
+        if (hasattr(S1, 'representsa_') and S1.representsa_('emptySet', 1e-8)) or \
+           (hasattr(S2, 'representsa_') and S2.representsa_('emptySet', 1e-8)):
             res = False
         else:
             raise ME

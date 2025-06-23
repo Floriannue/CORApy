@@ -38,9 +38,10 @@ from typing import Union, Tuple, List, Any, Optional
 from cora_python.g.functions.matlab.validate.check import checkNameValuePairs
 from cora_python.g.functions.matlab.validate.preprocessing import readNameValuePair
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from .polytope import Polytope
 
 
-def generate_random(*varargin) -> 'Polytope':
+def generate_random(*varargin) -> Polytope:
     """
     Generates a random non-empty polytope
     restrictions:
@@ -49,8 +50,6 @@ def generate_random(*varargin) -> 'Polytope':
     - number of constraints >= n+1  =>  + can be bounded
     - number of constraints >= n+2  =>  + can be bounded and degenerate
     """
-    from .polytope import Polytope
-    
     # name-value pairs -> number of input arguments is always a multiple of 2
     if len(varargin) % 2 != 0:
         raise CORAerror('CORA:evenNumberInputArgs')

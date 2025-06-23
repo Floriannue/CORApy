@@ -33,8 +33,8 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from .zonotope import Zonotope
 
 def mtimes(factor1, factor2):
     """
@@ -48,9 +48,8 @@ def mtimes(factor1, factor2):
         zonotope: Result of matrix multiplication
         
     Raises:
-        CORAError: If operation is not supported or dimensions don't match
+        CORAerror: If operation is not supported or dimensions don't match
     """
-    from .zonotope import Zonotope
     
     try:
         # matrix/scalar * zonotope
@@ -81,7 +80,7 @@ def mtimes(factor1, factor2):
             
             # Check dimension compatibility
             if factor2.c.size > 0 and factor1_mat.shape[1] != factor2.dim():
-                raise CORAError('CORA:dimensionMismatch',
+                raise CORAerror('CORA:dimensionMismatch',
                               f'Matrix dimensions {factor1_mat.shape} incompatible with zonotope dimension {factor2.dim()}')
             
             # Apply linear transformation
@@ -118,7 +117,7 @@ def mtimes(factor1, factor2):
             
             # Check dimension compatibility
             if factor1.c.size > 0 and factor1.dim() != factor2_mat.shape[0]:
-                raise CORAError('CORA:dimensionMismatch',
+                raise CORAerror('CORA:dimensionMismatch',
                               f'Zonotope dimension {factor1.dim()} incompatible with matrix dimensions {factor2_mat.shape}')
             
             # Apply linear transformation (right multiplication)
@@ -144,17 +143,17 @@ def mtimes(factor1, factor2):
         if hasattr(factor1, 'dim') and hasattr(factor2, 'dim'):
             try:
                 if factor1.dim() != factor2.dim():
-                    raise CORAError('CORA:dimensionMismatch',
+                    raise CORAerror('CORA:dimensionMismatch',
                                   f'Dimension mismatch: {factor1.dim()} vs {factor2.dim()}')
             except:
                 pass  # One of them might not have dim() method
         
-        # Re-raise original error if it's already a CORAError
-        if isinstance(e, CORAError):
+        # Re-raise original error if it's already a CORAerror
+        if isinstance(e, CORAerror):
             raise e
         
-        # Convert other errors to CORAError
-        raise CORAError('CORA:noops', f'Error in matrix multiplication: {str(e)}')
+        # Convert other errors to CORAerror
+        raise CORAerror('CORA:noops', f'Error in matrix multiplication: {str(e)}')
     
     # If we get here, operation is not supported
-    raise CORAError('CORA:noops', f'Operation not supported between {type(factor1)} and {type(factor2)}') 
+    raise CORAerror('CORA:noops', f'Operation not supported between {type(factor1)} and {type(factor2)}') 

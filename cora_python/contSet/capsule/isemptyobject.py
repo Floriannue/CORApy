@@ -1,6 +1,10 @@
 import numpy as np
+from typing import TYPE_CHECKING
 
-def isemptyobject(C) -> bool:
+if TYPE_CHECKING:
+    from .capsule import Capsule
+
+def isemptyobject(C: 'Capsule') -> bool:
     """
     isemptyobject - checks whether a capsule contains any information at all;
     consequently, the set is interpreted as the empty set

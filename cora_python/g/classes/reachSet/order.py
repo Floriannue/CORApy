@@ -22,6 +22,7 @@ See also: none
 
 from typing import TYPE_CHECKING, Union
 import numpy as np
+from cora_python.contSet.interval.interval import Interval
 
 if TYPE_CHECKING:
     from .reachSet import ReachSet
@@ -114,12 +115,7 @@ def order(R: 'ReachSet'):
         new_time_intervals = []
         for i in range(nrSets):
             # Try to create interval object if available
-            try:
-                from ...contSet.interval.interval import Interval
-                new_time_intervals.append(Interval(timeInf[i], timeSup[i]))
-            except ImportError:
-                # Fallback to tuple representation
-                new_time_intervals.append((timeInf[i], timeSup[i]))
+            new_time_intervals.append(Interval(timeInf[i], timeSup[i]))
         
         R_obj.timeInterval['time'] = new_time_intervals
         

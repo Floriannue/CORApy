@@ -1,146 +1,235 @@
 """
-center - center of a polytope
+center - computes the Chebyshev center of a polytope
+
+Note: polytope in vertex representation are converted to halfspace
+representation, see [1], which is potentially time-consuming
+Use method 'avg' for average of vertices
 
 Syntax:
     c = center(P)
+    c = center(P, method)
 
 Inputs:
     P - polytope object
+    method - 'chebyshev', 'avg' (for v-polytope)
 
 Outputs:
-    c - center of the polytope
+    c - Chebyshev center of the polytope
 
 Example:
-    A = [1 0; 0 1; -1 0; 0 -1];
-    b = [1; 1; 1; 1];
-    P = polytope(A, b);
+    P = polytope([[-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1]], [2, 3, 2, 3, 2])
     c = center(P)
 
-Authors: Matthias Althoff, Mark Wetzlinger (MATLAB)
+Reference:
+    [1] M. Wetzlinger, V. Kotsev, A. Kulmburg, M. Althoff. "Implementation
+        of Polyhedral Operations in CORA 2024", ARCH'24.
+
+Authors: Viktor Kotsev, Mark Wetzlinger, Tobias Ladner (MATLAB)
          Python translation by AI Assistant
-Written: 30-September-2006 (MATLAB)
-Last update: 16-September-2019 (MW, specify output for empty case) (MATLAB)
+Written: 28-March-2022 (MATLAB)
+Last update: 25-February-2025 (TL, unconstrained polytope returns origin)
 Python translation: 2025
 """
 
 import numpy as np
 from scipy.optimize import linprog
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     from .polytope import Polytope
 
-def center(P: 'Polytope') -> Tuple[np.ndarray, float]:
-    """
-    Computes the Chebyshev center of a polytope.
-    The Chebyshev center is the center of the largest inscribed sphere in the
-    polytope. It is found by solving a linear program.
+from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
+from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+
+def center(P: 'Polytope', method: str = 'chebyshev') -> np.ndarray:
+    """
+    Computes the Chebyshev center of a polytope
+    
     Args:
-        P: A Polytope object.
-
-    Returns:
-        A tuple (c, r) where c is the center (n x 1) and r is the radius.
-        If the polytope is empty, c is an empty array and r is -1.
-        If the polytope is unbounded, c is an array of NaNs and r is inf.
-    """
-    n = P.dim()
-
-    if n == 0:
-        return np.array([]), -1 # Empty
-
-    # The H-representation is required
-    A = P.A
-    b = P.b
-    Ae = P.Ae
-    be = P.be
-    
-    # Setup the linear program for the Chebyshev center
-    # The variables are [c_1, ..., c_n, r]
-    # We want to maximize r, which is equivalent to minimizing -r.
-    # So, the cost function is [0, ..., 0, -1]
-    f = np.zeros(n + 1)
-    f[-1] = -1
-
-    # The constraints are:
-    # A_i * c + r * ||A_i|| <= b_i  for all inequality constraints
-    # Ae_j * c = be_j               for all equality constraints
-    # r >= 0
-
-    # Inequality constraints
-    A_ineq = None
-    b_ineq = None
-    if A is not None and A.size > 0:
-        A_norm = np.linalg.norm(A, axis=1, keepdims=True)
-        A_ineq = np.hstack([A, A_norm])
-        b_ineq = b
-
-    # Equality constraints
-    A_eq = None
-    b_eq = None
-    if Ae is not None and Ae.size > 0:
-        A_eq = np.hstack([Ae, np.zeros((Ae.shape[0], 1))])
-        b_eq = be
-
-    # Bounds for the variables
-    # c can be anything, r must be non-negative
-    bounds = [(None, None)] * n + [(0, None)]
-
-    # Solve the LP
-    # We are minimizing -r, so the result for r will be -res.fun
-    res = linprog(c=f, A_ub=A_ineq, b_ub=b_ineq, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs-ds')
-
-    if res.success:
-        c = res.x[:n].reshape(-1, 1)
-        r = res.x[n]
-        return c, r
-    elif res.status == 2: # Infeasible
-        return np.array([]), -1
-    elif res.status == 3: # Unbounded
-        return np.full((n, 1), np.nan), np.inf
-    else:
-        # Some other solver issue
-        # This might happen for unbounded cases where the solver
-        # doesn't explicitly return status 3.
-        # We'll treat it as unbounded as a fallback.
-        return np.full((n, 1), np.nan), np.inf
-
-
-def _is_box_polytope(P) -> bool:
-    """Check if polytope represents a box (axis-aligned)"""
-    if P.A is None or P.b is None:
-        return False
-    
-    # Check if A matrix has only 0, 1, -1 entries and each row has exactly one non-zero
-    A_abs = np.abs(P.A)
-    row_sums = np.sum(A_abs, axis=1)
-    
-    # Each row should have exactly one non-zero element
-    if not np.allclose(row_sums, 1.0):
-        return False
-    
-    # Non-zero elements should be 1 or -1
-    non_zero_mask = A_abs > 1e-12
-    if not np.allclose(A_abs[non_zero_mask], 1.0):
-        return False
-    
-    return True
-
-
-def _compute_box_center(P) -> np.ndarray:
-    """Compute center for box polytope"""
-    n = P.A.shape[1]
-    center = np.zeros((n, 1))
-    
-    for i in range(n):
-        # Find positive and negative constraints for dimension i
-        pos_mask = (P.A[:, i] > 0.5)
-        neg_mask = (P.A[:, i] < -0.5)
+        P: polytope object
+        method: 'chebyshev' or 'avg' (for v-polytope)
         
-        if np.any(pos_mask) and np.any(neg_mask):
-            # Compute bounds
-            upper_bound = np.min(P.b[pos_mask])
-            lower_bound = -np.max(P.b[neg_mask])
-            center[i] = (upper_bound + lower_bound) / 2
+    Returns:
+        c: Chebyshev center of the polytope
+    """
+    # Parse input
+    method = setDefaultValues({'chebyshev'}, [method])[0] if method != 'chebyshev' else 'chebyshev'
+    allowed_methods = ['chebyshev', 'avg']
     
-    return center 
+    # Input validation
+    inputArgsCheck([
+        [P, 'att', 'polytope'],
+        [method, 'str', allowed_methods]
+    ])
+    
+    # Read out dimension
+    n = P.dim()
+    
+    # Fullspace/empty case
+    if P.representsa_('fullspace', 0):
+        # Return origin; consistent with fullspace/center
+        return np.zeros((n, 1))
+    elif hasattr(P, 'emptySet') and hasattr(P.emptySet, 'val') and P.emptySet.val:
+        # Return empty
+        return np.zeros((n, 0))
+    
+    # Fast and simple computation for 1D
+    if n == 1:
+        return _aux_center_1D(P)
+    
+    # Switch method
+    if method == 'chebyshev':
+        return _aux_center_chebyshev(P)
+    elif method == 'avg':
+        return _aux_center_avg(P)
+    else:
+        raise CORAerror('CORA:wrongValue', f'Invalid method. Allowed: {allowed_methods}')
+
+
+def _aux_center_1D(P: 'Polytope') -> np.ndarray:
+    """Special method for 1D polytopes"""
+    # Compute vertices
+    V = P.vertices_('lcon2vert')
+    
+    if V.size == 0:
+        # Empty set
+        return np.zeros((1, 0))
+    elif V.shape[1] == 1:
+        # Only one vertex, which is also the center
+        return V
+    elif np.any(np.isinf(V)):
+        # Unbounded
+        return np.array([[np.nan]])
+    else:
+        # Bounded -> two vertices, take mean
+        return np.mean(V, axis=1, keepdims=True)
+
+
+def _aux_center_chebyshev(P: 'Polytope') -> np.ndarray:
+    """Compute Chebyshev center via linear program"""
+    # Read out dimension
+    n = P.dim()
+    
+    # Check whether there are only equalities: allows to avoid the linear
+    # program from below (faster)
+    if ((not hasattr(P, 'A_') or P.A_ is None or P.A_.val is None or P.A_.val.size == 0) and 
+        (hasattr(P, 'Ae_') and P.Ae_ is not None and P.Ae_.val is not None and P.Ae_.val.size > 0)):
+        return _aux_center_only_equalityConstraints(P, n)
+    
+    # General method: compute Chebyshev center via linear program; to this end,
+    # we require the halfspace representation
+    P.constraints()
+    return _aux_center_LP(P, n)
+
+
+def _aux_center_avg(P: 'Polytope') -> np.ndarray:
+    """Compute average of vertices"""
+    # Compute vertices
+    V = P.vertices()
+    
+    # Compute mean
+    return np.mean(V, axis=1, keepdims=True)
+
+
+def _aux_center_only_equalityConstraints(P: 'Polytope', n: int) -> np.ndarray:
+    """Handle case with only equality constraints
+    Three outcomes: unbounded, single point, infeasible
+    """
+    # Minimal halfspace representation: if two constraints are aligned and
+    # cannot be fulfilled at the same time, an empty polytope is returned
+    try:
+        # Get normalized constraints
+        _, _, Ae, be = P._priv_normalizeConstraints(None, None, P.Ae_.val, P.be_.val, 'A')
+        Ae, be, empty = P._priv_compact_alignedEq(Ae, be, 1e-12)
+        
+        # Check if emptiness has been determined during the computation of the
+        # minimal representation
+        if empty:
+            return np.zeros((n, 0))
+        
+        # All constraints now are linearly independent, hence the relation of 
+        # system dimension and number of constraints determines the solution
+        if Ae.shape[0] < n:
+            # Underdetermined -> unbounded
+            return np.full((n, 1), np.nan)
+        elif Ae.shape[0] > n:
+            # Overdetermined -> no solution
+            return np.zeros((n, 0))
+        else:
+            # Same number of constraints as system dimension -> single point
+            return np.linalg.solve(Ae, be).reshape(-1, 1)
+            
+    except Exception:
+        # Fallback to general LP method
+        return _aux_center_LP(P, n)
+
+
+def _aux_center_LP(P: 'Polytope', n: int) -> np.ndarray:
+    """Linear program for the computation of the Chebyshev center"""
+    
+    # Get constraint matrices
+    A_val = P.A_.val if hasattr(P, 'A_') and P.A_ is not None and P.A_.val is not None else np.zeros((0, n))
+    b_val = P.b_.val if hasattr(P, 'b_') and P.b_ is not None and P.b_.val is not None else np.zeros((0, 1))
+    Ae_val = P.Ae_.val if hasattr(P, 'Ae_') and P.Ae_ is not None and P.Ae_.val is not None else np.zeros((0, n))
+    be_val = P.be_.val if hasattr(P, 'be_') and P.be_ is not None and P.be_.val is not None else np.zeros((0, 1))
+    
+    # Dimension and number of (in)equalities
+    nrEq = Ae_val.shape[0]
+    
+    # 2-Norm of each row
+    if A_val.size > 0:
+        A_norm = np.sqrt(np.sum(A_val**2, axis=1, keepdims=True))
+        
+        # Extend inequality constraints by one column
+        A_ext = np.hstack([A_val, A_norm])
+    else:
+        A_ext = None
+        
+    # Extend equality constraints by one column
+    if nrEq > 0:
+        Ae_ext = np.hstack([Ae_val, np.zeros((nrEq, 1))])
+    else:
+        Ae_ext = None
+    
+    # Cost function for linear program: minimize 2-norm of constraints
+    f = np.zeros(n + 1)
+    f[-1] = -1  # Maximize the radius (minimize negative radius)
+    
+    # Bounds: center can be anything, radius must be non-negative
+    bounds = [(None, None)] * n + [(0, None)]
+    
+    try:
+        # Solve LP using scipy.optimize.linprog
+        result = linprog(
+            c=f,
+            A_ub=A_ext,
+            b_ub=b_val.flatten() if b_val.size > 0 else None,
+            A_eq=Ae_ext,
+            b_eq=be_val.flatten() if be_val.size > 0 else None,
+            bounds=bounds,
+            method='highs'
+        )
+        
+        if result.success:
+            # Truncate solution (remove radius component)
+            c = result.x[:n].reshape(-1, 1)
+            return c
+        elif result.status == 2:  # Infeasible
+            # Set is empty
+            return np.zeros((n, 0))
+        elif result.status == 3:  # Unbounded
+            # Unbounded
+            return np.full((n, 1), np.nan)
+        else:
+            # Other solver issue
+            raise CORAerror('CORA:solverIssue', 'Linear program solver failed')
+            
+    except Exception as e:
+        if 'infeasible' in str(e).lower():
+            return np.zeros((n, 0))
+        elif 'unbounded' in str(e).lower():
+            return np.full((n, 1), np.nan)
+        else:
+            raise CORAerror('CORA:solverIssue', f'Linear program solver failed: {str(e)}') 

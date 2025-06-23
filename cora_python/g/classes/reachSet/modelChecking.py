@@ -11,6 +11,11 @@ Python translation: 2025
 """
 
 from typing import Any, Optional
+# Import private methods
+from .private.priv_modelCheckingSampledTime import priv_modelCheckingSampledTime
+from .private.priv_modelCheckingRTL import priv_modelCheckingRTL
+from .private.priv_modelCheckingSignals import priv_modelCheckingSignals
+from .private.priv_modelCheckingIncremental import priv_modelCheckingIncremental
 
 
 def modelChecking(R, eq, alg: str = 'sampledTime', *args, **kwargs) -> bool:
@@ -48,11 +53,7 @@ def modelChecking(R, eq, alg: str = 'sampledTime', *args, **kwargs) -> bool:
     if alg not in valid_algorithms:
         raise ValueError(f"Algorithm must be one of {valid_algorithms}")
     
-    # Import private methods
-    from .private.priv_modelCheckingSampledTime import priv_modelCheckingSampledTime
-    from .private.priv_modelCheckingRTL import priv_modelCheckingRTL
-    from .private.priv_modelCheckingSignals import priv_modelCheckingSignals
-    from .private.priv_modelCheckingIncremental import priv_modelCheckingIncremental
+
     
     # Call the selected model checking algorithm
     if alg == 'sampledTime':

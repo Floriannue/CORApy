@@ -26,9 +26,13 @@ Written:       12-September-2023
 Last update:   ---
 Last revision: ---
 """
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from typing import TYPE_CHECKING, List
 
-def project(S, dims):
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+
+def project(S: 'ContSet', dims: List[int]) -> 'ContSet':
     """
     Projects a set onto the specified dimensions.
     
@@ -43,11 +47,8 @@ def project(S, dims):
         contSet: projected set
         
     Raises:
-        CORAError: If project is not implemented for the specific set type
+        CORAerror: If project is not implemented for the specific set type
     """
-    # Check if the object has a project method and use it
-    if hasattr(S, 'project') and callable(getattr(S, 'project')):
-        return S.project(dims)
     
     # Fallback error
-    raise CORAError("CORA:noops", f"Function project not implemented for class {type(S).__name__}") 
+    raise CORAerror("CORA:noops", f"Function project not implemented for class {type(S).__name__}") 

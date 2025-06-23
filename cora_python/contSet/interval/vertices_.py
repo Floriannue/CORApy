@@ -12,11 +12,11 @@ Python translation: 2025
 
 import numpy as np
 from itertools import product
-from .dim import dim
-from .rad import rad
-from .project import project
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from .interval import Interval
 
 def vertices_(I: 'Interval') -> np.ndarray:
     """
@@ -29,16 +29,16 @@ def vertices_(I: 'Interval') -> np.ndarray:
         np.ndarray: Vertices (each column is a vertex)
         
     Raises:
-        CORAError: If interval is an n-d array with n > 1
+        CORAerror: If interval is an n-d array with n > 1
         
     Example:
         >>> I = Interval([1, -1], [2, 1])
         >>> V = vertices_(I)
     """
     # Check if not a matrix set
-    n = dim(I)
+    n = I.dim()
     if isinstance(n, (list, tuple)) and len(n) > 1:
-        raise CORAError('CORA:wrongValue', 
+        raise CORAerror('CORA:wrongValue', 
                        'Interval must not be an n-d array with n > 1.')
     
     # Empty case
@@ -50,19 +50,19 @@ def vertices_(I: 'Interval') -> np.ndarray:
         return np.array([])
     
     # Check whether there is a non-zero radius in all dimensions
-    idx_zero_dim = np.abs(rad(I)) <= 1e-15  # withinTol equivalent
+    idx_zero_dim = np.abs(I.rad()) <= 1e-15  # withinTol equivalent
     
     if np.any(idx_zero_dim):
         # Remove dimensions with zero radius -> save indices and add later
         val_zero_dim = I.inf[idx_zero_dim]
-        I_proj = project(I, ~idx_zero_dim)
+        I_proj = I.project(~idx_zero_dim)
         
-        if dim(I_proj) == 0:
+        if I_proj.dim() == 0:
             # All dimensions have zero radius
             return val_zero_dim.reshape(-1, 1)
         
         # Compute vertices for non-degenerate dimensions
-        V_proj = vertices_(I_proj)
+        V_proj = I_proj.vertices_()
         
         # Add back removed dimensions
         V = np.zeros((n, V_proj.shape[1]))
@@ -72,7 +72,7 @@ def vertices_(I: 'Interval') -> np.ndarray:
     else:
         # Compute all possible combinations of lower/upper bounds
         # This is equivalent to MATLAB's combinator(2, dim(I), 'p', 'r') - 1
-        n_dim = dim(I)
+        n_dim = I.dim()
         
         # Handle scalar case (1D interval)
         if n_dim == 1:

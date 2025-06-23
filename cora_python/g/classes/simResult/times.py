@@ -19,7 +19,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .simResult import SimResult
 
 def times(simRes1, simRes2):
     """
@@ -32,7 +32,6 @@ def times(simRes1, simRes2):
     Returns:
         Resulting simResult object
     """
-    from .simResult import SimResult
     
     # If simRes1 is numeric and simRes2 is simResult (reverse multiplication)
     if isinstance(simRes1, (int, float, np.ndarray)) and hasattr(simRes2, 'x'):

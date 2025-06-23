@@ -36,6 +36,8 @@ try:
 except ImportError:
     SCIPY_AVAILABLE = False
 
+from .private.priv_norm_exact import priv_norm_exact
+from .private.priv_norm_ub import priv_norm_ub
 
 def norm_(Z, norm_type: int = 2, mode: str = 'ub', return_vertex: bool = False):
     """
@@ -82,7 +84,6 @@ def _norm_exact(Z, norm_type: int):
         tuple: (val, x) where val is norm value and x is vertex
     """
     
-    from .private.priv_norm_exact import priv_norm_exact
     return priv_norm_exact(Z, norm_type)
 
 
@@ -93,7 +94,7 @@ def _norm_ub_convex(Z, norm_type: int):
     """
     Compute upper bound using convex optimization via private function.
     """
-    from .private.priv_norm_ub import priv_norm_ub
+
     return priv_norm_ub(Z, norm_type)
 
 

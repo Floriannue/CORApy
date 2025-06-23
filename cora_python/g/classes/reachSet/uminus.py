@@ -18,7 +18,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .reachSet import ReachSet
 
 def uminus(R1):
     """
@@ -30,7 +30,6 @@ def uminus(R1):
     Returns:
         Resulting reachSet object with negated sets
     """
-    from .reachSet import ReachSet
     
     # Create new reachSet with negated sets
     new_timePoint = {}

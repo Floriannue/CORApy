@@ -11,13 +11,13 @@ Authors: Matthias Althoff, Mark Wetzlinger (MATLAB)
 # Import the main ContSet class
 from .contSet import ContSet
 try:
-    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 except ImportError:
     # Fallback for when running from within the cora_python directory
     import sys
     import os
     sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    from g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+    from g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 # Import all method implementations
 from .plot import plot
@@ -118,10 +118,111 @@ from .linComb import linComb
 from .quadMap import quadMap
 from .cubMap import cubMap
 
+#import static methods
+from .enclosePoints import enclosePoints
+from .generateRandom import generateRandom
+from .initEmptySet import initEmptySet
+from .empty import empty
+from .Inf import Inf
+
+# Attach methods to the ContSet class
+# This makes methods available as obj.method() calls
+
+# Core methods
+ContSet.plot = plot
+ContSet.center = center
+ContSet.contains = contains
+ContSet.contains_ = contains_
+ContSet.copy = copy
+ContSet.display = display
+
+# Mathematical operations
+ContSet.times = times
+ContSet.decompose = decompose
+ContSet.project = project
+
+# Arithmetic operations - attached as operators
+ContSet.__add__ = lambda self, other: plus(self, other)
+ContSet.__radd__ = lambda self, other: plus(other, self)
+ContSet.__sub__ = lambda self, other: minus(self, other)
+ContSet.__rsub__ = lambda self, other: minus(other, self)
+ContSet.__neg__ = lambda self: uminus(self)
+ContSet.__pos__ = lambda self: uplus(self)
+ContSet.__mul__ = lambda self, other: mtimes(other, self)  # Note: MATLAB style
+ContSet.__rmul__ = lambda self, other: mtimes(other, self)
+
+# Comparison operations
+ContSet.__eq__ = lambda self, other: eq(self, other)
+ContSet.__ne__ = lambda self, other: ne(self, other)
+ContSet.isequal = isequal
+ContSet.isempty = isempty
+
+# Type checking and properties
+ContSet.representsa = representsa
+ContSet.representsa_ = representsa_
+ContSet.representsa_emptyObject = representsa_emptyObject
+ContSet.isBounded = isBounded
+ContSet.isFullDim = isFullDim
+ContSet.isZero = isZero
+
+# Geometric operations
+ContSet.vertices = vertices
+ContSet.vertices_ = vertices_
+ContSet.volume = volume
+ContSet.volume_ = volume_
+ContSet.norm = norm
+ContSet.norm_ = norm_
+
+# Set operations
+ContSet.__and__ = lambda self, other: and_op(self, other)
+ContSet.__or__ = lambda self, other: or_op(self, other)
+ContSet.and_op = and_op  # Public 'and' function (can't use 'and' as it's Python keyword)
+ContSet.and_ = and_
+ContSet.or_op = or_op
+
+# Convex hull operations
+ContSet.convHull = convHull
+ContSet.convHull_ = convHull_
+
+# Support function operations
+ContSet.supportFunc = supportFunc
+ContSet.supportFunc_ = supportFunc_
+
+# Random operations
+ContSet.randPoint = randPoint
+ContSet.randPoint_ = randPoint_
+
+# Intersection checking
+ContSet.isIntersecting = isIntersecting
+ContSet.isIntersecting_ = isIntersecting_
+
+# Geometric transformations
+ContSet.enlarge = enlarge
+ContSet.lift = lift
+ContSet.lift_ = lift_
+ContSet.compact = compact
+ContSet.compact_ = compact_
+ContSet.reduce = reduce
+
+# Additional operations
+ContSet.origin = origin
+ContSet.minkDiff = minkDiff
+ContSet.linComb = linComb
+ContSet.quadMap = quadMap
+ContSet.cubMap = cubMap
+ContSet.reorder = reorder
+
+#static methods
+ContSet.enclosePoints = staticmethod(enclosePoints)
+ContSet.generateRandom = staticmethod(generateRandom)
+ContSet.initEmptySet = staticmethod(initEmptySet)
+ContSet.empty = staticmethod(empty)
+ContSet.Inf = staticmethod(Inf)
+
 # Export the ContSet class and all methods
 __all__ = [
     'ContSet',
-    'CORAError',
+    'CORAerror',
     'plot',
     'plot1D',
     'plot2D',

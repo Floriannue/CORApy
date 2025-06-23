@@ -11,11 +11,11 @@ Last update: 12-July-2024 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Optional, Union, List, Any
+from typing import TYPE_CHECKING, Optional, Union, List, Any
 import numpy as np
-from .dim import dim
-from .representsa_ import representsa_
-from .vertices_ import vertices_
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
 def vertices(S: 'ContSet', method: Optional[str] = None, *args, **kwargs) -> np.ndarray:
@@ -41,17 +41,17 @@ def vertices(S: 'ContSet', method: Optional[str] = None, *args, **kwargs) -> np.
     
     try:
         # Call subclass method
-        res = vertices_(S, method, *addargs)
+        res = S.vertices_(method, *addargs)
     except Exception as ME:
         # Catch empty set case
-        if representsa_(S, 'emptySet', 1e-15):
+        if S.representsa_('emptySet', 1e-15):
             res = np.array([])
         else:
             raise ME
     
     if res.size == 0:
         # Create res with proper dimensions
-        res = np.zeros((dim(S), 0))
+        res = np.zeros((S.dim(), 0))
     
     return res
 

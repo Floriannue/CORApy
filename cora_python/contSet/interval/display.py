@@ -29,11 +29,10 @@ import numpy as np
 from typing import TYPE_CHECKING
 from scipy.sparse import issparse
 
-if TYPE_CHECKING:
-    from .interval import Interval
+from .interval import Interval
 
 
-def display(I: 'Interval', name: str = None) -> str:
+def display(I: Interval, name: str = None) -> str:
     """
     Displays the properties of an interval object, mirroring MATLAB behavior.
     
@@ -89,7 +88,7 @@ def display(I: 'Interval', name: str = None) -> str:
     return "\n".join(output_lines)
 
 
-def _disp_empty_set(I: 'Interval', name: str) -> str:
+def _disp_empty_set(I: Interval, name: str) -> str:
     """Display text for empty interval objects"""
     output_lines = []
     output_lines.append("")
@@ -100,7 +99,7 @@ def _disp_empty_set(I: 'Interval', name: str) -> str:
     return "\n".join(output_lines)
 
 
-def _disp_rn(I: 'Interval', name: str) -> str:
+def _disp_rn(I: Interval, name: str) -> str:
     """Display text for fullspace interval objects"""
     output_lines = []
     output_lines.append("")
@@ -111,12 +110,12 @@ def _disp_rn(I: 'Interval', name: str) -> str:
     return "\n".join(output_lines)
 
 
-def _aux_display_2d(I: 'Interval') -> list:
+def _aux_display_2d(I: Interval) -> list:
     """Display 2-dimensional interval"""
     return _display_interval_core(I)
 
 
-def _aux_display_nd(I: 'Interval', varname: str) -> list:
+def _aux_display_nd(I: Interval, varname: str) -> list:
     """Display n-dimensional interval page-wise"""
     output_lines = []
     
@@ -148,7 +147,6 @@ def _aux_display_nd(I: 'Interval', varname: str) -> list:
         output_lines.append("")
         
         # Create interval for current page
-        from .interval import Interval
         page_interval = Interval(I_pages_inf[:, :, i], I_pages_sup[:, :, i])
         
         # Display current page
@@ -157,7 +155,7 @@ def _aux_display_nd(I: 'Interval', varname: str) -> list:
     return output_lines
 
 
-def _display_interval_core(I: 'Interval') -> list:
+def _display_interval_core(I: Interval) -> list:
     """
     Core function to display interval bounds in matrix format.
     This is the equivalent of displayInterval helper function.

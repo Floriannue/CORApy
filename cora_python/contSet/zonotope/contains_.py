@@ -36,7 +36,7 @@ from typing import Union, Tuple, Optional
 import warnings
 
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 from .compact_ import compact_
 

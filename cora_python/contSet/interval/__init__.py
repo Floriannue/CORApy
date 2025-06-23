@@ -35,13 +35,15 @@ from .generateRandom import generateRandom
 from .display import display
 from .uminus import uminus
 from .transpose import transpose
+from .enclosePoints import enclosePoints
 
 # Attach all methods to the Interval class
 Interval.plus = plus
 Interval.minus = minus
 Interval.mtimes = mtimes
 Interval.times = times
-# dim and is_empty are implemented directly in class (required by ContSet)
+Interval.dim = dim
+Interval.is_empty = isemptyobject
 Interval.isemptyobject = isemptyobject
 Interval.representsa_ = representsa_
 Interval.isequal = isequal
@@ -63,6 +65,7 @@ Interval.empty = staticmethod(empty)
 Interval.Inf = staticmethod(Inf)
 Interval.origin = staticmethod(origin)
 Interval.generateRandom = staticmethod(generateRandom)
+Interval.enclosePoints = staticmethod(enclosePoints)
 
 # Export the Interval class and all methods
 __all__ = [
@@ -90,4 +93,5 @@ __all__ = [
     'display',
     'uminus',
     'transpose',
+    'enclosePoints',
 ] 

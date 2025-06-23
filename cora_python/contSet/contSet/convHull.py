@@ -10,10 +10,13 @@ Written: 30-September-2024 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union, Optional
+from typing import TYPE_CHECKING, Union, Optional
 import numpy as np
 from .convHull_ import convHull_
 from .reorder import reorder
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
 def convHull(S1: Union['ContSet', np.ndarray], 

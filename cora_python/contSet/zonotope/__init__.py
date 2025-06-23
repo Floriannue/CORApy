@@ -35,12 +35,15 @@ from .convHull_ import convHull_
 from .enclose import enclose
 from .reduce import reduce
 from .minnorm import minnorm
+from .enclosePoints import enclosePoints
 
 # Attach methods to the class
 Zonotope.abs_ = abs_
 Zonotope.box = box
+Zonotope.plus = plus
 Zonotope.__add__ = plus
 Zonotope.__radd__ = plus
+Zonotope.minus = minus
 Zonotope.__sub__ = minus
 Zonotope.__mul__ = times
 Zonotope.__rmul__ = times
@@ -70,4 +73,7 @@ Zonotope.enclose = enclose
 Zonotope.reduce = reduce
 Zonotope.minnorm = minnorm
 
-__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'is_empty'] 
+# Attach static methods
+Zonotope.enclosePoints = staticmethod(enclosePoints)
+
+__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints'] 

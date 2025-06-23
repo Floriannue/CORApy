@@ -159,15 +159,6 @@ class Ellipsoid(ContSet):
             # Don't modify q - keep it as zeros(n,0) to preserve dimension information
         return Q, q
     
-    # Abstract methods implementation (required by ContSet)
-    def dim(self) -> int:
-        """Get dimension of the ellipsoid"""
-        return dim(self)
-    
-    def is_empty(self) -> bool:
-        """Check if ellipsoid is empty"""
-        return isemptyobject(self)
-    
     def __repr__(self) -> str:
         """
         Official string representation for programmers.
@@ -187,14 +178,3 @@ class Ellipsoid(ContSet):
                     return f"Ellipsoid(dim={self.dim()})"
         except:
             return "Ellipsoid()"
-    
-    def __str__(self) -> str:
-        """
-        Informal string representation for users.
-        Uses the display method for MATLAB-style output.
-        """
-        try:
-            from .display import display
-            return display(self)
-        except:
-            return self.__repr__() 

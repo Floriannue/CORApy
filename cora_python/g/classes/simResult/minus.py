@@ -19,7 +19,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .simResult import SimResult
 
 def minus(simRes1, simRes2):
     """
@@ -32,7 +32,6 @@ def minus(simRes1, simRes2):
     Returns:
         Resulting simResult object
     """
-    from .simResult import SimResult
     
     # If simRes2 is numeric, subtract from all states
     if isinstance(simRes2, (int, float, np.ndarray)):

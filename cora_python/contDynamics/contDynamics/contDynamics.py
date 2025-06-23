@@ -11,6 +11,7 @@ Date: 2025-06-08
 from typing import Optional, Union
 import numpy as np
 from abc import ABC, abstractmethod
+import warnings
 
 
 class ContDynamics(ABC):
@@ -80,7 +81,6 @@ class ContDynamics(ABC):
     @property
     def dim(self) -> int:
         """Legacy property: use nr_of_dims instead"""
-        import warnings
         warnings.warn("Property 'dim' is deprecated, use 'nr_of_dims' instead", 
                      DeprecationWarning, stacklevel=2)
         return self.nr_of_dims
@@ -88,7 +88,6 @@ class ContDynamics(ABC):
     @dim.setter
     def dim(self, value: int):
         """Legacy property setter: use nr_of_dims instead"""
-        import warnings
         warnings.warn("Property 'dim' is deprecated, use 'nr_of_dims' instead", 
                      DeprecationWarning, stacklevel=2)
         self.nr_of_dims = value
@@ -96,7 +95,6 @@ class ContDynamics(ABC):
     @property
     def nr_of_states(self) -> int:
         """Legacy property: use nr_of_dims instead"""
-        import warnings
         warnings.warn("Property 'nr_of_states' is deprecated, use 'nr_of_dims' instead", 
                      DeprecationWarning, stacklevel=2)
         return self.nr_of_dims
@@ -104,7 +102,6 @@ class ContDynamics(ABC):
     @nr_of_states.setter
     def nr_of_states(self, value: int):
         """Legacy property setter: use nr_of_dims instead"""
-        import warnings
         warnings.warn("Property 'nr_of_states' is deprecated, use 'nr_of_dims' instead", 
                      DeprecationWarning, stacklevel=2)
         self.nr_of_dims = value 

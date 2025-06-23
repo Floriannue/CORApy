@@ -29,9 +29,12 @@ Python translation: 2025
 """
 
 import numpy as np
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from .capsule import Capsule
 
-def display(C) -> str:
+def display(C: 'Capsule') -> str:
     """
     Displays the properties of a capsule object
     

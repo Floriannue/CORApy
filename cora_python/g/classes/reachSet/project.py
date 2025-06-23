@@ -20,7 +20,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import List
-
+from .reachSet import ReachSet
 
 def project(R, dims: List[int]):
     """
@@ -37,7 +37,6 @@ def project(R, dims: List[int]):
         TypeError: If dims is not a valid list of integers
         ValueError: If dims contains invalid dimension indices
     """
-    from .reachSet import ReachSet
     
     # Validate inputs
     if isinstance(dims, str):

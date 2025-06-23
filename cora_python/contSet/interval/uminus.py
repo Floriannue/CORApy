@@ -21,13 +21,11 @@ Last revision: ---
 """
 
 import numpy as np
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .interval import Interval
+from .interval import Interval
 
 
-def uminus(I: 'Interval') -> 'Interval':
+def uminus(I: Interval) -> Interval:
     """
     Overloaded unary minus operator for intervals.
     
@@ -37,7 +35,6 @@ def uminus(I: 'Interval') -> 'Interval':
     Returns:
         Interval object with negated bounds
     """
-    from .interval import Interval
     
     # Negate and swap bounds: -[a,b] = [-b,-a]
     return Interval(-I.sup, -I.inf) 

@@ -10,10 +10,12 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def plus(S1: Union['ContSet', np.ndarray], S2: Union['ContSet', np.ndarray]) -> 'ContSet':
     """
@@ -32,7 +34,7 @@ def plus(S1: Union['ContSet', np.ndarray], S2: Union['ContSet', np.ndarray]) -> 
         ContSet: Result of Minkowski addition
         
     Raises:
-        CORAError: If plus is not implemented for the specific set types
+        CORAerror: If plus is not implemented for the specific set types
         
     Example:
         >>> S1 = zonotope([1, 0], [[1, 0], [0, 1]])
@@ -48,5 +50,5 @@ def plus(S1: Union['ContSet', np.ndarray], S2: Union['ContSet', np.ndarray]) -> 
         return S2.plus(S1)
     
     # Fallback error
-    raise CORAError('CORA:noops',
+    raise CORAerror('CORA:noops',
                    f'plus not implemented for {type(S1).__name__} and {type(S2).__name__}') 

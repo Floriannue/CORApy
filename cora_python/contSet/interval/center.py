@@ -18,10 +18,13 @@ Python translation: 2025
 """
 
 import numpy as np
-from .interval import Interval
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .interval import Interval
 
 
-def center(I: Interval) -> np.ndarray:
+def center(I: 'Interval') -> np.ndarray:
     """
     Returns the center of an interval
     

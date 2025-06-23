@@ -37,8 +37,8 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
-
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from .zonotope import Zonotope
 
 def plus(Z, S):
     """
@@ -52,9 +52,8 @@ def plus(Z, S):
         zonotope: Result of Minkowski addition
         
     Raises:
-        CORAError: If operation is not supported or dimensions don't match
+        CORAerror: If operation is not supported or dimensions don't match
     """
-    from .zonotope import Zonotope
     
     # Ensure that numeric is second input argument (reorder if necessary)
     S_out, S = _reorder_numeric(Z, S)
@@ -104,17 +103,15 @@ def plus(Z, S):
                 new_c = S_out.c + S_vec
                 return Zonotope(new_c, S_out.G)
             else:
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                               'Dimension mismatch in addition')
         
         # Handle interval case - convert interval to zonotope first
         if hasattr(S, '__class__') and S.__class__.__name__ == 'Interval':
             # Convert interval to zonotope: center = interval center, generators = diag(radius)
-            from ..interval.center import center
-            from ..interval.rad import rad
             
-            S_center = center(S)
-            S_radius = rad(S)
+            S_center = S.center()
+            S_radius = S.rad()
             
             # Create generator matrix as diagonal matrix of radii
             # Remove zero generators (where radius is 0)
@@ -148,7 +145,7 @@ def plus(Z, S):
         # Check whether different dimension of ambient space
         if hasattr(S_out, 'dim') and hasattr(S, 'dim'):
             if S_out.dim() != S.dim():
-                raise CORAError('CORA:dimensionMismatch',
+                raise CORAerror('CORA:dimensionMismatch',
                               f'Dimension mismatch: {S_out.dim()} vs {S.dim()}')
         
         # Check for empty sets
@@ -161,7 +158,7 @@ def plus(Z, S):
         raise e
     
     # If we get here, operation is not supported
-    raise CORAError('CORA:noops', f'Operation not supported between {type(S_out)} and {type(S)}')
+    raise CORAerror('CORA:noops', f'Operation not supported between {type(S_out)} and {type(S)}')
 
 
 def _reorder_numeric(Z, S):
@@ -175,7 +172,6 @@ def _reorder_numeric(Z, S):
     Returns:
         tuple: (zonotope_operand, other_operand) with zonotope first
     """
-    from .zonotope import Zonotope
     
     # Check for zonotope using both isinstance and class name for robustness
     Z_is_zonotope = isinstance(Z, Zonotope) or (hasattr(Z, '__class__') and Z.__class__.__name__ == 'Zonotope')
@@ -186,5 +182,5 @@ def _reorder_numeric(Z, S):
     elif S_is_zonotope:
         return S, Z
     else:
-        raise CORAError('CORA:wrongInputInConstructor',
+        raise CORAerror('CORA:wrongInputInConstructor',
                       'At least one operand must be a zonotope') 

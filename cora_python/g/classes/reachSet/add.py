@@ -19,7 +19,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .reachSet import ReachSet
 
 def add(R1, R2):
     """
@@ -32,7 +32,6 @@ def add(R1, R2):
     Returns:
         Combined reachSet object
     """
-    from .reachSet import ReachSet
     
     # Validate inputs
     if not (hasattr(R1, 'timePoint') and hasattr(R1, 'timeInterval')):

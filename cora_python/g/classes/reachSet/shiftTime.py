@@ -21,6 +21,8 @@ See also: plus
 from typing import TYPE_CHECKING, Union
 import numpy as np
 
+from cora_python.contSet.interval.interval import Interval
+
 if TYPE_CHECKING:
     from .reachSet import ReachSet
 
@@ -57,7 +59,6 @@ def shiftTime(R: 'ReachSet', delta: Union[int, float]) -> 'ReachSet':
                 elif hasattr(time_interval, 'infimum') and hasattr(time_interval, 'supremum'):
                     # Interval object with infimum/supremum
                     try:
-                        from ...contSet.interval.interval import Interval
                         new_time_intervals.append(Interval(
                             time_interval.infimum + delta,
                             time_interval.supremum + delta

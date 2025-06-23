@@ -44,25 +44,8 @@ if __name__ == "__main__":
     from g.functions.matlab.validate.check.withinTol import withinTol
 
 from ..contSet import ContSet
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
-
-from .dim import dim
-from .isemptyobject import isemptyobject
-
-# Type imports to avoid circular imports
-if TYPE_CHECKING:
-    from .plus import plus
-    from .minus import minus
-    from .mtimes import mtimes
-    from .and_ import and_
-    from .uminus import uminus
-    from .transpose import transpose
-    from .generateRandom import generateRandom
-    from .empty import empty
-    from .Inf import Inf
-    from .origin import origin
-    from .display import display
 
 
 class Interval(ContSet):
@@ -93,11 +76,11 @@ class Interval(ContSet):
         
         # Avoid empty instantiation
         if len(args) == 0:
-            raise CORAError('CORA:noInputInSetConstructor', 
+            raise CORAerror('CORA:noInputInSetConstructor', 
                            'No input arguments provided to interval constructor')
         
         if len(args) > 2:
-            raise CORAError('CORA:wrongInput', 
+            raise CORAerror('CORA:wrongInput', 
                            'Too many input arguments for interval constructor')
         
         # Copy constructor
@@ -120,6 +103,7 @@ class Interval(ContSet):
         # Assign properties
         self.inf = lb
         self.sup = ub
+
         
         # Set precedence (fixed for intervals)
         self.precedence = 120
@@ -142,7 +126,7 @@ class Interval(ContSet):
             lb = np.asarray(args[0], dtype=float) if args[0] is not None else np.array([])
             ub = np.asarray(args[1], dtype=float) if args[1] is not None else np.array([])
         else:
-            raise CORAError('CORA:wrongInput', 'Invalid number of arguments')
+            raise CORAerror('CORA:wrongInput', 'Invalid number of arguments')
         
         return lb, ub
     
@@ -150,19 +134,19 @@ class Interval(ContSet):
         """Check correctness of input arguments"""
         # Check for NaN values
         if np.any(np.isnan(lb)) or np.any(np.isnan(ub)):
-            raise CORAError('CORA:wrongInputInConstructor', 
+            raise CORAerror('CORA:wrongInputInConstructor', 
                            'Input arguments contain NaN values')
         
         # Check dimension compatibility
         if lb.size > 0 and ub.size > 0:
             if lb.shape != ub.shape:
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                                'Lower and upper bounds have different dimensions')
             
             # Check bound ordering with tolerance
             if not np.all(lb <= ub):
                 if not np.all(withinTol(lb, ub, 1e-6) | (lb <= ub)):
-                    raise CORAError('CORA:wrongInputInConstructor',
+                    raise CORAerror('CORA:wrongInputInConstructor',
                                    'Lower bound is larger than upper bound')
     
     def _compute_properties(self, lb, ub):
@@ -179,7 +163,7 @@ class Interval(ContSet):
             if np.any(inf_mask):
                 # For matrices, this is not allowed
                 if lb.ndim > 1 and np.any(np.array(lb.shape) > 1):
-                    raise CORAError('CORA:wrongInputInConstructor',
+                    raise CORAerror('CORA:wrongInputInConstructor',
                                    'Empty interval matrix cannot be instantiated')
                 # Create empty interval
                 shape = list(lb.shape)
@@ -193,87 +177,6 @@ class Interval(ContSet):
         """Overload the end operator for referencing elements"""
         return self.inf.shape[k-1] if k <= len(self.inf.shape) else 1
     
-    # Method implementations (imported from separate files)
-    # Methods moved to __init__.py for proper attachment
-    
-    # More methods moved to __init__.py
-    
-    # Abstract methods implementation (required by ContSet)
-    def dim(self) -> int:
-        """Get dimension of the interval"""
-        return dim(self)
-    
-    def is_empty(self) -> bool:
-        """Check if interval is empty"""
-        return isemptyobject(self)
-    
-    def infimum(self) -> np.ndarray:
-        """Get infimum (lower bound) of the interval"""
-        return self.inf
-    
-    def supremum(self) -> np.ndarray:
-        """Get supremum (upper bound) of the interval"""
-        return self.sup
-    
-    def interval(self, *args):
-        """Return self (already an Interval)"""
-        return self
-    
-    # Operator overloads
-    def __add__(self, other):
-        """Addition operation"""
-        from .plus import plus
-        return plus(self, other)
-    
-    def __radd__(self, other):
-        """Reverse addition operation"""
-        from .plus import plus
-        return plus(other, self)
-    
-    def __sub__(self, other):
-        """Subtraction operation"""
-        from .minus import minus
-        return minus(self, other)
-    
-    def __rsub__(self, other):
-        """Reverse subtraction operation"""
-        from .minus import minus
-        return minus(other, self)
-    
-    def __mul__(self, other):
-        """Element-wise multiplication operation"""
-        # For now, delegate to mtimes
-        return self.__matmul__(other)
-    
-    def __rmul__(self, other):
-        """Reverse element-wise multiplication operation"""
-        return self.__rmatmul__(other)
-    
-    def __matmul__(self, other):
-        """Matrix multiplication operation"""
-        from .mtimes import mtimes
-        return mtimes(self, other)
-    
-    def __rmatmul__(self, other):
-        """Reverse matrix multiplication operation"""
-        from .mtimes import mtimes
-        return mtimes(other, self)
-    
-    def __and__(self, other):
-        """Intersection operation using & operator"""
-        from .and_ import and_
-        return and_(self, other)
-    
-    def __rand__(self, other):
-        """Reverse intersection operation"""
-        from .and_ import and_
-        return and_(other, self)
-    
-    def __neg__(self):
-        """Unary minus operation"""
-        from .uminus import uminus
-        return uminus(self)
-    
     def __pos__(self):
         """Unary plus operation (returns self)"""
         return self
@@ -281,8 +184,7 @@ class Interval(ContSet):
     @property
     def T(self):
         """Transpose property"""
-        from .transpose import transpose
-        return transpose(self)
+        return self.transpose()
     
     # Numpy integration
     def __array__(self, dtype=None):
@@ -310,41 +212,6 @@ class Interval(ContSet):
         # For other ufuncs, return NotImplemented to let numpy handle it
         return NotImplemented
     
-    # Static methods (imported from separate files)
-    @staticmethod
-    def generateRandom(*args, **kwargs):
-        """Generates random interval"""
-        from .generateRandom import generateRandom
-        return generateRandom(*args, **kwargs)
-    
-    @staticmethod
-    def enclosePoints(points):
-        """Enclosure of point cloud"""
-        raise NotImplementedError("enclosePoints not implemented")
-    
-    @staticmethod
-    def empty(n: int = 0):
-        """Instantiates an empty interval"""
-        from .empty import empty
-        return empty(n)
-    
-    @staticmethod
-    def Inf(n: int):
-        """Instantiates a fullspace interval"""
-        from .Inf import Inf
-        return Inf(n)
-    
-    @staticmethod
-    def origin(n: int):
-        """Instantiates an interval representing the origin in R^n"""
-        from .origin import origin
-        return origin(n)
-    
-    # Protected methods (method signatures only)
-    def _getPrintSetInfo(self):
-        """Get abbreviation and print order for set"""
-        raise NotImplementedError("_getPrintSetInfo not implemented")
-    
     # String representation following Python best practices
     def __repr__(self) -> str:
         """
@@ -370,17 +237,6 @@ class Interval(ContSet):
                     return f"Interval({self.inf.tolist()}, {self.sup.tolist()})"
         except:
             return f"Interval(dim=unknown)"
-    
-    def __str__(self) -> str:
-        """
-        Informal string representation for users.
-        Uses the display method for MATLAB-style output.
-        """
-        try:
-            from .display import display
-            return display(self)
-        except:
-            return self.__repr__()
     
     def __getitem__(self, key):
         """Indexing operation (e.g., I[0:2, 1:3])"""

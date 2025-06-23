@@ -27,10 +27,12 @@ Written:       24-July-2023 (MATLAB)
 Python translation: 2025
 """
 
-import numpy as np
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from .zonotope import Zonotope
 
-def isemptyobject(Z):
+def isemptyobject(Z: 'Zonotope') -> bool:
     """
     Checks whether a zonotope contains any information at all
     

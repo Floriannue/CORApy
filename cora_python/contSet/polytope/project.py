@@ -1,6 +1,6 @@
 import numpy as np
 from typing import List, TYPE_CHECKING
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 if TYPE_CHECKING:
     from cora_python.contSet.polytope.polytope import Polytope
@@ -67,7 +67,7 @@ def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytop
         return P.copy()
         
     if any(d > n for d in dims):
-        raise CORAError('CORA:wrongValue', 'second', f'Cannot compute projection on higher dimension than {n}.')
+        raise CORAerror('CORA:wrongValue', 'second', f'Cannot compute projection on higher dimension than {n}.')
 
     if P._has_v_rep:
         # Adjust dims for 0-based indexing
@@ -162,7 +162,7 @@ def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytop
         except Exception as e:
             # pypoman can fail if cdd is not installed correctly.
             # Or if the polytope is unbounded in a way that projection is complex.
-            raise CORAError('CORA:thirdPartyError', f"Polytope projection with 'pypoman' failed. Error: {e}")
+            raise CORAerror('CORA:thirdPartyError', f"Polytope projection with 'pypoman' failed. Error: {e}")
     
     else:
-        raise CORAError('CORA:wrongValue', 'third', f"Unknown projection method '{method}'.") 
+        raise CORAerror('CORA:wrongValue', 'third', f"Unknown projection method '{method}'.") 

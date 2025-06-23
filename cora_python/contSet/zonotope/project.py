@@ -9,9 +9,9 @@ Python translation: 2025
 """
 
 import numpy as np
+from .zonotope import Zonotope
 
-
-def project(Z: 'Zonotope', dims) -> 'Zonotope':
+def project(Z: Zonotope, dims) -> Zonotope:
     """
     Projects a zonotope onto the specified dimensions
     
@@ -26,7 +26,6 @@ def project(Z: 'Zonotope', dims) -> 'Zonotope':
         >>> Z = Zonotope([1, 0, 1], [[1, -1, 0], [0, 0, -1], [1, 0, 1]])
         >>> Z_proj = project(Z, [0, 2])  # Project onto 1st and 3rd dimensions
     """
-    from .zonotope import Zonotope
     
     # Convert dims to numpy array for indexing
     dims = np.array(dims)

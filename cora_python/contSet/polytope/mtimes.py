@@ -1,19 +1,14 @@
 from __future__ import annotations
 import numpy as np
-from typing import TYPE_CHECKING, Union
-from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
 from cora_python.g.functions.matlab.validate.preprocessing.find_class_arg import find_class_arg
 from cora_python.contSet.polytope import Polytope
-from cora_python.g.functions.matlab.validate.check import equal_dim_check
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
-
-if TYPE_CHECKING:
-    from .polytope import Polytope
-    from cora_python.matrixSet.intervalMatrix.intervalMatrix import IntervalMatrix
+from cora_python.contSet.interval.interval import Interval
+from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
 
 
-def mtimes(factor1: object, factor2: object) -> 'Polytope':
+
+def mtimes(factor1: object, factor2: object) -> Polytope:
     """
     Matrix multiplication with polytope.
     
@@ -24,10 +19,6 @@ def mtimes(factor1: object, factor2: object) -> 'Polytope':
     Returns:
         Polytope: Result of matrix multiplication
     """
-    from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
-    from cora_python.g.functions.matlab.validate.preprocessing.find_class_arg import find_class_arg
-    from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
-    from .polytope import Polytope
     
     # order arguments correctly
     P_copy, matrix = find_class_arg(factor1, factor2, 'Polytope')
@@ -41,7 +32,6 @@ def mtimes(factor1: object, factor2: object) -> 'Polytope':
         if isinstance(factor1, np.ndarray) and hasattr(factor2, 'dim'):
             # matrix @ polytope: matrix.shape[1] should equal polytope.dim()
             if matrix.shape[1] != factor2.dim():
-                from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
                 raise CORAerror('CORA:dimensionMismatch', factor1, factor2)
         elif hasattr(factor1, 'dim') and isinstance(factor2, np.ndarray):
             # polytope @ matrix: only scalars allowed for polytope * matrix
@@ -278,8 +268,6 @@ def _project_polytope(P: 'Polytope', dims: list) -> 'Polytope':
 
 def _aux_mtimes_interval(P: 'Polytope', matrix) -> 'Polytope':
     """Handle multiplication by interval matrix (following MATLAB approach)."""
-    from cora_python.contSet.interval.interval import Interval
-    from .polytope import Polytope
     
     # Only supported for square matrices
     if matrix.shape[0] != matrix.shape[1]:

@@ -10,10 +10,12 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def isIntersecting_(S1: Union['ContSet', np.ndarray], 
                     S2: Union['ContSet', np.ndarray], 
@@ -35,7 +37,7 @@ def isIntersecting_(S1: Union['ContSet', np.ndarray],
         bool: True if sets intersect, False otherwise
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAerror: Always raised as this method should be overridden in subclasses
         
     Example:
         >>> # This will be overridden in specific set classes
@@ -43,6 +45,12 @@ def isIntersecting_(S1: Union['ContSet', np.ndarray],
         >>> S2 = interval([2.5, 3], [4.5, 5])
         >>> result = isIntersecting_(S1, S2, 'exact')
     """
-    # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:noops',
-                   f'isIntersecting_ not implemented for {type(S1).__name__} and {type(S2).__name__} with type {type_}') 
+    base_class = type(S1).__bases__[0] if type(S1).__bases__ else None
+    if (hasattr(type(S1), 'isIntersecting_') and 
+        base_class and hasattr(base_class, 'isIntersecting_') and
+        type(S1).isIntersecting_ is not base_class.isIntersecting_):
+        return type(S1).isIntersecting_(S2, type_, tol)
+    else:
+        # This is overridden in subclass if implemented; throw error
+        raise CORAerror('CORA:noops',
+                       f'isIntersecting_ not implemented for {type(S1).__name__} and {type(S2).__name__} with type {type_}') 

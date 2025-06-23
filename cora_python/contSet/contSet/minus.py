@@ -10,11 +10,13 @@ Written: 02-May-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
-
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+    
 def minus(S: Union['ContSet', np.ndarray], p: Union['ContSet', np.ndarray]) -> 'ContSet':
     """
     Translation of a set by a vector
@@ -27,7 +29,7 @@ def minus(S: Union['ContSet', np.ndarray], p: Union['ContSet', np.ndarray]) -> '
         ContSet: Result of subtraction
         
     Raises:
-        CORAError: If operation is not supported
+        CORAerror: If operation is not supported
         
     Example:
         >>> S = zonotope([1, 0], [[1, 0], [0, 1]])
@@ -36,19 +38,16 @@ def minus(S: Union['ContSet', np.ndarray], p: Union['ContSet', np.ndarray]) -> '
     """
     if isinstance(p, (np.ndarray, list, tuple)) or np.isscalar(p):
         # Subtrahend is numeric, call 'plus' with negated vector
-        from .plus import plus
-        return plus(S, -np.array(p))
+        return S.plus(-np.array(p))
     
     elif isinstance(S, (np.ndarray, list, tuple)) or np.isscalar(S):
         # Minuend is a vector, subtrahend is a set
-        from .uminus import uminus
-        from .plus import plus
-        return plus(uminus(p), S)
+        return S.plus(p.uminus())
     
     else:
         # Throw error for unsupported operations
         classname = type(S).__name__
-        raise CORAError('CORA:notSupported',
+        raise CORAerror('CORA:notSupported',
                        f'The function "minus" is not implemented for the class {classname} '
                        f'except for vectors as a subtrahend.\n'
                        f'If you require to compute the Minkowski difference, use "minkDiff" instead.') 

@@ -10,7 +10,10 @@ Python translation: 2025
 """
 
 import warnings
-from .representsa import representsa
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
 def isZero(S: 'ContSet') -> bool:
@@ -39,4 +42,4 @@ def isZero(S: 'ContSet') -> bool:
         stacklevel=2
     )
     
-    return representsa(S, 'origin') 
+    return S.representsa('origin') 

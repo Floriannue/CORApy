@@ -50,8 +50,7 @@ def plotOverTime(simRes, dims: Optional[Union[int, List[int]]] = None, **kwargs)
     whichtraj = kwargs.pop('Traj', 'x')  # 'x', 'y', or 'a'
     
     # Check if simResult is empty
-    from .isemptyobject import isemptyobject
-    if isemptyobject(simRes):
+    if simRes.isemptyobject():
         # Plot empty trajectory
         return plt.plot([], [], **kwargs)
     

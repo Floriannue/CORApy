@@ -11,11 +11,12 @@ Written: 29-July-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 import numpy as np
-from .compact_ import compact_
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def compact(S: 'ContSet', method: Optional[str] = None, tol: Optional[float] = None) -> 'ContSet':
     """
@@ -33,7 +34,7 @@ def compact(S: 'ContSet', method: Optional[str] = None, tol: Optional[float] = N
         ContSet: Compacted set
         
     Raises:
-        CORAError: If method not implemented for set type
+        CORAerror: If method not implemented for set type
         ValueError: If invalid method or tolerance
         
     Example:
@@ -110,9 +111,9 @@ def compact(S: 'ContSet', method: Optional[str] = None, tol: Optional[float] = N
     
     try:
         # Call subclass method
-        return compact_(S, method, tol)
+        return S.compact_(method, tol)
     except Exception as ME:
         if hasattr(ME, 'identifier') and ME.identifier == '':
-            raise CORAError('CORA:noops', f'compact not implemented for {class_name}')
+            raise CORAerror('CORA:noops', f'compact not implemented for {class_name}')
         else:
             raise ME 

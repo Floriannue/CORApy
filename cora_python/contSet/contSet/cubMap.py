@@ -11,10 +11,12 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import List, Union, Optional
+from typing import TYPE_CHECKING, List, Union, Optional
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def cubMap(S1: 'ContSet', 
            S2: Optional['ContSet'] = None, 
@@ -39,7 +41,7 @@ def cubMap(S1: 'ContSet',
         ContSet: Cubically mapped set
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAerror: Always raised as this method should be overridden in subclasses
         
     Example:
         >>> # This will be overridden in specific set classes
@@ -48,5 +50,5 @@ def cubMap(S1: 'ContSet',
         >>> S_cub = cubMap(S1, T=T)
     """
     # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:noops',
+    raise CORAerror('CORA:noops',
                    f'cubMap not implemented for {type(S1).__name__}') 

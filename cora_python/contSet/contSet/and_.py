@@ -10,9 +10,12 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
 def and_(S1: Union['ContSet', np.ndarray], S2: Union['ContSet', np.ndarray], 
@@ -20,8 +23,8 @@ def and_(S1: Union['ContSet', np.ndarray], S2: Union['ContSet', np.ndarray],
     """
     Overloads '&' operator, computes the intersection of two sets (internal use)
     
-    This is the base implementation that throws an error. Subclasses should
-    override this method to provide specific intersection logic.
+    This function uses polymorphic dispatch to call the appropriate subclass
+    implementation of and_, or provides the base implementation.
     
     Args:
         S1: First contSet object
@@ -32,14 +35,21 @@ def and_(S1: Union['ContSet', np.ndarray], S2: Union['ContSet', np.ndarray],
         ContSet: Intersection of the two sets
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAerror: If and_ is not implemented for the specific set type
         
     Example:
-        >>> # This will be overridden in specific set classes
+        >>> # This will dispatch to the appropriate subclass implementation
         >>> S1 = interval([1, 2], [3, 4])
         >>> S2 = interval([2, 1], [4, 3])
         >>> result = and_(S1, S2, 'exact')
     """
-    # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:noops',
-                   f'and_ not implemented for {type(S1).__name__} and {type(S2).__name__} with method {method}') 
+    # Check if subclass has overridden and_ method
+    base_class = type(S1).__bases__[0] if type(S1).__bases__ else None
+    if (hasattr(type(S1), 'and_') and 
+        base_class and hasattr(base_class, 'and_') and
+        type(S1).and_ is not base_class.and_):
+        return type(S1).and_(S2, method)
+    else:
+        # Base implementation - throw error as this method should be overridden
+        raise CORAerror('CORA:noops',
+                       f'and_ not implemented for {type(S1).__name__} and {type(S2).__name__} with method {method}') 

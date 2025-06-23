@@ -9,8 +9,11 @@ Written: 24-July-2023 (MATLAB)
 Python translation: 2025
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def isBounded(S: 'ContSet') -> bool:
     """
@@ -26,17 +29,14 @@ def isBounded(S: 'ContSet') -> bool:
         bool: True if the set is bounded, False otherwise
         
     Raises:
-        CORAError: If isBounded is not implemented for the specific set type
+        CORAerror: If isBounded is not implemented for the specific set type
         
     Example:
         >>> S = zonotope([1, 0], [[1, 0], [0, 1]])
         >>> result = isBounded(S)
         >>> # result is True for zonotopes
     """
-    # Check if the object has an isBounded method and use it
-    if hasattr(S, 'isBounded') and callable(getattr(S, 'isBounded')):
-        return S.isBounded()
     
     # Fallback error for base contSet objects
-    raise CORAError('CORA:noops',
+    raise CORAerror('CORA:noops',
                    f'isBounded not implemented for {type(S).__name__}') 

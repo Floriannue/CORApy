@@ -18,7 +18,7 @@ Python translation: 2025
 import numpy as np
 from typing import List, Any, Union, Callable
 
-from ..postprocessing.CORAerror import CORAError
+from ..postprocessing.CORAerror import CORAerror
 
 
 def input_args_check(checks: List[List[Any]]) -> None:
@@ -52,16 +52,16 @@ def input_args_check(checks: List[List[Any]]) -> None:
         elif type_check == 'str':
             # String validation
             if not isinstance(value, str):
-                raise CORAError('CORA:wrongValue', f'Expected string, got {type(value)}')
+                raise CORAerror('CORA:wrongValue', f'Expected string, got {type(value)}')
             if len(additional_checks) > 0:
                 valid_values = additional_checks[0]
                 if isinstance(valid_values, list) and value not in valid_values:
-                    raise CORAError('CORA:wrongValue', f'Value must be one of {valid_values}')
+                    raise CORAerror('CORA:wrongValue', f'Value must be one of {valid_values}')
                     
         elif type_check == 'numeric':
             # Numeric validation
             if not _is_numeric(value):
-                raise CORAError('CORA:wrongValue', f'Expected numeric value, got {type(value)}')
+                raise CORAerror('CORA:wrongValue', f'Expected numeric value, got {type(value)}')
             _validate_numeric_properties(value, additional_checks)
 
 
@@ -77,11 +77,11 @@ def _validate_type(value: Any, expected_type: str) -> None:
                 for base_class in value.__class__.__mro__:
                     if base_class.__name__ == 'ContSet':
                         return  # Valid contSet object
-            raise CORAError('CORA:wrongValue', f'Expected contSet object, got {type(value)}')
+            raise CORAerror('CORA:wrongValue', f'Expected contSet object, got {type(value)}')
 
     elif expected_type == 'numeric':
         if not _is_numeric(value):
-            raise CORAError('CORA:wrongValue', f'Expected numeric value, got {type(value)}')
+            raise CORAerror('CORA:wrongValue', f'Expected numeric value, got {type(value)}')
 
 
 def _is_numeric(value: Any) -> bool:
@@ -119,59 +119,59 @@ def _check_numeric_property(value: Any, prop: str, expected: Any) -> None:
     if prop == 'nonempty':
         if isinstance(value, np.ndarray):
             if value.size == 0:
-                raise CORAError('CORA:wrongValue', 'Value must not be empty')
+                raise CORAerror('CORA:wrongValue', 'Value must not be empty')
         elif not value:
-            raise CORAError('CORA:wrongValue', 'Value must not be empty')
+            raise CORAerror('CORA:wrongValue', 'Value must not be empty')
             
     elif prop == 'integer':
         if isinstance(value, np.ndarray):
             if not np.all(np.equal(np.mod(value, 1), 0)):
-                raise CORAError('CORA:wrongInput', 'Value must be integer')
+                raise CORAerror('CORA:wrongInput', 'Value must be integer')
         elif isinstance(value, (list, tuple)):
             # Check if all elements in list/tuple are integers
             for item in value:
                 if isinstance(item, np.ndarray):
                     if not np.all(np.equal(np.mod(item, 1), 0)):
-                        raise CORAError('CORA:wrongInput', 'Value must be integer')
+                        raise CORAerror('CORA:wrongInput', 'Value must be integer')
                 elif not isinstance(item, (int, np.integer)):
-                    raise CORAError('CORA:wrongInput', 'Value must be integer')
+                    raise CORAerror('CORA:wrongInput', 'Value must be integer')
         elif not isinstance(value, (int, np.integer)):
-            raise CORAError('CORA:wrongInput', 'Value must be integer')
+            raise CORAerror('CORA:wrongInput', 'Value must be integer')
             
     elif prop == 'positive':
         if isinstance(value, np.ndarray):
             if not np.all(value > 0):
-                raise CORAError('CORA:wrongInput', 'Value must be positive')
+                raise CORAerror('CORA:wrongInput', 'Value must be positive')
         elif isinstance(value, (list, tuple)):
             # Check if all elements in list/tuple are positive
             for item in value:
                 if isinstance(item, np.ndarray):
                     if not np.all(item > 0):
-                        raise CORAError('CORA:wrongInput', 'Value must be positive')
+                        raise CORAerror('CORA:wrongInput', 'Value must be positive')
                 elif item <= 0:
-                    raise CORAError('CORA:wrongInput', 'Value must be positive')
+                    raise CORAerror('CORA:wrongInput', 'Value must be positive')
         elif value <= 0:
-            raise CORAError('CORA:wrongInput', 'Value must be positive')
+            raise CORAerror('CORA:wrongInput', 'Value must be positive')
             
     elif prop == 'nonnegative':
         if isinstance(value, np.ndarray):
             if not np.all(value >= 0):
-                raise CORAError('CORA:wrongInput', 'Value must be non-negative')
+                raise CORAerror('CORA:wrongInput', 'Value must be non-negative')
         elif isinstance(value, (list, tuple)):
             # Check if all elements in list/tuple are non-negative
             for item in value:
                 if isinstance(item, np.ndarray):
                     if not np.all(item >= 0):
-                        raise CORAError('CORA:wrongInput', 'Value must be non-negative')
+                        raise CORAerror('CORA:wrongInput', 'Value must be non-negative')
                 elif item < 0:
-                    raise CORAError('CORA:wrongInput', 'Value must be non-negative')
+                    raise CORAerror('CORA:wrongInput', 'Value must be non-negative')
         elif value < 0:
-            raise CORAError('CORA:wrongInput', 'Value must be non-negative')
+            raise CORAerror('CORA:wrongInput', 'Value must be non-negative')
             
     elif prop == 'vector':
         if isinstance(value, np.ndarray):
             if value.ndim > 2 or (value.ndim == 2 and min(value.shape) > 1):
-                raise CORAError('CORA:wrongValue', 'Value must be a vector')
+                raise CORAerror('CORA:wrongValue', 'Value must be a vector')
         elif not hasattr(value, '__len__'):
             # Scalar values are considered vectors of length 1
             pass 

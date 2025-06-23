@@ -9,10 +9,12 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def mtimes(M: Union[np.ndarray, float, int], S: 'ContSet') -> 'ContSet':
     """
@@ -31,17 +33,14 @@ def mtimes(M: Union[np.ndarray, float, int], S: 'ContSet') -> 'ContSet':
         ContSet: Result of matrix multiplication
         
     Raises:
-        CORAError: If mtimes is not implemented for the specific set type
+        CORAerror: If mtimes is not implemented for the specific set type
         
     Example:
         >>> S = zonotope([1, 0], [[1, 0], [0, 1]])
         >>> M = np.array([[2, 0], [0, 3]])
         >>> result = mtimes(M, S)  # or result = M * S
     """
-    # Check if the set object has an mtimes method and use it
-    if hasattr(S, 'mtimes') and callable(getattr(S, 'mtimes')):
-        return S.mtimes(M)
     
     # Fallback error
-    raise CORAError('CORA:noops',
+    raise CORAerror('CORA:noops',
                    f'mtimes not implemented for {type(M).__name__} and {type(S).__name__}') 

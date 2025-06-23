@@ -1,6 +1,6 @@
 # CORA Translation Project: AI Assistant Instructions
 
-You are an advanced AI assistant acting as a professional software engineer. Your primary goal is to translate MATLAB code from the CORA library (`cora_matlab/`) to Python (`cora_python/`) file by file, following these instructions precisely. You provide high-quality, well-documented, and tested Python code that mirrors the structure and functionality of the original MATLAB code. You should suggest improvements if possible.
+You are an advanced AI assistant who is acting as a professional software engineer. Your primary goal is to translate MATLAB code from the CORA library (`cora_matlab/`) to Python (`cora_python/`) file by file, following these instructions precisely. You provide high-quality, well-documented, and tested Python code that mirrors the structure and functionality of the original MATLAB code. You should suggest improvements if possible.
 
 ## Example MATLAB Structure
 ```
@@ -12,9 +12,9 @@ contSet/
 │   ├── plot2D.m       # Helper method
 │   └── ...
 └── @interval/         # Child class folder
-    ├── interval.m     # Class definition
-    ├── plus.m         # Method implementation
-    └── ...           # Other methods
+ ├── interval.m     # Class definition
+ ├── plus.m         # Method implementation
+ └── ...           # Other methods
 ```
 
 
@@ -28,10 +28,10 @@ contSet/
 │   ├── plot1D.py      # Helper method
 │   └── ...
 └── interval/         # Child class folder
-    ├── __init__.py    # Exports class
-    ├── interval.py    # Class definition
-    ├── plus.py        # Method implementation
-    └── ...
+ ├── __init__.py    # Exports class
+ ├── interval.py    # Class definition
+ ├── plus.py        # Method implementation
+ └── ...
 ```
 
 > Ensure in the Python translation every function is in its own file like in MATLAB!
@@ -63,60 +63,57 @@ Translate_Cora/
 
 
 ## Notes
-- The methode object.display() should return the string and not print it since display also provides the string for __str__
+- methods that have the same name as reserved keywords in Python get the appendix _op, for example, and -> and_op
+- The method object.display() should return the string and not print it since display also provides the string for __str__ 
 - Dont catch warnings
-- Use the objects methodes instead of importing them since class methodes are attached so use 
-  ```python
-  object.function()
-  ```
-  instead of 
-    ```python
-  import function
-  function(object)
-  ```
-- Always provide a full translation and no simplified verison that are missing features
-- Treat everything as modules. For example, to execute `cora_python/folder/func.py`, use:  
-  ```powershell
-  python -m cora_python.folder.func
-  ```
+- **Never** import methods of a class. The methods are attached in `__init__.py`. So use 
+ ```python
+  object.function()
+ ```
+ instead of 
+ ```python
+  import function
+  function(object)
+ ```
+- Always provide a full translation and no simplified version that is missing features
+- Treat everything as modules. For example, to execute `cora_python/folder/func.py`, use:  
+ ```powershell
+  python -m cora_python.folder.func
+ ```
 - Name the folder `cora_matlab/global` as `g` and `aux` as `auxiliary` in the Python translation.
-- If you run a terminal command, use Windows PowerShell syntax, e.g.,  
-  ```powershell
-  command1; command2 | Select-String "string"
-  ```
+- If you run a terminal command, use Windows PowerShell syntax, e.g.,  
+ ```powershell
+  command1; command2 | Select-String "string"
+ ```
 - To ensure the functions and their corresponding tests are complete and correct, refer to `Cora2025.1.0_Manual.txt`.
 - Classes in Python start with a capital letter. For example, `zonotop` → `Zonotop`.
 - Always mirror the MATLAB codebase and verify against the manual.
 - Use the following two polymorphic dispatch templates depending on the situation:
-  ```python
-  #1
-  def func():
-    # Check if subclass has overridden func method
-    if type(self).func is not parent.func:
-        return type(self).func(self)
-    else:
-        from .func import func
-        return func(self)
-
-  #2
-  def otherFunc():
-    if hasattr(self, 'func') and callable(getattr(self, 'func')):
-      return self.func(point)
-  ```
-- For functions with `func` and `func_`, `func` handles parameters, and `func_` is the internal logic.
-- There are over 600 tests. Run them in a mode that shows **only failed** ones, then debug one by one.
+ ```python
+  def func():
+    # Check if subclass has overridden func method
+    if type(self).func is not parent.func:
+        return type(self).func(self)
+ ```
+ ```python
+  def otherFunc():
+    if hasattr(self, 'func') and callable(getattr(self, 'func')):
+      return self.func(point)
+ ```
+- For functions with `func` and `func_`: `func` is the public interface with validation and error handling (func mainly exists in the parent class). func then calls func_ (polymorphism). `func_` is the raw implementation for internal use, cross-class calls, and performance-critical paths (overwritten in the child class).
+- There are over 1000 tests. Run them in a mode that shows **only failed** ones, then debug them one by one.
 - Examples do not need tests, but they **must** execute correctly.
-- Use `d x n` vertices format:  
-  ```python
-  #Ensure the matric and vector format work togther
-  np.array([[0, 1, 0], [0, 0, 1]])  # == 2×3 matrix
-  np.array([1, 0])  #vector
-  ```
+- Use `d x n` vertices format:  
+ ```python
+  #Ensure the matrix and vector format work together
+  np.array([[0, 1, 0], [0, 0, 1]])  # == 2×3 matrix
+  np.array([1, 0])  #vector
+ ```
 - For functions that plot, save the output as PNG and verify visually.
 - To capture large function output:
-  ```powershell
-  function-call > output.txt
-  ```
+ ```powershell
+  function-call > output.txt
+ ```
 
 
 ## Translation Workflow must include but not limited to
@@ -171,12 +168,12 @@ Identify dependencies like inheritance.
  function/class file path : test path. Only fill out the test path if there are actually tests!
 
 #### File Creation Rules:
-1. Each function **must** be in its own file like in the MATLAB codebase, except if there are multiple functions in one file in matlab they all should also be in one file in python! In doubt copy the matlab structure
+1. Each function **must** be in its own file like in the MATLAB codebase, except if there are multiple functions in one file in matlab they all should also be in one file in Python! In doubt copy the matlab structure
 2. Class definition files contain **only** the class  
-3. `__init__.py` files export methods and attach them to the class if possible — update them immediately 
+3. `__init__.py` attaches methods to the class and exports the class, functions
 4. Copy the explanations from the MATLAB files into the Python code as docstrings  
 5. Use the helper functions in cora_python/g/
-6. To prevent circular imports use the typing module for class imports. Only use lazy function imports as last resort
+6. you nearly never need lazy imports since the importing is in `__init__.py` and not `class.py`
 7. Optimize only if the functionality is fully preserved
 8. Do not implement silent fails
 
@@ -244,4 +241,4 @@ Identify dependencies like inheritance.
 
 
 ## Task
-Your task is to `fix all errors and translate missing tests for interval, zonotope, polytope, capsule, ellipsoid, emptySet, contDynamics, linearSys, g`. if there are no test files to translate for a function or class create appropriate ones by looking at the manual. also add missing test cases. Also change all the lazy imports (imports inside functions to prevent circular imports) to imports with the typing module!
+Your task is to `fix zonotpe randpoint_`. Ensure it is a full translation. Compare against matlab and manual.

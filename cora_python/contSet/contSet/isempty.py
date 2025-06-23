@@ -11,7 +11,10 @@ Python translation: 2025
 """
 
 import warnings
-from .representsa_ import representsa_
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
 def isempty(S: 'ContSet') -> bool:
@@ -47,4 +50,4 @@ def isempty(S: 'ContSet') -> bool:
         stacklevel=2
     )
     
-    return representsa_(S, 'emptySet', 1e-15)  # eps equivalent 
+    return S.representsa_('emptySet', 1e-15)  # eps equivalent 

@@ -26,10 +26,12 @@ import numpy as np
 from scipy.spatial import ConvexHull, QhullError
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from .polytope import Polytope
 
-
-def constraints(P):
+def constraints(P: 'Polytope') -> 'Polytope':
     """
     Computes the halfspace representation of a polytope from its vertex representation.
     

@@ -17,7 +17,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
 from cora_python.contSet import Interval
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestIntervalMtimes:
@@ -168,7 +168,7 @@ class TestIntervalMtimes:
         a = Interval(np.ones((2, 3)), 2 * np.ones((2, 3)))
         b = Interval(np.ones((2, 2)), 2 * np.ones((2, 2)))  # Wrong dimension
         
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             c = a @ b
     
     def test_mtimes_large_matrices(self):

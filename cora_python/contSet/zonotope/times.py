@@ -21,9 +21,9 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union
+from .zonotope import Zonotope
 
-
-def times(factor1: Union['Zonotope', float, int], factor2: Union['Zonotope', float, int]) -> 'Zonotope':
+def times(factor1: Union[Zonotope, float, int], factor2: Union[Zonotope, float, int]) -> Zonotope:
     """
     Element-wise multiplication for zonotope objects
     
@@ -34,7 +34,6 @@ def times(factor1: Union['Zonotope', float, int], factor2: Union['Zonotope', flo
     Returns:
         Zonotope: Resulting zonotope object
     """
-    from .zonotope import Zonotope
     
     # scalar * zonotope
     if isinstance(factor1, (int, float, np.number)) and isinstance(factor2, Zonotope):

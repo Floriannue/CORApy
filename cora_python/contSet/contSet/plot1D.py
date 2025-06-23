@@ -24,12 +24,14 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Dict, Any, List, Optional
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 from cora_python.g.functions.matlab.validate.preprocessing.set_default_values import set_default_values
 from cora_python.g.functions.verbose.plot import plot_polygon
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
-def plot1D(S, plot_kwargs: Optional[Dict[str, Any]] = None, 
+def plot1D(S: 'ContSet', plot_kwargs: Optional[Dict[str, Any]] = None, 
            nvpairs_interval: Optional[List[Any]] = None):
     """
     Plot a 1D projection of a contSet

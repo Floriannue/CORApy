@@ -11,10 +11,10 @@ Last update: 27-March-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Optional, Union
-from .representsa_ import representsa_
-from .volume_ import volume_
+from typing import TYPE_CHECKING, Optional, Union
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def volume(S: 'ContSet', method: str = 'exact', order: int = 5) -> float:
     """
@@ -45,10 +45,10 @@ def volume(S: 'ContSet', method: str = 'exact', order: int = 5) -> float:
     
     try:
         # Call subclass method
-        res = volume_(S, method, order)
+        res = S.volume_(method, order)
     except Exception as ME:
         # Empty set case
-        if representsa_(S, 'emptySet', 1e-15):
+        if S.representsa_('emptySet', 1e-15):
             res = 0.0
         else:
             raise ME

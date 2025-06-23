@@ -1,253 +1,216 @@
 """
-check - checks if a set satisfies the specification
-
-This function verifies whether a given set, trajectory, or point cloud
-satisfies a specification or list of specifications.
+check - check if reachable set satisfies specification
 
 Syntax:
-    res, indSpec, indObj = check(spec, S)
-    res, indSpec, indObj = check(spec, S, time)
+    res = check(spec, S, time)
+    [res, indSpec, indObj] = check(spec, S, time)
 
 Inputs:
-    spec - specification object or list of specifications
-    S - numeric array, contSet, reachSet, or simResult object
-    time - (optional) time values corresponding to S
+    spec - specification object  
+    S - contSet object, reachSet object, or simResult object
+    time - time interval (interval object, default: interval.empty())
 
 Outputs:
-    res - True/False whether set satisfies all specifications
-    indSpec - index of the first specification that is violated (None if all pass)
-    indObj - index of the first object S that is violated (None if all pass)
+    res - true if specification satisfied, false otherwise
+    indSpec - index of violated specification (if multiple specs)
+    indObj - index of violated object in S (for simulations/reachSets)
 
-Example:
-    # Check if point satisfies safety specification
-    safe_set = Interval([-5, -5], [5, 5])
-    spec = Specification(safe_set, 'safeSet')
-    point = np.array([[1], [2]])
-    res, indSpec, indObj = check(spec, point)
-
-Authors: Niklas Kochdumper, Tobias Ladner (MATLAB)
+Authors: Tobias Ladner (MATLAB)
          Python translation by AI Assistant
-Written: 29-May-2020 (MATLAB)
-Last update: 24-May-2024 (TL, vectorized check for numeric input) (MATLAB)
+Written: 18-June-2023 (MATLAB)
 Python translation: 2025
 """
 
+from typing import Union, Tuple, Optional, Any
 import numpy as np
-from typing import Union, List, Tuple, Optional, Any
-from .specification import Specification
+from cora_python.contSet.interval.interval import Interval
 
-
-def check(spec: Union[Specification, List[Specification]], 
-          S: Union[np.ndarray, Any], 
-          time: Optional[Union[float, np.ndarray]] = None) -> Tuple[bool, Optional[int], Optional[Union[int, tuple]]]:
+def check(spec, S, time: Optional[Interval] = None) -> Union[bool, Tuple[bool, int, Any]]:
     """
-    Check if a set satisfies the specification(s)
+    Check if reachable set satisfies specification
+    
+    Checks whether a given set, simulation result, or reachable set
+    satisfies the given specification according to MATLAB logic.
     
     Args:
-        spec: Specification object or list of specifications
-        S: Set, trajectory, or points to check
-        time: Optional time information
+        spec: specification object or list of specifications
+        S: contSet object, simResult object, or reachSet object  
+        time: time interval for timed specifications (default: empty interval)
         
     Returns:
-        Tuple of (result, spec_index, object_index)
-    """
-    
-    # Convert single specification to list
-    if isinstance(spec, Specification):
-        spec_list = [spec]
-    else:
-        spec_list = spec
-    
-    # Handle numeric input (point cloud)
-    if isinstance(S, np.ndarray):
-        return _check_numeric(spec_list, S, time)
-    
-    # Handle contSet objects
-    elif hasattr(S, '__class__') and hasattr(S, 'contains'):
-        return _check_contSet(spec_list, S, time)
-    
-    # Handle other types (reachSet, simResult) - simplified implementation
-    else:
-        # For now, assume it's a single set and try to check it
-        for i, spec_obj in enumerate(spec_list):
-            if not spec_obj.check(S, time):
-                return False, i, 0
-        return True, None, None
-
-
-def _check_numeric(spec_list: List[Specification], 
-                   S: np.ndarray, 
-                   time: Optional[Union[float, np.ndarray]]) -> Tuple[bool, Optional[int], Optional[int]]:
-    """
-    Check numeric input (point cloud) against specifications
-    
-    Args:
-        spec_list: List of specifications
-        S: Point cloud (n x num_points)
-        time: Time values (scalar or array)
+        res: True if specification satisfied, False otherwise
+        indSpec: index of violated specification (if violated)
+        indObj: index of violated object (for arrays/cells)
         
-    Returns:
-        Tuple of (result, spec_index, point_index)
+    Example:
+        >>> from cora_python.specification.specification.specification import Specification
+        >>> from cora_python.contSet.polytope.polytope import Polytope
+        >>> set_spec = Polytope(np.array([[1, 1]]), np.array([1]))
+        >>> spec = Specification(set_spec, 'safeSet')
+        >>> # Test with some set S
+        >>> res = check(spec, S)
     """
+    # Set default time if not provided
+    if time is None:
+        time = Interval.empty()
     
-    # Ensure S is 2D
-    if S.ndim == 1:
-        S = S.reshape(-1, 1)
+    # Initialize return values
+    res = True
+    indSpec = 0
+    indObj = 1
     
-    num_points = S.shape[1]
+    eps = 1e-8
     
-    # Handle time input
-    if time is not None:
-        if np.isscalar(time):
-            time_array = np.full(num_points, time)
+    # Handle different input types for S
+    if hasattr(S, '__class__') and S.__class__.__name__ == 'simResult':
+        # Simulation result case - not implemented yet
+        raise NotImplementedError("simResult checking not yet implemented")
+        
+    elif hasattr(S, '__class__') and S.__class__.__name__ == 'reachSet':
+        # Reachable set case - not implemented yet  
+        raise NotImplementedError("reachSet checking not yet implemented")
+        
+    else:
+        # contSet case
+        
+        # Handle list/array of specifications
+        if isinstance(spec, list):
+            specs = spec
         else:
-            time_array = np.asarray(time)
-            if time_array.size != num_points:
-                raise ValueError("Time array size must match number of points")
-    else:
-        time_array = None
-    
-    # Check each specification
-    for spec_idx, spec_obj in enumerate(spec_list):
-        
-        # Check each point
-        for point_idx in range(num_points):
-            point = S[:, point_idx:point_idx+1]
-            point_time = time_array[point_idx] if time_array is not None else None
+            specs = [spec]
+            
+        # Loop over all specifications
+        for i, spec_i in enumerate(specs):
+            
+            # Check if time frames overlap
+            if (hasattr(time, 'representsa_') and time.representsa_('emptySet', eps) and 
+                hasattr(spec_i, 'time') and spec_i.time is not None and not spec_i.time.isemptyobject()):
+                from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+                raise CORAerror('CORA:specialError',
+                               'Timed specifications require a time interval.')
             
             # Check if specification is active at this time
-            if point_time is not None and spec_obj.time is not None:
-                # Check if point_time is within spec time interval
-                try:
-                    if hasattr(spec_obj.time, 'contains'):
-                        if not spec_obj.time.contains(np.array([point_time])):
-                            continue
-                    else:
-                        # Simple scalar check
-                        continue
-                except:
-                    # If time check fails, assume active
-                    pass
-            
-            # Check the specification
-            if not _check_single_point(spec_obj, point, point_time):
-                return False, spec_idx, point_idx
-    
-    return True, None, None
-
-
-def _check_single_point(spec_obj: Specification, 
-                       point: np.ndarray, 
-                       time: Optional[float]) -> bool:
-    """
-    Check a single point against a specification
-    
-    Args:
-        spec_obj: Specification object
-        point: Single point (n x 1)
-        time: Time value
-        
-    Returns:
-        bool: True if point satisfies specification
-    """
-    
-    try:
-        if spec_obj.type == 'safeSet':
-            # Point must be in safe set
-            result = spec_obj.set.contains(point.flatten())
-            return result
-        
-        elif spec_obj.type == 'unsafeSet':
-            # Point must not be in unsafe set
-            contains_result = spec_obj.set.contains(point.flatten())
-            result = not contains_result
-            return result
-        
-        elif spec_obj.type == 'invariant':
-            # Point must be in invariant set
-            result = spec_obj.set.contains(point.flatten())
-            return result
-        
-        else:
-            # Unknown type - assume violation
-            return False
-            
-    except Exception as e:
-        # If contains check fails, assume violation
-        return False
-
-
-def _check_contSet(spec_list: List[Specification], 
-                   S: Any, 
-                   time: Optional[Union[float, np.ndarray]]) -> Tuple[bool, Optional[int], Optional[int]]:
-    """
-    Check contSet object against specifications
-    
-    Args:
-        spec_list: List of specifications
-        S: contSet object
-        time: Time information
-        
-    Returns:
-        Tuple of (result, spec_index, object_index)
-    """
-    
-    # Check each specification
-    for spec_idx, spec_obj in enumerate(spec_list):
-        
-        # Check if specification is active at this time
-        if time is not None and spec_obj.time is not None:
-            try:
-                if hasattr(spec_obj.time, 'contains'):
-                    if not spec_obj.time.contains(np.array([time]) if np.isscalar(time) else time):
-                        continue
+            if (not hasattr(spec_i, 'time') or spec_i.time is None or spec_i.time.isemptyobject() or
+                (hasattr(spec_i, 'time') and spec_i.time is not None and hasattr(time, 'isIntersecting_') and 
+                 spec_i.time.isIntersecting_(time, 'exact', 1e-8))):
+                
+                # Check different types of specifications
+                if spec_i.type == 'invariant':
+                    res = _aux_checkInvariant(spec_i.set, S)
+                elif spec_i.type == 'unsafeSet':
+                    res = _aux_checkUnsafeSet(spec_i.set, S)
+                elif spec_i.type == 'safeSet':
+                    res = _aux_checkSafeSet(spec_i.set, S)
+                elif spec_i.type == 'custom':
+                    res = _aux_checkCustom(spec_i.set, S)
                 else:
-                    # Simple scalar check - skip if not in time range
-                    continue
-            except:
-                # If time check fails, assume active
-                pass
-        
-        # Check the specification directly without calling spec_obj.check to avoid recursion
+                    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+                    raise CORAerror('CORA:wrongValue', f'Unknown specification type: {spec_i.type}')
+                
+                # Return as soon as one specification is violated
+                if not res:
+                    indSpec = i + 1  # MATLAB uses 1-based indexing
+                    indObj = 1
+                    return res, indSpec, indObj
+    
+    return res, indSpec, indObj
+
+
+def _aux_checkUnsafeSet(set_spec, S) -> bool:
+    """
+    Check if reachable set intersects the unsafe sets
+    
+    According to MATLAB: res = ~isIntersecting_(set,S,'exact',1e-8)
+    Returns True if S does NOT intersect with unsafe set (safe)
+    Returns False if S DOES intersect with unsafe set (unsafe)
+    """
+    # Check if cell array is given
+    wasCell = isinstance(S, list)
+    if not wasCell:
+        S = [S]
+    
+    # S is cell, check each
+    res = True
+    for i, S_i in enumerate(S):
         try:
-            if spec_obj.type == 'safeSet':
-                # Set must be subset of safe set
-                if hasattr(S, 'isSubsetOf') and hasattr(spec_obj.set, 'isSubsetOf'):
-                    result = S.isSubsetOf(spec_obj.set)
-                else:
-                    # Fallback: check if they intersect (approximate)
-                    result = hasattr(S, 'isIntersecting') and not S.isIntersecting(spec_obj.set)
-                
-            elif spec_obj.type == 'unsafeSet':
-                # Set must not intersect with unsafe set
-                if hasattr(S, 'isIntersecting'):
-                    result = not S.isIntersecting(spec_obj.set)
-                else:
-                    # Fallback to True if we can't check intersection
-                    result = True
-                    
-            elif spec_obj.type == 'invariant':
-                # Set must be subset of invariant set
-                if hasattr(S, 'isSubsetOf'):
-                    result = S.isSubsetOf(spec_obj.set)
-                else:
-                    # Fallback: assume true if we can't check
-                    result = True
-                    
-            elif spec_obj.type == 'custom':
-                # Call custom function
-                if callable(spec_obj.set):
-                    result = spec_obj.set(S)
-                else:
-                    result = False
-            else:
-                # Unknown type - assume violation
-                result = False
-                
-            if not result:
-                return False, spec_idx, 0
-                
-        except Exception as e:
-            return False, spec_idx, 0
+            # Try exact intersection check first
+            intersects = set_spec.isIntersecting_(S_i, 'exact', 1e-8)
+            res = not intersects  # Safe if NO intersection
+        except:
+            try:
+                # Fall back to approximate check
+                intersects = set_spec.isIntersecting_(S_i, 'approx', 1e-8)
+                res = not intersects  # Safe if NO intersection  
+            except:
+                # If both fail, be conservative and assume intersection (unsafe)
+                res = False
+        
+        # Early exit if unsafe
+        if not res:
+            return res
     
-    return True, None, None 
+    return res
+
+
+def _aux_checkSafeSet(set_spec, S) -> bool:
+    """
+    Check if reachable set is inside the safe set
+    
+    According to MATLAB: res = contains(set,S,'approx')
+    Returns True if safe set CONTAINS S
+    Returns False if safe set does NOT contain S
+    """
+    if isinstance(S, list):
+        res = True
+        for i, S_i in enumerate(S):
+            try:
+                res = set_spec.contains(S_i, 'approx')
+            except:
+                # If contains check fails, be conservative and assume not contained
+                res = False
+            if not res:
+                return res
+    else:
+        try:
+            res = set_spec.contains(S, 'approx')
+        except:
+            # If contains check fails, be conservative and assume not contained
+            res = False
+    
+    return res
+
+
+def _aux_checkCustom(func, S) -> bool:
+    """
+    Check if the reachable set satisfies a user provided specification
+    """
+    if isinstance(S, list):
+        res = False
+        for i, S_i in enumerate(S):
+            res = func(S_i)
+            if res:
+                return res
+    else:
+        res = func(S)
+    
+    return res
+
+
+def _aux_checkInvariant(set_spec, S) -> bool:
+    """
+    Check if reachable set intersects the invariant
+    
+    According to MATLAB: res = isIntersecting_(set,S,'approx',1e-8)
+    Returns True if S DOES intersect with invariant set
+    Returns False if S does NOT intersect with invariant set
+    """
+    if isinstance(S, list):
+        res = False
+        for i, S_i in enumerate(S):
+            res = set_spec.isIntersecting_(S_i, 'approx', 1e-8)
+
+    else:
+        res = set_spec.isIntersecting_(S, 'approx', 1e-8)
+
+    
+    return res 

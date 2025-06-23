@@ -29,9 +29,13 @@ Last update:   18-August-2022 (MW, extend to class arrays)
 Last revision: 07-February-2025 (TL, removed old, unused aux checks)
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from typing import TYPE_CHECKING
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
-def isemptyobject(S):
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+
+def isemptyobject(S: 'ContSet') -> bool:
     """
     Checks whether a contSet object contains any information at all.
     
@@ -45,11 +49,7 @@ def isemptyobject(S):
         bool: True if the object is empty, False otherwise
         
     Raises:
-        CORAError: If isemptyobject is not implemented for the specific set type
+        CORAerror: If isemptyobject is not implemented for the specific set type
     """
-    # Check if the object has an isemptyobject method and use it
-    if hasattr(S, 'isemptyobject') and callable(getattr(S, 'isemptyobject')):
-        return S.isemptyobject()
-    
     # Fallback error
-    raise CORAError('CORA:noops', f"Function isemptyobject not implemented for class {type(S).__name__}") 
+    raise CORAerror('CORA:noops', f"Function isemptyobject not implemented for class {type(S).__name__}") 

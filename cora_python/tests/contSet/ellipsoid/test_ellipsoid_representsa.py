@@ -9,7 +9,7 @@ from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
 from cora_python.contSet.ellipsoid.representsa_ import representsa_
 from cora_python.contSet.ellipsoid.empty import empty
 from cora_python.contSet.zonotope.zonotope import Zonotope
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestEllipsoidRepresentsa:
@@ -183,7 +183,7 @@ class TestEllipsoidRepresentsa:
         ]
         
         for type_str in unsupported_types:
-            with pytest.raises(CORAError):
+            with pytest.raises(CORAerror):
                 representsa_(E, type_str)
     
     def test_representsa_conversion_not_supported(self):
@@ -196,14 +196,14 @@ class TestEllipsoidRepresentsa:
         
         for type_str in conversion_not_supported:
             if representsa_(E, type_str):
-                with pytest.raises(CORAError):
+                with pytest.raises(CORAerror):
                     representsa_(E, type_str, 1e-9, 'return_set')
     
     def test_representsa_unknown_type(self):
         """Test unknown set type."""
         E = Ellipsoid(np.eye(2), np.array([[0], [0]]))
         
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             representsa_(E, 'unknownType')
     
     def test_representsa_tolerance_effects(self):

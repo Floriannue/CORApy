@@ -20,7 +20,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .simResult import SimResult
 
 def mtimes(arg1, arg2):
     """
@@ -33,7 +33,6 @@ def mtimes(arg1, arg2):
     Returns:
         Resulting simResult object
     """
-    from .simResult import SimResult
     
     # Determine which argument is the simResult and which is the matrix
     if hasattr(arg1, 'x') and hasattr(arg1, 't'):

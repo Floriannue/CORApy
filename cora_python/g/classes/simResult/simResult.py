@@ -87,110 +87,11 @@ class SimResult:
             if x_traj.shape[0] != t_traj.shape[0]:
                 raise ValueError(f"Trajectory {i}: x and t must have same number of time steps")
     
-    # Method implementations (imported from separate files)
-    def find(self, prop: str, val: Any):
-        """Find simResult objects that satisfy a certain condition"""
-        from .find import find
-        return find(self, prop, val)
-    
-    def add(self, other: 'SimResult') -> 'SimResult':
-        """Add another simResult object"""
-        from .add import add
-        return add(self, other)
-    
-    def plot(self, *args, **kwargs):
-        """Plot simulation results"""
-        from .plot import plot
-        return plot(self, *args, **kwargs)
-    
-    def plotOverTime(self, *args, **kwargs):
-        """Plot simulation results over time"""
-        from .plotOverTime import plotOverTime
-        return plotOverTime(self, *args, **kwargs)
-    
-    def plotTimeStep(self, *args, **kwargs):
-        """Plot simulation results at specific time steps"""
-        from .plotTimeStep import plotTimeStep
-        return plotTimeStep(self, *args, **kwargs)
-    
-    def isemptyobject(self) -> bool:
-        """Check if simResult is empty"""
-        from .isemptyobject import isemptyobject
-        return isemptyobject(self)
-    
-    def extractHits(self, *args, **kwargs):
-        """Extract hits from simulation results"""
-        from .extractHits import extractHits
-        return extractHits(self, *args, **kwargs)
-    
-    def monitorSTL(self, *args, **kwargs):
-        """Monitor STL properties"""
-        from .monitorSTL import monitorSTL
-        return monitorSTL(self, *args, **kwargs)
-    
-    def printSimResult(self, *args, **kwargs):
-        """Print simulation results"""
-        from .printSimResult import printSimResult
-        return printSimResult(self, *args, **kwargs)
-    
-    # Operator overloads
-    def __add__(self, other):
-        """Addition operation"""
-        from .plus import plus
-        return plus(self, other)
-    
-    def __radd__(self, other):
-        """Reverse addition operation"""
-        from .plus import plus
-        return plus(other, self)
-    
-    def __sub__(self, other):
-        """Subtraction operation"""
-        from .minus import minus
-        return minus(self, other)
-    
-    def __rsub__(self, other):
-        """Reverse subtraction operation"""
-        from .minus import minus
-        return minus(other, self)
-    
-    def __mul__(self, other):
-        """Element-wise multiplication operation"""
-        from .times import times
-        return times(self, other)
-    
-    def __rmul__(self, other):
-        """Reverse element-wise multiplication operation"""
-        from .times import times
-        return times(other, self)
-    
-    def __matmul__(self, other):
-        """Matrix multiplication operation"""
-        from .mtimes import mtimes
-        return mtimes(self, other)
-    
-    def __rmatmul__(self, other):
-        """Reverse matrix multiplication operation"""
-        from .mtimes import mtimes
-        return mtimes(other, self)
-    
-    def __neg__(self):
-        """Unary minus operation"""
-        from .uminus import uminus
-        return uminus(self)
-    
-    def __pos__(self):
-        """Unary plus operation"""
-        from .uplus import uplus
-        return uplus(self)
+
     
     def __len__(self) -> int:
         """Return number of trajectories"""
         return len(self.x)
-    
-    def is_empty(self) -> bool:
-        """Check if simResult is empty"""
-        return self.isemptyobject()
     
     # String representation
     def __str__(self) -> str:

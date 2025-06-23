@@ -29,7 +29,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Tuple, Union, Optional, Any
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def representsa_(Z, set_type: str, tol: float = 1e-12, **kwargs):
@@ -187,7 +187,7 @@ def representsa_(Z, set_type: str, tol: float = 1e-12, **kwargs):
             S = Z_compact
 
     else:
-        raise CORAError("CORA:notSupported",
+        raise CORAerror("CORA:notSupported",
                        f"Comparison of zonotope to {set_type} not supported.")
     
     if return_set:

@@ -9,10 +9,11 @@ Python translation: 2025
 """
 
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from .interval import Interval
 
 
-def project(I: 'Interval', dims) -> 'Interval':
+def project(I: Interval, dims: list) -> Interval:
     """
     Projects an interval onto the specified dimensions
     
@@ -28,11 +29,10 @@ def project(I: 'Interval', dims) -> 'Interval':
         >>> dims = [0, 2]  # Project onto 1st and 3rd dimensions
         >>> I_proj = project(I, dims)
     """
-    from .interval import Interval
     
     # Check if interval is a matrix (not supported)
     if I.inf.ndim > 1 and I.inf.shape[0] > 1 and I.inf.shape[1] > 1:
-        raise CORAError("CORA:wrongValue", 
+        raise CORAerror("CORA:wrongValue", 
                        "project not implemented for interval matrices")
     
     # Convert dims to numpy array for indexing
@@ -45,7 +45,7 @@ def project(I: 'Interval', dims) -> 'Interval':
             inf_proj = I.inf
             sup_proj = I.sup
         else:
-            raise CORAError("CORA:wrongInput", 
+            raise CORAerror("CORA:wrongInput", 
                            f"Invalid dimension {dims} for scalar interval")
     else:
         # Project bounds for multi-dimensional intervals

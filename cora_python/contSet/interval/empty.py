@@ -18,8 +18,9 @@ Python translation: 2025
 
 import numpy as np
 
+from .interval import Interval
 
-def empty(n: int = 0):
+def empty(n: int = 0) -> 'Interval':
     """
     Instantiate an empty interval
     
@@ -29,9 +30,6 @@ def empty(n: int = 0):
     Returns:
         Empty interval object
     """
-    # Import here to avoid circular imports
-    from .interval import Interval
-    
     # Create empty interval with proper dimensions
     # In MATLAB: Interval(zeros(n,0))
     empty_array = np.zeros((n, 0))

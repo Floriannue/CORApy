@@ -10,17 +10,15 @@ Date: 2025-06-08
 """
 
 import numpy as np
-from typing import Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .linearSys import LinearSys
+from typing import Optional
+from .linearSys import LinearSys
 
 
 def generateRandom(state_dimension: Optional[int] = None,
                   input_dimension: Optional[int] = None,
                   output_dimension: Optional[int] = None,
                   real_interval: Optional[tuple] = None,
-                  imaginary_interval: Optional[tuple] = None) -> 'LinearSys':
+                  imaginary_interval: Optional[tuple] = None) -> LinearSys:
     """
     Generates a random linear system
     
@@ -129,9 +127,6 @@ def generateRandom(state_dimension: Optional[int] = None,
     
     # Generate output matrix
     C = np.random.randn(output_dimension, n)
-    
-    # Import here to avoid circular imports
-    from .linearSys import LinearSys
     
     # Create and return linear system
     return LinearSys(A, B, None, C) 

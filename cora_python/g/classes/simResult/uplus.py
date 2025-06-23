@@ -17,6 +17,7 @@ Last update: ---
 Python translation: 2025
 """
 
+from .simResult import SimResult
 
 def uplus(simRes1):
     """
@@ -28,7 +29,6 @@ def uplus(simRes1):
     Returns:
         Resulting simResult object (unchanged copy)
     """
-    from .simResult import SimResult
     
     # Create a copy of the simResult (unary plus doesn't change anything)
     new_x = [x.copy() for x in simRes1.x]

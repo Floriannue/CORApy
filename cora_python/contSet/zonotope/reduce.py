@@ -11,7 +11,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union, Optional
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def reduce(Z: 'Zonotope', method: str, order: Optional[int] = 1, 
@@ -30,7 +30,7 @@ def reduce(Z: 'Zonotope', method: str, order: Optional[int] = 1,
         Zonotope: Reduced zonotope object
         
     Raises:
-        CORAError: If method is not supported
+        CORAerror: If method is not supported
         
     Example:
         >>> Z = Zonotope([1, -1], [[2, 3, 1], [2, 3, -2]])
@@ -61,7 +61,7 @@ def reduce(Z: 'Zonotope', method: str, order: Optional[int] = 1,
         return _reduce_methC(Z, order, filterLength)
     else:
         # For now, only implement the most common methods
-        raise CORAError('CORA:wrongValue', 
+        raise CORAerror('CORA:wrongValue', 
                        f"Reduction method '{method}' not yet implemented. "
                        f"Available methods: 'girard', 'combastel', 'pca', 'methA', 'methB', 'methC'")
 

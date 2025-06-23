@@ -29,14 +29,18 @@ Last update:   ---
 Last revision: ---
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from typing import TYPE_CHECKING
 
-def representsa_(S, set_type, tol=1e-12, method='linearize', iter=1, splits=0):
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+
+def representsa_(S: 'ContSet', set_type: str, tol: float = 1e-12, method: str = 'linearize', iter: int = 1, splits: int = 0):
     """
     Checks if a set can also be represented by a different set type.
     
-    This function delegates to the object's representsa_ method if available,
-    otherwise raises an error.
+    This function uses polymorphic dispatch to call the appropriate subclass
+    implementation of representsa_, or provides the base implementation.
     
     Args:
         S: contSet object
@@ -50,20 +54,13 @@ def representsa_(S, set_type, tol=1e-12, method='linearize', iter=1, splits=0):
         bool or tuple: Whether S can be represented by set_type, optionally with converted set
         
     Raises:
-        CORAError: If representsa_ is not implemented for the specific set type
+        CORAerror: If representsa_ is not implemented for the specific set type
     """
-    # Check if the object has a representsa_ method and use it
-    if hasattr(S, 'representsa_') and callable(getattr(S, 'representsa_')):
-        # Try calling with all parameters first, fallback to basic version for interval-like classes
-        try:
-            return S.representsa_(set_type, tol, method=method, iter=iter, splits=splits)
-        except TypeError:
-            # Some implementations (like interval) don't take method/iter/splits parameters
-            try:
-                return S.representsa_(set_type, tol)
-            except TypeError:
-                # Fallback to just the basic parameters
-                return S.representsa_(set_type)
-    
-    # Fallback error
-    raise CORAError("CORA:noops", f"Function representsa_ not implemented for class {type(S).__name__}") 
+    base_class = type(S).__bases__[0] if type(S).__bases__ else None
+    if (hasattr(type(S), 'representsa_') and 
+        base_class and hasattr(base_class, 'representsa_') and
+        type(S).representsa_ is not base_class.representsa_):
+        return type(S).representsa_(set_type, tol, method, iter, splits)
+    else:
+        # Base implementation - throw error as this method should be overridden
+        raise CORAerror("CORA:noops", f"Function representsa_ not implemented for class {type(S).__name__}")

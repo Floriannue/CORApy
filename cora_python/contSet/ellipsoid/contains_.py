@@ -34,7 +34,6 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
         cert: returns true iff the result could be verified (if requested)
         scaling: smallest scaling factor (if requested)
     """
-    from cora_python.contSet.ellipsoid.representsa_ import representsa_
     
     # Validate method parameter
     if method not in ['exact', 'approx']:
@@ -46,7 +45,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
     # Check trivial cases
     # If E is a point...
     try:
-        ell_is_point, p = representsa_(E, 'point', tol, 'return_set')
+        ell_is_point, p = E.representsa_('point', tol, 'return_set')
     except:
         ell_is_point = False
         p = None
@@ -63,7 +62,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
         else:
             # S is not numeric, check if S is a point (but as a contSet)
             try:
-                S_is_point, q = representsa_(S, 'point', tol, 'return_set')
+                S_is_point, q = S.representsa_('point', tol, 'return_set')
                 if S_is_point:
                     res = np.allclose(q, p, atol=tol)
                     cert = True
@@ -71,7 +70,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                         scaling = 0.0
                     else:
                         scaling = np.inf
-                elif representsa_(S, 'emptySet', tol):
+                elif S.representsa_('emptySet', tol):
                     # If S is not a point at all, test that it is not the empty set
                     res = True
                     cert = True
@@ -92,7 +91,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
     
     # E is not a point
     # Check if E is empty
-    if representsa_(E, 'emptySet', tol):
+    if E.representsa_('emptySet', tol):
         if isinstance(S, np.ndarray):
             # If S is numeric, check manually whether it is empty
             if S.size == 0:
@@ -203,8 +202,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
         elif class_name == 'Capsule':
             # Check if balls at both ends of capsule are contained
             try:
-                from cora_python.contSet.ellipsoid.dim import dim
-                n = dim(S)
+                n = S.dim()
                 
                 # Create ellipsoids for both ends
                 E1 = type(E)((S.r ** 2) * np.eye(n), S.c + S.g)
@@ -250,8 +248,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
         elif hasattr(S, '__class__') and S.__class__.__name__ == 'zonotope':
             # For zonotopes, we can leverage the symmetry for better vertex enumeration
             try:
-                from cora_python.contSet.ellipsoid.dim import dim
-                if dim(S) <= 2:
+                if S.dim() <= 2:
                     vertices_S = S.vertices()
                     res, cert, scaling = priv_containsPoint(E, vertices_S, tol)
                     res = np.all(res) if isinstance(res, np.ndarray) else res

@@ -1,5 +1,9 @@
 """
-isemptyobject - check if a polytope represents an empty set
+isemptyobject - checks if a polytope object is fully empty;
+   if the H representation is given, this represents R^n since there are
+   no constraints excluding any point
+   if, instead, the V representation is given, this represents the empty
+   set since there are no vertices
 
 Syntax:
     res = isemptyobject(P)
@@ -10,17 +14,21 @@ Inputs:
 Outputs:
     res - true/false
 
-Example:
-    A = [1; -1];
-    b = [-1; -1];
-    P = polytope(A, b);
-    res = isemptyobject(P)
+Example: 
+    P = polytope([1 0;-1 0;0 1;0 -1],[3;0;3;-4]);
+    isemptyobject(P); % false
 
-Authors: Mark Wetzlinger (MATLAB)
-         Python translation by AI Assistant
-Written: 16-September-2019 (MATLAB)
-Last update: --- (MATLAB)
-Python translation: 2025
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
+Authors:       Mark Wetzlinger
+Written:       25-July-2023
+Last update:   14-July-2024 (MW, support V representation)
+               25-February-2025 (TL, bug fix, .inf/.empty cases)
+Last revision: ---
 """
 
 from typing import TYPE_CHECKING
@@ -30,30 +38,31 @@ from scipy.optimize import linprog
 if TYPE_CHECKING:
     from .polytope import Polytope
 
+
 def isemptyobject(P: 'Polytope') -> bool:
     """
     Checks if a polytope object is fully empty.
-
-    In the context of this library's Polytope class:
-    - An empty H-representation (no constraints) means the polytope is the entire space.
-    - An empty V-representation (no vertices) means the polytope is the empty set.
-
-    This function returns true only if the object is "fully empty",
-    meaning it has neither a valid H-rep nor a valid V-rep defined
-    at the time of calling.
+    
+    Args:
+        P: polytope object
+        
+    Returns:
+        res: true if polytope is empty object, false otherwise
     """
-
-    # Check if H-representation is effectively empty
-    has_h_rep = P._has_h_rep and (
-        (P._A is not None and P._A.size > 0) or
-        (P._Ae is not None and P._Ae.size > 0)
+    
+    # no inequality or equality constraints
+    res_H = not P._has_h_rep or (
+        (P._b is None or P._b.size == 0) and 
+        (P._be is None or P._be.size == 0)
     )
-
-    # Check if V-representation is effectively empty
-    has_v_rep = P._has_v_rep and (P._V is not None and P._V.size > 0)
-
-    # The object is considered "empty" in this specific sense if neither are present
-    return not has_h_rep and not has_v_rep
+    
+    # no vertices
+    res_V = not P._has_v_rep or (P._V is None or P._V.size == 0)
+    
+    # combine information
+    res = res_H and res_V
+    
+    return res
 
 
 def _check_empty_halfspace(P) -> bool:

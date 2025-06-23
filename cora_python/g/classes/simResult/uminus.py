@@ -18,7 +18,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .simResult import SimResult
 
 def uminus(simRes1):
     """
@@ -30,7 +30,6 @@ def uminus(simRes1):
     Returns:
         Resulting simResult object with negated states
     """
-    from .simResult import SimResult
     
     # Negate all states
     new_x = [-x for x in simRes1.x]

@@ -45,12 +45,11 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Tuple, Union
+from typing import Tuple
+from .linearSys import LinearSys
 from cora_python.contSet.zonotope import Zonotope
-from cora_python.contSet.interval import Interval
 
-
-def canonicalForm(linsys, U, uVec, W, V, vVec) -> Tuple:
+def canonicalForm(linsys, U, uVec, W, V, vVec) -> Tuple[LinearSys, Zonotope, np.ndarray, Zonotope, np.ndarray]:
     """
     Rewrite inhomogeneity to canonical forms
     
@@ -130,7 +129,6 @@ def canonicalForm(linsys, U, uVec, W, V, vVec) -> Tuple:
     r = linsys.nr_of_outputs
     
     # Create new system in canonical form: x' = Ax + u, y = Cx + v
-    from .linearSys import LinearSys
     linsys_ = LinearSys(
         A=linsys.A,
         B=np.eye(n),

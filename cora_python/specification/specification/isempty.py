@@ -30,7 +30,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union, List
-
+from .specification import Specification
 
 def isempty(spec) -> bool:
     """
@@ -44,7 +44,6 @@ def isempty(spec) -> bool:
     """
     
     # Import here to avoid circular imports
-    from .specification import Specification
     
     # Handle single specification case
     if isinstance(spec, Specification):

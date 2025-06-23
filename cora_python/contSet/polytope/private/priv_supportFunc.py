@@ -31,7 +31,7 @@ Python translation: 2025
 import numpy as np
 from typing import Tuple, Union
 from cora_python.g.functions.matlab.converter import CORAlinprog
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def priv_supportFunc(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray, 
@@ -93,6 +93,6 @@ def priv_supportFunc(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarra
         val = s * np.inf
         x = None
     elif exitflag != 1:
-        raise CORAError('CORA:solverIssue', 'Linear programming solver failed')
+        raise CORAerror('CORA:solverIssue', 'Linear programming solver failed')
     
     return val, x 

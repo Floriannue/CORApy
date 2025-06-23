@@ -17,9 +17,12 @@ Python translation: 2025
 """
 
 import numpy as np
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from .interval import Interval
 
-def is_bounded(I) -> bool:
+def is_bounded(I: 'Interval') -> bool:
     """
     Check if interval is bounded
     

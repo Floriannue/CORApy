@@ -32,9 +32,11 @@ Last revision: ---
 """
 
 import numpy as np
+from typing import Union
 from .mtimes import mtimes
+from .interval import Interval
 
-def times(factor1, factor2):
+def times(factor1: Union[Interval, np.ndarray, float, int], factor2: Union[Interval, np.ndarray, float, int]) -> Interval:
     """
     Element-wise multiplication for intervals.
     
@@ -47,7 +49,6 @@ def times(factor1, factor2):
     Returns:
         interval: result of element-wise multiplication
     """
-    from .interval import Interval
     
     # If one factor is an interval and the other is a scalar, use mtimes
     if isinstance(factor1, Interval) and not isinstance(factor2, Interval):

@@ -29,11 +29,22 @@ def representsa_(capsule_obj, set_type: str, tol: float = 1e-12, **kwargs) -> Un
     if capsule_obj.is_empty():
         if set_type == 'emptySet':
             res = True
+        elif set_type in ['interval', 'zonotope', 'ellipsoid', 'polytope', 'conZonotope', 'zonoBundle']:
+            # Empty sets can represent these set types
+            res = True
         else:
             res = False
         if return_set and res:
-            from cora_python.contSet.emptySet.emptySet import EmptySet
-            S = EmptySet(capsule_obj.dim())
+            if set_type == 'emptySet':
+                from cora_python.contSet.emptySet.emptySet import EmptySet
+                S = EmptySet(capsule_obj.dim())
+            elif set_type == 'interval':
+                from cora_python.contSet.interval.interval import Interval
+                S = Interval.empty(capsule_obj.dim())
+            elif set_type == 'zonotope':
+                from cora_python.contSet.zonotope.zonotope import Zonotope
+                S = Zonotope.empty(capsule_obj.dim())
+            # Add other empty set conversions as needed
         elif return_set and not res:
             S = None
         if return_set:
@@ -46,40 +57,48 @@ def representsa_(capsule_obj, set_type: str, tol: float = 1e-12, **kwargs) -> Un
     S = None
 
     if set_type == 'zonotope':
-        if np.all(np.abs(capsule_obj.g) < tol):
-            # Case: Capsule is a ball (g is zero)
-            res = True
-            if return_set:
-                from cora_python.contSet.zonotope.zonotope import Zonotope
-                S = Zonotope(capsule_obj.c, np.zeros((capsule_obj.dim(), 0)))
-        elif capsule_obj.r < tol:
-            # Case: Capsule is a line segment (r is zero)
-            res = True
-            if return_set:
-                from cora_python.contSet.zonotope.zonotope import Zonotope
+        # MATLAB: res = n == 1 || withinTol(C.r,0,tol);
+        # Only a zonotope if 1D or no radius
+        res = (capsule_obj.dim() == 1) or (capsule_obj.r < tol)
+        if return_set and res:
+            from cora_python.contSet.zonotope.zonotope import Zonotope
+            if capsule_obj.dim() == 1:
+                # 1D case
                 S = Zonotope(capsule_obj.c, capsule_obj.g)
-        else:
-            # general case: Capsule is a zonotope
-            # C = c + [-g, g] + Ball(r)
-            # this is a zonotope of order 2, g_1 = g, g_2 = r * eye(dim)
-            res = True
-            if return_set:
-                # This is a bit of a simplification, a capsule can be represented
-                # as a zonotope, but it's an over-approximation of a ball.
-                # The actual representation of a ball as a zonotope needs care.
-                # For now, we approximate by adding generators representing the ball.
-                from cora_python.contSet.zonotope.zonotope import Zonotope
-                G_ball = np.eye(capsule_obj.dim()) * capsule_obj.r
-                G = np.hstack((capsule_obj.g, G_ball))
-                S = Zonotope(capsule_obj.c, G)
+            elif np.all(np.abs(capsule_obj.g) < tol):
+                # Point case
+                S = Zonotope(capsule_obj.c, np.zeros((capsule_obj.dim(), 0)))
+            else:
+                # Line segment case
+                S = Zonotope(capsule_obj.c, capsule_obj.g)
 
     elif set_type == 'interval':
-        # Capsule is an interval if g is axis aligned and r is 0
-        if capsule_obj.r < tol and np.sum(np.abs(capsule_obj.g) > tol) == 1:
+        # MATLAB: res = n == 1 || (withinTol(C.r,0,tol) && nnz(withinTol(C.g,0,tol)) >= n-1);
+        # Only an interval if 1D or (no radius and generator is axis-aligned)
+        n = capsule_obj.dim()
+        if n == 1:
             res = True
-            if return_set:
-                from cora_python.contSet.interval.interval import Interval
-                # min/max for interval
+        else:
+            # Check if no radius and generator is axis-aligned (at most one non-zero component)
+            g_nonzero = np.abs(capsule_obj.g.flatten()) >= tol
+            num_nonzero = np.sum(g_nonzero)
+            res = (capsule_obj.r < tol) and (num_nonzero <= 1)
+        
+        if return_set and res:
+            from cora_python.contSet.interval.interval import Interval
+            if n == 1:
+                # 1D case
+                if capsule_obj.r < tol:
+                    # Line segment
+                    min_val = capsule_obj.c - np.abs(capsule_obj.g)
+                    max_val = capsule_obj.c + np.abs(capsule_obj.g)
+                else:
+                    # Ball in 1D
+                    min_val = capsule_obj.c - capsule_obj.r
+                    max_val = capsule_obj.c + capsule_obj.r
+                S = Interval(min_val, max_val)
+            else:
+                # Axis-aligned line segment
                 min_val = capsule_obj.c - np.abs(capsule_obj.g)
                 max_val = capsule_obj.c + np.abs(capsule_obj.g)
                 S = Interval(min_val, max_val)
@@ -96,43 +115,16 @@ def representsa_(capsule_obj, set_type: str, tol: float = 1e-12, **kwargs) -> Un
                 S = Ellipsoid(P, capsule_obj.c)
 
     elif set_type == 'origin':
-        # Capsule contains origin if 0 is in the set
-        # For capsule, this means ||c||_2 <= r + ||g||_1 (this is a rough over-approximation)
-        # A more precise check for 0 in capsule:
-        # Distance from origin to line segment L is d(0, L)
-        # If d(0, L) <= r, then origin is in capsule
-        
-        # If the origin is within the interval [-|g|, |g|] + c, and also within the ball of radius r, then it contains the origin.
-        # This is a basic check. More rigorous methods involve projection.
-        
-        # Check if origin is contained within the ball for a ball, or segment for segment
-        if np.all(np.abs(capsule_obj.g) < tol):
-            # It's a ball
-            if np.linalg.norm(capsule_obj.c) <= capsule_obj.r + tol:
-                res = True
-        elif capsule_obj.r < tol:
-            # It's a line segment
-            # Check if origin is on the line segment defined by c and g
-            # Project origin onto the line defined by c and g. Check if projection is on segment.
-            # Then check if projection distance is 0.
-            t_proj = -np.dot(capsule_obj.g.T, capsule_obj.c) / (np.linalg.norm(capsule_obj.g)**2 + 1e-18)
-            if -1 <= t_proj <= 1:
-                point_on_segment = capsule_obj.c + t_proj * capsule_obj.g
-                if np.linalg.norm(point_on_segment) < tol:
-                    res = True
-        else:
-            # General capsule case: Check if origin is contained
-            # This is complex and might require optimization/projection
-            # For now, a conservative check: if the center is close to origin and r is large enough to cover g
-            if np.linalg.norm(capsule_obj.c) <= capsule_obj.r + np.sum(np.abs(capsule_obj.g)) + tol:
-                 res = True
+        # Check if capsule represents the origin
+        # A capsule represents origin if it's a point AND the center is at origin
+        is_point = (np.all(np.abs(capsule_obj.g) < tol) and capsule_obj.r < tol)
+        res = is_point and np.all(np.abs(capsule_obj.c) < tol)
 
     elif set_type == 'point':
         # A capsule is a point if g is zero and r is zero
-        if np.all(np.abs(capsule_obj.g) < tol) and capsule_obj.r < tol:
-            res = True
-            if return_set:
-                S = capsule_obj.c
+        res = (np.all(np.abs(capsule_obj.g) < tol) and capsule_obj.r < tol)
+        if return_set and res:
+            S = capsule_obj.c
 
     elif set_type == 'hyperplane':
         # A capsule is a hyperplane if its dimension is 1 and it has infinite extent (g or r is infinite, which is not supported here)

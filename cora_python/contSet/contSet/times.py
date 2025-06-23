@@ -21,9 +21,13 @@ Last update:   ---
 Last revision: ---
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from typing import TYPE_CHECKING
 
-def times(factor1, factor2):
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+
+def times(factor1: 'ContSet', factor2: 'ContSet'):
     """
     Element-wise multiplication for contSet objects.
     
@@ -38,15 +42,8 @@ def times(factor1, factor2):
         contSet: result of element-wise multiplication
         
     Raises:
-        CORAError: If times is not implemented for the specific set type
+        CORAerror: If times is not implemented for the specific set type
     """
-    # Check if the first object has a times method and use it
-    if hasattr(factor1, 'times') and callable(getattr(factor1, 'times')):
-        return factor1.times(factor2)
-    
-    # Check if the second object has a times method and use it (commutative)
-    if hasattr(factor2, 'times') and callable(getattr(factor2, 'times')):
-        return factor2.times(factor1)
     
     # Neither is a contSet object with times method
-    raise CORAError("CORA:noops", "Function times requires at least one contSet object") 
+    raise CORAerror("CORA:noops", "Function times requires at least one contSet object") 

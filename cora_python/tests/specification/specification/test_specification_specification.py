@@ -23,7 +23,7 @@ from cora_python.specification.specification.specification import Specification,
 from cora_python.contSet.zonotope.zonotope import Zonotope
 from cora_python.contSet.interval.interval import Interval
 from cora_python.contSet.capsule.capsule import Capsule
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestSpecificationConstructor(unittest.TestCase):
@@ -225,53 +225,53 @@ class TestSpecificationConstructor(unittest.TestCase):
     # Error cases
     def test_invalid_specification_type(self):
         """Test error for invalid specification type"""
-        with self.assertRaises(CORAError):
+        with self.assertRaises(CORAerror):
             Specification(self.set, 'invalidType')
     
     def test_function_handle_wrong_type(self):
         """Test error for function handle with wrong type"""
-        with self.assertRaises(CORAError):
+        with self.assertRaises(CORAerror):
             Specification(self.fun_han, 'safeSet')
     
     def test_invalid_location_negative(self):
         """Test error for negative location values"""
-        with self.assertRaises(CORAError):
+        with self.assertRaises(CORAerror):
             Specification(self.set, 'safeSet', [-1, 2])
     
     def test_invalid_location_zero(self):
         """Test error for zero location values"""
-        with self.assertRaises(CORAError):
+        with self.assertRaises(CORAerror):
             Specification(self.set, 'safeSet', [0, 1])
     
     def test_invalid_location_float(self):
         """Test error for non-integer location values"""
-        with self.assertRaises(CORAError):
+        with self.assertRaises(CORAerror):
             Specification(self.set, 'safeSet', [1.5, 2])
     
     def test_invalid_location_nan(self):
         """Test error for NaN location values"""
-        with self.assertRaises(CORAError):
+        with self.assertRaises(CORAerror):
             Specification(self.set, 'safeSet', [1, np.nan])
     
     def test_invalid_location_inf(self):
         """Test error for infinite location values"""
-        with self.assertRaises(CORAError):
+        with self.assertRaises(CORAerror):
             Specification(self.set, 'safeSet', [1, np.inf])
     
     def test_too_many_arguments(self):
         """Test error for too many constructor arguments"""
-        with self.assertRaises(CORAError):
+        with self.assertRaises(CORAerror):
             Specification(self.set, 'safeSet', self.time, self.location_HA, 'extra_arg')
     
     def test_invalid_list_mixed_types(self):
         """Test error for list with mixed invalid types"""
         invalid_list = [self.set, "not_a_set", 123]
-        with self.assertRaises(CORAError):
+        with self.assertRaises(CORAerror):
             create_specification_list(invalid_list)
     
     def test_constructor_rejects_lists(self):
         """Test that constructor rejects lists and suggests factory function"""
-        with self.assertRaises(CORAError) as context:
+        with self.assertRaises(CORAerror) as context:
             Specification(self.list_sets)
         
         # Should suggest using the factory function
@@ -279,7 +279,7 @@ class TestSpecificationConstructor(unittest.TestCase):
     
     def test_invalid_first_argument(self):
         """Test error for invalid first argument"""
-        with self.assertRaises(CORAError):
+        with self.assertRaises(CORAerror):
             Specification("invalid_argument")
     
     def test_string_representation(self):

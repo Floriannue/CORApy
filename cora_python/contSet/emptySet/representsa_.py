@@ -30,6 +30,8 @@ Python translation: 2025
 import numpy as np
 from typing import TYPE_CHECKING, Union, Tuple, Optional, Any
 
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+
 if TYPE_CHECKING:
     from .emptySet import EmptySet
 
@@ -48,11 +50,10 @@ def representsa_(O: 'EmptySet', type_: str, tol: float = 1e-9, *varargin) -> boo
         res: True/False
     """
     # Import here to avoid circular imports
-    from cora_python.contSet.contSet.representsa_emptyObject import representsa_emptyObject
     
     # check empty object case
     try:
-        empty, res, S = representsa_emptyObject(O, type_)
+        empty, res, S = O.representsa_emptyObject(type_)
         if empty:
             return res
     except:
@@ -95,7 +96,6 @@ def representsa_(O: 'EmptySet', type_: str, tol: float = 1e-9, *varargin) -> boo
 
     elif type_ == 'levelSet':
         # not supported
-        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
         raise CORAerror('CORA:notSupported',
                        f'Comparison of emptySet to {type_} not supported.')
 

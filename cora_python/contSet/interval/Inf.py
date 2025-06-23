@@ -17,9 +17,9 @@ Python translation: 2025
 """
 
 import numpy as np
+from .interval import Interval
 
-
-def Inf(n: int = 0):
+def Inf(n: int = 0) -> Interval:
     """
     Instantiate a fullspace interval
     
@@ -35,9 +35,6 @@ def Inf(n: int = 0):
     # Input validation
     if not isinstance(n, (int, np.integer)) or n < 0:
         raise ValueError("Dimension must be a non-negative integer")
-    
-    # Import here to avoid circular imports
-    from .interval import Interval
     
     # Create 1D arrays for better Python/NumPy compatibility
     if n == 0:

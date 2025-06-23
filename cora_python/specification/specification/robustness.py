@@ -23,7 +23,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Optional, Union
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def robustness(spec, p: np.ndarray, time: Optional[float] = None) -> Union[float, np.ndarray]:
@@ -72,7 +72,7 @@ def robustness(spec, p: np.ndarray, time: Optional[float] = None) -> Union[float
             
             # Check if time frames overlap
             if time is None and spec_obj.time is not None and not _represents_empty_set(spec_obj.time):
-                raise CORAError('CORA:specialError',
+                raise CORAerror('CORA:specialError',
                     'Timed specifications require a time interval.')
             
             # Check if specification is active at this time
@@ -90,16 +90,16 @@ def robustness(spec, p: np.ndarray, time: Optional[float] = None) -> Union[float
                     val_ = _robustness_safe_set(spec_obj.set, p_single)
                     
                 elif spec_obj.type == 'custom':
-                    raise CORAError('CORA:notSupported',
+                    raise CORAerror('CORA:notSupported',
                         'Robustness computation for custom '
                         'specifications is not supported!')
                     
                 elif spec_obj.type == 'logic':
-                    raise CORAError('CORA:notSupported',
+                    raise CORAerror('CORA:notSupported',
                         'Robustness computation for logic '
                         'specifications is not supported!')
                 else:
-                    raise CORAError('CORA:wrongInput',
+                    raise CORAerror('CORA:wrongInput',
                         f'Unknown specification type: {spec_obj.type}')
                 
                 # Overall robustness is minimum of single specifications
@@ -128,7 +128,7 @@ def _robustness_unsafe_set(S, p: np.ndarray) -> float:
             C = S_poly.A
             d = S_poly.b
         else:
-            raise CORAError('CORA:wrongInput',
+            raise CORAerror('CORA:wrongInput',
                 'Set must be convertible to polytope with A, b matrices')
         
         # Normalize constraints if method exists
@@ -179,7 +179,7 @@ def _robustness_safe_set(S, p: np.ndarray) -> float:
             C = S_poly.A
             d = S_poly.b
         else:
-            raise CORAError('CORA:wrongInput',
+            raise CORAerror('CORA:wrongInput',
                 'Set must be convertible to polytope with A, b matrices')
         
         # Normalize constraints if method exists

@@ -13,7 +13,7 @@ import pytest
 import numpy as np
 from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.zonotope.mtimes import mtimes
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestZonotopeMtimes:
@@ -157,7 +157,7 @@ class TestZonotopeMtimes:
         Z = Zonotope(np.array([1, 2]), np.array([[1, 0], [0, 1]]))  # 2D
         M = np.array([[1, 0, 0], [0, 1, 0]])  # 2x3 matrix
         
-        with pytest.raises(CORAError):
+        with pytest.raises(CORAerror):
             mtimes(M, Z)
     
     def test_1d_zonotope_multiplication(self):

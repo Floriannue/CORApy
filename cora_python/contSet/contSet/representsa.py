@@ -34,9 +34,13 @@ Last update:   ---
 Last revision: ---
 """
 
-from .representsa_ import representsa_
+from typing import TYPE_CHECKING
 
-def representsa(S, set_type, *args, **kwargs):
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
+
+
+def representsa(S: 'ContSet', set_type: str, *args, **kwargs):
     """
     Checks if a set can also be represented by a different set type.
     
@@ -89,4 +93,4 @@ def representsa(S, set_type, *args, **kwargs):
         raise ValueError("Tolerance must be a non-negative number")
     
     # Call subfunction
-    return representsa_(S, set_type, tol, method, iter_val, splits) 
+    return S.representsa_(set_type, tol, method, iter_val, splits) 

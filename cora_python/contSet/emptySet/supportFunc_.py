@@ -35,6 +35,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import TYPE_CHECKING, Union, Tuple
+from cora_python.contSet.interval.interval import Interval
 
 if TYPE_CHECKING:
     from .emptySet import EmptySet
@@ -64,8 +65,6 @@ def supportFunc_(O: 'EmptySet', dir: np.ndarray, type_: str = 'upper', *varargin
         x = np.empty((O.dimension, 0))
 
     elif type_ == 'range':
-        # Import interval here to avoid circular imports
-        from cora_python.contSet.interval.interval import Interval
         val = Interval(-np.inf, np.inf)
         # actually, there would have to be two empty n-dimensional vectors next
         # to each other, but this is not supported...

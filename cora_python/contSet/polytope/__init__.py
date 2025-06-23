@@ -34,6 +34,7 @@ from .minus import minus, rminus
 from .generate_random import generate_random
 from .get_print_set_info import get_print_set_info
 from .enclose_points import enclose_points
+from .isIntersecting_ import isIntersecting_
 
 # Attach methods to the class
 Polytope.zonotope = zonotope
@@ -57,6 +58,7 @@ Polytope.vertices_ = vertices_
 Polytope.generate_random = staticmethod(generate_random)
 Polytope.get_print_set_info = get_print_set_info
 Polytope.enclose_points = staticmethod(enclose_points)
+Polytope.isIntersecting_ = isIntersecting_
 
 # Attach operator overloads
 Polytope.__contains__ = lambda self, other: contains_(self, other)

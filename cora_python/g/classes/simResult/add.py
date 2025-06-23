@@ -19,7 +19,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .simResult import SimResult
 
 def add(simRes1, simRes2):
     """
@@ -32,7 +32,6 @@ def add(simRes1, simRes2):
     Returns:
         Combined simResult object
     """
-    from .simResult import SimResult
     
     # Validate inputs
     if not hasattr(simRes1, 'x') or not hasattr(simRes1, 't'):

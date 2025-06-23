@@ -10,32 +10,28 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
-def volume_(S: 'ContSet', method: str = 'exact', order: int = 5) -> float:
+def volume_(S: 'ContSet', method: str = 'exact') -> float:
     """
-    Computes the volume of a set (internal use, see also contSet/volume)
+    Computes the volume of a set (internal use)
     
-    This is the base implementation that throws an error. Subclasses should
-    override this method to provide specific volume computation logic.
+    This function uses polymorphic dispatch to call the appropriate subclass
+    implementation of volume_, or provides the base implementation.
     
     Args:
         S: contSet object
-        method: Method for volume computation
-        order: Order parameter for computation
+        method: method for volume computation
         
     Returns:
         float: Volume of the set
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
-        
-    Example:
-        >>> # This will be overridden in specific set classes
-        >>> S = interval([1, 2], [3, 4])
-        >>> vol = volume_(S, 'exact', 5)
+        CORAerror: If volume_ is not implemented for the specific set type
     """
-    # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:noops',
-                   f'volume_ not implemented for {type(S).__name__} with method {method}') 
+    # Base implementation - throw error as this method should be overridden
+    raise CORAerror("CORA:noops", f"Function volume_ not implemented for class {type(S).__name__}") 

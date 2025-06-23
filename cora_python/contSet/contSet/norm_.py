@@ -10,10 +10,12 @@ Written: 12-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union, Tuple
+from typing import TYPE_CHECKING, Union, Tuple
 import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def norm_(S: 'ContSet', norm_type: Union[int, float, str] = 2, mode: str = 'ub') -> Union[float, Tuple[float, np.ndarray]]:
     """
@@ -31,13 +33,19 @@ def norm_(S: 'ContSet', norm_type: Union[int, float, str] = 2, mode: str = 'ub')
         Union[float, Tuple[float, np.ndarray]]: Norm value or tuple of (norm, point)
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAerror: Always raised as this method should be overridden in subclasses
         
     Example:
         >>> # This will be overridden in specific set classes
         >>> S = interval([1, 2], [3, 4])
         >>> norm_val = norm_(S, 2, 'ub')
     """
-    # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:noops',
-                   f'norm_ not implemented for {type(S).__name__} with norm_type {norm_type} and mode {mode}') 
+    base_class = type(S).__bases__[0] if type(S).__bases__ else None
+    if (hasattr(type(S), 'norm_') and 
+        base_class and hasattr(base_class, 'norm_') and
+        type(S).norm_ is not base_class.norm_):
+        return type(S).norm_(norm_type, mode)
+    else:
+        # This is overridden in subclass if implemented; throw error
+        raise CORAerror('CORA:noops',
+                    f'norm_ not implemented for {type(S).__name__} with norm_type {norm_type} and mode {mode}') 

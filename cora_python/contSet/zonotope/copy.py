@@ -18,9 +18,9 @@ Python translation: 2025
 """
 
 import numpy as np
+from .zonotope import Zonotope
 
-
-def copy(Z: 'Zonotope') -> 'Zonotope':
+def copy(Z: Zonotope) -> Zonotope:
     """
     Creates a copy of a zonotope object
     
@@ -34,7 +34,6 @@ def copy(Z: 'Zonotope') -> 'Zonotope':
         >>> Z = Zonotope([1, 0], [[1, 0], [0, 1]])
         >>> Z_copy = copy(Z)
     """
-    from .zonotope import Zonotope
     
     # Create a new zonotope with copied data
     return Zonotope(Z.c.copy(), Z.G.copy()) 

@@ -10,7 +10,7 @@ import pytest
 from cora_python.contDynamics.linearSys import LinearSys
 from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.interval import Interval
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 from cora_python.g.classes.reachSet import ReachSet
 
@@ -355,7 +355,7 @@ class TestLinearSysReach:
         sys = LinearSys(A, B)
         
         # Test missing required parameters
-        with pytest.raises((KeyError, ValueError, CORAError)):
+        with pytest.raises((KeyError, ValueError, CORAerror)):
             sys.reach({}, {})
         
         # Test invalid algorithm
@@ -367,7 +367,7 @@ class TestLinearSysReach:
             'linAlg': 'invalid_algorithm'
         }
         
-        with pytest.raises((ValueError, CORAError)):
+        with pytest.raises((ValueError, CORAerror)):
             sys.reach(params, options)
 
     def test_reach_dimension_consistency(self):
@@ -386,5 +386,5 @@ class TestLinearSysReach:
             'linAlg': 'standard'
         }
         
-        with pytest.raises((ValueError, AssertionError, CORAError)):
+        with pytest.raises((ValueError, AssertionError, CORAerror)):
             sys.reach(params, options)

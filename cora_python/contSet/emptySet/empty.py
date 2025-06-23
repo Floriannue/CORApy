@@ -1,7 +1,8 @@
 import numpy as np # Keep numpy import if it's used elsewhere in the file
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from .emptySet import EmptySet
 
-def empty(n=0) -> 'EmptySet':
+def empty(n=0) -> EmptySet:
     """
     empty - instantiates an empty emptySet
 
@@ -36,6 +37,5 @@ def empty(n=0) -> 'EmptySet':
     n = int(n)  # Convert to integer
 
     # call constructor (and check n there)
-    from .emptySet import EmptySet
     O = EmptySet(n)
     return O 

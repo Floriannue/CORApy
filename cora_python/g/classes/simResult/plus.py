@@ -19,7 +19,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .simResult import SimResult
 
 def plus(simRes1, simRes2):
     """
@@ -32,12 +32,10 @@ def plus(simRes1, simRes2):
     Returns:
         Resulting simResult object
     """
-    from .simResult import SimResult
     
     # If simRes2 is another simResult, use add function
     if hasattr(simRes2, 'x') and hasattr(simRes2, 't'):
-        from .add import add
-        return add(simRes1, simRes2)
+        return simRes1.add(simRes2)
     
     # If simRes2 is numeric, add to all states
     if isinstance(simRes2, (int, float, np.ndarray)):

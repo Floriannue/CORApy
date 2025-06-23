@@ -5,7 +5,7 @@ This module contains global functions and utilities used throughout CORA.
 """
 
 from .functions import *
-from .functions.matlab.validate.postprocessing.CORAerror import CORAError
+from .functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 __all__ = [
     'plot_polygon',
@@ -17,7 +17,7 @@ __all__ = [
     'next_color',
     'default_plot_color',
     'get_unbounded_axis_limits',
-    'CORAError',
+    'CORAerror',
 ]
 
 # g module - mirrors cora_matlab/global functionality 

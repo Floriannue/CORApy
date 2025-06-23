@@ -23,13 +23,13 @@ Written: 14-October-2024 (MATLAB)
 Python translation: 2025
 """
 
-import numpy as np
-from typing import Dict, Any, List, Optional
-from cora_python.g.functions.matlab.validate.preprocessing.set_default_values import set_default_values
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 from cora_python.g.functions.verbose.plot import plot_polytope_3d
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
-def plot3D(S, plot_kwargs: Optional[Dict[str, Any]] = None, 
+def plot3D(S: 'ContSet', plot_kwargs: Optional[Dict[str, Any]] = None, 
            nvpairs_vertices: Optional[List[Any]] = None):
     """
     Plot a 3D projection of a contSet

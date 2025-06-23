@@ -69,7 +69,7 @@ Python translation: 2025
 import numpy as np
 from typing import Optional, Union, Any, List, Callable
 from cora_python.g.functions.matlab.validate.check import assertNarginConstructor
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class Specification:
@@ -141,11 +141,11 @@ class Specification:
                 # syntax: obj = Specification(list)
                 # In Python, constructors cannot return lists
                 # This should be handled by a factory function
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                     'Cannot create multiple specifications in constructor. '
                     'Use create_specification_list() function instead.')
             else:
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                     'First argument must be a contSet, list, function, or STL formula.')
 
         # ...if list was given, we already returned an array of specification objects
@@ -157,11 +157,11 @@ class Specification:
             if type_ is not None:             # type is given
                 # ensure correct types for func, eq
                 if is_fun_han and type_ != 'custom':
-                    raise CORAError('CORA:wrongInputInConstructor',
+                    raise CORAerror('CORA:wrongInputInConstructor',
                         'If the specification is defined using a function handle, '
                         'the property "type" must be "custom".')
                 elif is_stl and type_ != 'logic':
-                    raise CORAError('CORA:wrongInputInConstructor',
+                    raise CORAerror('CORA:wrongInputInConstructor',
                         'If the specification is defined using an stl formula, '
                         'the property "type" must be "logic".')
                 
@@ -171,7 +171,7 @@ class Specification:
             elif loc is not None:          # location is given
                 # not supported for stl formulae
                 if is_stl:
-                    raise CORAError('CORA:notSupported',
+                    raise CORAerror('CORA:notSupported',
                         'Specifications using stl formulae not supported for hybrid systems.')
 
                 # check that format is correct
@@ -186,7 +186,7 @@ class Specification:
 
             # neither time nor location supported for stl formulae
             if is_stl:
-                raise CORAError('CORA:notSupported',
+                raise CORAerror('CORA:notSupported',
                     'Specifications using stl formulae not supported '
                     'for hybrid systems or combined with additional "time" input.')
 
@@ -196,7 +196,7 @@ class Specification:
 
                 # assign value
                 self.location = loc
-            elif time is not None and not self._represents_empty_set(time):  # time is given
+            elif time is not None and not time.isemptyobject():  # time is given
                 # assign value
                 self.time = time
 
@@ -231,7 +231,7 @@ class Specification:
             # Validate type
             valid_types = ['unsafeSet', 'safeSet', 'invariant', 'custom', 'logic']
             if arg_in not in valid_types:
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                     f'Invalid type "{arg_in}". Must be one of {valid_types}')
             type_ = arg_in
         elif isinstance(arg_in, (int, float, list, np.ndarray)):
@@ -242,15 +242,15 @@ class Specification:
         else:
             # Alter message based on index
             if idx == 2:
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                     'The second input argument has to be either a string (type) '
                     'or a numeric array/list (location).')
             elif idx == 3:
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                     'The third input argument has to be either a numeric array/list (location) '
                     'or an interval object (time).')
             elif idx == 4:
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                     'The fourth input argument has to be either a numeric array/list (location) '
                     'or an interval object (time).')
 
@@ -286,14 +286,14 @@ class Specification:
             
             if not is_pHA:
                 if not isinstance(loc, (int, float, np.ndarray)):
-                    raise CORAError('CORA:wrongInputInConstructor',
+                    raise CORAerror('CORA:wrongInputInConstructor',
                         'All entries in the property location have to be '
                         'positive numeric vectors/scalars.')
                 
                 loc_arr = np.atleast_1d(loc)
                 if np.any(np.isnan(loc_arr)) or np.any(np.isinf(loc_arr)) or \
                    not np.all(loc_arr == np.round(loc_arr)) or not np.all(loc_arr > 0):
-                    raise CORAError('CORA:wrongInputInConstructor',
+                    raise CORAerror('CORA:wrongInputInConstructor',
                         'All entries in the property location have to be '
                         'positive (non-NaN, non-Inf) numeric vectors/scalars.')
         
@@ -309,7 +309,7 @@ class Specification:
                         pass
                 
                 if not isinstance(loc_item, (int, float, np.ndarray, list)):
-                    raise CORAError('CORA:wrongInputInConstructor',
+                    raise CORAerror('CORA:wrongInputInConstructor',
                         'All entries in the property location have to be '
                         'positive numeric vectors/scalars.')
                 
@@ -318,11 +318,11 @@ class Specification:
                     # For lists that couldn't be converted, check each element
                     for val in loc_item:
                         if not isinstance(val, (int, float)):
-                            raise CORAError('CORA:wrongInputInConstructor',
+                            raise CORAerror('CORA:wrongInputInConstructor',
                                 'All entries in the property location have to be '
                                 'positive numeric vectors/scalars.')
                         if np.isnan(val) or np.isinf(val) or val != int(val) or val <= 0:
-                            raise CORAError('CORA:wrongInputInConstructor',
+                            raise CORAerror('CORA:wrongInputInConstructor',
                                 'All entries in the property location have to be '
                                 'positive (non-NaN, non-Inf) numeric vectors/scalars,\n'
                                 '  and must not be larger than the number of sets.')
@@ -330,16 +330,11 @@ class Specification:
                     loc_arr = np.atleast_1d(loc_item)
                     if np.any(np.isnan(loc_arr)) or np.any(np.isinf(loc_arr)) or \
                        not np.all(loc_arr == np.round(loc_arr)) or not np.all(loc_arr > 0):
-                        raise CORAError('CORA:wrongInputInConstructor',
+                        raise CORAerror('CORA:wrongInputInConstructor',
                             'All entries in the property location have to be '
                             'positive (non-NaN, non-Inf) numeric vectors/scalars,\n'
                             '  and must not be larger than the number of sets.')
 
-    def _represents_empty_set(self, obj):
-        """Check if object represents an empty set"""
-        if hasattr(obj, 'representsa_'):
-            return obj.representsa_('emptySet', 1e-10)
-        return False
     
     def __str__(self) -> str:
         """String representation of specification"""
@@ -352,71 +347,7 @@ class Specification:
         """Detailed string representation"""
         return self.__str__()
     
-    def __eq__(self, other) -> bool:
-        """Equality operator"""
-        from .eq import eq
-        return eq(self, other)
-    
-    def __ne__(self, other) -> bool:
-        """Not equal operator"""
-        from .ne import ne
-        return ne(self, other)
-    
-    def isequal(self, other, tol=None) -> bool:
-        """Check equality with tolerance"""
-        from .isequal import isequal
-        return isequal(self, other, tol)
-    
-    def inverse(self):
-        """Invert specification"""
-        from .inverse import inverse
-        return inverse(self)
-    
-    def isempty(self) -> bool:
-        """Check if specification is empty"""
-        from .isempty import isempty
-        return isempty(self)
-    
-    def project(self, dims):
-        """Project specification onto subspace"""
-        from .project import project
-        return project(self, dims)
-    
-    def check(self, S, *args) -> bool:
-        """Check if specification is satisfied"""
-        from .check import check
-        result, _, _ = check(self, S, *args)
-        return result
-    
-    def add(self, other):
-        """Add specifications together"""
-        from .add import add
-        return add(self, other)
-    
-    def splitLogic(self):
-        """Split into non-logic and logic specifications"""
-        from .splitLogic import splitLogic
-        return splitLogic(self)
-    
-    def plot(self, *args, **kwargs):
-        """Plot specification"""
-        from .plot import plot
-        return plot(self, *args, **kwargs)
-    
-    def plotOverTime(self, *args, **kwargs):
-        """Plot specification over time"""
-        from .plotOverTime import plotOverTime
-        return plotOverTime(self, *args, **kwargs)
-    
-    def robustness(self, p, *args):
-        """Compute robustness of specification"""
-        from .robustness import robustness
-        return robustness(self, p, *args)
-    
-    def printSpec(self, *args):
-        """Print specification details"""
-        from .printSpec import printSpec
-        return printSpec(self, *args)
+
 
 
 # Convenience functions for creating specifications
@@ -496,7 +427,7 @@ def create_specification_list(sets_list: list, spec_type: str = 'unsafeSet',
     """
     # Validate input list
     if not isinstance(sets_list, list) or len(sets_list) == 0:
-        raise CORAError('CORA:wrongInputInConstructor',
+        raise CORAerror('CORA:wrongInputInConstructor',
             'Input must be a non-empty list.')
     
     # Check what types of objects we have
@@ -505,7 +436,7 @@ def create_specification_list(sets_list: list, spec_type: str = 'unsafeSet',
     are_fun_han = all(callable(x) for x in sets_list)
     
     if not (are_contsets or are_stl or are_fun_han):
-        raise CORAError('CORA:wrongInputInConstructor',
+        raise CORAerror('CORA:wrongInputInConstructor',
             'All items in the list must be of the same type: '
             'contSet objects, STL formulas, or function handles.')
     

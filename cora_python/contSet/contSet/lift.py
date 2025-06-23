@@ -11,12 +11,12 @@ Written: 13-September-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 import numpy as np
-from .dim import dim
-from .lift_ import lift_
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def lift(S: 'ContSet', N: int, proj: Optional[np.ndarray] = None) -> 'ContSet':
     """
@@ -32,7 +32,7 @@ def lift(S: 'ContSet', N: int, proj: Optional[np.ndarray] = None) -> 'ContSet':
         ContSet: Set in the higher-dimensional space
         
     Raises:
-        CORAError: If dimensions are invalid
+        CORAerror: If dimensions are invalid
         ValueError: If invalid parameters
         
     Example:
@@ -41,7 +41,7 @@ def lift(S: 'ContSet', N: int, proj: Optional[np.ndarray] = None) -> 'ContSet':
     """
     # Set default projection
     if proj is None:
-        proj = np.arange(1, dim(S) + 1)  # 1-indexed like MATLAB
+        proj = np.arange(1, S.dim() + 1)  # 1-indexed like MATLAB
     
     # Validate inputs
     if not isinstance(N, int) or N < 0:
@@ -52,17 +52,17 @@ def lift(S: 'ContSet', N: int, proj: Optional[np.ndarray] = None) -> 'ContSet':
         raise ValueError("proj must be a vector")
     
     # Check dimension constraints
-    if dim(S) > N:
-        raise CORAError('CORA:wrongValue',
+    if S.dim() > N:
+        raise CORAerror('CORA:wrongValue',
                        'Dimension of higher-dimensional space must be larger than or equal to the dimension of the given set.')
     
-    if dim(S) != len(proj):
-        raise CORAError('CORA:wrongValue',
+    if S.dim() != len(proj):
+        raise CORAerror('CORA:wrongValue',
                        'Number of dimensions in higher-dimensional space must match the dimension of the given set.')
     
     if np.max(proj) > N:
-        raise CORAError('CORA:wrongValue',
+        raise CORAerror('CORA:wrongValue',
                        'Specified dimensions exceed dimension of high-dimensional space.')
     
     # Call subfunction
-    return lift_(S, N, proj) 
+    return S.lift_(N, proj) 

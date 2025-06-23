@@ -32,7 +32,9 @@ from typing import List, Optional, Any, Union
 from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.ops import unary_union
 import warnings
-
+from scipy.spatial import ConvexHull
+from cora_python.g.functions.verbose.plot.read_plot_options import read_plot_options
+from cora_python.g.functions.verbose.plot.color.cora_color import cora_color
 
 def plot(R, dims: Optional[List[int]] = None, **kwargs) -> Any:
     """
@@ -65,7 +67,6 @@ def plot(R, dims: Optional[List[int]] = None, **kwargs) -> Any:
     # Apply reachSet specific plot options like MATLAB does:
     # NVpairs = readPlotOptions(varargin(2:end),'reachSet');
     try:
-        from ...functions.verbose.plot.read_plot_options import read_plot_options
         # Convert kwargs to list format like MATLAB varargin
         plot_options_list = []
         for k, v in kwargs.items():
@@ -94,11 +95,8 @@ def plot(R, dims: Optional[List[int]] = None, **kwargs) -> Any:
         
         # Set default colors for reachable sets using CORA colors
         if face_color is None:
-            try:
-                from ...functions.verbose.plot.color.cora_color import cora_color
-                face_color = cora_color('CORA:reachSet')
-            except ImportError:
-                face_color = 'blue'  # Fallback
+            face_color = cora_color('CORA:reachSet')
+
         if edge_color is None:
             edge_color = face_color  # Use same color for edges
     
@@ -107,8 +105,8 @@ def plot(R, dims: Optional[List[int]] = None, **kwargs) -> Any:
         kwargs['zorder'] = 1  # Low z-order so initial sets can be on top
     
     # Check if reachSet is empty
-    from .isemptyobject import isemptyobject
-    if isemptyobject(R):
+
+    if R.isemptyobject():
         # Plot empty set
         if len(dims) == 2:
             return plt.plot([], [], **kwargs)
@@ -226,7 +224,6 @@ def _plot_unified(sets_to_plot: List, dims: List[int], face_color: str, edge_col
                 if vertices.shape[0] >= 3:  # Need at least 3 points for a polygon
                     try:
                         # Compute convex hull to ensure proper vertex ordering
-                        from scipy.spatial import ConvexHull
                         hull = ConvexHull(vertices)
                         hull_vertices = vertices[hull.vertices]
                         
@@ -380,7 +377,6 @@ def _zonotope_vertices(zonotope, dims: List[int]) -> np.ndarray:
             
             # Compute convex hull to get boundary vertices in correct order
             try:
-                from scipy.spatial import ConvexHull
                 if len(vertices) > 3:
                     hull = ConvexHull(vertices)
                     hull_vertices = vertices[hull.vertices]

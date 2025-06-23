@@ -23,41 +23,25 @@ class TestCapsuleDisplay:
         n = 2
         C = Capsule.empty(n)
         
-        # Capture output
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        # Get display output
+        output = C.display()
         
-        try:
-            C.display()
-            output = captured_output.getvalue()
-            
-            # Check that output contains relevant information
-            assert "empty" in output.lower() or "Empty" in output
-            assert "capsule" in output.lower() or "Capsule" in output
-            
-        finally:
-            sys.stdout = sys.__stdout__
+        # Check that output contains relevant information
+        assert "empty" in output.lower() or "Empty" in output
+        assert "capsule" in output.lower() or "Capsule" in output
 
     def test_display_center_only(self):
         """Test display of capsule with center only"""
         c = np.array([2, 0])
         C = Capsule(c)
         
-        # Capture output
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        # Get display output
+        output = C.display()
         
-        try:
-            C.display()
-            output = captured_output.getvalue()
-            
-            # Check that output contains center values
-            assert "2" in output
-            assert "0" in output
-            assert "capsule" in output.lower() or "Capsule" in output
-            
-        finally:
-            sys.stdout = sys.__stdout__
+        # Check that output contains center values
+        assert "2" in output
+        assert "0" in output
+        assert "capsule" in output.lower() or "Capsule" in output
 
     def test_display_center_generator(self):
         """Test display of capsule with center and generator"""
@@ -65,21 +49,13 @@ class TestCapsuleDisplay:
         g = np.array([1, -1])
         C = Capsule(c, g)
         
-        # Capture output
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        # Get display output
+        output = C.display()
         
-        try:
-            C.display()
-            output = captured_output.getvalue()
-            
-            # Check that output contains center and generator values
-            assert "2" in output
-            assert "1" in output
-            assert "-1" in output
-            
-        finally:
-            sys.stdout = sys.__stdout__
+        # Check that output contains center and generator values
+        assert "2" in output
+        assert "1" in output
+        assert "-1" in output
 
     def test_display_full_capsule(self):
         """Test display of full capsule with center, generator, and radius"""
@@ -88,22 +64,14 @@ class TestCapsuleDisplay:
         r = 0.5
         C = Capsule(c, g, r)
         
-        # Capture output
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        # Get display output
+        output = C.display()
         
-        try:
-            C.display()
-            output = captured_output.getvalue()
-            
-            # Check that output contains all values
-            assert "2" in output
-            assert "1" in output
-            assert "-1" in output
-            assert "0.5" in output or "0.50" in output
-            
-        finally:
-            sys.stdout = sys.__stdout__
+        # Check that output contains all values
+        assert "2" in output
+        assert "1" in output
+        assert "-1" in output
+        assert "0.5" in output or "0.50" in output
 
     def test_display_no_exception(self):
         """Test that display doesn't raise exceptions"""
@@ -119,15 +87,11 @@ class TestCapsuleDisplay:
         for C in capsules:
             # Should not raise any exceptions
             try:
-                captured_output = io.StringIO()
-                sys.stdout = captured_output
-                C.display()
+                output = C.display()
                 # Test passed if no exception is raised
-                assert True
+                assert isinstance(output, str)
             except Exception as e:
                 pytest.fail(f"Display raised unexpected exception: {e}")
-            finally:
-                sys.stdout = sys.__stdout__
 
     def test_display_different_dimensions(self):
         """Test display for different dimensions"""
@@ -140,18 +104,10 @@ class TestCapsuleDisplay:
         capsules = [C_1d, C_4d]
         
         for C in capsules:
-            captured_output = io.StringIO()
-            sys.stdout = captured_output
+            output = C.display()
             
-            try:
-                C.display()
-                output = captured_output.getvalue()
-                
-                # Should produce some output without errors
-                assert len(output) > 0
-                
-            finally:
-                sys.stdout = sys.__stdout__
+            # Should produce some output without errors
+            assert len(output) > 0
 
 
 if __name__ == "__main__":

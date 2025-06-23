@@ -10,8 +10,11 @@ Written: 09-January-2024 (MATLAB)
 Python translation: 2025
 """
 
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from typing import TYPE_CHECKING
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 def Inf(n: int) -> 'ContSet':
     """
@@ -27,12 +30,12 @@ def Inf(n: int) -> 'ContSet':
         ContSet: Fullspace set object
         
     Raises:
-        CORAError: Always raised as this method should be overridden in subclasses
+        CORAerror: Always raised as this method should be overridden in subclasses
         
     Example:
         >>> # This will be overridden in specific set classes like interval, fullspace, etc.
         >>> S = interval.Inf(2)  # Creates 2D fullspace interval
     """
     # This is overridden in subclass if implemented; throw error
-    raise CORAError('CORA:notSupported',
+    raise CORAerror('CORA:notSupported',
                    'The chosen subclass of contSet does not support a fullspace set instantiation.') 

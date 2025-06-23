@@ -30,5 +30,4 @@ def ne(R1, R2) -> bool:
     Returns:
         True if reachSet objects are not equal, False otherwise
     """
-    from .eq import eq
-    return not eq(R1, R2) 
+    return not R1.eq(R2) 

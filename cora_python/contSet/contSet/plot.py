@@ -26,16 +26,18 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import List, Any, Optional, Union
+from typing import TYPE_CHECKING
 from cora_python.g.functions.matlab.validate.preprocessing.set_default_values import set_default_values
 from cora_python.g.functions.matlab.validate.check.input_args_check import input_args_check
 from cora_python.g.functions.verbose.plot import read_name_value_pair
 from cora_python.g.functions.verbose.plot import read_plot_options
 from cora_python.g.functions.verbose.plot import get_unbounded_axis_limits
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
-def plot(S, *args, **kwargs):
+def plot(S: 'ContSet', *args, **kwargs):
     """
     Plot a projection of a contSet
     
@@ -62,22 +64,19 @@ def plot(S, *args, **kwargs):
     
     if n == 1:
         # 1D plotting
-        from .plot1D import plot1D
-        handle = plot1D(S, plot_kwargs, nvpairs_interval)
+        handle = S.plot1D(plot_kwargs, nvpairs_interval)
         
     elif n == 2:
         # 2D plotting
-        from .plot2D import plot2D
-        handle = plot2D(S, plot_kwargs, nvpairs_polygon)
+        handle = S.plot2D(plot_kwargs, nvpairs_polygon)
         
     elif n == 3:
         # 3D plotting
-        from .plot3D import plot3D
-        handle = plot3D(S, plot_kwargs, nvpairs_vertices)
+        handle = S.plot3D(plot_kwargs, nvpairs_vertices)
         
     else:
         # Unable to plot higher-dimensional sets
-        raise CORAError('CORA:plotProperties', f'Cannot plot {n}-dimensional sets')
+        raise CORAerror('CORA:plotProperties', f'Cannot plot {n}-dimensional sets')
     
     return handle
 
@@ -125,13 +124,13 @@ def _parse_input(S, args, kwargs):
     set_dim = S.dim()
     for d in dims:
         if d < 0 or d >= set_dim:
-            raise CORAError('CORA:wrongInput', f'Dimension {d+1} does not exist (set has {set_dim} dimensions)')
+            raise CORAerror('CORA:wrongInput', f'Dimension {d+1} does not exist (set has {set_dim} dimensions)')
     
     # Check dimension constraints
     if len(dims) < 1:
-        raise CORAError('CORA:plotProperties', 'At least one dimension must be specified')
+        raise CORAerror('CORA:plotProperties', 'At least one dimension must be specified')
     elif len(dims) > 3:
-        raise CORAError('CORA:plotProperties', 'Cannot plot more than 3 dimensions')
+        raise CORAerror('CORA:plotProperties', 'Cannot plot more than 3 dimensions')
     
     # Remove dims from args if it was provided
     if args_list:
@@ -213,7 +212,7 @@ def _intersect_with_axis_limits(S, plot_kwargs):
         I_axis = Interval(np.array([xlim[0], ylim[0], zlim[0]]), 
                          np.array([xlim[1], ylim[1], zlim[1]]))
     else:
-        raise CORAError('CORA:plotProperties', f'Cannot handle {n}-dimensional plotting')
+        raise CORAerror('CORA:plotProperties', f'Cannot handle {n}-dimensional plotting')
     
     # Project to given dimensions (use 0-based indexing)
     I_axis = I_axis.project(list(range(S.dim())))

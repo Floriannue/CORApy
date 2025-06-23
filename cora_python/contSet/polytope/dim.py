@@ -23,8 +23,6 @@ Last update: 22-March-2007 (MATLAB)
 Python translation: 2025
 """
 
-import numpy as np
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

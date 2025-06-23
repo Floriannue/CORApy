@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
 from cora_python.contSet.zonotope.zonotope import Zonotope
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def test_ellipsoid_zonotope():
@@ -78,7 +78,7 @@ def test_ellipsoid_zonotope():
     assert np.allclose(Z_point.center(), np.array([[1], [2]]))
     
     # Test unsupported mode
-    with pytest.raises(CORAError):
+    with pytest.raises(CORAerror):
         E1.zonotope('outer:norm_bnd')
 
 

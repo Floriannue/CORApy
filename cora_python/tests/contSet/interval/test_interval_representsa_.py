@@ -80,7 +80,7 @@ class TestIntervalRepresentsa(unittest.TestCase):
         
         # Test with conversion (if available)
         try:
-            res, Z = I.representsa_('zonotope', return_object=True)
+            res, Z = I.representsa_('zonotope', return_set=True)
             self.assertTrue(res)
             # Note: Zonotope comparison would require zonotope implementation
             # For now, just check that conversion doesn't fail

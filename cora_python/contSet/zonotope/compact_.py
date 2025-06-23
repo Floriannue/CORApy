@@ -44,9 +44,9 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union
+from .zonotope import Zonotope
 
-
-def compact_(Z, method: str = 'zeros', tol: float = None) -> 'Zonotope':
+def compact_(Z, method: str = 'zeros', tol: float = None) -> Zonotope:
     """
     Returns equal zonotope in minimal representation
     
@@ -72,7 +72,7 @@ def compact_(Z, method: str = 'zeros', tol: float = None) -> 'Zonotope':
         raise ValueError(f"Unknown method: {method}. Use 'zeros' or 'all'.")
 
 
-def _aux_deleteZeros(Z, tol: float) -> 'Zonotope':
+def _aux_deleteZeros(Z, tol: float) -> Zonotope:
     """
     Filter zero generators
     
@@ -87,11 +87,10 @@ def _aux_deleteZeros(Z, tol: float) -> 'Zonotope':
     G_filtered = _nonzeroFilter(Z.G, tol)
     
     # Create new zonotope with filtered generators
-    from .zonotope import Zonotope
     return Zonotope(Z.c, G_filtered)
 
 
-def _aux_deleteAligned(Z, tol: float) -> 'Zonotope':
+def _aux_deleteAligned(Z, tol: float) -> Zonotope:
     """
     Delete aligned generators by combining them
     
@@ -102,8 +101,6 @@ def _aux_deleteAligned(Z, tol: float) -> 'Zonotope':
     Returns:
         zonotope object with aligned generators combined
     """
-    from .zonotope import Zonotope
-    
     # Delete zero-generators first
     G = _nonzeroFilter(Z.G, tol)
     

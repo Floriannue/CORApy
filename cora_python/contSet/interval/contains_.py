@@ -53,13 +53,16 @@ Last revision: 27-March-2023 (MW, rename contains_)
 """
 
 import numpy as np
-from typing import Union, Tuple
+from typing import Union, Tuple, TYPE_CHECKING
 
 # Removed static import - use object method instead
 from cora_python.g.functions.matlab.validate.check import withinTol
 
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet import ContSet
+    from cora_python.contSet.interval import Interval
 
-def contains_(I, S, method='exact', tol=1e-12, maxEval=200, certToggle=False, scalingToggle=False, *varargin):
+def contains_(I: 'Interval', S: Union['ContSet', np.ndarray, list, tuple], method: str = 'exact', tol: float = 1e-12, maxEval: int = 200, certToggle: bool = False, scalingToggle: bool = False, *varargin) -> Tuple[bool, bool, float]:
     """
     Determines if an interval contains a set or a point.
     

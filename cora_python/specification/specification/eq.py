@@ -24,9 +24,9 @@ Python translation: 2025
 """
 
 from typing import Union, List
+from .specification import Specification
 
-
-def eq(spec1, spec2) -> bool:
+def eq(spec1: Specification, spec2: Specification) -> bool:
     """
     Check equality of two specification objects
     
@@ -37,9 +37,6 @@ def eq(spec1, spec2) -> bool:
     Returns:
         bool: True if specifications are equal, False otherwise
     """
-    
-    # Import here to avoid circular imports
-    from .specification import Specification
     
     # Check if both are specification objects
     if not isinstance(spec1, Specification) or not isinstance(spec2, Specification):

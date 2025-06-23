@@ -19,7 +19,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .reachSet import ReachSet
 
 def minus(R1, R2):
     """
@@ -32,7 +32,6 @@ def minus(R1, R2):
     Returns:
         Resulting reachSet object
     """
-    from .reachSet import ReachSet
     
     # If R2 is numeric, subtract from all sets
     if isinstance(R2, (int, float, np.ndarray)):

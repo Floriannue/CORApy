@@ -1,5 +1,6 @@
 import numpy as np
 
+from .zonotope import Zonotope
 
 def box(Z):
     """
@@ -21,7 +22,6 @@ def box(Z):
         >>> Z_box = box(Z)
         >>> # Z_box has axis-aligned generators only
     """
-    from .zonotope import Zonotope
     
     # Handle empty zonotope
     if Z.isemptyobject():

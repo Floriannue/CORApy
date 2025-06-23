@@ -9,7 +9,7 @@ from . import contSet
 from . import contDynamics
 from .contSet import interval
 from .contDynamics import LinearSys
-from .g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from .g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 __version__ = "2025.1.0"
-__all__ = ['contSet', 'contDynamics', 'interval', 'LinearSys', 'CORAError'] 
+__all__ = ['contSet', 'contDynamics', 'interval', 'LinearSys', 'CORAerror'] 

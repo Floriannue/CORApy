@@ -23,8 +23,10 @@ Python translation: 2025
 import numpy as np
 from typing import Any, Optional
 
+from .zonotope import Zonotope
 
-def isequal(Z1: 'Zonotope', Z2: Any, tol: Optional[float] = None) -> bool:
+
+def isequal(Z1: Zonotope, Z2: Any, tol: Optional[float] = None) -> bool:
     """
     Checks if two zonotope objects are equal
     
@@ -36,7 +38,6 @@ def isequal(Z1: 'Zonotope', Z2: Any, tol: Optional[float] = None) -> bool:
     Returns:
         bool: True if zonotopes are equal, False otherwise
     """
-    from .zonotope import Zonotope
     
     # Set default tolerance
     if tol is None:

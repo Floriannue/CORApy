@@ -19,7 +19,7 @@ Python translation: 2025
 """
 
 import numpy as np
-
+from .reachSet import ReachSet
 
 def mtimes(arg1, arg2):
     """
@@ -32,7 +32,6 @@ def mtimes(arg1, arg2):
     Returns:
         Resulting reachSet object
     """
-    from .reachSet import ReachSet
     
     # Determine which argument is the reachSet and which is the matrix
     if hasattr(arg1, 'timePoint') and hasattr(arg1, 'timeInterval'):

@@ -11,16 +11,12 @@ Last update: 27-March-2023 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union
+from typing import Union, TYPE_CHECKING
 import numpy as np
-from .center import center
-from .rad import rad
-from .dim import dim
-from .project import project
-from .vertices_ import vertices_
-from .isemptyobject import isemptyobject
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+if TYPE_CHECKING:
+    from .interval import Interval
 
 def randPoint_(I: 'Interval', N: Union[int, str] = 1, type_: str = 'standard') -> np.ndarray:
     """
@@ -35,19 +31,19 @@ def randPoint_(I: 'Interval', N: Union[int, str] = 1, type_: str = 'standard') -
         np.ndarray: Random points (each column is a point)
         
     Raises:
-        CORAError: If interval matrix is provided
+        CORAerror: If interval matrix is provided
         
     Example:
         >>> I = Interval([-2, 1], [3, 2])
         >>> p = randPoint_(I, 20)
     """
     # Get object properties
-    c = center(I)
-    r = rad(I)
-    n = dim(I)
+    c = I.center()
+    r = I.rad()
+    n = I.dim()
     
     # Handle empty interval
-    if isemptyobject(I):
+    if I.isemptyobject():
         if isinstance(N, str):
             N = 0
         elif N == 1:
@@ -56,7 +52,7 @@ def randPoint_(I: 'Interval', N: Union[int, str] = 1, type_: str = 'standard') -
     
     # Check for interval matrix (not supported)
     if r.ndim > 1 and r.shape[0] > 1 and r.shape[1] > 1:
-        raise CORAError('CORA:wrongInputInConstructor',
+        raise CORAerror('CORA:wrongInputInConstructor',
                        'interval/randPoint not defined for interval matrices!')
     
     # Generate different types of points
@@ -65,7 +61,7 @@ def randPoint_(I: 'Interval', N: Union[int, str] = 1, type_: str = 'standard') -
         if r.ndim > 1 and r.shape[1] > 1:
             if r.shape[0] > 1:
                 # Both dimensions larger than 1 -> interval matrix
-                raise CORAError('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor',
                                'interval/randPoint not defined for interval matrices!')
             else:
                 # Row interval
@@ -81,7 +77,7 @@ def randPoint_(I: 'Interval', N: Union[int, str] = 1, type_: str = 'standard') -
         # Consider degenerate case
         ind = np.where(r > 0)[0]
         if len(ind) < n:
-            I_proj = project(I, ind)
+            I_proj = I.project(ind)
             temp = randPoint_(I_proj, N, type_)
             if isinstance(N, str):
                 N = temp.shape[1]
@@ -91,7 +87,7 @@ def randPoint_(I: 'Interval', N: Union[int, str] = 1, type_: str = 'standard') -
         
         # Return all extreme points
         if isinstance(N, str) and N == 'all':
-            p = vertices_(I)
+            p = I.vertices_()
             
         elif isinstance(N, int):
             if 10 * N < 2**n:
@@ -112,14 +108,14 @@ def randPoint_(I: 'Interval', N: Union[int, str] = 1, type_: str = 'standard') -
                 
             elif N <= 2**n:
                 # Select random vertices
-                V = vertices_(I)
+                V = I.vertices_()
                 ind = np.random.permutation(V.shape[1])
                 V = V[:, ind]
                 p = V[:, :N]
                 
             else:
                 # Compute vertices and additional points on the boundary
-                V = vertices_(I)
+                V = I.vertices_()
                 p = np.zeros((n, N))
                 p[:, :V.shape[1]] = V
                 

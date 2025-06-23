@@ -94,6 +94,12 @@ def CORAlinprog(problem: Dict[str, Any]) -> Tuple[Optional[np.ndarray], Optional
     lb = problem.get('lb', None)
     ub = problem.get('ub', None)
     
+    # In MATLAB, empty arrays [] mean no bounds, equivalent to None
+    if lb is not None and hasattr(lb, '__len__') and len(lb) == 0:
+        lb = None
+    if ub is not None and hasattr(ub, '__len__') and len(ub) == 0:
+        ub = None
+    
     if lb is not None or ub is not None:
         n_vars = len(c) if c is not None else 0
         if n_vars == 0 and A_ub is not None:
@@ -107,6 +113,19 @@ def CORAlinprog(problem: Dict[str, Any]) -> Tuple[Optional[np.ndarray], Optional
                 lower = lb[i] if lb is not None and i < len(lb) else None
                 upper = ub[i] if ub is not None and i < len(ub) else None
                 bounds.append((lower, upper))
+    else:
+        # When no bounds are specified, use fully unbounded variables
+        # This differs from scipy default which is (0, None) for all variables
+        n_vars = len(c) if c is not None else 0
+        if n_vars == 0 and A_ub is not None:
+            n_vars = A_ub.shape[1]
+        elif n_vars == 0 and A_eq is not None:
+            n_vars = A_eq.shape[1]
+        
+        if n_vars > 0:
+            bounds = [(None, None)] * n_vars
+        else:
+            bounds = None
     
     # Convert to numpy arrays if needed
     if c is not None:

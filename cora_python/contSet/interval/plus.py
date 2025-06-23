@@ -24,7 +24,7 @@ import numpy as np
 from typing import Union
 from .interval import Interval
 # Removed static helper imports - use object methods and proper validation instead
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def plus(I: Interval, S: Union[Interval, np.ndarray, float, int]) -> Interval:
@@ -90,7 +90,7 @@ def plus(I: Interval, S: Union[Interval, np.ndarray, float, int]) -> Interval:
         # Check whether different dimension of ambient space
         if hasattr(S_out, 'dim') and hasattr(S, 'dim'):
             if S_out.dim() != S.dim():
-                raise CORAError('CORA:dimensionMismatch', 
+                raise CORAerror('CORA:dimensionMismatch', 
                                f'Dimension mismatch: {S_out.dim()} vs {S.dim()}')
         
         # Check for empty sets using object methods
@@ -102,4 +102,4 @@ def plus(I: Interval, S: Union[Interval, np.ndarray, float, int]) -> Interval:
         raise e
     
     # If we get here, the operation is not supported
-    raise CORAError('CORA:noops', f'Operation not supported between {type(S_out)} and {type(S)}') 
+    raise CORAerror('CORA:noops', f'Operation not supported between {type(S_out)} and {type(S)}') 

@@ -18,8 +18,13 @@ Python translation: 2025
 
 import numpy as np
 
+from typing import TYPE_CHECKING
 
-def dim(obj) -> int:
+if TYPE_CHECKING:
+    from .interval import Interval
+
+
+def dim(obj: 'Interval') -> int:
     """
     Get dimension of the interval
     

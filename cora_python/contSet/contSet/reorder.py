@@ -10,8 +10,11 @@ Written: 28-September-2024 (MATLAB)
 Python translation: 2025
 """
 
-from typing import Union, Tuple
+from typing import TYPE_CHECKING, Union, Tuple
 import numpy as np
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet.contSet import ContSet
 
 
 def reorder(S1: Union['ContSet', np.ndarray], S2: Union['ContSet', np.ndarray]) -> Tuple[Union['ContSet', np.ndarray], Union['ContSet', np.ndarray]]:

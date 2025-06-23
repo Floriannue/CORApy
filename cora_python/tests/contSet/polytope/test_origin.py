@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from cora_python.contSet.polytope.polytope import Polytope
 from cora_python.contSet.polytope.origin import origin
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestOrigin:
@@ -51,14 +51,14 @@ class TestOrigin:
 
     def test_origin_invalid_input(self):
         # Test invalid input (non-positive dimension)
-        with pytest.raises(CORAError) as excinfo:
+        with pytest.raises(CORAerror) as excinfo:
             origin(0)
         assert "CORA:wrongInput" in str(excinfo.value)
 
-        with pytest.raises(CORAError) as excinfo:
+        with pytest.raises(CORAerror) as excinfo:
             origin(-1)
         assert "CORA:wrongInput" in str(excinfo.value)
 
-        with pytest.raises(CORAError) as excinfo:
+        with pytest.raises(CORAerror) as excinfo:
             origin(1.5)
         assert "CORA:wrongInput" in str(excinfo.value) 

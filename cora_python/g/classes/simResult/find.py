@@ -21,7 +21,8 @@ Python translation: 2025
 
 import numpy as np
 from typing import Any, Union
-
+from .simResult import SimResult
+from cora_python.contSet.interval.interval import Interval
 
 def find(simRes, prop: str, val: Any):
     """
@@ -51,7 +52,6 @@ def find(simRes, prop: str, val: Any):
                 return simRes
         
         # Create new simResult with matching trajectories
-        from .simResult import SimResult
         
         new_x = []
         new_t = []
@@ -84,7 +84,6 @@ def find(simRes, prop: str, val: Any):
     
     elif prop == 'time':
         # Get all simRes trajectories within a given time interval
-        from ....contSet.interval.interval import Interval
         
         # Convert val to interval if it's not already
         if not isinstance(val, Interval):
@@ -95,8 +94,6 @@ def find(simRes, prop: str, val: Any):
                 val = Interval(val[0], val[1])
             else:
                 raise ValueError("Time value must be a number, interval, or [start, end] pair")
-        
-        from .simResult import SimResult
         
         new_x = []
         new_t = []

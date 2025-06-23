@@ -12,5 +12,14 @@ from .capsule import Capsule
 from .emptySet import EmptySet
 from .ellipsoid import Ellipsoid
 from .polytope import Polytope
+from .fullspace import Fullspace
+from .conZonotope import ConZonotope
+from .polyZonotope import PolyZonotope
+from .zonoBundle import ZonoBundle
+from .probZonotope import ProbZonotope
+from .spectraShadow import SpectraShadow
+from .taylm import Taylm
 
-__all__ = ['ContSet', 'Interval', 'Zonotope', 'Capsule', 'EmptySet', 'Ellipsoid', 'Polytope'] 
+__all__ = ['ContSet', 'Interval', 'Zonotope', 'Capsule', 'EmptySet', 'Ellipsoid', 'Polytope', 
+           'Fullspace', 'ConZonotope', 'PolyZonotope', 'ZonoBundle', 'ProbZonotope', 
+           'SpectraShadow', 'Taylm'] 

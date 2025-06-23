@@ -20,7 +20,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Dict, Optional
-
+from .reachSet import ReachSet
 
 def initReachSet(timePoint: Dict, timeInt: Optional[Dict] = None):
     """
@@ -33,7 +33,6 @@ def initReachSet(timePoint: Dict, timeInt: Optional[Dict] = None):
     Returns:
         reachSet object
     """
-    from .reachSet import ReachSet
     
     # Handle case where no time-interval solution is provided
     if timeInt is None:

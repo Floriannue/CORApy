@@ -30,7 +30,7 @@ Last revision: ---
 import numpy as np
 from typing import Union
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
-from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAError
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def sparseOrthMatrix(n: int) -> np.ndarray:
@@ -107,6 +107,6 @@ def sparseOrthMatrix(n: int) -> np.ndarray:
     col_norms = np.linalg.norm(Q, axis=0)
     
     if not withinTol(det_Q, 1, 1e-9) or not np.all(withinTol(col_norms, 1, 1e-9)):
-        raise CORAError('CORA:specialError', 'Resulting matrix is not orthogonal')
+        raise CORAerror('CORA:specialError', 'Resulting matrix is not orthogonal')
     
     return Q 

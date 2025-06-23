@@ -17,9 +17,9 @@ Python translation: 2025
 """
 
 import numpy as np
+from .interval import Interval
 
-
-def origin(n: int):
+def origin(n: int) -> Interval:
     """
     Instantiate an interval representing the origin in R^n
     
@@ -35,9 +35,6 @@ def origin(n: int):
     # Input validation
     if not isinstance(n, (int, np.integer)) or n <= 0:
         raise ValueError("Dimension must be a positive integer")
-    
-    # Import here to avoid circular imports
-    from .interval import Interval
     
     # Create 1D array of zeros for better Python/NumPy compatibility
     zeros = np.zeros(n)

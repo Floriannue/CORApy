@@ -57,12 +57,10 @@ Python translation: 2025
 
 import numpy as np
 from typing import Tuple, Union, List, Optional
-from .particularSolution_constant import particularSolution_constant
-from cora_python.contSet.contSet import decompose
 from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes
 from cora_python.g.functions.helper.sets.contSet.contSet import block_operation
 from cora_python.g.functions.helper.sets.contSet.contSet import enclose
-
+from cora_python.g.classes.taylorLinSys import TaylorLinSys
 
 def affineSolution(linsys, X, u: np.ndarray, timeStep: float, truncationOrder: int, 
                   blocks: Optional[np.ndarray] = None) -> Union[
@@ -93,17 +91,16 @@ def affineSolution(linsys, X, u: np.ndarray, timeStep: float, truncationOrder: i
     # Since this function is public, we cannot assume that taylorLinSys has
     # already been instantiated
     if not hasattr(linsys, 'taylor') or not hasattr(linsys.taylor, 'getTaylor'):
-        from cora_python.g.classes.taylorLinSys import TaylorLinSys
         linsys.taylor = TaylorLinSys(linsys.A)
     
     # Particular solution due to constant input
-    Pu, _, _ = particularSolution_constant(linsys, u, timeStep, truncationOrder, blocks)
+    Pu, _, _ = linsys.particularSolution_constant(u, timeStep, truncationOrder, blocks)
     
     # Propagation matrix
     eAdt = linsys.taylor.getTaylor('eAdt', timeStep=timeStep)
     
     # Decompose start set (remains the same if no blocks given)
-    X_decomp = decompose(X, blocks)
+    X_decomp = X.decompose(blocks)
     
     # Affine time-point solution
     Htp = block_operation(lambda a, b: a + b, block_mtimes(eAdt, X_decomp), Pu)
