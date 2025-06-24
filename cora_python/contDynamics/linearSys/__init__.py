@@ -7,7 +7,8 @@ linear time-invariant dynamical systems.
 
 from .linearSys import LinearSys
 from .display import display
-from .eq import eq, isequal
+from .eq import eq
+from .isequal import isequal
 from .ne import ne
 from .generateRandom import generateRandom
 from .simulate import simulate
@@ -28,7 +29,8 @@ from .particularSolution_timeVarying import particularSolution_timeVarying
 LinearSys.display = display
 LinearSys.__eq__ = lambda self, other: eq(self, other) if isinstance(other, LinearSys) else False
 LinearSys.__ne__ = lambda self, other: ne(self, other)
-LinearSys.display = display
+LinearSys.eq = eq
+LinearSys.ne = ne
 LinearSys.isequal = isequal
 LinearSys.simulate = simulate
 LinearSys.simulateRandom = simulateRandom

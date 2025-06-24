@@ -100,16 +100,6 @@ class Zonotope(ContSet):
         self.c = c
         self.G = G
     
-    @property
-    def center(self):
-        """Returns the center of the zonotope."""
-        return self.c
-
-    @property
-    def generators(self):
-        """Returns the generators of the zonotope."""
-        return self.G
-
     def _parse_input_args(self, *args):
         """Parse input arguments from user and assign to variables"""
         
@@ -203,22 +193,15 @@ class Zonotope(ContSet):
         
         return c, G
     
+    def __str__(self) -> str:
+        """String representation of zonotope"""
+        if hasattr(self, 'display') and callable(self.display):
+            return self.display()
+        return f"Zonotope with center {self.c.flatten()} and {self.G.shape[1]} generators"
+    
     def __repr__(self) -> str:
-        """
-        Official string representation for programmers.
-        Should be unambiguous and allow object reconstruction.
-        """
-        try:
-            if self.is_empty():
-                return f"Zonotope.empty({self.dim()})"
-            else:
-                # For small zonotopes, show the actual values
-                if self.c.size <= 3 and self.G.shape[1] <= 3:
-                    return f"Zonotope({self.c.tolist()}, {self.G.tolist()})"
-                else:
-                    return f"Zonotope(dim={self.dim()}, generators={self.G.shape[1] if self.G.size > 0 else 0})"
-        except:
-            return "Zonotope()"
+        """Representation of zonotope"""
+        return self.__str__()
     
     
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):

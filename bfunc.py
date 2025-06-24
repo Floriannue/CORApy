@@ -1,2 +1,0 @@
-def bfunc():
-    return "bfunc"

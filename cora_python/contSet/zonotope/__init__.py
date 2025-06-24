@@ -7,6 +7,7 @@ Each method is implemented in its own file following the MATLAB structure.
 
 from .zonotope import Zonotope
 from .abs_ import abs_
+from .and_ import and_
 from .box import box
 from .plus import plus
 from .minus import minus
@@ -39,6 +40,8 @@ from .enclosePoints import enclosePoints
 
 # Attach methods to the class
 Zonotope.abs_ = abs_
+Zonotope.and_ = and_
+Zonotope.__and__ = and_
 Zonotope.box = box
 Zonotope.plus = plus
 Zonotope.__add__ = plus
@@ -47,6 +50,7 @@ Zonotope.minus = minus
 Zonotope.__sub__ = minus
 Zonotope.__mul__ = times
 Zonotope.__rmul__ = times
+Zonotope.uminus = uminus
 Zonotope.__neg__ = uminus
 Zonotope.__eq__ = isequal
 Zonotope.__matmul__ = mtimes
@@ -55,10 +59,12 @@ Zonotope.dim = dim
 Zonotope.empty = empty
 Zonotope.origin = origin
 Zonotope.isemptyobject = isemptyobject
+Zonotope.is_empty = isemptyobject
 Zonotope.display = display
 Zonotope.randPoint_ = randPoint_
 Zonotope.vertices_ = vertices_
 Zonotope.project = project
+Zonotope.mtimes = mtimes
 Zonotope.center = center
 Zonotope.representsa_ = representsa_
 Zonotope.compact_ = compact_
@@ -76,4 +82,4 @@ Zonotope.minnorm = minnorm
 # Attach static methods
 Zonotope.enclosePoints = staticmethod(enclosePoints)
 
-__all__ = ['Zonotope', 'abs_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints'] 
+__all__ = ['Zonotope', 'abs_', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints'] 

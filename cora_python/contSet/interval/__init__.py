@@ -37,6 +37,21 @@ from .uminus import uminus
 from .transpose import transpose
 from .enclosePoints import enclosePoints
 
+# Import comparison operators
+from .le import le
+from .lt import lt
+
+# Import union operation
+from .or_op import or_op
+
+# Import concatenation operations  
+from .horzcat import horzcat
+from .vertcat import vertcat
+
+# Import size operations
+from .length import length
+from .size import size
+
 # Attach all methods to the Interval class
 Interval.plus = plus
 Interval.minus = minus
@@ -47,7 +62,6 @@ Interval.is_empty = isemptyobject
 Interval.isemptyobject = isemptyobject
 Interval.representsa_ = representsa_
 Interval.isequal = isequal
-Interval.__eq__ = isequal  # Attach to == operator
 Interval.contains_ = contains_
 Interval.center = center
 Interval.rad = rad
@@ -59,7 +73,34 @@ Interval.randPoint_ = randPoint_
 Interval.display = display
 Interval.uminus = uminus
 Interval.transpose = transpose
+Interval.le = le
+Interval.lt = lt
+Interval.or_op = or_op
+Interval.horzcat = horzcat
+Interval.vertcat = vertcat
+Interval.length = length
+Interval.size = size
 
+# Attach operator overloading
+Interval.__eq__ = isequal  # == operator
+Interval.__add__ = plus    # + operator
+Interval.__radd__ = plus   # + operator (reverse)
+Interval.__sub__ = minus   # - operator
+Interval.__rsub__ = lambda self, other: minus(other, self)  # - operator (reverse)
+Interval.__mul__ = times   # * operator (element-wise)
+Interval.__rmul__ = times  # * operator (reverse)
+Interval.__matmul__ = mtimes  # @ operator (matrix multiplication)
+Interval.__rmatmul__ = lambda self, other: mtimes(other, self)  # @ operator (reverse)
+Interval.__neg__ = uminus  # -obj (unary minus)
+Interval.__le__ = le       # <= operator
+Interval.__lt__ = lt       # < operator
+Interval.__ge__ = lambda self, other: le(other, self)  # >= operator
+Interval.__gt__ = lambda self, other: lt(other, self)  # > operator
+Interval.__or__ = or_op    # | operator (union)
+Interval.__ror__ = lambda self, other: or_op(other, self)  # | operator (reverse)
+Interval.__and__ = and_    # & operator (intersection)
+Interval.__rand__ = lambda self, other: and_(other, self)  # & operator (reverse)
+Interval.__len__ = length
 # Attach static methods
 Interval.empty = staticmethod(empty)
 Interval.Inf = staticmethod(Inf)
@@ -94,4 +135,11 @@ __all__ = [
     'uminus',
     'transpose',
     'enclosePoints',
+    'le',
+    'lt', 
+    'or_op',
+    'horzcat',
+    'vertcat',
+    'length',
+    'size',
 ] 

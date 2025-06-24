@@ -108,15 +108,7 @@ def canonicalForm(linsys, U, uVec, W, V, vVec) -> Tuple[LinearSys, Zonotope, np.
         v_ = np.zeros((linsys.nr_of_outputs, 1))
     
     # Time-varying uncertainty on the output
-    # Handle F matrix multiplication: if F is a column vector, use element-wise multiplication
-    if linsys.F.shape[1] == 1 and V.dim() == linsys.F.shape[0]:
-        # F is a column vector and V has compatible dimension
-        # In MATLAB, this would be element-wise multiplication
-        # For zonotopes, we need to create a diagonal matrix from F
-        F_diag = np.diag(linsys.F.flatten())
-        V_ = linsys.D @ (U + centerU) + F_diag @ V
-    else:
-        V_ = linsys.D @ (U + centerU) + linsys.F @ V
+    V_ = linsys.D @ (U + centerU) + linsys.F @ V
     
     # Offset vector for state
     u_ = linsys.B @ uVec + linsys.B @ centerU + linsys.c + linsys.E @ centerW

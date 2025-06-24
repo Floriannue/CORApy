@@ -66,7 +66,7 @@ Translate_Cora/
 - methods that have the same name as reserved keywords in Python get the appendix _op, for example, and -> and_op
 - The method object.display() should return the string and not print it since display also provides the string for __str__ 
 - Dont catch warnings
-- **Never** import methods of a class. The methods are attached in `__init__.py`. So use 
+- **Never** import methods of a class as standalone functions. The methods are attached in `__init__.py`. So use 
  ```python
   object.function()
  ```
@@ -75,6 +75,7 @@ Translate_Cora/
   import function
   function(object)
  ```
+ Methods  should in most cases import the class they are port of at the top of the file.
 - Always provide a full translation and no simplified version that is missing features
 - Treat everything as modules. For example, to execute `cora_python/folder/func.py`, use:  
  ```powershell
@@ -87,7 +88,7 @@ Translate_Cora/
  ```
 - To ensure the functions and their corresponding tests are complete and correct, refer to `Cora2025.1.0_Manual.txt`.
 - Classes in Python start with a capital letter. For example, `zonotop` → `Zonotop`.
-- Always mirror the MATLAB codebase and verify against the manual.
+- Always mirror the MATLAB codebase and verify against it and the manual. In rare cases the matlab codebase can be wrong, in this case look at the manual and provide all information to the user!
 - Use the following two polymorphic dispatch templates depending on the situation:
  ```python
   def func():
@@ -120,6 +121,7 @@ Translate_Cora/
 
 ### 1. **Dependency Analysis** 
 Identify dependencies like inheritance. 
+This workflow must also be applied to dependencies you translated - translate the correspond test directly after you translated the file!
 
 #### Tools:  
 - Use `grep_search` with `classdef.*<` pattern for inheritance  
@@ -192,6 +194,7 @@ Identify dependencies like inheritance.
 3. Verify edge case handling  
 4. Check documentation completeness  
 5. Translated code or test can be wrong therefore compare against matlab codebase and manual
+6. (FLAG=False) if flag is true you can create and run matlab files to compare you translation results against the original
 
 #### Self-Correction Template:
  ```

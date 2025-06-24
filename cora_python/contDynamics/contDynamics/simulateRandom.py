@@ -84,14 +84,20 @@ def simulateRandom(sys, params: Dict[str, Any], options: Optional[Dict[str, Any]
     # Call private simulation function based on type
     sim_type = options.get('type', 'standard')
     
+    # Import private functions here to avoid circular imports
+    from .private.priv_simulateStandard import priv_simulateStandard
+    from .private.priv_simulateGaussian import priv_simulateGaussian
+    from .private.priv_simulateRRT import priv_simulateRRT
+    from .private.priv_simulateConstrainedRandom import priv_simulateConstrainedRandom
+    
     if sim_type == 'standard':
-        simRes = _priv_simulateStandard(sys, params, options)
+        simRes = priv_simulateStandard(sys, params, options)
     elif sim_type == 'gaussian':
-        simRes = _priv_simulateGaussian(sys, params, options)
+        simRes = priv_simulateGaussian(sys, params, options)
     elif sim_type == 'rrt':
-        simRes = _priv_simulateRRT(sys, params, options)
+        simRes = priv_simulateRRT(sys, params, options)
     elif sim_type == 'constrained':
-        simRes = _priv_simulateConstrainedRandom(sys, params, options)
+        simRes = priv_simulateConstrainedRandom(sys, params, options)
     else:
         raise ValueError(f"Unknown simulation type: {sim_type}")
     
@@ -192,164 +198,4 @@ def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tu
     
     return params, options
 
-
-def _priv_simulateStandard(sys, params: Dict[str, Any], options: Dict[str, Any]) -> List[SimResult]:
-    """Private function for standard random simulation"""
-    
-    # Trajectory tracking
-    tracking = 'uTransVec' in params
-    
-    # Location for contDynamics always 0
-    loc = 0
-    
-    # Output equation check
-    comp_y = (hasattr(sys, 'C') and sys.C is not None and sys.C.size > 0)
-    
-    # Generate random initial points
-    nr_extreme = int(np.ceil(options['points'] * options['fracVert']))
-    nr_standard = options['points'] - nr_extreme
-    
-    X0_list = []
-    
-    if nr_extreme > 0:
-        X0_extreme = _randPoint(params['R0'], nr_extreme, 'extreme')
-        X0_list.append(X0_extreme)
-    
-    if nr_standard > 0:
-        X0_standard = _randPoint(params['R0'], nr_standard, 'standard')
-        X0_list.append(X0_standard)
-    
-    # Concatenate all initial points
-    if X0_list:
-        X0 = np.hstack(X0_list)
-    else:
-        # Fallback: generate one standard point
-        X0 = _randPoint(params['R0'], 1, 'standard')
-    
-    # Initialize array of simResult objects
-    res = []
-    
-    # Loop over all starting points in X0
-    for r in range(options['points']):
-        
-        # Initialize cells for current simulation run r
-        t_total = np.array([])
-        x_total = np.empty((0, sys.nr_of_dims))
-        if comp_y:
-            y_total = np.empty((0, sys.nr_of_outputs))
-        
-        # Start of trajectory
-        params_sim = params.copy()
-        params_sim['x0'] = X0[:, r]
-        
-        # Loop over number of constant inputs per partial simulation run r
-        for block in range(len(options['nrConstInp'])):
-            
-            # Update initial state
-            if block > 0:
-                params_sim['x0'] = x_temp[-1, :]
-            
-            # Update input
-            if tracking:
-                params_sim['uTrans'] = params['uTransVec'][:, block]
-            else:
-                params_sim['uTrans'] = np.zeros((sys.nr_of_inputs,))
-            
-            params_sim['tStart'] = params['tu'][block]
-            params_sim['tFinal'] = params['tu'][block + 1]
-            
-            # Set input (random input from set of uncertainty)
-            if r < options['points'] * options['fracInpVert']:
-                u_rand = _randPoint(params['U'], options['nrConstInp'][block], 'extreme')
-            else:
-                u_rand = _randPoint(params['U'], options['nrConstInp'][block], 'standard')
-            
-            # Combine inputs (random input + tracking)
-            params_sim['u'] = u_rand + params_sim['uTrans'].reshape(-1, 1)
-            
-            if comp_y:
-                # Sample from disturbance set and sensor noise set
-                if options['nrConstInp'][block] == 1:
-                    params_sim['w'] = _randPoint(params['W'], 1)
-                    params_sim['v'] = _randPoint(params['V'], 1)
-                else:
-                    params_sim['w'] = _randPoint(params['W'], options['nrConstInp'][block])
-                    params_sim['v'] = _randPoint(params['V'], options['nrConstInp'][block] + 1)
-            else:
-                # Set default disturbance
-                params_sim['w'] = _randPoint(params['W'], options['nrConstInp'][block])
-                if 'v' in params_sim:
-                    del params_sim['v']
-            
-            # Create simulation options without simulateRandom-specific keys
-            sim_options = {}
-            
-            # Pass timeStep if provided for smoother trajectories
-            if 'timeStep' in options:
-                sim_options['timeStep'] = options['timeStep']
-            
-            # Simulate dynamical system
-            if comp_y:
-                t_temp, x_temp, _, y_temp = sys.simulate(params_sim, sim_options)
-            else:
-                t_temp, x_temp = sys.simulate(params_sim, sim_options)
-            
-            # Append to previous values, overwrite first one
-            if block == 0:
-                t_total = t_temp
-                x_total = x_temp
-                if comp_y:
-                    y_total = y_temp
-            else:
-                t_total = np.concatenate([t_total[:-1], t_temp])
-                x_total = np.vstack([x_total[:-1, :], x_temp])
-                if comp_y:
-                    y_total = np.vstack([y_total[:-1, :], y_temp])
-        
-        # Append simResult object
-        if comp_y:
-            res.append(SimResult([x_total], [t_total], loc, [y_total]))
-        else:
-            res.append(SimResult([x_total], [t_total], loc))
-    
-    return res
-
-
-def _priv_simulateGaussian(sys, params: Dict[str, Any], options: Dict[str, Any]) -> List[SimResult]:
-    """Private function for Gaussian random simulation"""
-    # For now, implement as standard simulation
-    # TODO: Implement proper Gaussian sampling
-    return _priv_simulateStandard(sys, params, options)
-
-
-def _priv_simulateRRT(sys, params: Dict[str, Any], options: Dict[str, Any]) -> List[SimResult]:
-    """Private function for RRT-based random simulation"""
-    # For now, implement as standard simulation
-    # TODO: Implement proper RRT sampling
-    return _priv_simulateStandard(sys, params, options)
-
-
-def _priv_simulateConstrainedRandom(sys, params: Dict[str, Any], options: Dict[str, Any]) -> List[SimResult]:
-    """Private function for constrained random simulation"""
-    # For now, implement as standard simulation
-    # TODO: Implement proper constrained sampling
-    return _priv_simulateStandard(sys, params, options)
-
-
-def _randPoint(set_obj, N: int = 1, type_: str = 'standard') -> np.ndarray:
-    """Generate random points from a set object"""
-    
-    # Check if the set has a randPoint method
-    if hasattr(set_obj, 'randPoint'):
-        return set_obj.randPoint(N, type_)
-    
-    # Try to import and use specific randPoint functions
-    try:   
-        if (hasattr(set_obj, 'c') and hasattr(set_obj, 'G')) or hasattr(set_obj, 'inf') and hasattr(set_obj, 'sup'):
-            # Likely a zonotope
-            return set_obj.randPoint(N, type_)
-        else:
-            raise ValueError(f"Unknown set type: {type(set_obj)}")
-    
-    except ImportError:
-        raise ValueError(f"randPoint not implemented for set type: {type(set_obj)}") 
+raise NotImplementedError("check simresultlist here and in linearsys - does it make sense and works well together or is there a better way to do this?")
