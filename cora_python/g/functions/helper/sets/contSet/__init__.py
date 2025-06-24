@@ -4,7 +4,8 @@ Helper functions for contSet operations
 This module provides helper functions for working with contSet objects.
 """
 
-from .reorder_numeric import reorder_numeric
 from . import contSet
+from . import polyZonotope
+from . import zonotope
 
-__all__ = ['reorder_numeric', 'contSet'] 
+__all__ = ['contSet', 'polyZonotope', 'zonotope'] 

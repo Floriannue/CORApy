@@ -72,7 +72,7 @@ from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputAr
 from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
 from cora_python.g.macros import CHECKS_ENABLED
 from cora_python.g.functions.matlab.validate.postprocessing.CORAwarning import CORAwarning
-from cora_python.g.functions.helper.sets.polyZonotope.removeRedundantExponents import removeRedundantExponents
+from cora_python.g.functions.helper.sets.contSet.polyZonotope import removeRedundantExponents
 
 if TYPE_CHECKING:
     pass

@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Union, List, Tuple
 if __name__ == "__main__":
     import os
     sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    from g.functions.helper.sets.contSet.reorder_numeric import reorder_numeric
+    from cora_python.g.functions.helper.sets.contSet.contSet.reorder_numeric import reorder_numeric
     from g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
     from g.functions.matlab.validate.check.withinTol import withinTol
 
