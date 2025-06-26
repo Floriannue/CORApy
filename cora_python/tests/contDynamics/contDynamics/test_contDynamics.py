@@ -11,24 +11,14 @@ Written: 2025
 import pytest
 import warnings
 import numpy as np
-from cora_python.contDynamics import ContDynamics
+from cora_python.contDynamics.contDynamics.contDynamics import ContDynamics
 
-
-class ConcreteContDynamics(ContDynamics):
-    """Concrete implementation of ContDynamics for testing"""
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def __repr__(self):
-        return f"ConcreteContDynamics(name='{self.name}', states={self.nr_of_dims}, inputs={self.nr_of_inputs}, outputs={self.nr_of_outputs}, dists={self.nr_of_disturbances}, noises={self.nr_of_noises})"
-    
-
+# The 'ConcreteContDynamics' class is now available from conftest.py
 
 class TestContDynamics:
     """Test class for ContDynamics"""
     
-    def test_init_basic(self):
+    def test_init_basic(self, ConcreteContDynamics):
         """Test basic initialization"""
         sys = ConcreteContDynamics(
             name="test_system",
@@ -46,7 +36,7 @@ class TestContDynamics:
         assert sys.nr_of_disturbances == 1
         assert sys.nr_of_noises == 0
     
-    def test_init_default_values(self):
+    def test_init_default_values(self, ConcreteContDynamics):
         """Test initialization with default values"""
         sys = ConcreteContDynamics()
         
@@ -57,7 +47,7 @@ class TestContDynamics:
         assert sys.nr_of_disturbances == 0
         assert sys.nr_of_noises == 0
     
-    def test_init_partial_values(self):
+    def test_init_partial_values(self, ConcreteContDynamics):
         """Test initialization with partial values"""
         sys = ConcreteContDynamics(name="partial", states=3, inputs=2)
         
@@ -68,7 +58,7 @@ class TestContDynamics:
         assert sys.nr_of_disturbances == 0
         assert sys.nr_of_noises == 0
     
-    def test_init_invalid_name(self):
+    def test_init_invalid_name(self, ConcreteContDynamics):
         """Test initialization with invalid name"""
         with pytest.raises(TypeError):
             ConcreteContDynamics(name=123)
@@ -79,7 +69,7 @@ class TestContDynamics:
         with pytest.raises(TypeError):
             ConcreteContDynamics(name=[])
     
-    def test_init_invalid_dimensions(self):
+    def test_init_invalid_dimensions(self, ConcreteContDynamics):
         """Test initialization with invalid dimensions"""
         # Test negative values
         with pytest.raises(ValueError):
@@ -107,7 +97,7 @@ class TestContDynamics:
         with pytest.raises(ValueError):
             ConcreteContDynamics(outputs=None)
     
-    def test_str_representation(self):
+    def test_str_representation(self, ConcreteContDynamics):
         """Test string representation"""
         sys = ConcreteContDynamics(
             name="test_sys",
@@ -118,13 +108,13 @@ class TestContDynamics:
         
         str_repr = str(sys)
         assert isinstance(str_repr, str)
-        assert "ConcreteContDynamics" in str_repr
-        assert "test_sys" in str_repr
-        assert "dims=3" in str_repr
-        assert "inputs=2" in str_repr
-        assert "outputs=1" in str_repr
+        assert "Continuous dynamics: 'test_sys'" in str_repr
+
+        repr_repr = repr(sys)
+        assert isinstance(repr_repr, str)
+        assert "ConcreteContDynamics" in repr_repr
     
-    def test_repr_representation(self):
+    def test_repr_representation(self, ConcreteContDynamics):
         """Test detailed string representation"""
         sys = ConcreteContDynamics(
             name="test_sys",
@@ -145,7 +135,7 @@ class TestContDynamics:
         assert "dists=1" in repr_str
         assert "noises=0" in repr_str
     
-    def test_legacy_dim_property(self):
+    def test_legacy_dim_property(self, ConcreteContDynamics):
         """Test legacy dim property with deprecation warning"""
         sys = ConcreteContDynamics(states=5)
         
@@ -167,7 +157,7 @@ class TestContDynamics:
             assert "deprecated" in str(w[0].message)
             assert sys.nr_of_dims == 7
     
-    def test_legacy_nr_of_states_property(self):
+    def test_legacy_nr_of_states_property(self, ConcreteContDynamics):
         """Test legacy nr_of_states property with deprecation warning"""
         sys = ConcreteContDynamics(states=4)
         
@@ -189,7 +179,7 @@ class TestContDynamics:
             assert "deprecated" in str(w[0].message)
             assert sys.nr_of_dims == 6
     
-    def test_edge_cases(self):
+    def test_edge_cases(self, ConcreteContDynamics):
         """Test edge cases"""
         # Test with zero dimensions
         sys = ConcreteContDynamics(
@@ -227,7 +217,7 @@ class TestContDynamics:
         sys = ConcreteContDynamics(name="system_123!@#")
         assert sys.name == "system_123!@#"
     
-    def test_property_access(self):
+    def test_property_access(self, ConcreteContDynamics):
         """Test direct property access and modification"""
         sys = ConcreteContDynamics(
             name="test",
@@ -252,12 +242,12 @@ class TestContDynamics:
         assert sys.nr_of_outputs == 4
         assert sys.name == "modified"
     
-    def test_abstract_class_instantiation(self):
+    def test_abstract_class_instantiation(self, ConcreteContDynamics):
         """Test that ContDynamics cannot be instantiated directly"""
         with pytest.raises(TypeError):
             ContDynamics()
     
-    def test_inheritance(self):
+    def test_inheritance(self, ConcreteContDynamics):
         """Test inheritance properties"""
         sys = ConcreteContDynamics(name="child", states=3)
         
@@ -268,7 +258,7 @@ class TestContDynamics:
         # Test class hierarchy
         assert issubclass(ConcreteContDynamics, ContDynamics)
     
-    def test_equality_and_comparison(self):
+    def test_equality_and_comparison(self, ConcreteContDynamics):
         """Test equality and comparison if implemented"""
         sys1 = ConcreteContDynamics(name="sys1", states=2, inputs=1)
         sys2 = ConcreteContDynamics(name="sys1", states=2, inputs=1)
@@ -285,7 +275,7 @@ class TestContDynamics:
         assert sys1 != sys3  # Different names
 
 
-def test_contDynamics_integration():
+def test_contDynamics_integration(ConcreteContDynamics):
     """Integration test for ContDynamics with realistic usage"""
     # Create a realistic system
     sys = ConcreteContDynamics(
@@ -309,10 +299,17 @@ def test_contDynamics_integration():
     str_repr = str(sys)
     repr_str = repr(sys)
     
+    # Test string representation (display)
     assert "LinearSystem_2D" in str_repr
+    assert "number of dimensions: 2" in str_repr
+    assert "number of inputs: 1" in str_repr
+    assert "number of outputs: 2" in str_repr
+    
+    # Test repr representation
     assert "LinearSystem_2D" in repr_str
-    assert "dims=2" in str_repr
     assert "states=2" in repr_str
+    assert "inputs=1" in repr_str
+    assert "outputs=2" in repr_str
     
     # Test legacy properties with warnings
     with warnings.catch_warnings(record=True) as w:

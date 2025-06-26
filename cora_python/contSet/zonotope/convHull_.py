@@ -22,9 +22,12 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Optional, Union
+from typing import Optional, Union, TYPE_CHECKING
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-            
+from .zonotope import Zonotope
+
+if TYPE_CHECKING:
+    from cora_python.contSet.contSet import ContSet
             
 
 
@@ -46,9 +49,6 @@ def convHull_(Z: 'Zonotope', S: Optional[Union['ContSet', np.ndarray]] = None, m
         >>> Z2 = Zonotope([-2, -2], [[1, 0], [0, 1]])
         >>> Z = convHull_(Z1, Z2)
     """
-    from .zonotope import Zonotope
-    from .representsa_ import representsa_
-    from .enclose import enclose
     
     # Zonotope is already convex
     if S is None:
@@ -65,15 +65,13 @@ def convHull_(Z: 'Zonotope', S: Optional[Union['ContSet', np.ndarray]] = None, m
     
     # Call function with lower precedence if applicable
     if hasattr(S, 'precedence') and hasattr(Z_out, 'precedence') and S.precedence < Z_out.precedence:
-        # Import convHull to avoid circular imports
-        from ..contSet.convHull import convHull
-        return convHull(S, Z_out, method)
+        return S.convHull(Z_out, method)
     
     # Convex hull with empty set
     # Only check representsa_ for objects that have the necessary methods
-    if hasattr(S, '__class__') and hasattr(S, 'isemptyobject') and representsa_(S, 'emptySet', 1e-15):
+    if hasattr(S, '__class__') and hasattr(S, 'isemptyobject') and S.representsa_('emptySet', 1e-15):
         return Z_out
-    elif representsa_(Z_out, 'emptySet', 1e-15):
+    elif Z_out.representsa_('emptySet', 1e-15):
         return S if isinstance(S, Zonotope) else Zonotope(S, np.array([]).reshape(len(S), 0))
     
     # Use enclose method
@@ -83,7 +81,7 @@ def convHull_(Z: 'Zonotope', S: Optional[Union['ContSet', np.ndarray]] = None, m
         # Convert S to zonotope
         S_zono = Zonotope(S)
     
-    return enclose(Z_out, S_zono)
+    return Z_out.enclose(S_zono)
 
 
 def _reorder_numeric(Z, S):
@@ -97,7 +95,6 @@ def _reorder_numeric(Z, S):
     Returns:
         tuple: (zonotope_operand, other_operand) with zonotope first
     """
-    from .zonotope import Zonotope
     
     # Check for zonotope using both isinstance and class name for robustness
     Z_is_zonotope = isinstance(Z, Zonotope) or (hasattr(Z, '__class__') and Z.__class__.__name__ == 'Zonotope')

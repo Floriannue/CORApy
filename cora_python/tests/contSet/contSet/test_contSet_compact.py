@@ -24,8 +24,13 @@ Last revision: ---
 import pytest
 import numpy as np
 from unittest.mock import Mock
+import builtins
 from cora_python.contSet.contSet.compact import compact
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+
+
+# Store the original type function
+original_type = builtins.type
 
 
 class MockContSet:
@@ -64,28 +69,40 @@ class MockContSet:
         return self._empty and setType == 'emptySet'
 
 
+def mock_type(obj):
+    if isinstance(obj, MockContSet):
+        class MockType:
+            __name__ = obj._class_name
+        return MockType()
+    return original_type(obj)
+
+
 class TestCompact:
     """Test class for compact function"""
     
-    def test_compact_minimal_classes(self, mock_type):
+    @pytest.fixture(autouse=True)
+    def patch_type(self, monkeypatch):
+        monkeypatch.setattr('builtins.type', mock_type)
+
+    def test_compact_minimal_classes(self):
         """Test compact with classes that are always minimal"""
         minimal_classes = ['Capsule', 'Ellipsoid', 'EmptySet', 'Fullspace', 
-                          'Halfspace', 'Interval', 'ZonoBundle', 'SpectraShadow', 'Taylm']
+                           'Halfspace', 'Interval', 'ZonoBundle', 'SpectraShadow', 'Taylm']
         
         for class_name in minimal_classes:
             S = MockContSet(class_name, 2)
             result = compact(S)
             assert result is S  # Should return the same object
     
-    def test_compact_zonotope_defaults(self, mock_type):
+    def test_compact_zonotope_defaults(self):
         """Test compact with Zonotope using default parameters"""
         S = MockContSet("Zonotope", 2)
         result = compact(S)
         
         assert result is not None
-        assert type(result).__name__ == "Zonotope"
+        assert mock_type(result).__name__ == "Zonotope"
     
-    def test_compact_zonotope_methods(self, mock_type):
+    def test_compact_zonotope_methods(self):
         """Test compact with Zonotope using different methods"""
         S = MockContSet("Zonotope", 2)
         
@@ -98,7 +115,7 @@ class TestCompact:
         with pytest.raises(ValueError, match="Invalid method"):
             compact(S, method='invalid')
     
-    def test_compact_polytope_methods(self, mock_type):
+    def test_compact_polytope_methods(self):
         """Test compact with Polytope using different methods"""
         S = MockContSet("Polytope", 2)
         
@@ -111,7 +128,7 @@ class TestCompact:
         with pytest.raises(ValueError, match="Invalid method"):
             compact(S, method='invalid')
     
-    def test_compact_conzonotope_methods(self, mock_type):
+    def test_compact_conzonotope_methods(self):
         """Test compact with ConZonotope using different methods"""
         S = MockContSet("ConZonotope", 2)
         
@@ -124,7 +141,7 @@ class TestCompact:
         with pytest.raises(ValueError, match="Invalid method"):
             compact(S, method='invalid')
     
-    def test_compact_polyzonotope_methods(self, mock_type):
+    def test_compact_polyzonotope_methods(self):
         """Test compact with PolyZonotope using different methods"""
         S = MockContSet("PolyZonotope", 2)
         
@@ -137,7 +154,7 @@ class TestCompact:
         with pytest.raises(ValueError, match="Invalid method"):
             compact(S, method='invalid')
     
-    def test_compact_tolerance_validation(self, mock_type):
+    def test_compact_tolerance_validation(self):
         """Test compact with tolerance validation"""
         S = MockContSet("Zonotope", 2)
         
@@ -153,7 +170,7 @@ class TestCompact:
         with pytest.raises(ValueError, match="tol must be a non-negative number"):
             compact(S, tol="invalid")
     
-    def test_compact_aligned_method_tolerance_reset(self, mock_type):
+    def test_compact_aligned_method_tolerance_reset(self):
         """Test that aligned method resets tolerance to 1e-3"""
         class ZonotopeWithTolCheck(MockContSet):
             def compact_(self, method, tol):
@@ -165,13 +182,13 @@ class TestCompact:
         result = compact(S, method='aligned')  # Should reset tol to 1e-3
         assert result is not None
     
-    def test_compact_unknown_class(self, mock_type):
+    def test_compact_unknown_class(self):
         """Test compact with unknown class type"""
         S = MockContSet("UnknownClass", 2)
         result = compact(S)  # Should use default values
         assert result is not None
     
-    def test_compact_not_implemented_error(self, mock_type):
+    def test_compact_not_implemented_error(self):
         """Test compact when method is not implemented"""
         class UnimplementedSet(MockContSet):
             def compact_(self, method, tol):
@@ -184,7 +201,7 @@ class TestCompact:
         with pytest.raises(CORAerror, match="compact not implemented"):
             compact(S)
     
-    def test_compact_other_exception(self, mock_type):
+    def test_compact_other_exception(self):
         """Test compact when other exception occurs"""
         class ErrorSet(MockContSet):
             def compact_(self, method, tol):

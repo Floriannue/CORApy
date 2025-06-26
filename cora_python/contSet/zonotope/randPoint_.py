@@ -39,6 +39,7 @@ def randPoint_(Z: 'Zonotope', N: Union[int, str] = 1, type_: str = 'standard') -
                - 'uniform:billiardWalk': Billiard walk uniform sampling
                - 'radius': Radius-based sampling
                - 'boundary': Boundary sampling
+               - 'gaussian': Gaussian sampling
         
     Returns:
         np.ndarray: Random points (each column is a point)
@@ -87,6 +88,9 @@ def randPoint_(Z: 'Zonotope', N: Union[int, str] = 1, type_: str = 'standard') -
     elif type_ == 'boundary':
         return _aux_getRandomBoundaryPoints(Z, N)
     
+    elif type_ == 'gaussian':
+        return _aux_randPoint_gaussian(Z, N)
+    
     else:
         raise CORAerror('CORA:noSpecificAlg', f'{type_} not supported for zonotope')
 
@@ -98,6 +102,18 @@ def _aux_randPoint_standard(Z: 'Zonotope', N: int) -> np.ndarray:
     
     # Take random values for factors
     factors = -1 + 2 * np.random.rand(Z.G.shape[1], N)
+    # Sample points
+    p = Z.c.reshape(-1, 1) + Z.G @ factors
+    return p
+
+
+def _aux_randPoint_gaussian(Z: 'Zonotope', N: int) -> np.ndarray:
+    """Gaussian random point generation"""
+    if isinstance(N, str):
+        N = 1
+    
+    # Take random values for factors from a standard normal distribution
+    factors = np.random.randn(Z.G.shape[1], N)
     # Sample points
     p = Z.c.reshape(-1, 1) + Z.G @ factors
     return p

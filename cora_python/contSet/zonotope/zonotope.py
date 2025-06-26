@@ -129,6 +129,11 @@ class Zonotope(ContSet):
             
             # Handle numeric array input
             Z = np.asarray(args[0])
+            
+            if Z.ndim == 0:
+                # Handle scalar input
+                return np.array([Z.item()]).reshape(1, 1), np.zeros((1, 0))
+            
             if Z.size == 0:
                 return Z, np.array([]).reshape(Z.shape[0], 0)
             elif Z.ndim == 1:

@@ -41,7 +41,7 @@ def convHull_(S: 'ContSet', S2: Optional['ContSet'] = None, method: str = 'exact
     if (hasattr(type(S), 'convHull_') and 
         base_class and hasattr(base_class, 'convHull_') and
         type(S).convHull_ is not base_class.convHull_):
-        return type(S).convHull_(S2, method)
+        return type(S).convHull_(S, S2, method)
     else:
         # Base implementation - throw error as this method should be overridden
         raise CORAerror("CORA:noops", f"Function convHull_ not implemented for class {type(S).__name__}") 

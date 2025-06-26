@@ -174,8 +174,15 @@ def _randPoint(set_obj, N: int = 1, type_: str = 'standard', p_conf: float = 0.9
     """
     
     if hasattr(set_obj, 'randPoint_'):
+        # Check if the object is a Zonotope and handle the call accordingly
+        is_zonotope = 'Zonotope' in str(type(set_obj))
+
         if type_ == 'gaussian':
-            return set_obj.randPoint_(N, type_, p_conf)
+            if is_zonotope:
+                # Zonotope randPoint_ does not accept p_conf
+                return set_obj.randPoint_(N, type_)
+            else:
+                return set_obj.randPoint_(N, type_, p_conf)
         else:
             return set_obj.randPoint_(N, type_)
     elif hasattr(set_obj, 'randPoint'):
