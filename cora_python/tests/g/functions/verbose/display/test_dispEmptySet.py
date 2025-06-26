@@ -24,7 +24,7 @@ Last revision: ---
 import pytest
 import io
 from contextlib import redirect_stdout
-from cora_python.g.functions.verbose.dispEmptySet import dispEmptySet
+from cora_python.g.functions.verbose.display.dispEmptySet import dispEmptySet
 
 
 class TestDispEmptySet:

@@ -3,16 +3,19 @@ Test file for adaptive reachability analysis of linear systems
 Tests the priv_reach_adaptive function and related components
 """
 
-import numpy as np
 import pytest
-from cora_python.contDynamics.linearSys.linearSys import LinearSys
-from cora_python.contSet.zonotope.zonotope import Zonotope
-from cora_python.contSet.interval.interval import Interval
+import numpy as np
+from cora_python.contDynamics import LinearSys
+from cora_python.contSet import Zonotope, Interval
 from cora_python.g.classes.linErrorBound import LinErrorBound
 from cora_python.g.classes.verifyTime import VerifyTime
-from cora_python.contDynamics.linearSys.private.priv_reach_adaptive import (
-    priv_reach_adaptive, compute_eps_linComb, compute_eps_F, compute_eps_G,
-    priv_correctionMatrixState, priv_correctionMatrixInput, priv_expmRemainder
+
+# Import the private functions to be tested
+from cora_python.contDynamics.linearSys.private import (
+    priv_reach_adaptive,
+    priv_correctionMatrixState,
+    priv_correctionMatrixInput,
+    priv_expmRemainder
 )
 
 
@@ -215,11 +218,11 @@ class TestLinearSysReachAdaptive:
         
         # Check that F is an interval matrix
         assert hasattr(F, 'infimum') and hasattr(F, 'supremum')
-        assert F.infimum().shape == A.shape
-        assert F.supremum().shape == A.shape
+        assert F.infimum.shape == A.shape
+        assert F.supremum.shape == A.shape
         
         # Check that interval bounds are consistent
-        assert np.all(F.infimum() <= F.supremum())
+        assert np.all(F.infimum <= F.supremum)
 
     def test_correction_matrix_input(self):
         """Test input correction matrix computation"""
@@ -237,11 +240,11 @@ class TestLinearSysReachAdaptive:
         
         # Check that G is an interval matrix
         assert hasattr(G, 'infimum') and hasattr(G, 'supremum')
-        assert G.infimum().shape == A.shape
-        assert G.supremum().shape == A.shape
+        assert G.infimum.shape == A.shape
+        assert G.supremum.shape == A.shape
         
         # Check that interval bounds are consistent
-        assert np.all(G.infimum() <= G.supremum())
+        assert np.all(G.infimum <= G.supremum)
 
     def test_expm_remainder(self):
         """Test exponential matrix remainder computation"""
@@ -259,11 +262,11 @@ class TestLinearSysReachAdaptive:
         
         # Check that E is an interval matrix
         assert hasattr(E, 'infimum') and hasattr(E, 'supremum')
-        assert E.infimum().shape == A.shape
-        assert E.supremum().shape == A.shape
+        assert E.infimum.shape == A.shape
+        assert E.supremum.shape == A.shape
         
         # Check that remainder is symmetric around zero
-        assert np.allclose(E.infimum(), -E.supremum(), atol=1e-10)
+        assert np.allclose(E.infimum, -E.supremum, atol=1e-10)
 
     def test_compute_eps_linComb(self):
         """Test linear combination error computation"""
@@ -276,7 +279,7 @@ class TestLinearSysReachAdaptive:
         # Test with zonotope
         startset = Zonotope(np.array([[1], [0]]), 0.1 * np.eye(2))
         
-        eps_linComb = compute_eps_linComb(errs, eAdt, startset)
+        eps_linComb = errs.compute_eps_linComb(eAdt, startset)
         
         assert isinstance(eps_linComb, (float, np.floating))
         assert eps_linComb >= 0
@@ -293,7 +296,7 @@ class TestLinearSysReachAdaptive:
         # Test with zonotope startset
         startset = Zonotope(np.array([[1], [0]]), 0.1 * np.eye(2))
         
-        eps_F, box_center, box_G = compute_eps_F(errs, F, startset)
+        eps_F, box_center, box_G = errs.compute_eps_F(F, startset)
         
         assert isinstance(eps_F, (float, np.floating))
         assert eps_F >= 0
@@ -311,7 +314,7 @@ class TestLinearSysReachAdaptive:
         
         u = np.array([0.1, -0.05])
         
-        eps_G, Gu_c, Gu_G = compute_eps_G(errs, G, u)
+        eps_G, Gu_c, Gu_G = errs.compute_eps_G(G, u)
         
         assert isinstance(eps_G, (float, np.floating))
         assert eps_G >= 0
@@ -441,8 +444,8 @@ class TestLinearSysReachAdaptive:
         F2 = priv_correctionMatrixState(linsys, timeStep, truncationOrder)
         
         # Check that cached result is returned
-        assert np.allclose(F1.infimum(), F2.infimum())
-        assert np.allclose(F1.supremum(), F2.supremum())
+        assert np.allclose(F1.infimum, F2.infimum)
+        assert np.allclose(F1.supremum, F2.supremum)
         
         # Check that cache exists
         assert hasattr(linsys.taylor, '_F_cache')
@@ -494,13 +497,16 @@ class TestLinearSysReachAdaptive:
         linsys = LinearSys(A, B)
 
         # Parameters
+        # Create input set with specific generator structure 
+        U_generators = np.zeros((2, 2))
+        U_generators[1, 1] = 1.0
+        
         params = {
             'tStart': 0.0,
             'tFinal': 60.0,
-            'U': Zonotope(np.zeros((2, 1)), np.zeros((2,2))),
+            'U': Zonotope(np.zeros((2, 1)), U_generators),
             'R0': Zonotope(np.zeros((2, 1)), np.zeros((2,2)))
         }
-        params['U'].generators[1, 1] = 1.
 
         # Options to reproduce the specific scenario
         options = {

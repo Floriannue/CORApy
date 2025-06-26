@@ -105,6 +105,39 @@ from .isZero import isZero
 from .enlarge import enlarge
 from .lift import lift
 from .lift_ import lift_
+from .affine import affine
+from .boundaryPoint import boundaryPoint
+from .cartProd import cartProd
+from .cartProd_ import cartProd_
+from .enclose import enclose
+from .emptySet import emptySet
+from .fullspace import fullspace
+from .getPrintSetInfo import getPrintSetInfo
+from .plotRandPoint import plotRandPoint
+from .zonotope import zonotope
+from .capsule import capsule
+from .conPolyZono import conPolyZono
+from .conZonotope import conZonotope
+from .ellipsoid import ellipsoid
+from .interval import interval
+from .levelSet import levelSet
+from .polygon import polygon
+from .polytope import polytope
+from .polyZonotope import polyZonotope
+from .probZonotope import probZonotope
+from .zonoBundle import zonoBundle
+from .isZonotope import isZonotope
+from .isPolytope import isPolytope
+from .isInterval import isInterval
+from .isParallelotope import isParallelotope
+from .isHyperplane import isHyperplane
+from .isConHyperplane import isConHyperplane
+from .printSet import printSet
+from .projVertices import projVertices
+from .projectHighDim import projectHighDim
+from .projectHighDim_ import projectHighDim_
+from .projectOnHyperplane import projectOnHyperplane
+from .recompose import recompose
 
 # Import compactification operations
 from .compact import compact
@@ -200,6 +233,39 @@ ContSet.isIntersecting_ = isIntersecting_
 ContSet.enlarge = enlarge
 ContSet.lift = lift
 ContSet.lift_ = lift_
+ContSet.affine = affine
+ContSet.boundaryPoint = boundaryPoint
+ContSet.cartProd = cartProd
+ContSet.cartProd_ = cartProd_
+ContSet.enclose = enclose
+ContSet.emptySet = emptySet
+ContSet.fullspace = fullspace
+ContSet.getPrintSetInfo = getPrintSetInfo
+ContSet.plotRandPoint = plotRandPoint
+ContSet.zonotope = zonotope
+ContSet.capsule = capsule
+ContSet.conPolyZono = conPolyZono
+ContSet.conZonotope = conZonotope
+ContSet.ellipsoid = ellipsoid
+ContSet.interval = interval
+ContSet.levelSet = levelSet
+ContSet.polygon = polygon
+ContSet.polytope = polytope
+ContSet.polyZonotope = polyZonotope
+ContSet.probZonotope = probZonotope
+ContSet.zonoBundle = zonoBundle
+ContSet.isZonotope = isZonotope
+ContSet.isPolytope = isPolytope
+ContSet.isInterval = isInterval
+ContSet.isParallelotope = isParallelotope
+ContSet.isHyperplane = isHyperplane
+ContSet.isConHyperplane = isConHyperplane
+ContSet.printSet = printSet
+ContSet.projVertices = projVertices
+ContSet.projectHighDim = projectHighDim
+ContSet.projectHighDim_ = projectHighDim_
+ContSet.projectOnHyperplane = projectOnHyperplane
+ContSet.recompose = recompose
 ContSet.compact = compact
 ContSet.compact_ = compact_
 ContSet.reduce = reduce
@@ -276,6 +342,39 @@ __all__ = [
     'enlarge',
     'lift',
     'lift_',
+    'affine',
+    'boundaryPoint',
+    'cartProd',
+    'cartProd_',
+    'enclose',
+    'emptySet',
+    'fullspace',
+    'getPrintSetInfo',
+    'plotRandPoint',
+    'zonotope',
+    'capsule',
+    'conPolyZono',
+    'conZonotope',
+    'ellipsoid',
+    'interval',
+    'levelSet',
+    'polygon',
+    'polytope',
+    'polyZonotope',
+    'probZonotope',
+    'zonoBundle',
+    'isZonotope',
+    'isPolytope',
+    'isInterval',
+    'isParallelotope',
+    'isHyperplane',
+    'isConHyperplane',
+    'printSet',
+    'projVertices',
+    'projectHighDim',
+    'projectHighDim_',
+    'projectOnHyperplane',
+    'recompose',
     'compact',
     'compact_',
     'reduce',

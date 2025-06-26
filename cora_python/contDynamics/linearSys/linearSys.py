@@ -100,9 +100,9 @@ class LinearSys(ContDynamics):
         self.E = E
         self.F = F
         
-        # Initialize internal properties
-        self.taylor = {}
-        self.krylov = {}
+        # Initialize internal properties (match MATLAB behavior: start as None/empty)
+        self.taylor = None  # Will be initialized as TaylorLinSys when needed
+        self.krylov = None
     
     
     def _parse_input_args(self, *args, **kwargs) -> Tuple[str, Any, Any, Any, Any, Any, Any, Any, Any]:
@@ -363,6 +363,29 @@ class LinearSys(ContDynamics):
             # This would call appropriate computation functions
             pass
         return self.taylor.get(name, None)
+    
+    def getTaylor(self, name: str, *args, **kwargs):
+        """
+        Wrapper function to read out auxiliary values stored in sys.taylor,
+        if the requested value is not there, we compute it
+        
+        This method matches the MATLAB interface exactly.
+        """
+        from cora_python.g.classes.taylorLinSys import TaylorLinSys
+        
+        # Initialize taylor if not present (match MATLAB behavior)
+        if self.taylor is None:
+            self.taylor = TaylorLinSys(self.A)
+        
+        # Handle MATLAB struct-like arguments - convert dict to kwargs
+        if len(args) == 1 and isinstance(args[0], dict):
+            # MATLAB-style call: getTaylor(name, struct)
+            struct_kwargs = args[0]
+            kwargs.update(struct_kwargs)
+            return self.taylor.computeField(name, **kwargs)
+        else:
+            # Python-style call: getTaylor(name, **kwargs)
+            return self.taylor.computeField(name, *args, **kwargs)
     
     
     def __repr__(self) -> str:

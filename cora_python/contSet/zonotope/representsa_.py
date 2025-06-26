@@ -32,7 +32,7 @@ from typing import Tuple, Union, Optional, Any
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
-def representsa_(Z, set_type: str, tol: float = 1e-12, **kwargs):
+def representsa_(Z, set_type: str, tol: float = 1e-12, method: str = 'linearize', iter_val: int = 1, splits: int = 0, **kwargs):
     """
     Checks if a zonotope can also be represented by a different set type
     

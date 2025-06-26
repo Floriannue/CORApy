@@ -857,4 +857,102 @@ class LinErrorBound:
                 timeStep_pred_enonacc = float('inf')
         
         # find minimum
-        return min(timeStep_pred_enonacc, timeStep_pred_eacc, maxTimeStep) 
+        return min(timeStep_pred_enonacc, timeStep_pred_eacc, maxTimeStep)
+    
+    def compute_eps_linComb(self, eAdt: np.ndarray, startset) -> float:
+        """
+        Compute error of linear combination, see [1, Prop. 9]
+        
+        References:
+            [1] M. Wetzlinger et al. "Fully automated verification of linear
+                systems using inner-and outer-approximations of reachable sets",
+                TAC, 2023.
+        
+        Args:
+            eAdt: Matrix exponential
+            startset: Starting set (must have generators() method)
+            
+        Returns:
+            Linear combination error
+        """
+        n = eAdt.shape[0]
+        G_minus = (eAdt - np.eye(n)) @ startset.generators()
+        eps_linComb = np.sqrt(G_minus.shape[1]) * np.linalg.norm(G_minus, 2)
+        return eps_linComb
+    
+    def compute_eps_F(self, F, startset):
+        """
+        Compute curvature error (state), see [1, Prop. 1]:
+        eps_F = 2 * errOp(F * startset)
+        
+        Args:
+            F: Correction matrix for state
+            startset: Starting set
+            
+        Returns:
+            tuple: (eps_F, box_Fstartset_c, box_Fstartset_G)
+        """
+        if hasattr(startset, 'c') and hasattr(startset, 'G'):
+            # Zonotope case - small speed up
+            if hasattr(F, 'center') and hasattr(F, 'rad'):
+                Fcenter = F.center()
+                Frad = F.rad()
+            else:
+                # Fallback for simple interval
+                Fcenter = (F.supremum() + F.infimum()) / 2
+                Frad = (F.supremum() - F.infimum()) / 2
+            
+            box_Fstartset_c = Fcenter @ startset.c
+            Fstartset_G = np.hstack([
+                Fcenter @ startset.G,
+                np.diag(Frad @ np.sum(np.abs(np.hstack([startset.c.reshape(-1, 1), startset.G])), axis=1))
+            ])
+            box_Fstartset_G = np.sum(np.abs(Fstartset_G), axis=1)
+            eps_F = 2 * np.linalg.norm(box_Fstartset_G + np.abs(box_Fstartset_c.flatten()))
+        else:
+            # Standard computation
+            if hasattr(F, '__matmul__') and hasattr(startset, '__rmul__'):
+                errorset = F @ startset
+            else:
+                # Fallback computation
+                errorset = startset  # Simplified
+            
+            eps_F = 2 * self._priv_errOp(errorset)
+            
+            # Convert to zonotope for output
+            if hasattr(errorset, 'c') and hasattr(errorset, 'G'):
+                box_Fstartset_c = errorset.c
+                box_Fstartset_G = errorset.G
+            else:
+                # Fallback
+                n = startset.dim() if hasattr(startset, 'dim') else len(startset)
+                box_Fstartset_c = np.zeros((n, 1))
+                box_Fstartset_G = np.zeros((n, 1))
+        
+        return eps_F, box_Fstartset_c, box_Fstartset_G
+    
+    def compute_eps_G(self, G, u):
+        """
+        Compute curvature error (input), see [1, Prop. 1]:
+        eps_G = 2 * errOp(G*u)
+        
+        Args:
+            G: Correction matrix for input
+            u: Input vector
+            
+        Returns:
+            tuple: (eps_G, Gu_c, Gu_G)
+        """
+        if hasattr(G, 'center') and hasattr(G, 'rad'):
+            Gcenter = G.center()
+            Grad = G.rad()
+        else:
+            # Fallback for simple interval
+            Gcenter = (G.supremum() + G.infimum()) / 2
+            Grad = (G.supremum() - G.infimum()) / 2
+        
+        Gu_c = Gcenter @ u
+        Gu_G = Grad @ np.abs(u)
+        eps_G = 2 * np.linalg.norm(Gu_G + np.abs(Gu_c))
+        
+        return eps_G, Gu_c, Gu_G 

@@ -63,25 +63,34 @@ Translate_Cora/
 
 
 ## Notes
-- * operator (__mul__) = (times) element-wise multiplication (like MATLAB's .*) and @ operator (__matmul__) = (mtimes) matrix multiplication (like MATLAB's *)
+- `*` operator (`__mul__`) = (times) element-wise multiplication (like MATLAB's `.*`) and `@` operator (`__matmul__`) = (mtimes) matrix multiplication (like MATLAB's `*`)
 - methods that have the same name as reserved keywords in Python get the appendix _op, for example, and -> and_op
-- The method object.display() should return the string and not print it since display also provides the string for __str__ 
+- The method object.display() should return the string and not print it since display also provides the string for `__str__`
 - Dont catch warnings
 - **Never** import methods as standalone functions. All methods are attached to classes in `__init__.py`.
-**WRONG:**
-```python
-from .otherMethode import otherMethode
+- **Rule: Class methods must be called on an object instance, never imported directly.**  
+  Functions that act as class methods (e.g., `plus.py`) are dynamically attached to their corresponding class (e.g., `Interval`) inside the `__init__.py` file. 
+  This pattern is essential to mirror MATLAB's `@class` folder behavior, where any function file in a class folder is automatically a method. 
+  And since in our translation we keep all the methodes also in there own seperate file, you must never import these method files and call them as if they were standalone functions.
 
-result = otherMethode(A, b)
-```
+  **WRONG:** Importing and calling the function directly.
+  ```python
+  # This treats the method like a standalone utility function, which is incorrect.
+  from .other_methode import other_methode # <--- WRONG IMPORT
+  
+  # Assume 'obj_A' is an instance of the class
+  result = other_methode(obj_A, b) # <--- WRONG CALL
+  ```
 
-**CORRECT:**
-```python
-#No import needed since otherMethode is attached to A
-result = A.otherMethode(b)
-```
+  **CORRECT:** Calling the function as a method on the object instance.
+  The `__init__.py` handles the attachment, so no import is needed in the file where you are using the object. The method is already part of the class.
+  ```python
+  # Assume 'obj_A' is an instance of the class.
+  # The 'other_methode' is already part of its class definition via __init__.py.
+  result = obj_A.other_methode(b) # <--- CORRECT CALL
+  ```
 - if methodes need to import the class they are part of so should it be done at the top of the file
-- Always provide a full translation and no simplified version that is missing features
+- Always provide a full complete translation and no simplified version that is missing features or has cheap workarounds
 - Treat everything as modules. For example, to execute `cora_python/folder/func.py`, use:  
  ```powershell
   python -m cora_python.folder.func
@@ -91,8 +100,12 @@ result = A.otherMethode(b)
  ```powershell
   command1; command2 | Select-String "string"
  ```
+ also use 2>&1. if you cant get the output of a terminal command or it has been moved to background use > terminal_output.txt and read the file
+  ```powershell
+  command > output.txt
+ ```
 - To ensure the functions and their corresponding tests are complete and correct, refer to `Cora2025.1.0_Manual.txt`.
-- Classes in Python start with a capital letter. For example, `zonotop` → `Zonotop`.
+- Classes in Python start with a capital letter. For example, `zonotop` → `Zonotop`. Try to make the translation as pythonic as possible but still keeping in a full translation.
 - Always mirror the MATLAB codebase and verify against it and the manual. In rare cases the matlab codebase can be wrong, in this case look at the manual and provide all information to the user!
 - Use the following two polymorphic dispatch templates depending on the situation:
  ```python
@@ -107,7 +120,13 @@ result = A.otherMethode(b)
       return self.func(point)
  ```
 - For functions with `func` and `func_`: `func` is the public interface with validation and error handling (func mainly exists in the parent class). func then calls func_ (polymorphism). `func_` is the raw implementation for internal use, cross-class calls, and performance-critical paths (overwritten in the child class).
-- There are over 1000 tests. Run them in a mode that shows **only failed** ones, then debug them one by one.
+- There are over 1000 tests. Use the pytests parameters wisely to not overwhelm you with to much output:
+with -x it stops after the first failed tests, 
+run a specific test file with -v for more output, 
+use --lf to run only tests that failed last time, 
+--tb=no reduces traceback if you run a lot oft tests for an overview, 
+-q for less output, good for an overview.
+
 - Examples do not need tests, but they **must** execute correctly.
 - Use `d x n` vertices format:  
  ```python
@@ -116,12 +135,8 @@ result = A.otherMethode(b)
   np.array([1, 0])  #vector
  ```
 - For functions that plot, save the output as PNG and verify visually.
-- To capture large function output:
- ```powershell
-  function-call > output.txt
- ```
- - if there is an error find the source and compare against matlab. Do not use any cheap workarounds or simplifications! Always find and adress the route cause.
- - Read the folder to see which files are there and read the files before you try to change them
+- if there is an error find the source and compare against matlab. Do not use any cheap workarounds or simplifications! Always find and adress the route cause.
+- Read the folder to see which files are there and read the files before you try to change them
 
 
 ## Translation Workflow must include but not limited to
@@ -253,4 +268,4 @@ This workflow must also be applied to dependencies you translated - translate th
 
 
 ## Task
-Your task is to translate missing `Zonotope methodes` and any associated missing tests (and create addtional test cases if the matlab ones are not comprehensiv)
+Your task is to translate missing `contSet methodes` and any associated missing tests (and create addtional test cases if the matlab ones are not comprehensiv)

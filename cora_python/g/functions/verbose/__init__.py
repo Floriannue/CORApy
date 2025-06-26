@@ -4,24 +4,38 @@ Global functions - verbose module
 This module contains verbose output functions including plotting utilities.
 """
 
-from . import display
-from . import plot
-from .dispEmptySet import dispEmptySet
+# flake8: noqa
+# verbose functions
+
+# from .plot import *
+# from .videos import *
+# from .write import *
+from .display import *
+from .print import *
+
 from .verboseLog import (
-    verboseLog, 
-    verboseLogReach, 
-    verboseLogAdaptive, 
-    verboseLogHeader, 
+    verboseLog,
+    verboseLogReach,
+    verboseLogAdaptive,
+    verboseLogHeader,
     verboseLogFooter
 )
 
+
+# __all__ = [
+#     "plot",
+#     "videos",
+#     "write",
+#     "display",
+#     "print",
+#     "verboseLog"
+# ]
 __all__ = [
-    'display', 
-    'plot', 
-    'dispEmptySet', 
-    'verboseLog', 
-    'verboseLogReach', 
-    'verboseLogAdaptive', 
-    'verboseLogHeader', 
+    'display',
+    'print',
+    'verboseLog',
+    'verboseLogReach',
+    'verboseLogAdaptive',
+    'verboseLogHeader',
     'verboseLogFooter'
 ] 

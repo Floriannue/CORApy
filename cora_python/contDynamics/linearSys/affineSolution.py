@@ -122,7 +122,7 @@ def affineSolution(linsys, X, u: np.ndarray, timeStep: float, truncationOrder: i
         # Curvature error (input)  
         C_input = priv_curvatureInput(linsys, u, timeStep, truncationOrder)
         # Add up the curvature errors
-        C = block_operation(lambda a, b: a + b, C_state, decompose(C_input, blocks))
+        C = block_operation(lambda a, b: a + b, C_state, C_input.decompose(blocks))
         # Affine time-interval solution
         Hti_approx = block_operation(enclose, X_decomp, Htp)
         Hti = block_operation(lambda a, b: a + b, Hti_approx, C)

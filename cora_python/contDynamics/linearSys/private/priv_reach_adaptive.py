@@ -42,15 +42,16 @@ Python translation: 2025
 
 import math
 import numpy as np
-import scipy.linalg
 from typing import Dict, Any, Tuple, List, Optional
 from cora_python.g.classes.linErrorBound import LinErrorBound
 from cora_python.g.classes.verifyTime import VerifyTime
 from cora_python.g.functions.verbose import verboseLog
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.classes.taylorLinSys import TaylorLinSys
-from cora_python.contSet.interval import Interval
 from cora_python.contSet.zonotope import Zonotope
+from cora_python.contSet.polytope import Polytope
+from .priv_correctionMatrixState import priv_correctionMatrixState
+from .priv_correctionMatrixInput import priv_correctionMatrixInput
 
 
 def priv_reach_adaptive(linsys, params: Dict[str, Any], options: Dict[str, Any]) -> Tuple[Dict, Dict, bool, Dict]:
@@ -319,7 +320,7 @@ def priv_reach_adaptive(linsys, params: Dict[str, Any], options: Dict[str, Any])
             set_vars['Rset_tp'] = set_vars['Rset_tp'] + set_vars['Pu']
         
         # compute time-interval solution
-        set_vars['Rset_ti'] = enclose(set_vars['startset'], set_vars['Hstartp'])
+        set_vars['Rset_ti'] = set_vars['startset'].enclose(set_vars['Hstartp'])
         if isU:
             set_vars['Rset_ti'] = set_vars['Rset_ti'] + set_vars['Putotal']
         if isu:
@@ -359,7 +360,7 @@ def priv_reach_adaptive(linsys, params: Dict[str, Any], options: Dict[str, Any])
 
 def aux_initFlags(linsys, params: Dict[str, Any]) -> Tuple[bool, np.ndarray, bool, bool]:
     """Initialize auxiliary flags"""
-    isU = 'U' in params and not _representsa_origin(params['U'])
+    isU = 'U' in params and not params['U'].representsa_('origin')
     # G_U should be B * U.G to transform input generators to state space
     if isU and hasattr(params['U'], 'G'):
         G_U = linsys.B @ params['U'].G  # Transform input generators through B matrix
@@ -693,7 +694,7 @@ def aux_errors(linsys, k: int, k_iter: int, errs: LinErrorBound, fullcomp: bool,
     
     if fullcomp:
         # linear combination error: eps_linComb
-        errs.idv_linComb[k][k_iter] = compute_eps_linComb(errs, eAdtk, set_vars['startset'])
+        errs.idv_linComb[k][k_iter] = errs.compute_eps_linComb(eAdtk, set_vars['startset'])
         
         # curvature error from correction matrix for the state
         try:
@@ -704,7 +705,7 @@ def aux_errors(linsys, k: int, k_iter: int, errs: LinErrorBound, fullcomp: bool,
             else:
                 raise e
         
-        errs.idv_F[k][k_iter], boxFstartset_center, boxFstartset_Gbox = compute_eps_F(errs, F, set_vars['startset'])
+        errs.idv_F[k][k_iter], boxFstartset_center, boxFstartset_Gbox = errs.compute_eps_F(F, set_vars['startset'])
         
         # curvature error from correction matrix for the input
         if 'GuTrans_center' not in set_vars:
@@ -733,7 +734,7 @@ def aux_errors(linsys, k: int, k_iter: int, errs: LinErrorBound, fullcomp: bool,
                 set_vars['GuTrans_Gbox'][k_iter] = savedata['GuTrans_Gbox'][timeStepIdx - 1]
                 errs.idv_G[k][k_iter] = savedata['eG'][timeStepIdx - 1]
             else:
-                errs.idv_G[k][k_iter], set_vars['GuTrans_center'][k_iter], set_vars['GuTrans_Gbox'][k_iter] = compute_eps_G(errs, G, u)
+                errs.idv_G[k][k_iter], set_vars['GuTrans_center'][k_iter], set_vars['GuTrans_Gbox'][k_iter] = errs.compute_eps_G(G, u)
         
         # err(e^At PU)
         if not isU:
@@ -923,55 +924,10 @@ def aux_savedata(savedata: Dict[str, Any], k: int, k_iter: int, fullcomp: bool,
 
 
 # Helper functions that would need proper implementation
-def _representsa_origin(U) -> bool:
-    """Check if set represents origin"""
-    if hasattr(U, 'representsa_'):
-        return U.representsa_('origin')
-    elif hasattr(U, 'generators'):
-        # Check if generators are empty or all zero
-        G = U.generators()
-        return G.size == 0 or np.allclose(G, 0)
-    return False
+# Note: _representsa_origin function removed - use set.representsa_('origin') method directly
 
 
-def enclose(set1, set2):
-    """
-    Compute convex hull of two sets (enclose operation)
-    
-    The enclose operation computes the convex hull of two sets, which is the
-    smallest convex set containing both input sets.
-    """
-    if hasattr(set1, 'enclose'):
-        return set1.enclose(set2)
-    elif hasattr(set1, 'convHull'):
-        return set1.convHull(set2)
-    elif hasattr(set1, 'c') and hasattr(set1, 'G') and hasattr(set2, 'c') and hasattr(set2, 'G'):
-        # Both are zonotopes - compute convex hull
-        
-        # Simple convex hull for zonotopes: 
-        # Z = 0.5*(Z1 + Z2) + 0.5*(Z1 - Z2)
-        c_new = 0.5 * (set1.c + set2.c)
-        G_new = np.hstack([
-            0.5 * set1.G,
-            0.5 * set2.G,
-            0.5 * (set1.c - set2.c).reshape(-1, 1)
-        ])
-        return Zonotope(c_new, G_new)
-    elif hasattr(set1, 'infimum') and hasattr(set1, 'supremum'):
-        # Interval sets - compute interval hull
-        if hasattr(set2, 'infimum') and hasattr(set2, 'supremum'):
-            inf_new = np.minimum(set1.infimum(), set2.infimum())
-            sup_new = np.maximum(set1.supremum(), set2.supremum())
-            return Interval(inf_new, sup_new)
-        else:
-            # Convert set2 to interval first
-            set2_int = Interval(set2)
-            inf_new = np.minimum(set1.infimum(), set2_int.infimum())
-            sup_new = np.maximum(set1.supremum(), set2_int.supremum())
-            return Interval(inf_new, sup_new)
-    else:
-        # Fallback: return first set (conservative approximation)
-        return set1
+# Note: enclose function removed - use set1.enclose(set2) method directly
 
 
 def particularSolution_constant(linsys, u, timeStep: float, truncationOrder: float):
@@ -979,293 +935,7 @@ def particularSolution_constant(linsys, u, timeStep: float, truncationOrder: flo
     return linsys.particularSolution_constant(u, timeStep, truncationOrder)[0]  # Return only Ptp
 
 
-def priv_correctionMatrixState(linsys, timeStep: float, truncationOrder: float):
-    """
-    Compute correction matrix for the state, see [1, Prop. 3.1]
-    
-    References:
-        [1] M. Althoff. "Reachability Analysis and its Application to the
-            Safety Assessment of Autonomous Cars", PhD Dissertation, 2010.
-    """
-    
-    # Check if it has already been computed
-    if hasattr(linsys.taylor, 'F') and timeStep in getattr(linsys.taylor, '_F_cache', {}):
-        return linsys.taylor._F_cache[timeStep]
-    
-    # Set a maximum order in case truncation order is given as Inf (adaptive)
-    truncationOrderInf = np.isinf(truncationOrder)
-    if truncationOrderInf:
-        truncationOrder = 75
-    
-    n = linsys.A.shape[0]
-    Asum_pos_F = np.zeros((n, n))
-    Asum_neg_F = np.zeros((n, n))
-    
-    for eta in range(2, int(truncationOrder) + 1):
-        # Compute factor
-        exp1 = -eta / (eta - 1)
-        exp2 = -1 / (eta - 1)
-        dtoverfac = (timeStep ** eta) / math.factorial(eta)
-        factor = (eta ** exp1 - eta ** exp2) * dtoverfac
-        
-        # Get positive and negative parts of A^eta
-        Apower = linsys.taylor.computeField('Apower', ithpower=eta)
-        Asum_add_pos = np.maximum(Apower, 0)
-        Asum_add_neg = np.minimum(Apower, 0)
-        Asum_add_pos = factor * Asum_add_pos
-        Asum_add_neg = factor * Asum_add_neg
-        
-        # Break condition in case truncation order is selected adaptively
-        if truncationOrderInf:
-            if (np.all(np.abs(Asum_add_neg) <= np.finfo(float).eps * np.abs(Asum_pos_F)) and
-                np.all(np.abs(Asum_add_pos) <= np.finfo(float).eps * np.abs(Asum_neg_F))):
-                break
-            elif eta == truncationOrder:
-                raise CORAerror('CORA:notConverged', 'Time step size too big for computation of F.')
-        
-        # Compute powers; factor is always negative
-        Asum_pos_F = Asum_pos_F + Asum_add_neg
-        Asum_neg_F = Asum_neg_F + Asum_add_pos
-    
-    # Compute correction matrix for the state
-    F = Interval(Asum_neg_F, Asum_pos_F)
-    
-    # Compute/read remainder of exponential matrix (unless truncationOrder=Inf)
-    if not truncationOrderInf:
-        E = priv_expmRemainder(linsys, timeStep, truncationOrder)
-        F = F + E
-    
-    # Save in taylorLinSys object
-    if not hasattr(linsys.taylor, '_F_cache'):
-        linsys.taylor._F_cache = {}
-    linsys.taylor._F_cache[timeStep] = F
-    
-    return F
-
-
-def priv_correctionMatrixInput(linsys, timeStep: float, truncationOrder: float):
-    """
-    Compute correction matrix for the input, see [1, p. 38]
-    
-    References:
-        [1] M. Althoff. "Reachability Analysis and its Application to the
-            Safety Assessment of Autonomous Cars", PhD Dissertation, 2010.
-    """
-    
-    # Check if it has already been computed
-    if hasattr(linsys.taylor, 'G') and timeStep in getattr(linsys.taylor, '_G_cache', {}):
-        return linsys.taylor._G_cache[timeStep]
-    
-    # Set a maximum order in case truncation order is given as Inf (adaptive)
-    truncationOrderInf = np.isinf(truncationOrder)
-    if truncationOrderInf:
-        truncationOrder = 75
-    
-    n = linsys.A.shape[0]
-    Asum_pos_G = np.zeros((n, n))
-    Asum_neg_G = np.zeros((n, n))
-    
-    for eta in range(2, int(truncationOrder) + 2):
-        # Compute factor
-        exp1 = -eta / (eta - 1)
-        exp2 = -1 / (eta - 1)
-        dtoverfac = (timeStep ** eta) / math.factorial(eta)
-        factor = (eta ** exp1 - eta ** exp2) * dtoverfac
-        
-        # Get positive and negative parts of A^(eta-1)
-        Apower = linsys.taylor.computeField('Apower', ithpower=eta - 1)
-        Asum_add_pos = np.maximum(Apower, 0)
-        Asum_add_neg = np.minimum(Apower, 0)
-        Asum_add_pos = factor * Asum_add_pos
-        Asum_add_neg = factor * Asum_add_neg
-        
-        # Compute ratio for floating-point precision
-        if truncationOrderInf:
-            if (np.all(np.abs(Asum_add_neg) <= np.finfo(float).eps * np.abs(Asum_pos_G)) and
-                np.all(np.abs(Asum_add_pos) <= np.finfo(float).eps * np.abs(Asum_neg_G))):
-                break
-            elif eta == truncationOrder + 1:
-                raise CORAerror('CORA:notConverged', 'Time step size too big for computation of G.')
-        
-        # Compute powers; factor is always negative
-        Asum_pos_G = Asum_pos_G + Asum_add_neg
-        Asum_neg_G = Asum_neg_G + Asum_add_pos
-    
-    # Compute correction matrix for input
-    G = Interval(Asum_neg_G, Asum_pos_G)
-    
-    # Compute/read remainder of exponential matrix (unless truncationOrder=Inf)
-    if not truncationOrderInf:
-        E = priv_expmRemainder(linsys, timeStep, truncationOrder)
-        G = G + E * timeStep
-    
-    # Save in taylorLinSys object
-    if not hasattr(linsys.taylor, '_G_cache'):
-        linsys.taylor._G_cache = {}
-    linsys.taylor._G_cache[timeStep] = G
-    
-    return G
-
-
-def priv_expmRemainder(linsys, timeStep: float, truncationOrder: int):
-    """
-    Computation of remainder term of exponential matrix
-    """
-    
-    # Check if it has already been computed
-    if hasattr(linsys.taylor, 'E') and timeStep in getattr(linsys.taylor, '_E_cache', {}):
-        return linsys.taylor._E_cache[timeStep]
-    
-    # Set a maximum order in case truncation order is given as Inf (adaptive)
-    truncationOrderInf = np.isinf(truncationOrder)
-    if truncationOrderInf:
-        truncationOrder = 75
-    
-    # Initialization for loop
-    A_abs = np.abs(linsys.A)
-    n = linsys.A.shape[0]
-    M = np.eye(n)
-    
-    # Compute powers for each term and sum of these
-    for eta in range(1, int(truncationOrder) + 1):
-        Apower_abs_i = np.linalg.matrix_power(A_abs, eta)
-        dtoverfac_i = (timeStep ** eta) / math.factorial(eta)
-        
-        # Additional term
-        M_add = Apower_abs_i * dtoverfac_i
-        
-        # Adaptive handling
-        if truncationOrderInf and np.all(M_add <= np.finfo(float).eps * M):
-            break
-        
-        M = M + M_add
-    
-    # Determine error due to finite Taylor series
-    # (compute absolute value of W for numerical stability)
-    W = np.abs(scipy.linalg.expm(A_abs * timeStep) - M)
-    E = Interval(-W, W)
-    
-    # Save in taylorLinSys object
-    if not hasattr(linsys.taylor, '_E_cache'):
-        linsys.taylor._E_cache = {}
-    linsys.taylor._E_cache[timeStep] = E
-    
-    return E
-
-
-def compute_eps_linComb(errs: LinErrorBound, eAdt: np.ndarray, startset) -> float:
-    """
-    Compute error of linear combination, see [1, Prop. 9]
-    
-    References:
-        [1] M. Wetzlinger et al. "Fully automated verification of linear
-            systems using inner-and outer-approximations of reachable sets",
-            TAC, 2023.
-    """
-    n = eAdt.shape[0]
-    
-    # Get generators from startset
-    if hasattr(startset, 'generators'):
-        G = startset.generators
-    else:
-        # Fallback for other set types, might need a more specific method
-        # For now, assume it has a method to get vertices or similar
-        # and we can derive generators. This is a simplification.
-        G = np.eye(n) * 0.1  # Small default generators
-    
-    G_minus = (eAdt - np.eye(n)) @ G
-    eps_linComb = np.sqrt(G_minus.shape[1]) * np.linalg.norm(G_minus, 2)
-    
-    return eps_linComb
-
-
-def compute_eps_F(errs: LinErrorBound, F, startset) -> Tuple[float, np.ndarray, np.ndarray]:
-    """
-    Compute curvature error (state), see [1, Prop. 1]:
-    eps_F = 2 * errOp(F * startset)
-    """
-    
-    if hasattr(startset, 'c') and hasattr(startset, 'G'):
-        # Zonotope case - small speed up
-        if hasattr(F, 'center') and hasattr(F, 'rad'):
-            Fcenter = F.center()
-            Frad = F.rad()
-        else:
-            # Fallback for simple interval
-            Fcenter = (F.supremum() + F.infimum()) / 2
-            Frad = (F.supremum() - F.infimum()) / 2
-        
-        box_Fstartset_c = Fcenter @ startset.c
-        Fstartset_G = np.hstack([
-            Fcenter @ startset.G,
-            np.diag(Frad @ np.sum(np.abs(np.hstack([startset.c.reshape(-1, 1), startset.G])), axis=1))
-        ])
-        box_Fstartset_G = np.sum(np.abs(Fstartset_G), axis=1)
-        eps_F = 2 * np.linalg.norm(box_Fstartset_G + np.abs(box_Fstartset_c))
-    else:
-        # Standard computation
-        if hasattr(F, '__matmul__') and hasattr(startset, '__rmul__'):
-            errorset = F @ startset
-        else:
-            # Fallback computation
-            errorset = startset  # Simplified
-        
-        eps_F = 2 * _priv_errOp(errorset)
-        
-        # Convert to zonotope for output
-        if hasattr(errorset, 'c') and hasattr(errorset, 'G'):
-            box_Fstartset_c = errorset.c
-            box_Fstartset_G = errorset.G
-        else:
-            # Fallback
-            n = startset.dim() if hasattr(startset, 'dim') else len(startset)
-            box_Fstartset_c = np.zeros((n, 1))
-            box_Fstartset_G = np.zeros((n, 1))
-    
-    return eps_F, box_Fstartset_c, box_Fstartset_G
-
-
-def compute_eps_G(errs: LinErrorBound, G, u) -> Tuple[float, np.ndarray, np.ndarray]:
-    """
-    Compute curvature error (input), see [1, Prop. 1]:
-    eps_G = 2 * errOp(G*u)
-    """
-    if hasattr(G, 'center') and hasattr(G, 'rad'):
-        Gcenter = G.center()
-        Grad = G.rad()
-    else:
-        # Fallback for simple interval
-        Gcenter = (G.supremum() + G.infimum()) / 2
-        Grad = (G.supremum() - G.infimum()) / 2
-    
-    Gu_c = Gcenter @ u
-    Gu_G = Grad @ np.abs(u)
-    eps_G = 2 * np.linalg.norm(Gu_G + np.abs(Gu_c))
-    
-    return eps_G, Gu_c, Gu_G
-
-
-def _priv_errOp(S) -> float:
-    """
-    Compute error operation for different set types
-    """
-    if hasattr(S, 'generators') and hasattr(S, 'center'):
-        # Zonotope-like
-        G = S.generators()
-        c = S.center()
-        return np.linalg.norm(np.sum(np.abs(G), axis=1) + np.abs(c))
-    elif hasattr(S, 'infimum') and hasattr(S, 'supremum'):
-        # Interval-like
-        return np.linalg.norm(np.maximum(-S.infimum(), S.supremum()))
-    elif hasattr(S, 'rad'):
-        # Interval with rad method
-        return np.linalg.norm(S.rad())
-    else:
-        # Fallback: assume it has some norm
-        try:
-            return np.linalg.norm(S)
-        except:
-            return 0.1  # Small default error 
+# Note: compute_eps_* functions have been moved to LinErrorBound class methods 
 
 def aux_getSetsFromSpec(spec_list):
     """

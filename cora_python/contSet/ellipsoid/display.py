@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .ellipsoid import Ellipsoid
 
-from cora_python.g.functions.verbose.dispEmptySet import dispEmptySet
+from cora_python.g.functions.verbose.display.dispEmptySet import dispEmptySet
 
 
 def display(E: 'Ellipsoid') -> str:
