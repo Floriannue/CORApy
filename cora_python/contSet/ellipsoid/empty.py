@@ -44,11 +44,7 @@ def empty(n: int = 0):
     # Import here to avoid circular import
     from .ellipsoid import Ellipsoid
     
-    # Validate dimension first (before inputArgsCheck which rejects negative values)
-    if n <= 0:
-        raise ValueError("Dimension must be positive")
-    
-    # Parse input (this will now pass since n > 0)
+    # Parse input - n should be nonnegative (0 or positive)
     inputArgsCheck([[n, 'att', 'numeric', ['scalar', 'nonnegative']]])
     
     # For empty ellipsoids:

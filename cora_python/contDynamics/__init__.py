@@ -7,5 +7,8 @@ dynamical systems in CORA.
 
 from .contDynamics import ContDynamics
 from .linearSys import LinearSys
+from .linearARX import LinearARX
+from .nonlinearARX import NonlinearARX
+from .nonlinearSysDT import NonlinearSysDT
 
-__all__ = ['ContDynamics', 'LinearSys'] 
+__all__ = ['ContDynamics', 'LinearSys', 'LinearARX', 'NonlinearARX', 'NonlinearSysDT'] 

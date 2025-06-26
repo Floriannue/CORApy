@@ -1,1 +1,0 @@
-# Test module for polyZonotope class 

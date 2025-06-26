@@ -72,7 +72,7 @@ from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputAr
 from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
 from cora_python.g.macros import CHECKS_ENABLED
 from cora_python.g.functions.matlab.validate.postprocessing.CORAwarning import CORAwarning
-from cora_python.g.functions.helper.sets.polyZonotope.removeRedundantExponents import removeRedundantExponents
+from cora_python.g.functions.helper.sets.contSet.polyZonotope import removeRedundantExponents
 
 if TYPE_CHECKING:
     pass
@@ -105,11 +105,11 @@ class PolyZonotope(ContSet):
         if len(varargin) == 1 and isinstance(varargin[0], PolyZonotope):
             # Direct assignment like MATLAB
             other = varargin[0]
-            self.c = other.c
-            self.G = other.G
-            self.GI = other.GI
-            self.E = other.E
-            self.id = other.id
+            self.c = other.c.copy()
+            self.G = other.G.copy()
+            self.GI = other.GI.copy()
+            self.E = other.E.copy()
+            self.id = other.id.copy()
             super().__init__()
             self.precedence = 70
             return
@@ -180,26 +180,18 @@ class PolyZonotope(ContSet):
 def _aux_parseInputArgs(*varargin) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Parse input arguments from user and assign to variables"""
     
-    # no input arguments
-    if len(varargin) == 0:
-        c = np.array([])
-        G = np.array([])
-        GI = np.array([])
-        E = np.array([])
-        id = np.array([])
-        return c, G, GI, E, id
-
     # set default values
-    c, G, GI, E, id = setDefaultValues([[], [], [], [], []], list(varargin))
+    defaults = [np.array([]) for _ in range(5)]
+    c, G, GI, E, id_ = setDefaultValues(defaults, list(varargin))
 
-    # Convert to numpy arrays
-    c = np.array(c) if c is not None else np.array([])
-    G = np.array(G) if G is not None else np.array([])
-    GI = np.array(GI) if GI is not None else np.array([])
-    E = np.array(E) if E is not None else np.array([])
-    id = np.array(id) if id is not None else np.array([])
-
-    return c, G, GI, E, id
+    # Ensure all are numpy arrays, even if empty from setDefaultValues
+    c = np.array(c) if not isinstance(c, np.ndarray) else c
+    G = np.array(G) if not isinstance(G, np.ndarray) else G
+    GI = np.array(GI) if not isinstance(GI, np.ndarray) else GI
+    E = np.array(E) if not isinstance(E, np.ndarray) else E
+    id_ = np.array(id_) if not isinstance(id_, np.ndarray) else id_
+    
+    return c, G, GI, E, id_
 
 
 def _aux_checkInputArgs(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray, id: np.ndarray, n_in: int):
@@ -210,11 +202,15 @@ def _aux_checkInputArgs(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndar
 
         inputChecks = [
             [c, 'att', 'numeric', 'finite'],
-            [G, 'att', 'numeric', ['finite', 'matrix']],
-            [GI, 'att', 'numeric', ['finite', 'matrix']],
-            [E, 'att', 'numeric', ['integer', 'nonnegative', 'matrix']],
-            [id, 'att', 'numeric', 'integer']
         ]
+        if G.size > 0:
+            inputChecks.append([G, 'att', 'numeric', ['finite', 'matrix']])
+        if GI.size > 0:
+            inputChecks.append([GI, 'att', 'numeric', ['finite', 'matrix']])
+        if E.size > 0:
+            inputChecks.append([E, 'att', 'numeric', ['integer', 'nonnegative', 'matrix']])
+        if id.size > 0:
+            inputChecks.append([id, 'att', 'numeric', 'integer'])
         
         inputArgsCheck(inputChecks)
 
@@ -223,7 +219,10 @@ def _aux_checkInputArgs(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndar
         if c.size > 0 and c.ndim > 1 and c.shape[1] != 1:
             raise CORAerror('CORA:wrongInputInConstructor',
                           'Center should be a column vector.')
-        
+        # reshape at input parsing stage instead
+        if c.ndim == 1:
+            c = c.reshape(-1, 1)
+
         # G
         if G.size > 0 and c.size > 0 and G.shape[0] != c.shape[0]:
             raise CORAerror('CORA:wrongInputInConstructor',
@@ -250,25 +249,36 @@ def _aux_checkInputArgs(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndar
 
 
 def _aux_computeProperties(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray, id: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Compute properties"""
+    """Compute and finalize properties of the polynomial zonotope"""
     
+    # reshape center vector
+    if c.ndim == 1:
+        c = c.reshape(-1, 1)
+
     # remove redundancies
     if E.size > 0:
         E, G = removeRedundantExponents(E, G)
 
     # if G/GI is empty, set correct dimension
-    if G.size == 0 and c.size > 0:
-        G = np.zeros((c.shape[0], 0))
-    if GI.size == 0 and c.size > 0:
-        GI = np.zeros((c.shape[0], 0))
+    dim = c.shape[0]
+    if G.size == 0:
+        G = np.zeros((dim, 0))
+    if GI.size == 0:
+        GI = np.zeros((dim, 0))
 
     # default value for exponent matrix
     if E.size == 0 and G.size > 0:
-        E = np.eye(G.shape[1])
+        E = np.eye(G.shape[1], dtype=int)
+    elif E.size == 0:
+        E = np.zeros((0,0), dtype=int)
 
-    # number of dependent factors
+    # default value for id
     if id.size == 0 and E.size > 0:
-        p = E.shape[0]
-        id = np.arange(1, p + 1).reshape(-1, 1)  # column vector
+        id = np.arange(1, E.shape[0] + 1).reshape(-1, 1)
+    elif id.size == 0:
+        id = np.zeros((0,1), dtype=int)
+
+    if id.ndim == 1:
+        id = id.reshape(-1, 1)
 
     return c, G, GI, E, id 

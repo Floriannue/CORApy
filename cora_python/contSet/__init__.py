@@ -19,7 +19,10 @@ from .zonoBundle import ZonoBundle
 from .probZonotope import ProbZonotope
 from .spectraShadow import SpectraShadow
 from .taylm import Taylm
+from .conPolyZono import ConPolyZono
+from .levelSet import LevelSet
+from .polygon import Polygon
 
 __all__ = ['ContSet', 'Interval', 'Zonotope', 'Capsule', 'EmptySet', 'Ellipsoid', 'Polytope', 
            'Fullspace', 'ConZonotope', 'PolyZonotope', 'ZonoBundle', 'ProbZonotope', 
-           'SpectraShadow', 'Taylm'] 
+           'SpectraShadow', 'Taylm', 'ConPolyZono', 'LevelSet', 'Polygon'] 

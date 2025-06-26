@@ -108,8 +108,9 @@ def simulate(linsys, params: Dict[str, Any], options: Optional[Dict[str, Any]] =
     y = np.array([])
     x0 = params['x0'].copy()
     
-    # Computation of output set desired / possible
-    comp_y = linsys.C is not None and linsys.C.size > 0
+    # Computation of output set desired / possible  
+    # MATLAB: comp_y = nargout == 4 && ~isempty(linsys.C);
+    comp_y = linsys.C.size > 0
     
     # Loop over all time steps
     for i in range(steps):
@@ -180,8 +181,8 @@ def simulate(linsys, params: Dict[str, Any], options: Optional[Dict[str, Any]] =
             u_current = params['u'][:, i] if params['u'].ndim > 1 else params['u']
             u_current = np.asarray(u_current).reshape(-1, 1)
             
-            # Handle dimension mismatch for D matrix
-            if linsys.D is not None and linsys.D.size > 0:
+            # Handle dimension mismatch for D matrix (only if D is non-empty)
+            if linsys.D.size > 0:
                 if u_current.shape[0] != linsys.D.shape[1]:
                     # If u is scalar and D expects more inputs, broadcast u
                     if u_current.shape[0] == 1 and linsys.D.shape[1] > 1:
@@ -194,22 +195,23 @@ def simulate(linsys, params: Dict[str, Any], options: Optional[Dict[str, Any]] =
             v_current = params['v'][:, i] if params['v'].ndim > 1 else params['v']
             v_current = np.asarray(v_current).reshape(-1, 1)
             
+            # MATLAB: y_ = linsys.C * x_(1,:)' + linsys.D * params.u(:,i) + linsys.k + params.v(:,i);
             if time_step_given:
                 y_ = linsys.C @ x_[0, :].reshape(-1, 1)
-                if linsys.D is not None and linsys.D.size > 0:
+                if linsys.D.size > 0:
                     y_ += linsys.D @ u_current
-                if linsys.k is not None and linsys.k.size > 0:
+                if linsys.k.size > 0:
                     y_ += linsys.k.reshape(-1, 1)
-                if linsys.F is not None and linsys.F.size > 0:
+                if linsys.F.size > 0:  # F handles sensor noise (v)
                     y_ += linsys.F @ v_current
                 y_ = y_.flatten()
             else:
                 y_ = linsys.C @ x_[:-1, :].T
-                if linsys.D is not None and linsys.D.size > 0:
+                if linsys.D.size > 0:
                     y_ += linsys.D @ u_current
-                if linsys.k is not None and linsys.k.size > 0:
+                if linsys.k.size > 0:
                     y_ += linsys.k.reshape(-1, 1)
-                if linsys.F is not None and linsys.F.size > 0:
+                if linsys.F.size > 0:
                     y_ += linsys.F @ v_current
                 y_ = y_.T
             
@@ -230,8 +232,8 @@ def simulate(linsys, params: Dict[str, Any], options: Optional[Dict[str, Any]] =
         u_last = params['u'][:, -1] if params['u'].ndim > 1 else params['u']
         u_last = np.asarray(u_last).reshape(-1, 1)
         
-        # Handle dimension mismatch for D matrix
-        if linsys.D is not None and linsys.D.size > 0:
+        # Handle dimension mismatch for D matrix (only if D is non-empty)
+        if linsys.D.size > 0:
             if u_last.shape[0] != linsys.D.shape[1]:
                 # If u is scalar and D expects more inputs, broadcast u
                 if u_last.shape[0] == 1 and linsys.D.shape[1] > 1:
@@ -244,12 +246,13 @@ def simulate(linsys, params: Dict[str, Any], options: Optional[Dict[str, Any]] =
         v_last = params['v'][:, -1] if params['v'].ndim > 1 else params['v']
         v_last = np.asarray(v_last).reshape(-1, 1)
         
+        # MATLAB: ylast = linsys.C * x_(end,:)' + linsys.D * params.u(:,end) + linsys.k + params.v(:,end);
         y_last = linsys.C @ x_[-1, :].reshape(-1, 1)
-        if linsys.D is not None and linsys.D.size > 0:
+        if linsys.D.size > 0:
             y_last += linsys.D @ u_last
-        if linsys.k is not None and linsys.k.size > 0:
+        if linsys.k.size > 0:
             y_last += linsys.k.reshape(-1, 1)
-        if linsys.F is not None and linsys.F.size > 0:
+        if linsys.F.size > 0:
             y_last += linsys.F @ v_last
         y_last = y_last.flatten()
         
@@ -278,7 +281,8 @@ def _getfcn(linsys, params):
         # Ensure proper dimensions for matrix multiplication
         result = linsys.A @ x
         
-        if linsys.B is not None and linsys.B.size > 0:
+        # MATLAB: result = A*x + B*u + c + E*w (matrices always exist but may be empty)
+        if linsys.B.size > 0:
             # Check if u has the right dimensions for matrix multiplication
             if u.shape[0] != linsys.B.shape[1]:
                 # If u is scalar and B expects more inputs, broadcast u
@@ -288,10 +292,10 @@ def _getfcn(linsys, params):
                     raise ValueError(f"Input u has dimension {u.shape[0]} but system expects {linsys.B.shape[1]} inputs")
             result += linsys.B @ u
         
-        if linsys.c is not None and linsys.c.size > 0:
+        if linsys.c.size > 0:
             result += linsys.c.reshape(-1, 1)
         
-        if linsys.E is not None and linsys.E.size > 0:
+        if linsys.E.size > 0:
             # Check if w has the right dimensions for matrix multiplication
             if w.shape[0] != linsys.E.shape[1]:
                 # If w is scalar and E expects more disturbances, broadcast w

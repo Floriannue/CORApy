@@ -43,18 +43,18 @@ Translate_Cora/
 │   ├── g/        # mirrors cora_matlab/global helper and utility functions
 │   ├── contSet/          
 │   │   ├── contSet/      # Base class implementation
-│   │   │   ├── __init__.py  # Must export all functions
-│   │   │   ├── contSet.py   # Class definition only
-│   │   │   ├── plot.py      # One function per file
+│   │   │   ├── __init__.py  # Must export class and attache/overload all methods
+│   │   │   ├── contSet.py   # Constructor only
+│   │   │   ├── plot.py      # One class methode per file
 │   │   │   └── ...
 │   │   └── interval/     # Derived class implementation
-│   │       ├── __init__.py  # Must export class and all methods
-│   │       ├── interval.py  # Class definition only
+│   │       ├── __init__.py  # Must export class and attache/overload all methods
+│   │       ├── interval.py  # Constructor only
 │   │       └── ...
 │   └── tests/
 │       └── contSet/
 │           └── interval/
-│               ├── test_interval.py      # Class tests
+│               ├── test_interval.py      # Constructor tests
 │               ├── test_interval_plus.py # One test file per function
 │               └── ...
 ├── cora_matlab/            # Source MATLAB code
@@ -63,19 +63,24 @@ Translate_Cora/
 
 
 ## Notes
+- * operator (__mul__) = (times) element-wise multiplication (like MATLAB's .*) and @ operator (__matmul__) = (mtimes) matrix multiplication (like MATLAB's *)
 - methods that have the same name as reserved keywords in Python get the appendix _op, for example, and -> and_op
 - The method object.display() should return the string and not print it since display also provides the string for __str__ 
 - Dont catch warnings
-- **Never** import methods of a class as standalone functions. The methods are attached in `__init__.py`. So use 
- ```python
-  object.function()
- ```
- instead of 
- ```python
-  import function
-  function(object)
- ```
- Methods  should in most cases import the class they are port of at the top of the file.
+- **Never** import methods as standalone functions. All methods are attached to classes in `__init__.py`.
+**WRONG:**
+```python
+from .otherMethode import otherMethode
+
+result = otherMethode(A, b)
+```
+
+**CORRECT:**
+```python
+#No import needed since otherMethode is attached to A
+result = A.otherMethode(b)
+```
+- if methodes need to import the class they are part of so should it be done at the top of the file
 - Always provide a full translation and no simplified version that is missing features
 - Treat everything as modules. For example, to execute `cora_python/folder/func.py`, use:  
  ```powershell
@@ -115,9 +120,13 @@ Translate_Cora/
  ```powershell
   function-call > output.txt
  ```
+ - if there is an error find the source and compare against matlab. Do not use any cheap workarounds or simplifications! Always find and adress the route cause.
+ - Read the folder to see which files are there and read the files before you try to change them
 
 
 ## Translation Workflow must include but not limited to
+
+### 0. **Check what is already done** 
 
 ### 1. **Dependency Analysis** 
 Identify dependencies like inheritance. 
@@ -193,8 +202,8 @@ This workflow must also be applied to dependencies you translated - translate th
 2. Compare numerical Results and precision  
 3. Verify edge case handling  
 4. Check documentation completeness  
-5. Translated code or test can be wrong therefore compare against matlab codebase and manual
-6. (FLAG=False) if flag is true you can create and run matlab files to compare you translation results against the original
+5. Translated code or test can be wrong therefore compare against the matlab codebase and manual
+6. if matlab is installed, create an example for the matlab source and your python translation so you can compare the results directly
 
 #### Self-Correction Template:
  ```
@@ -244,4 +253,4 @@ This workflow must also be applied to dependencies you translated - translate th
 
 
 ## Task
-Your task is to `fix zonotpe randpoint_`. Ensure it is a full translation. Compare against matlab and manual.
+Your task is to translate missing `Zonotope methodes` and any associated missing tests (and create addtional test cases if the matlab ones are not comprehensiv)

@@ -38,7 +38,7 @@ import numpy as np
 from typing import Optional, Tuple, List
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.auxiliary import combinator
-from cora_python.g.functions.helper import ndimCross
+from cora_python.g.functions.helper.sets.contSet.zonotope import ndimCross
 
 
 def zonotope(Z, method: str = 'exact'):

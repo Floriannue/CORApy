@@ -80,8 +80,12 @@ def mtimes(factor1, factor2):
             
             # Check dimension compatibility
             if factor2.c.size > 0 and factor1_mat.shape[1] != factor2.dim():
-                raise CORAerror('CORA:dimensionMismatch',
-                              f'Matrix dimensions {factor1_mat.shape} incompatible with zonotope dimension {factor2.dim()}')
+                # check if the matrix is a column vector and the zonotope is a row vector
+                if factor1_mat.shape[0] == factor2.dim() and factor1_mat.shape[1] == 1:
+                    factor1_mat = factor1_mat.T
+                else:
+                    raise CORAerror('CORA:dimensionMismatch',
+                                f'Matrix dimensions {factor1_mat.shape} incompatible with zonotope dimension {factor2.dim()}')
             
             # Apply linear transformation
             c = factor1_mat @ factor2.c if factor2.c.size > 0 else np.array([])

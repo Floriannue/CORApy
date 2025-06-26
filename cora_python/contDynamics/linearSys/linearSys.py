@@ -104,9 +104,6 @@ class LinearSys(ContDynamics):
         self.taylor = {}
         self.krylov = {}
     
-    def _validate_implementation(self):
-        """Implementation of abstract method from ContDynamics"""
-        pass
     
     def _parse_input_args(self, *args, **kwargs) -> Tuple[str, Any, Any, Any, Any, Any, Any, Any, Any]:
         """Parse input arguments from user and assign to variables"""
@@ -367,9 +364,6 @@ class LinearSys(ContDynamics):
             pass
         return self.taylor.get(name, None)
     
-    def __str__(self) -> str:
-        """String representation of the linear system"""
-        return f"LinearSys(name='{self.name}', states={self.nr_of_dims}, inputs={self.nr_of_inputs}, outputs={self.nr_of_outputs})"
     
     def __repr__(self) -> str:
         """Detailed string representation"""

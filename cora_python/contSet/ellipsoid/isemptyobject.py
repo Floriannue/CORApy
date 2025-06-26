@@ -36,15 +36,19 @@ if TYPE_CHECKING:
 
 def isemptyobject(E: 'Ellipsoid') -> bool:
     """
-    Checks whether an ellipsoid contains any information at all
-    
-    Args:
-        E: ellipsoid object
-        
-    Returns:
-        res: True if ellipsoid is empty, False otherwise
+    isemptyobject - checks whether an ellipsoid contains any information at
+    all; consequently, the set is interpreted as the empty set 
+
+    Syntax:
+        res = isemptyobject(E)
+
+    Inputs:
+        E - ellipsoid object
+
+    Outputs:
+        res - true/false
     """
-    return _aux_check_if_empty(E)
+    return E.Q.size == 0 and E.q.size == 0
 
 
 def _aux_check_if_empty(E: 'Ellipsoid') -> bool:

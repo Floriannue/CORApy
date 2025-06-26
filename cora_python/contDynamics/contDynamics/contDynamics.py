@@ -66,16 +66,23 @@ class ContDynamics(ABC):
         self.nr_of_disturbances = dists
         self.nr_of_noises = noises
     
-    def __str__(self) -> str:
-        """String representation of the system"""
-        return f"{self.__class__.__name__}(name='{self.name}', dims={self.nr_of_dims}, inputs={self.nr_of_inputs}, outputs={self.nr_of_outputs})"
-    
+    @abstractmethod
     def __repr__(self) -> str:
-        """Detailed string representation"""
-        return (f"{self.__class__.__name__}(name='{self.name}', "
-                f"states={self.nr_of_dims}, inputs={self.nr_of_inputs}, "
-                f"outputs={self.nr_of_outputs}, dists={self.nr_of_disturbances}, "
-                f"noises={self.nr_of_noises})")
+        """
+        Detailed string representation
+        """
+        pass
+    
+    def __str__(self) -> str:
+        """
+        String representation of the system
+        """
+        # For most contDynamics objects, use the display method if available
+        if hasattr(self, 'display') and callable(getattr(self, 'display')):
+            return self.display()
+        
+        # Fallback to repr if display is not available or fails
+        return self.__repr__()
     
     # Legacy property aliases for backward compatibility
     @property
@@ -106,10 +113,3 @@ class ContDynamics(ABC):
                      DeprecationWarning, stacklevel=2)
         self.nr_of_dims = value 
     
-    @abstractmethod
-    def _validate_implementation(self):
-        """
-        Abstract method to ensure this class cannot be instantiated directly.
-        All subclasses must implement this method.
-        """
-        pass

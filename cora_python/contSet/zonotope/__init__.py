@@ -37,6 +37,21 @@ from .enclose import enclose
 from .reduce import reduce
 from .minnorm import minnorm
 from .enclosePoints import enclosePoints
+from .boundaryPoint import boundaryPoint
+from .supportFunc_ import supportFunc_
+from .radius import radius
+from .rank import rank
+from .volume_ import volume_
+from .capsule import capsule
+from .cartProd_ import cartProd_
+from .conZonotope import conZonotope
+from .polytope import polytope
+from .polyZonotope import polyZonotope
+from .zonoBundle import zonoBundle
+from .generators import generators
+from .isIntersecting_ import isIntersecting_
+from .isFullDim import isFullDim
+from .generatorLength import generatorLength
 
 # Attach methods to the class
 Zonotope.abs_ = abs_
@@ -78,8 +93,23 @@ Zonotope.convHull_ = convHull_
 Zonotope.enclose = enclose
 Zonotope.reduce = reduce
 Zonotope.minnorm = minnorm
+Zonotope.boundaryPoint = boundaryPoint
+Zonotope.supportFunc_ = supportFunc_
+Zonotope.radius = radius
+Zonotope.rank = rank
+Zonotope.volume_ = volume_
+Zonotope.capsule = capsule
+Zonotope.cartProd_ = cartProd_
+Zonotope.conZonotope = conZonotope
+Zonotope.polytope = polytope
+Zonotope.polyZonotope = polyZonotope
+Zonotope.zonoBundle = zonoBundle
+Zonotope.generators = generators
+Zonotope.isIntersecting_ = isIntersecting_
+Zonotope.isFullDim = isFullDim
+Zonotope.generatorLength = generatorLength
 
 # Attach static methods
 Zonotope.enclosePoints = staticmethod(enclosePoints)
 
-__all__ = ['Zonotope', 'abs_', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints'] 
+__all__ = ['Zonotope', 'abs_', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength'] 

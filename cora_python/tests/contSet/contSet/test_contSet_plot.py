@@ -287,4 +287,103 @@ class TestContSetPlot:
             I.plot([-1])  # Negative dimension doesn't exist
         
         with pytest.raises(Exception):
-            I.plot([2])  # Dimension 2 doesn't exist for 2D interval (0-based) 
+            I.plot([2])  # Dimension 2 doesn't exist for 2D interval (0-based)
+
+
+
+    # Tests for plot method functionality through interval interface
+    def test_plot_method_dispatch_1d(self):
+        """Test that plot correctly dispatches to plot1D for 1D cases"""
+        # Create a 1D interval
+        I = interval(np.array([1]), np.array([3]))
+        
+        plt.figure()
+        try:
+            # Test 1D plotting via interval.plot([1])
+            handle = I.plot([1])
+            assert handle is not None
+            
+            plt.close()
+        except Exception as e:
+            plt.close()
+            pytest.fail(f"1D plot dispatch failed: {e}")
+    
+    def test_plot_method_dispatch_2d(self):
+        """Test that plot correctly dispatches to plot2D for 2D cases"""
+        # Create a 3D interval and project to 2D
+        I = interval(np.array([1, 2, 3]), np.array([4, 5, 6]))
+        
+        plt.figure()
+        try:
+            # Test 2D plotting via interval.plot([1, 2])
+            handle1 = I.plot([1, 2])
+            assert handle1 is not None
+            
+            # Test different projection
+            handle2 = I.plot([1, 3])
+            assert handle2 is not None
+            
+            plt.close()
+        except Exception as e:
+            plt.close()
+            pytest.fail(f"2D plot dispatch failed: {e}")
+    
+    def test_plot_method_dispatch_3d(self):
+        """Test that plot correctly dispatches to plot3D for 3D cases"""
+        # Create a 3D interval
+        I = interval(np.array([1, 2, 3]), np.array([2, 3, 4]))
+        
+        plt.figure()
+        try:
+            # Test 3D plotting via interval.plot([1, 2, 3])
+            handle = I.plot([1, 2, 3])
+            assert handle is not None
+            
+            plt.close()
+        except Exception as e:
+            plt.close()
+            pytest.fail(f"3D plot dispatch failed: {e}")
+    
+    def test_plot_with_various_options(self):
+        """Test plotting with different options and arguments"""
+        # Create a 2D interval
+        I = interval(np.array([1, 2]), np.array([3, 4]))
+        
+        plt.figure()
+        try:
+            # Test with color string
+            handle1 = I.plot([1, 2], 'r')
+            assert handle1 is not None
+            
+            # Test with named arguments
+            handle2 = I.plot([1, 2], color='blue', linewidth=2)
+            assert handle2 is not None
+            
+            # Test with face properties
+            handle3 = I.plot([1, 2], FaceColor='green', EdgeColor='black')
+            assert handle3 is not None
+            
+            plt.close()
+        except Exception as e:
+            plt.close()
+            pytest.fail(f"Plot with options failed: {e}")
+    
+    def test_plot_dimension_error_handling(self):
+        """Test error handling for invalid dimensions in plot method"""
+        # Create a 2D interval
+        I = interval(np.array([1, 2]), np.array([3, 4]))
+        
+        # Test plotting with too many dimensions
+        with pytest.raises(Exception):
+            I.plot([1, 2, 3, 4])  # More dimensions than available
+        
+        # Test plotting with invalid dimension numbers (MATLAB uses 1-based)
+        # This should work since we expect MATLAB-style indexing
+        try:
+            plt.figure()
+            handle = I.plot([1, 2])  # Valid MATLAB indexing
+            assert handle is not None
+            plt.close()
+        except Exception as e:
+            plt.close()
+            pytest.fail(f"Valid dimension indexing failed: {e}") 

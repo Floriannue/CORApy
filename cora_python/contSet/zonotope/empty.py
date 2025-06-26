@@ -48,9 +48,9 @@ def empty(n=0):
                       'Dimension must be a non-negative integer')
     
     # Create a zonotope with empty center to represent empty set
+    # This matches MATLAB: zonotope(zeros(n,0))
     empty_zono = object.__new__(Zonotope)
     empty_zono.precedence = 110
-    empty_zono.c = np.zeros((n, 0)) if n > 0 else np.array([]).reshape(0, 0)
-    empty_zono.G = np.zeros((n, 0)) if n > 0 else np.array([]).reshape(0, 0)
-    empty_zono._dim = n  # Store dimension for empty zonotope
+    empty_zono.c = np.zeros((n, 0))
+    empty_zono.G = np.zeros((n, 0))
     return empty_zono 

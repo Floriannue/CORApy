@@ -174,9 +174,9 @@ class TestZonotope:
         assert np.allclose(Z_scaled.c, expected_c)
         assert np.allclose(Z_scaled.G, expected_G)
         
-        # Matrix multiplication
+        # Matrix multiplication (using @ operator for Python convention)
         M = np.array([[1, 0], [0, -1], [1, 1]])
-        Z_transformed = M * Z  # Should use overloaded operator
+        Z_transformed = M @ Z  # Use @ for matrix multiplication
         
         assert Z_transformed.dim() == 3
         assert np.allclose(Z_transformed.c, M @ Z.c)

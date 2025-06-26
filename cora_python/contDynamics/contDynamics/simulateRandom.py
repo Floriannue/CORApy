@@ -197,5 +197,3 @@ def _validateOptions(sys, params: Dict[str, Any], options: Dict[str, Any]) -> tu
         params['tu'] = np.linspace(params['tStart'], params['tFinal'], n_blocks + 1)
     
     return params, options
-
-raise NotImplementedError("check simresultlist here and in linearsys - does it make sense and works well together or is there a better way to do this?")

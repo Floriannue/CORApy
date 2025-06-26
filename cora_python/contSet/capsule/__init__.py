@@ -21,6 +21,7 @@ Capsule.origin = staticmethod(origin)
 Capsule.display = display
 Capsule.representsa_ = representsa_
 Capsule.is_empty = isemptyobject
+Capsule.isemptyobject = isemptyobject
 Capsule.dim = dim
 Capsule.center = center
 Capsule.contains_ = contains_

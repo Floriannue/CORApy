@@ -41,12 +41,6 @@ def dim(cZ: 'ConZonotope') -> int:
         n: dimension of the ambient space
     """
     
-    if hasattr(cZ, 'c') and cZ.c.size > 0:
-        if cZ.c.ndim == 1:
-            return len(cZ.c)
-        else:
-            return cZ.c.shape[0]
-    elif hasattr(cZ, 'G') and cZ.G.size > 0:
-        return cZ.G.shape[0]
-    else:
-        return 0 
+    # Simply return the number of rows in the center vector
+    # This matches MATLAB: n = size(cZ.c,1);
+    return cZ.c.shape[0] 

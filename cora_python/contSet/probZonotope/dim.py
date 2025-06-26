@@ -41,12 +41,5 @@ def dim(pZ: 'ProbZonotope') -> int:
         n: dimension of the ambient space
     """
     
-    if hasattr(pZ, 'Z') and hasattr(pZ.Z, 'dim'):
-        return pZ.Z.dim()
-    elif hasattr(pZ, 'Z') and hasattr(pZ.Z, 'c') and pZ.Z.c.size > 0:
-        if pZ.Z.c.ndim == 1:
-            return len(pZ.Z.c)
-        else:
-            return pZ.Z.c.shape[0]
-    else:
-        return 0 
+    # Use center method like MATLAB: n = length(center(probZ));
+    return len(pZ.center()) 

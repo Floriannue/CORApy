@@ -41,14 +41,6 @@ def dim(pZ: 'PolyZonotope') -> int:
         n: dimension of the ambient space
     """
     
-    if hasattr(pZ, 'c') and pZ.c.size > 0:
-        if pZ.c.ndim == 1:
-            return len(pZ.c)
-        else:
-            return pZ.c.shape[0]
-    elif hasattr(pZ, 'G') and pZ.G.size > 0:
-        return pZ.G.shape[0]
-    elif hasattr(pZ, 'Grest') and pZ.Grest.size > 0:
-        return pZ.Grest.shape[0]
-    else:
-        return 0 
+    # Simply return the number of rows in the center vector
+    # This matches MATLAB: n = size(pZ.c,1);
+    return pZ.c.shape[0] 

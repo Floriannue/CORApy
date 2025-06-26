@@ -41,12 +41,13 @@ def dim(sS: 'SpectraShadow') -> int:
         n: dimension of the ambient space
     """
     
-    if hasattr(sS, 'c') and sS.c.size > 0:
-        if sS.c.ndim == 1:
-            return len(sS.c)
+    try:
+        # Simply return the number of rows in the center vector
+        # This matches MATLAB: n = size(c,1);
+        return sS.c.shape[0]
+    except AttributeError:
+        # Handle empty spectral shadow
+        if hasattr(sS, 'isemptyobject') and sS.isemptyobject():
+            return 0
         else:
-            return sS.c.shape[0]
-    elif hasattr(sS, 'G') and sS.G.size > 0:
-        return sS.G.shape[0]
-    else:
-        return 0 
+            raise 

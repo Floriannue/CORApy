@@ -10,7 +10,7 @@ Date: 2025-06-08
 
 import pytest
 import numpy as np
-from cora_python.contDynamics import LinearSys
+from cora_python.contDynamics.linearSys import LinearSys
 
 
 def test_generateRandom_default():

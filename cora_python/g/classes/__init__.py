@@ -11,6 +11,9 @@ from .taylorLinSys import TaylorLinSys
 from .linErrorBound import LinErrorBound
 from .verifyTime import VerifyTime
 from .setproperty import SetProperty
+from .initialSet import InitialSet
+from .intKaucher import IntKaucher
+from .testCase import CoraTestCase
 
 # Export all classes
 __all__ = [
@@ -19,5 +22,8 @@ __all__ = [
     'TaylorLinSys',
     'LinErrorBound',
     'VerifyTime',
-    'SetProperty'
+    'SetProperty',
+    'InitialSet',
+    'IntKaucher',
+    'CoraTestCase',
 ] 

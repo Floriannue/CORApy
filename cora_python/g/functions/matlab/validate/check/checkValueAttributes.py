@@ -113,8 +113,24 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
                 res = np.isfinite(val).all()
             elif attribute == 'nonnan':
                 res = (not np.isnan(val).any()) if isinstance(val, np.ndarray) else (not np.isnan(val))
+            elif attribute == 'empty':
+                if val is None:
+                    res = True
+                elif hasattr(val, 'size'): # For numpy arrays
+                    res = val.size == 0
+                elif hasattr(val, '__len__'): # For lists, tuples, etc.
+                    res = len(val) == 0
+                else:
+                    res = False
             elif attribute == 'nonempty':
-                res = (hasattr(val, 'size') and val.size > 0) or (not hasattr(val, 'size') and val is not None)
+                if val is None:
+                    res = False
+                elif hasattr(val, 'size'): # For numpy arrays
+                    res = val.size > 0
+                elif hasattr(val, '__len__'): # For lists, tuples, etc.
+                    res = len(val) > 0
+                else:
+                    res = True
             elif attribute == 'diag':
                 res = np.all(val == np.diag(np.diag(val)))
             elif attribute == 'upper':

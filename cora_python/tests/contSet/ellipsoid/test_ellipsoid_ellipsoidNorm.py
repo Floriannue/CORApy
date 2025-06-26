@@ -56,12 +56,18 @@ class TestEllipsoidNorm:
         q = np.array([[1.0], [2.0]])
         E = Ellipsoid(Q, q)
         
-        # Point at center should have norm 0
-        norm = ellipsoidNorm(E, q.flatten())
-        np.testing.assert_allclose(norm, 0.0, atol=1e-10)
+        # The norm is defined w.r.t. the origin, not the ellipsoid center.
+        # So, the norm of the center point `q` is generally not 0.
+        norm_q = ellipsoidNorm(E, q.flatten())
+        assert norm_q > 0
+
+        # The norm of the origin (zero vector) should be 0.
+        zero_p = np.array([0.0, 0.0])
+        norm_zero = ellipsoidNorm(E, zero_p)
+        np.testing.assert_allclose(norm_zero, 0.0, atol=1e-10)
         
-        # Point on boundary relative to center
-        p = q.flatten() + np.array([1.0, 0.0])
+        # Point on boundary of the SHAPE ellipsoid {x | x'Q^{-1}x <= 1}
+        p = np.array([1.0, 0.0])
         norm = ellipsoidNorm(E, p)
         np.testing.assert_allclose(norm, 1.0, atol=1e-10)
     
@@ -119,14 +125,19 @@ class TestEllipsoidNorm:
         q = np.array([[1.0], [2.0]])
         E = Ellipsoid(Q, q)
         
-        # Only the center point should have finite norm (0)
-        norm = ellipsoidNorm(E, q.flatten())
+        # For a zero shape matrix, only the origin (zero vector) has a finite norm (0).
+        zero_p = np.array([0.0, 0.0])
+        norm = ellipsoidNorm(E, zero_p)
         np.testing.assert_allclose(norm, 0.0, atol=1e-10)
         
-        # Any other point should have infinite norm
-        p = q.flatten() + np.array([0.1, 0.0])
-        norm = ellipsoidNorm(E, p)
-        assert np.isinf(norm)
+        # Any other point should have infinite norm.
+        p_nonzero = np.array([0.1, 0.0])
+        norm_nonzero = ellipsoidNorm(E, p_nonzero)
+        assert np.isinf(norm_nonzero)
+
+        # The norm of the center q should also be infinite if q is not the origin.
+        norm_q = ellipsoidNorm(E, q.flatten())
+        assert np.isinf(norm_q)
     
     def test_ellipsoidNorm_1d_ellipsoid(self):
         """Test ellipsoidNorm for 1D ellipsoid."""
@@ -233,3 +244,72 @@ class TestEllipsoidNorm:
         norm = ellipsoidNorm(E, p_boundary)
         np.testing.assert_allclose(norm, 1.0, atol=1e-10)
         # Boundary points may or may not be contained depending on tolerance 
+
+    def test_ellipsoidNorm_full_dim_numeric(self):
+        """Test ellipsoidNorm with specific numeric values for a full-dimensional ellipsoid."""
+        Q = np.diag([4.0, 9.0])
+        q = np.array([[1.0], [2.0]])
+        E = Ellipsoid(Q, q)
+        
+        # The center of the ellipsoid for the norm is the origin, so q is ignored.
+        
+        # Test point 1
+        p1 = np.array([[2.0], [3.0]])
+        # Expected: sqrt(p1' * inv(Q) * p1) = sqrt([2,3]' * [[0.25,0],[0,1/9]] * [2,3]) = sqrt(1+1) = sqrt(2)
+        assert np.isclose(E.ellipsoidNorm(p1), np.sqrt(2.0))
+        
+        # Test point 2 (on the boundary of the shape-defining ellipsoid)
+        p2 = np.array([[2.0], [0.0]])
+        # Expected: sqrt(p2' * inv(Q) * p2) = sqrt([2,0]' * [[0.25,0],[0,1/9]] * [2,0]) = sqrt(1) = 1
+        assert np.isclose(E.ellipsoidNorm(p2), 1.0)
+        
+        # Test zero point
+        p_zero = np.zeros((2,1))
+        assert np.isclose(E.ellipsoidNorm(p_zero), 0.0)
+
+    def test_ellipsoidNorm_degenerate_numeric(self):
+        """Test ellipsoidNorm with specific numeric values for a degenerate ellipsoid."""
+        # Q is degenerate, singular value is [4, 0]
+        Q = np.array([[4.0, 0.0], [0.0, 0.0]])
+        q = np.zeros((2,1))
+        E = Ellipsoid(Q, q)
+
+        # Point in the non-degenerate subspace
+        p1 = np.array([[2.0], [0.0]])
+        # norm should be sqrt(p1[0]^2 / 4) = 1.0
+        assert np.isclose(E.ellipsoidNorm(p1), 1.0)
+
+        # Point with a component in the degenerate subspace -> Inf norm
+        p2 = np.array([[2.0], [0.1]])
+        assert E.ellipsoidNorm(p2) == np.inf
+
+        # Point only in the degenerate subspace
+        p3 = np.array([[0.0], [1.0]])
+        assert E.ellipsoidNorm(p3) == np.inf
+        
+        # Zero point should still be 0
+        p_zero = np.zeros((2,1))
+        assert np.isclose(E.ellipsoidNorm(p_zero), 0.0)
+
+    def test_ellipsoidNorm_properties(self):
+        """Test fundamental properties of a norm."""
+        Q = np.diag([5.43, 29.66])
+        q = np.array([[-0.74], [3.58]])
+        E = Ellipsoid(Q, q)
+        
+        p1 = np.array([[1.0], [2.0]])
+        p2 = np.array([[-3.0], [0.5]])
+
+        # 1. Triangle inequality: ||p1+p2|| <= ||p1|| + ||p2||
+        norm_p1_p2 = E.ellipsoidNorm(p1 + p2)
+        norm_p1 = E.ellipsoidNorm(p1)
+        norm_p2 = E.ellipsoidNorm(p2)
+        assert norm_p1_p2 <= norm_p1 + norm_p2
+
+        # 2. Symmetry: ||p|| = ||-p||
+        assert np.isclose(E.ellipsoidNorm(p1), E.ellipsoidNorm(-p1))
+
+        # 3. Scaling: ||k*p|| = |k|*||p||
+        k = -3.5
+        norm_kp1 = E.ellipsoidNorm(k * p1)
+        assert np.isclose(norm_kp1, abs(k) * norm_p1) 

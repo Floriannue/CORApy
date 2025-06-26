@@ -9,7 +9,7 @@ Python translation: 2025
 
 import numpy as np
 import pytest
-from cora_python.contSet.zonotope.zonotope import Zonotope
+from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.zonotope.minnorm import minnorm
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 

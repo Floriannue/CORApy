@@ -132,10 +132,11 @@ class ConZonotope(ContSet):
         """Generator matrix property with automatic dimension fixing"""
         return self._G
 
-    @G.setter
+    @G.setter  
     def G(self, value):
         """Setter for G property - fix dimension if empty"""
-        if value is None or (hasattr(value, 'size') and value.size == 0):
+        # MATLAB: if isempty(G), G = zeros(size(c,1),0); end
+        if value is None or value.size == 0:
             if hasattr(self, 'c') and self.c.size > 0:
                 value = np.zeros((self.c.shape[0], 0))
             else:

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from .emptySet import EmptySet
     from cora_python.contSet.contSet.contSet import ContSet
 
-from cora_python.g.functions.helper.sets.contSet.reorder_numeric import reorder_numeric
+from cora_python.g.functions.helper.sets.contSet.contSet.reorder_numeric import reorder_numeric
 from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
 
 

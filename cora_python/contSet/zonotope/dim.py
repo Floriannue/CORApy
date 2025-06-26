@@ -40,12 +40,6 @@ def dim(Z):
     Returns:
         int: dimension of the ambient space
     """
-    # Check if this is an empty zonotope with stored dimension
-    if hasattr(Z, '_dim'):
-        return Z._dim
-    elif Z.c is not None and Z.c.size > 0:
-        return len(Z.c)
-    elif Z.G is not None and Z.G.size > 0:
-        return Z.G.shape[0]
-    else:
-        return 0 
+    # Simply return the number of rows in the center vector
+    # This matches MATLAB: n = size(Z.c,1);
+    return Z.c.shape[0] 

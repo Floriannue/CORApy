@@ -12,7 +12,7 @@ Date: 2025-01-11
 
 import pytest
 import numpy as np
-from cora_python.contDynamics.linearSys.linearSys import LinearSys
+from cora_python.contDynamics.linearSys import LinearSys
 import io
 import sys
 

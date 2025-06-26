@@ -38,13 +38,15 @@ if TYPE_CHECKING:
 
 def dim(E: 'Ellipsoid') -> int:
     """
-    Returns the dimension of the ambient space of an ellipsoid
-    
-    Args:
-        E: ellipsoid object
-        
-    Returns:
-        n: dimension of the ambient space
+    dim - returns the dimension of the ambient space of an ellipsoid
+
+    Syntax:
+        n = dim(E)
+
+    Inputs:
+        E - ellipsoid object
+
+    Outputs:
+        n - dimension of the ambient space
     """
-    # Take dimension of center
     return E.q.shape[0] 

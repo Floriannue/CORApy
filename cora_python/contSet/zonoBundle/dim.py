@@ -41,16 +41,9 @@ def dim(zB: 'ZonoBundle') -> int:
         n: dimension of the ambient space
     """
     
-    # Check if there are zonotopes in the bundle
-    if hasattr(zB, 'Z') and len(zB.Z) > 0:
-        # Get dimension from first zonotope
-        first_zono = zB.Z[0]
-        if hasattr(first_zono, 'dim') and callable(first_zono.dim):
-            return first_zono.dim()
-        elif hasattr(first_zono, 'c') and first_zono.c.size > 0:
-            if first_zono.c.ndim == 1:
-                return len(first_zono.c)
-            else:
-                return first_zono.c.shape[0]
-    
-    return 0 
+    # MATLAB logic: if zB.parallelSets == 0 then n = 0; else n = size(zB.Z{1}.c,1);
+    if zB.parallelSets == 0:
+        # fully-empty
+        return 0
+    else:
+        return zB.Z[0].c.shape[0] 

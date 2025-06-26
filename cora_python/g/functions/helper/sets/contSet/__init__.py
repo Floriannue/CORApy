@@ -1,10 +1,11 @@
 """
 Helper functions for contSet operations
 
-This module provides helper functions for working with contSet objects.
+This module provides helper functions for working with the contSet class like ContSet, Zonotope, etc.
 """
 
-from .reorder_numeric import reorder_numeric
 from . import contSet
+from . import polyZonotope
+from . import zonotope
 
-__all__ = ['reorder_numeric', 'contSet'] 
+__all__ = ['contSet', 'polyZonotope', 'zonotope'] 

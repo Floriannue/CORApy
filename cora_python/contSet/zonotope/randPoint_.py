@@ -17,7 +17,7 @@ from scipy.linalg import svd
 import warnings
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
-from cora_python.g.functions.helper.ndimCross import ndimCross
+from cora_python.g.functions.helper.sets.contSet.zonotope.ndimCross import ndimCross
 
 if TYPE_CHECKING:
     from .zonotope import Zonotope

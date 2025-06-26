@@ -216,7 +216,7 @@ class Zonotope(ContSet):
                         return self.__radd__(inputs[0])
         elif ufunc == np.multiply:
             if method == '__call__':
-                # Handle multiplication with numpy arrays
+                # Handle multiplication with numpy arrays - element-wise
                 if len(inputs) == 2:
                     if inputs[0] is self:
                         return self.__mul__(inputs[1])

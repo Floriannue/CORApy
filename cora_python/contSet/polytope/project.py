@@ -138,31 +138,78 @@ def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytop
         return Polytope(A_proj, b_proj)
 
     elif method == 'fourier_jones':
-        import pypoman as pm
-
-        ineq = (A, b)
-        eq = (Ae, be) if Ae is not None and Ae.size > 0 else None
-
-        # Define projection matrix
-        p = len(dims)
-        E = np.zeros((p, n))
-        py_dims = [d - 1 for d in dims]
-        for i, dim_idx in enumerate(py_dims):
-            E[i, dim_idx] = 1.0
-        
-        f = np.zeros(p)
-        proj = (E, f)
-
         try:
-            # Project polytope. This returns vertices of the projected polytope.
-            vertices = pm.project_polytope(proj, ineq, eq, method='cdd')
-            # Convert vertices back to half-space representation
-            A_proj, b_proj = pm.compute_polytope_halfspaces(vertices)
-            return Polytope(A_proj, b_proj)
-        except Exception as e:
-            # pypoman can fail if cdd is not installed correctly.
-            # Or if the polytope is unbounded in a way that projection is complex.
-            raise CORAerror('CORA:thirdPartyError', f"Polytope projection with 'pypoman' failed. Error: {e}")
+            import cdd
+        except ImportError:
+            raise CORAerror('CORA:thirdPartyError', "pycddlib (cdd module) is not available. Install with 'pip install pycddlib'.")
+
+        # Convert constraints to cdd format
+        # CDD expects the constraints in the form: b - A*x >= 0, i.e., [-A | b]
+        # We have A*x <= b, so we need to convert: b - A*x >= 0
+        
+        # Combine inequality and equality constraints
+        if Ae is not None and Ae.size > 0:
+            # Convert equality constraints Ae*x = be to two inequalities:
+            # Ae*x <= be and -Ae*x <= -be
+            A_combined = np.vstack([A, Ae, -Ae])
+            b_combined = np.hstack([b, be, -be])
+        else:
+            A_combined = A
+            b_combined = b
+        
+        # Convert to CDD format: [-A | b]
+        cdd_matrix = np.hstack([b_combined.reshape(-1, 1), -A_combined])
+        
+        # Create CDD matrix object
+        mat = cdd.Matrix(cdd_matrix, number_type='float')
+        mat.rep_type = cdd.RepType.INEQUALITY
+        
+        # Convert to vertex representation
+        poly = cdd.Polyhedron(mat)
+        vertices_mat = poly.get_generators()
+        
+        if vertices_mat is None or len(vertices_mat) == 0:
+            # Empty polytope
+            return Polytope.empty(len(dims))
+        
+        # Extract vertices (skip first column which is for rays/vertices type)
+        vertices = np.array(vertices_mat)
+        
+        # Filter out rays (first column == 0) and keep only vertices (first column == 1)
+        vertex_mask = vertices[:, 0] == 1
+        if not np.any(vertex_mask):
+            raise CORAerror('CORA:thirdPartyError', "Polytope is unbounded or degenerate - no vertices found.")
+        
+        vertices = vertices[vertex_mask, 1:]  # Remove first column
+        
+        # Project vertices to desired dimensions
+        py_dims = [d - 1 for d in dims]  # Convert to 0-based indexing
+        projected_vertices = vertices[:, py_dims]
+        
+        # Convert projected vertices back to half-space representation using CDD
+        if projected_vertices.shape[0] == 0:
+            return Polytope.empty(len(dims))
+        
+        # Add the vertex indicator column back
+        vertex_matrix = np.hstack([np.ones((projected_vertices.shape[0], 1)), projected_vertices])
+        
+        # Create new CDD matrix from vertices
+        proj_mat = cdd.Matrix(vertex_matrix, number_type='float')
+        proj_mat.rep_type = cdd.RepType.GENERATOR
+        
+        # Convert back to inequality representation
+        proj_poly = cdd.Polyhedron(proj_mat)
+        ineq_mat = proj_poly.get_inequalities()
+        
+        if ineq_mat is None or len(ineq_mat) == 0:
+            return Polytope.empty(len(dims))
+        
+        # Convert back from CDD format: [b | -A] to A, b
+        ineq_array = np.array(ineq_mat)
+        b_proj = ineq_array[:, 0]
+        A_proj = -ineq_array[:, 1:]
+        
+        return Polytope(A_proj, b_proj)
     
     else:
         raise CORAerror('CORA:wrongValue', 'third', f"Unknown projection method '{method}'.") 

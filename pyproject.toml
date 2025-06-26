@@ -9,10 +9,11 @@ python = "^3.11"
 numpy = "^1.26.4"
 scipy = "^1.13.0"
 pytest = "^8.1.1"
+pytest-mock = "^3.14.1"
 matplotlib = "^3.8.4"
-pypoman = "^1.1.0"
-cvxpy = "1.6.6"
-shapely = "2.1.1"
+pycddlib = "^3.0.2"
+cvxpy = "^1.6.6"
+shapely = "^2.1.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

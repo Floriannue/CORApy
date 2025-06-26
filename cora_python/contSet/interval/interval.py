@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Union, List, Tuple
 if __name__ == "__main__":
     import os
     sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    from g.functions.helper.sets.contSet.reorder_numeric import reorder_numeric
+    from cora_python.g.functions.helper.sets.contSet.contSet.reorder_numeric import reorder_numeric
     from g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
     from g.functions.matlab.validate.check.withinTol import withinTol
 
@@ -107,6 +107,14 @@ class Interval(ContSet):
         
         # Set precedence (fixed for intervals)
         self.precedence = 120
+
+    @property
+    def infimum(self):
+        return self.inf
+
+    @property
+    def supremum(self):
+        return self.sup
     
     def _parse_input_args(self, *args):
         """Parse input arguments from user and assign to variables"""

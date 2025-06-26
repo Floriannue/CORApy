@@ -178,3 +178,4 @@ class Ellipsoid(ContSet):
                     return f"Ellipsoid(dim={self.dim()})"
         except:
             return "Ellipsoid()"
+

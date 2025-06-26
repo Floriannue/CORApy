@@ -12,16 +12,7 @@ Python translation: 2025
 
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Union, List, TYPE_CHECKING
 
-if TYPE_CHECKING:
-    try:
-        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-    except ImportError:
-        import sys
-        import os
-        sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-        from g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class ContSet(ABC):

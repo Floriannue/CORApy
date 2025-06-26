@@ -11,7 +11,7 @@ Written: 2025
 import pytest
 import warnings
 import numpy as np
-from cora_python.contDynamics.contDynamics.contDynamics import ContDynamics
+from cora_python.contDynamics import ContDynamics
 
 
 class ConcreteContDynamics(ContDynamics):
@@ -19,10 +19,10 @@ class ConcreteContDynamics(ContDynamics):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def __repr__(self):
+        return f"ConcreteContDynamics(name='{self.name}', states={self.nr_of_dims}, inputs={self.nr_of_inputs}, outputs={self.nr_of_outputs}, dists={self.nr_of_disturbances}, noises={self.nr_of_noises})"
     
-    def _validate_implementation(self):
-        """Implementation of abstract method from ContDynamics"""
-        pass
 
 
 class TestContDynamics:
