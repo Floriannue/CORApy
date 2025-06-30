@@ -81,14 +81,32 @@ def _aux_maxcos(I: Interval) -> np.ndarray:
     Returns:
         Maximum cosine values
     """
-    k = np.ceil(I.inf / (2 * np.pi))
+    # Handle intervals with infinite bounds
+    # If the interval span is >= 2*pi or contains infinite bounds, return 1
+    inf_bounds = I.inf
+    sup_bounds = I.sup
     
-    a = I.inf - 2 * np.pi * k
-    b = I.sup - 2 * np.pi * k
+    # Check for infinite bounds or spans >= 2*pi
+    infinite_mask = np.isinf(inf_bounds) | np.isinf(sup_bounds) | ((sup_bounds - inf_bounds) >= 2 * np.pi)
     
-    # since we support interval matrices, we have to split the max check
-    # into two calls
-    M = np.maximum(np.cos(a), np.cos(b))
-    val = np.maximum(np.sign(b), M)
+    # Initialize result
+    val = np.ones_like(inf_bounds)
+    
+    # For finite intervals with span < 2*pi, use Adrian's algorithm
+    finite_mask = ~infinite_mask
+    
+    if np.any(finite_mask):
+        # Apply algorithm only to finite elements
+        k = np.ceil(inf_bounds / (2 * np.pi))
+        
+        a = inf_bounds - 2 * np.pi * k
+        b = sup_bounds - 2 * np.pi * k
+        
+        # Compute cosine values only for finite elements
+        M = np.maximum(np.cos(a), np.cos(b))
+        val_finite = np.maximum(np.sign(b), M)
+        
+        # Update only the finite elements
+        val[finite_mask] = val_finite[finite_mask]
     
     return val 

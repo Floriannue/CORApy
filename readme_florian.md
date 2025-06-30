@@ -221,7 +221,7 @@ This workflow must also be applied to dependencies you translated - translate th
 2. Compare numerical Results and precision  
 3. Verify edge case handling  
 4. Check documentation completeness  
-5. Translated code or test can be wrong therefore compare against the matlab codebase and manual
+5. Translated code or test can be wrong therefore compare against the matlab codebase and manual but do not adjust the tests to accommodate the broken implementation. Only if the test actually have an error!
 6. if matlab is installed, create an example for the matlab source and your python translation so you can compare the results directly
 
 #### Self-Correction Template:

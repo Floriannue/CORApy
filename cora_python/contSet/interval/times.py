@@ -33,7 +33,6 @@ Last revision: ---
 
 import numpy as np
 from typing import Union
-from .mtimes import mtimes
 from .interval import Interval
 
 def times(factor1: Union[Interval, np.ndarray, float, int], factor2: Union[Interval, np.ndarray, float, int]) -> Interval:
@@ -54,7 +53,7 @@ def times(factor1: Union[Interval, np.ndarray, float, int], factor2: Union[Inter
     if isinstance(factor1, Interval) and not isinstance(factor2, Interval):
         if np.isscalar(factor2):
             # use mtimes (considers scalar case explicitly)
-            return mtimes(factor1, factor2)
+            return factor1.mtimes(factor2)
         
         # Element-wise multiplication with non-scalar numeric
         res_inf = factor1.inf * factor2
@@ -74,7 +73,7 @@ def times(factor1: Union[Interval, np.ndarray, float, int], factor2: Union[Inter
     elif not isinstance(factor1, Interval) and isinstance(factor2, Interval):
         if np.isscalar(factor1):
             # use mtimes (considers scalar case explicitly)
-            return mtimes(factor1, factor2)
+            return factor1.mtimes(factor2)
         
         # Element-wise multiplication with non-scalar numeric
         res_inf = factor2.inf * factor1

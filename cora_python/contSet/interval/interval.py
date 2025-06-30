@@ -187,6 +187,11 @@ class Interval(ContSet):
         """Transpose property"""
         return self.transpose()
     
+    @property
+    def shape(self):
+        """Shape property returning the shape of the interval bounds"""
+        return self.inf.shape
+    
     # Numpy integration
     def __array__(self, dtype=None):
         """Prevent automatic numpy array conversion"""

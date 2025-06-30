@@ -66,9 +66,7 @@ Examples:
 
     missing = compare_files(args.dir1, args.dir2)
     if missing:
-        print(f"Python translation is missing {len(missing)} files:")
-        for file in missing:
-            print(f"  - {file}")
+        print(f"Python translation is missing {len(missing)} files: {missing}")
     else:
         print("All MATLAB files have been translated!")
     
