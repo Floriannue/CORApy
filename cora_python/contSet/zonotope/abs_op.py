@@ -2,7 +2,7 @@ import numpy as np
 
 from .zonotope import Zonotope
 
-def abs_(Z: 'Zonotope') -> 'Zonotope':
+def abs_op(Z: 'Zonotope') -> 'Zonotope':
     """
     Returns a zonotope with absolute values of the center and the generators.
     
@@ -20,7 +20,7 @@ def abs_(Z: 'Zonotope') -> 'Zonotope':
         >>> c = np.array([[-1], [2]])
         >>> G = np.array([[2, -1], [-3, 1]])
         >>> Z = Zonotope(c, G)
-        >>> Z_abs = abs_(Z)
+        >>> Z_abs = abs_op(Z)
         >>> # Z_abs.c = [[1], [2]], Z_abs.G = [[2, 1], [3, 1]]
     """
     

@@ -6,7 +6,7 @@ Each method is implemented in its own file following the MATLAB structure.
 """
 
 from .zonotope import Zonotope
-from .abs_ import abs_
+from .abs_op import abs_op
 from .and_ import and_
 from .box import box
 from .plus import plus
@@ -54,8 +54,9 @@ from .isFullDim import isFullDim
 from .generatorLength import generatorLength
 
 # Attach methods to the class
-Zonotope.abs_ = abs_
+Zonotope.abs = abs_op
 Zonotope.and_ = and_
+Zonotope.__abs__ = abs_op
 Zonotope.__and__ = and_
 Zonotope.box = box
 Zonotope.plus = plus
@@ -112,4 +113,4 @@ Zonotope.generatorLength = generatorLength
 # Attach static methods
 Zonotope.enclosePoints = staticmethod(enclosePoints)
 
-__all__ = ['Zonotope', 'abs_', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength'] 
+__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength'] 

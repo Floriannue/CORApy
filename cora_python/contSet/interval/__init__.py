@@ -36,6 +36,7 @@ from .display import display
 from .uminus import uminus
 from .transpose import transpose
 from .enclosePoints import enclosePoints
+from .abs_op import abs_op
 
 # Import comparison operators
 from .le import le
@@ -80,6 +81,7 @@ Interval.horzcat = horzcat
 Interval.vertcat = vertcat
 Interval.length = length
 Interval.size = size
+Interval.abs = abs_op
 
 # Attach operator overloading
 Interval.__eq__ = isequal  # == operator
@@ -101,6 +103,7 @@ Interval.__ror__ = lambda self, other: or_op(other, self)  # | operator (reverse
 Interval.__and__ = and_    # & operator (intersection)
 Interval.__rand__ = lambda self, other: and_(other, self)  # & operator (reverse)
 Interval.__len__ = length
+Interval.__abs__ = abs_op
 # Attach static methods
 Interval.empty = staticmethod(empty)
 Interval.Inf = staticmethod(Inf)
@@ -135,6 +138,7 @@ __all__ = [
     'uminus',
     'transpose',
     'enclosePoints',
+    'abs_op',
     'le',
     'lt', 
     'or_op',
