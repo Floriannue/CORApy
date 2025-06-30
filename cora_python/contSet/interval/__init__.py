@@ -53,6 +53,19 @@ from .vertcat import vertcat
 from .length import length
 from .size import size
 
+# Import mathematical operations
+from .exp import exp
+from .uplus import uplus
+from .volume_ import volume_
+from .sqrt import sqrt
+from .log import log
+from .cos import cos
+from .sin import sin
+from .min import min
+from .max import max
+from .infimum import infimum
+from .supremum import supremum
+
 # Attach all methods to the Interval class
 Interval.plus = plus
 Interval.minus = minus
@@ -82,6 +95,17 @@ Interval.vertcat = vertcat
 Interval.length = length
 Interval.size = size
 Interval.abs = abs_op
+Interval.exp = exp
+Interval.uplus = uplus
+Interval.volume_ = volume_
+Interval.sqrt = sqrt
+Interval.log = log
+Interval.cos = cos
+Interval.sin = sin
+Interval.min = min
+Interval.max = max
+Interval.infimum = infimum
+Interval.supremum = supremum
 
 # Attach operator overloading
 Interval.__eq__ = isequal  # == operator
@@ -104,6 +128,7 @@ Interval.__and__ = and_    # & operator (intersection)
 Interval.__rand__ = lambda self, other: and_(other, self)  # & operator (reverse)
 Interval.__len__ = length
 Interval.__abs__ = abs_op
+Interval.__pos__ = uplus  # +obj (unary plus)
 # Attach static methods
 Interval.empty = staticmethod(empty)
 Interval.Inf = staticmethod(Inf)
@@ -146,4 +171,15 @@ __all__ = [
     'vertcat',
     'length',
     'size',
+    'exp',
+    'uplus',
+    'volume_',
+    'sqrt',
+    'log',
+    'cos',
+    'sin',
+    'min',
+    'max',
+    'infimum',
+    'supremum',
 ] 

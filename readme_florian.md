@@ -61,8 +61,8 @@ Translate_Cora/
 └── Cora2025.1.0_Manual.txt # manual with exact definitions for everything in cora_matlab
 └── count_files.py #Compare file counts between MATLAB and Python directories. example: python count_files.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
 └── count_lines.py #Compare code line counts between MATLAB and Python directories or files. example: python count_lines.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
-└── compare_translated_files.py # Compare file Names between MATLAB and Python contSet directories
-    python compare_translated_files.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
+└── translation_progress.py # Check translation progress for folders. example: python translation_progress.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
+└── test_coverage.py# Check test coverage for translated folders. example: python test_coverage.py "cora_python/contSet/interval" "cora_python/tests/contSet/interval"
 ```
 
 

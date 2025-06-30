@@ -8,7 +8,7 @@ def get_files(directory):#including private
             dirnames.remove('__pycache__')
 
         if dirnames != [] and dirnames != ['private']:
-            print(f"Error: folder '{directory}' has unexpected subfolders.")
+            print(f"Error: folder '{directory}' has unexpected subfolders: {dirnames}")
             return None
         
         for filename in filenames:
@@ -52,12 +52,12 @@ def compare_files(dir1, dir2):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Compare available matlab/python files in one or two directories, excluding specified non-code files.",
+        description="Translation Progress Checker - Compare MATLAB and Python directories to identify untranslated methods.",
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
 Examples:
-    # Compare file Names between MATLAB and Python contSet directories
-    python compare_translated_files.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
+    # Check translation progress for contSet base class
+    python translation_progress.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
 """
     )
     parser.add_argument('dir1', type=str, help="Matlab directory.")

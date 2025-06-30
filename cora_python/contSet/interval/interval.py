@@ -108,13 +108,6 @@ class Interval(ContSet):
         # Set precedence (fixed for intervals)
         self.precedence = 120
 
-    @property
-    def infimum(self):
-        return self.inf
-
-    @property
-    def supremum(self):
-        return self.sup
     
     def _parse_input_args(self, *args):
         """Parse input arguments from user and assign to variables"""
