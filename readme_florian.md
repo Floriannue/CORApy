@@ -59,6 +59,8 @@ Translate_Cora/
 │               └── ...
 ├── cora_matlab/            # Source MATLAB code
 └── Cora2025.1.0_Manual.txt # manual with exact definitions for everything in cora_matlab
+└── count_files.py #Compare file counts between MATLAB and Python directories. example: python count_files.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
+└── count_lines.py #Compare code line counts between MATLAB and Python directories or files. example: python count_lines.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
 ```
 
 
@@ -135,7 +137,7 @@ use --lf to run only tests that failed last time,
   np.array([1, 0])  #vector
  ```
 - For functions that plot, save the output as PNG and verify visually.
-- if there is an error find the source and compare against matlab. Do not use any cheap workarounds or simplifications! Always find and adress the route cause.
+- if there is an error find the source and compare the python translation against matlab. Do not use any cheap workarounds or simplifications! Always find and adress the route cause.
 - Read the folder to see which files are there and read the files before you try to change them
 
 
