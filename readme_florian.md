@@ -61,6 +61,8 @@ Translate_Cora/
 └── Cora2025.1.0_Manual.txt # manual with exact definitions for everything in cora_matlab
 └── count_files.py #Compare file counts between MATLAB and Python directories. example: python count_files.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
 └── count_lines.py #Compare code line counts between MATLAB and Python directories or files. example: python count_lines.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
+└── compare_translated_files.py # Compare file Names between MATLAB and Python contSet directories
+    python compare_translated_files.py "cora_matlab/contSet/@contSet" "cora_python/contSet/contSet"
 ```
 
 
@@ -270,4 +272,4 @@ This workflow must also be applied to dependencies you translated - translate th
 
 
 ## Task
-Your task is to translate missing `contSet methodes` and any associated missing tests (and create addtional test cases if the matlab ones are not comprehensiv). if the function is complex, write the file name in nextSteps.txt and dont translate it.
+Your task is to translate missing `Interval methodes` and any associated missing tests (and create addtional test cases if the matlab ones are not comprehensiv)
