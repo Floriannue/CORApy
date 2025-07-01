@@ -36,3 +36,13 @@ cora_python/contSet/polytope/private/priv_supportFunc.py :
 cora_python/contSet/interval/display.py : cora_python/tests/contSet/interval/test_interval_display.py
 cora_python/contSet/interval/uminus.py : cora_python/tests/contSet/interval/test_interval_uminus.py
 cora_python/contSet/interval/transpose.py : cora_python/tests/contSet/interval/test_interval_transpose.py
+cora_python/contSet/interval/power.py : cora_python/tests/contSet/interval/test_interval_power.py
+cora_python/contSet/interval/rdivide.py : cora_python/tests/contSet/interval/test_interval_rdivide.py
+cora_python/contSet/interval/mpower.py : 
+cora_python/contSet/interval/tan.py : cora_python/tests/contSet/interval/test_interval_tan.py
+cora_python/contSet/interval/acos.py : 
+cora_python/contSet/interval/atan.py : 
+cora_python/contSet/interval/reshape.py : 
+cora_python/contSet/interval/sinh.py : 
+cora_python/contSet/interval/cosh.py : 
+cora_python/contSet/interval/tanh.py :

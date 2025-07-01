@@ -66,6 +66,18 @@ from .max import max
 from .infimum import infimum
 from .supremum import supremum
 
+# Import new mathematical operations
+from .power import power
+from .rdivide import rdivide
+from .mpower import mpower
+from .tan import tan
+from .acos import acos
+from .atan import atan
+from .sinh import sinh
+from .cosh import cosh
+from .tanh import tanh
+from .reshape import reshape
+
 # Attach all methods to the Interval class
 Interval.plus = plus
 Interval.minus = minus
@@ -107,6 +119,18 @@ Interval.max = max
 Interval.infimum = infimum
 Interval.supremum = supremum
 
+# Attach new mathematical operations
+Interval.power = power
+Interval.rdivide = rdivide
+Interval.mpower = mpower
+Interval.tan = tan
+Interval.acos = acos
+Interval.atan = atan
+Interval.sinh = sinh
+Interval.cosh = cosh
+Interval.tanh = tanh
+Interval.reshape = reshape
+
 # Attach operator overloading
 Interval.__eq__ = isequal  # == operator
 Interval.__add__ = plus    # + operator
@@ -129,6 +153,10 @@ Interval.__rand__ = lambda self, other: and_(other, self)  # & operator (reverse
 Interval.__len__ = length
 Interval.__abs__ = abs_op
 Interval.__pos__ = uplus  # +obj (unary plus)
+Interval.__pow__ = power  # ** operator (element-wise power)
+Interval.__rpow__ = lambda self, other: power(other, self)  # ** operator (reverse)
+Interval.__truediv__ = rdivide  # / operator (element-wise division)
+Interval.__rtruediv__ = lambda self, other: rdivide(other, self)  # / operator (reverse)
 # Attach static methods
 Interval.empty = staticmethod(empty)
 Interval.Inf = staticmethod(Inf)
@@ -182,4 +210,14 @@ __all__ = [
     'max',
     'infimum',
     'supremum',
+    'power',
+    'rdivide', 
+    'mpower',
+    'tan',
+    'acos',
+    'atan',
+    'sinh',
+    'cosh',
+    'tanh',
+    'reshape',
 ] 
