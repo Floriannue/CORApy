@@ -50,6 +50,7 @@ def plot(S: 'ContSet', *args, **kwargs):
     Returns:
         Matplotlib graphics object handle
     """
+    from cora_python.contSet.interval import Interval
     # Extract purpose from kwargs if provided
     purpose = kwargs.pop('purpose', 'none')
     
@@ -167,7 +168,11 @@ def _process(S, dims, plot_kwargs, purpose='none'):
     S = S.project(dims)
     
     # Check if set is bounded
-    I = S.interval()
+    if isinstance(S, Interval):
+        I = S
+    else:
+        I = S.interval()
+
     if not I.is_bounded():
         # Intersect with current plot axis for unbounded sets
         S = _intersect_with_axis_limits(S, plot_kwargs)

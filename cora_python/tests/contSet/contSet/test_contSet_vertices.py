@@ -30,16 +30,18 @@ from cora_python.contSet.contSet.vertices import vertices
 class MockContSet:
     """Mock ContSet for testing vertices method"""
     
+    def __new__(cls, class_name="Zonotope", *args, **kwargs):
+        # Dynamically create a new class with the desired name that inherits from this one.
+        # This ensures that obj.__class__.__name__ gives the mocked name.
+        # We pass through any other args to __init__.
+        NewCls = type(class_name, (MockContSet,), {})
+        instance = object.__new__(NewCls)
+        return instance
+    
     def __init__(self, class_name="Zonotope", dim_val=2, empty=False):
-        self._class_name = class_name
         self._dim = dim_val
         self._empty = empty
         
-    def __class__(self):
-        class MockClass:
-            __name__ = self._class_name
-        return MockClass()
-    
     def dim(self):
         return self._dim
     
@@ -51,8 +53,10 @@ class MockContSet:
         if self._empty:
             return np.array([])
         
+        class_name = self.__class__.__name__
+        
         # Return mock vertices for different set types
-        if self._class_name == "Interval":
+        if class_name == "Interval":
             # Return corner points for 2D interval
             if self._dim == 2:
                 return np.array([[0, 1, 0, 1], [0, 0, 1, 1]])

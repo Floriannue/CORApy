@@ -108,7 +108,6 @@ class Interval(ContSet):
         # Set precedence (fixed for intervals)
         self.precedence = 120
 
-    
     def _parse_input_args(self, *args):
         """Parse input arguments from user and assign to variables"""
         if len(args) == 1:

@@ -98,15 +98,16 @@ class TestRandPoint:
         
         S = MockContSet(2)
         
-        result = randPoint(S, 3, type='standard')
+        result = randPoint(S, 3, type_='standard')
         assert result.shape == (2, 3)
+        assert isinstance(result, np.ndarray)
     
     def test_randPoint_extreme_type(self):
         """Test randPoint with extreme type"""
         
         S = MockContSet(2)
         
-        result = randPoint(S, 3, type='extreme')
+        result = randPoint(S, 3, type_='extreme')
         assert result.shape == (2, 3)
     
     def test_randPoint_gaussian_type(self):
@@ -114,7 +115,7 @@ class TestRandPoint:
         
         S = MockContSet(3)
         
-        result = randPoint(S, 10, type='gaussian')
+        result = randPoint(S, 10, type_='gaussian')
         assert result.shape == (3, 10)
     
     def test_randPoint_empty_set(self):
@@ -131,15 +132,19 @@ class TestRandPoint:
         S = MockContSet(2)
         
         # Test invalid N
-        with pytest.raises(ValueError, match="Number of points must be positive"):
-            randPoint(S, 0)
-        
-        with pytest.raises(ValueError, match="Number of points must be positive"):
+        with pytest.raises(ValueError, match="must be a non-negative integer"):
             randPoint(S, -1)
         
+        with pytest.raises(ValueError, match="If N is string, it must be 'all'"):
+            randPoint(S, 'invalid_str')
+
         # Test invalid type
         with pytest.raises(ValueError, match="Invalid type"):
-            randPoint(S, 1, type='invalid')
+            randPoint(S, 5, type_='invalid_type')
+
+        # Test invalid 'all' with non-extreme type
+        with pytest.raises(ValueError, match="If N is 'all', type must be 'extreme'"):
+            randPoint(S, 'all', type_='standard')
     
     def test_randPoint_origin_point(self):
         """Test randPoint returns origin for degenerate case"""

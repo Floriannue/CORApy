@@ -64,22 +64,21 @@ def and_op(S1: 'ContSet', S2: Union['ContSet', np.ndarray], *varargin) -> 'ContS
     ])
     
     # order input arguments according to their precedence
-    from cora_python.g.functions.helper.sets.contSet.reorder import reorder
-    S1, S2 = reorder(S1, S2)
+    S1, S2 = S1.reorder(S2)
     
     # handle different default types based on class
     if S1.__class__.__name__ == 'Ellipsoid':
         # parse input arguments
-        type_ = set_default_values(['outer'], varargin)
+        type_ = set_default_values(['outer'], varargin)[0]
         # check additional input arguments
         input_args_check([[type_, 'str', ['inner', 'outer']]])
     elif S1.__class__.__name__ == 'Zonotope':
         # parse input arguments  
-        type_ = set_default_values(['conZonotope'], varargin)
+        type_ = set_default_values(['conZonotope'], varargin)[0]
         # check additional input arguments
         input_args_check([[type_, 'str', ['conZonotope', 'averaging']]])
     else:
-        type_ = set_default_values(['exact'], varargin)
+        type_ = set_default_values(['exact'], varargin)[0]
     
     # check dimension mismatch
     from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check

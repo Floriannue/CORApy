@@ -24,39 +24,24 @@ if TYPE_CHECKING:
     from .interval import Interval
 
 
-def dim(obj: 'Interval') -> int:
+def dim(self: 'Interval') -> int:
     """
-    Get dimension of the interval
+    Returns the dimension of the interval.
     
-    Args:
-        obj: Interval object
-        
-    Returns:
-        Dimension of the interval
+    This method overrides the default ContSet dim method.
     """
-    infi = obj.inf
+    if not hasattr(self, 'inf') or self.inf.size == 0:
+        # Special case for empty intervals created with Interval.empty(dim)
+        # These might have a dim property set before inf/sup are populated.
+        if hasattr(self, '_dim'):
+             return self._dim
+        return 0
     
-    # For empty intervals, return the number of rows (first dimension)
-    if infi.size == 0:
-        return infi.shape[0] if infi.ndim > 0 else 0
+    if self.inf.ndim == 0:
+        return 1  # Scalar
     
-    # Determine size following MATLAB logic
-    dims = infi.shape
-    
-    # Handle scalar case
-    if len(dims) == 0:
-        return 1
-    
-    if len(dims) <= 2:
-        # 1-d or 2-d interval
-        rows = dims[0]
-        cols = dims[1] if len(dims) > 1 else 1
-        if rows == 1:
-            return cols
-        elif cols == 1:
-            return rows
-        else:
-            return [rows, cols]  # Return list for matrix intervals
-    else:
-        # n-d interval
-        return list(dims) 
+    # For vectors (1D arrays) or column/row vectors (2D arrays)
+    if self.inf.ndim == 1:
+        return len(self.inf)
+    else:  # ndim >= 2
+        return self.inf.shape[0]

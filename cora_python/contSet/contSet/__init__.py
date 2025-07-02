@@ -209,7 +209,7 @@ ContSet.norm_ = norm_
 # Set operations
 ContSet.__and__ = lambda self, other: and_op(self, other)
 ContSet.__or__ = lambda self, other: or_op(self, other)
-ContSet.and_op = and_op  # Public 'and' function (can't use 'and' as it's Python keyword)
+ContSet.and_op = and_op
 ContSet.and_ = and_
 ContSet.or_op = or_op
 

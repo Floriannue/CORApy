@@ -39,13 +39,16 @@ class MockContSet:
     def isemptyobject(self):
         return self._empty
     
-    def supportFunc_(self, dir):
+    def supportFunc_(self, direction, type_, method, max_order_or_splits, tol):
         """Mock implementation returning distance in direction"""
         if self._empty:
             return -np.inf
+        
         # Simple mock: return dot product with unit direction
-        dir_normalized = dir / np.linalg.norm(dir)
-        return np.dot(dir_normalized, np.ones(self._dim))
+        dir_normalized = direction / np.linalg.norm(direction)
+        # For 'lower' type, the support function is -h(-l)
+        sign = -1 if type_ == 'lower' else 1
+        return sign * np.dot(dir_normalized.flatten(), np.ones(self._dim))
 
 
 class TestSupportFunc:
@@ -80,13 +83,13 @@ class TestSupportFunc:
         S = MockContSet(2)
         dir = np.array([1, 1])
         
-        # Test with default format
+        # Test with default format ('upper')
         result1 = supportFunc(S, dir)
         
-        # Test with explicit format
-        result2 = supportFunc(S, dir, type='standard')
+        # Test with explicit format 'lower'
+        result2 = supportFunc(S, dir, type_='lower')
         
-        assert np.isclose(result1, result2)
+        assert not np.isclose(result1, result2)
     
     def test_supportFunc_empty_set(self):
         """Test supportFunc with empty set"""
@@ -103,11 +106,11 @@ class TestSupportFunc:
         S = MockContSet(2)
         
         # Test with invalid direction (empty)
-        with pytest.raises(ValueError, match="Direction cannot be empty"):
+        with pytest.raises(CORAerror, match="must be a 2-dimensional column vector"):
             supportFunc(S, np.array([]))
         
         # Test with zero direction
-        with pytest.raises(ValueError, match="Direction cannot be zero vector"):
+        with pytest.raises(ValueError, match="Direction cannot be the zero vector"):
             supportFunc(S, np.array([0, 0]))
     
     def test_supportFunc_direction_normalization(self):

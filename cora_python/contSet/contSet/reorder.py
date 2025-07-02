@@ -33,14 +33,13 @@ def reorder(S1: Union['ContSet', np.ndarray], S2: Union['ContSet', np.ndarray]) 
     Example:
         >>> S1 = interval([1, 2], [3, 4])  # precedence = 120
         >>> S2 = zonotope([0, 0], [[1, 0], [0, 1]])  # precedence = 110
-        >>> S1_reordered, S2_reordered = reorder(S1, S2)
+        >>> S1_reordered, S2_reordered = S2.reorder(S1) # call on lower precedence
         >>> # S1_reordered will be the zonotope, S2_reordered will be the interval
     """
     # Classic swap using temporary variable
     if (isinstance(S1, (np.ndarray, list, tuple)) or np.isscalar(S1)) or \
        (hasattr(S2, 'precedence') and hasattr(S1, 'precedence') and 
         S2.precedence < S1.precedence):
-        # Swap S1 and S2
-        S1, S2 = S2, S1
+        return S2, S1
     
     return S1, S2 

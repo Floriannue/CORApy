@@ -24,13 +24,15 @@ Last revision: ---
 import pytest
 import numpy as np
 from unittest.mock import Mock, patch
+from cora_python.contSet.contSet import ContSet
 from cora_python.contSet.contSet.convHull import convHull
 
 
-class MockContSet:
+class MockContSet(ContSet):
     """Mock ContSet for testing convHull method"""
     
     def __init__(self, dim_val=2, empty=False, name="MockSet"):
+        super().__init__()
         self._dim = dim_val
         self._empty = empty
         self._name = name
@@ -40,19 +42,28 @@ class MockContSet:
     
     def isemptyobject(self):
         return self._empty
+    
+    def __repr__(self):
+        return self._name
+    
+    def convHull_(self, S2=None, method='exact'):
+        return mock_convHull_(self, S2, method)
 
 
 def mock_convHull_(S1, S2=None, method='exact'):
     """Mock implementation of convHull_"""
     if S2 is None:
         # Single argument case
-        return MockContSet(S1.dim(), S1.isemptyobject(), f"Hull({S1._name})")
+        return MockContSet(S1.dim(), S1.isemptyobject(), f"Hull({S1})")
     else:
         # Two argument case
-        if S1.isemptyobject() or S2.isemptyobject():
+        s1_empty = S1.isemptyobject() if hasattr(S1, 'isemptyobject') else False
+        s2_empty = S2.isemptyobject() if hasattr(S2, 'isemptyobject') else False
+
+        if s1_empty or s2_empty:
             return MockContSet(S1.dim(), empty=True, name="EmptyHull")
         else:
-            return MockContSet(S1.dim(), empty=False, name=f"Hull({S1._name},{S2._name})")
+            return MockContSet(S1.dim(), empty=False, name=f"Hull({S1},{S2})")
 
 
 def mock_reorder(S1, S2):

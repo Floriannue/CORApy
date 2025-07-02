@@ -113,6 +113,26 @@ def contains(S1: 'ContSet', S2: Union['ContSet', np.ndarray], method='exact', to
     if not isinstance(maxEval, (int, float)) or maxEval < 0 or np.isnan(maxEval):
         raise ValueError("maxEval must be a non-negative number")
     
+    # --- Empty Set Handling ---
+    # Inner-body is empty numeric array or empty contSet
+    if (isinstance(S2, np.ndarray) and S2.size == 0) or \
+       (hasattr(S2, 'isemptyobject') and S2.isemptyobject()):
+        res, cert, scaling = True, True, 0
+        if return_scaling:
+            return res, cert, scaling
+        elif return_cert:
+            return res, cert
+        return res
+
+    # Outer body is empty
+    if hasattr(S1, 'isemptyobject') and S1.isemptyobject():
+        res, cert, scaling = False, True, np.inf
+        if return_scaling:
+            return res, cert, scaling
+        elif return_cert:
+            return res, cert
+        return res
+
     try:
         # Check dimension mismatch
         equal_dim_check(S1, S2)
@@ -141,33 +161,5 @@ def contains(S1: 'ContSet', S2: Union['ContSet', np.ndarray], method='exact', to
                 return res
             
     except Exception as e:
-        # Handle empty set cases
-        
-        # Inner-body is empty numeric array or empty contSet
-        if (isinstance(S2, np.ndarray) and S2.size == 0) or \
-           (hasattr(S2, '__class__') and hasattr(S2, 'isemptyobject') and S2.isemptyobject()):
-            res, cert, scaling = True, True, 0
-        # Outer body is empty
-        elif hasattr(S1, 'isemptyobject') and S1.isemptyobject():
-            res, cert, scaling = False, True, np.inf
-        else:
-            # Re-raise if not an empty set case
-            raise e
-            
-        # Return based on what's requested
-        if return_scaling:
-            return res, cert, scaling
-        elif return_cert:
-            return res, cert
-        else:
-            # For single boolean result, ensure we return a scalar
-            if isinstance(res, np.ndarray) and res.size == 1:
-                return res.item()
-            elif isinstance(res, np.ndarray) and res.ndim == 1 and len(res) > 0:
-                # For multiple identical values (like [True, True]), check if all are the same
-                if np.all(res == res[0]):
-                    return res[0].item() if hasattr(res[0], 'item') else res[0]
-                else:
-                    return res
-            else:
-                return res 
+        # Re-raise if not an empty set case
+        raise e 

@@ -20,35 +20,42 @@ Written: 2020 (MATLAB)
 Python translation: 2025
 """
 
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Tuple
 
 
-def set_default_values(defaults: List[Any], args: Optional[List[Any]] = None) -> List[Any]:
+def set_default_values(defaults: List[Any], *args: Any) -> Tuple[List[Any], List[Any]]:
     """
     Set default values for function arguments
     
     Args:
         defaults: List of default values
-        args: Input arguments list (can be None or empty)
+        *args: Input arguments list (can be None or empty)
         
     Returns:
-        List of processed values with defaults applied
+        Tuple containing:
+        - List of processed values with defaults applied
+        - List of remaining arguments
     """
-    if args is None:
-        args = []
-    
-    # Convert to list if needed
-    if not isinstance(args, list):
-        args = list(args) if hasattr(args, '__iter__') else [args]
-    
     # Initialize result with defaults
     result = defaults.copy()
     
-    # Override with provided arguments
-    for i, arg in enumerate(args):
-        if i < len(result):
-            result[i] = arg
+    # Flatten args in case they are passed as a list/tuple
+    args_list = []
+    for arg in args:
+        if isinstance(arg, (list, tuple)):
+            args_list.extend(arg)
         else:
-            result.append(arg)
+            args_list.append(arg)
+            
+    # Override with provided arguments
+    num_defaults = len(defaults)
+    for i in range(num_defaults):
+        if i < len(args_list):
+            result[i] = args_list[i]
+        else:
+            break  # No more args to process for defaults
+            
+    # Get remaining args
+    remaining_args = args_list[num_defaults:]
     
-    return result 
+    return result, remaining_args 

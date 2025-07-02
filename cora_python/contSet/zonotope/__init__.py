@@ -52,6 +52,7 @@ from .generators import generators
 from .isIntersecting_ import isIntersecting_
 from .isFullDim import isFullDim
 from .generatorLength import generatorLength
+from .getPrintSetInfo import getPrintSetInfo
 
 # Attach methods to the class
 Zonotope.abs = abs_op
@@ -109,8 +110,9 @@ Zonotope.generators = generators
 Zonotope.isIntersecting_ = isIntersecting_
 Zonotope.isFullDim = isFullDim
 Zonotope.generatorLength = generatorLength
+Zonotope.getPrintSetInfo = getPrintSetInfo
 
 # Attach static methods
 Zonotope.enclosePoints = staticmethod(enclosePoints)
 
-__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength'] 
+__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo'] 

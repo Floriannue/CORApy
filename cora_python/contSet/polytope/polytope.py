@@ -75,16 +75,17 @@ class Polytope(ContSet):
     # Give higher priority than numpy arrays for @ operator
     __array_priority__ = 1000
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         """
         Constructor for the Polytope class.
 
         Possible calls:
-        P = Polytope()            # Empty polytope
-        P = Polytope(V)           # From vertices V
-        P = Polytope(contSetObj)  # From another set with vertices
-        P = Polytope(A, b)        # From inequalities
-        P = Polytope(A, b, Ae, be)# From inequalities and equalities
+        P = Polytope()
+        P = Polytope(V)
+        P = Polytope(contSetObj)
+        P = Polytope(A, b)
+        P = Polytope(A, b, Ae, be)
+        P = Polytope(A=A, b=b, A_eq=Ae, b_eq=be)
         """
         super().__init__()
         self.precedence = 80
@@ -92,16 +93,31 @@ class Polytope(ContSet):
 
         # Representations
         self._V = None
-        self._A = None
-        self._b = None
-        self._Ae = None
-        self._be = None
+        self._A = kwargs.get('A', None)
+        self._b = kwargs.get('b', None)
+        self._Ae = kwargs.get('A_eq', kwargs.get('Ae', None))
+        self._be = kwargs.get('b_eq', kwargs.get('be', None))
         
         # Internal flags
         self._has_v_rep = False
         self._has_h_rep = False
 
         # --- Constructor Logic ---
+        # Handle keyword-based H-representation initialization
+        if any(key in kwargs for key in ['A', 'b', 'A_eq', 'b_eq', 'Ae', 'be']):
+            if self._A is not None:
+                self._has_h_rep = True
+                self.dimension = np.asarray(self._A).shape[1]
+            if self._Ae is not None:
+                self._has_h_rep = True
+                if self.dimension == 0:
+                     self.dimension = np.asarray(self._Ae).shape[1]
+            if self._b is not None:
+                self._b = np.asarray(self._b).reshape(-1, 1)
+            if self._be is not None:
+                self._be = np.asarray(self._be).reshape(-1, 1)
+            return
+
         if len(args) == 0:
             # Empty polytope
             self._has_v_rep = True # Empty V-rep

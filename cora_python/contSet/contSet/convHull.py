@@ -15,6 +15,7 @@ import numpy as np
 from .convHull_ import convHull_
 from .reorder import reorder
 
+
 if TYPE_CHECKING:
     from cora_python.contSet.contSet.contSet import ContSet
 
@@ -43,6 +44,7 @@ def convHull(S1: Union['ContSet', np.ndarray],
         >>> S2 = interval([4, 3], [6, 5])
         >>> result = convHull(S1, S2, 'exact')
     """
+    from ..zonotope import Zonotope
     # Special case: single argument
     if S2 is None:
         return convHull_(S1)
@@ -51,13 +53,21 @@ def convHull(S1: Union['ContSet', np.ndarray],
     if method not in ['exact', 'outer', 'inner']:
         raise ValueError(f"Invalid method '{method}'. Use 'exact', 'outer', or 'inner'.")
     
+    # convert numeric values to zonotope
+    if isinstance(S2, (np.ndarray, list)):
+        S2 = Zonotope(S2)
+
     # Order input arguments according to their precedence
     S1, S2 = reorder(S1, S2)
     
     # Check dimension compatibility
-    if hasattr(S1, 'dim') and hasattr(S2, 'dim'):
+    if hasattr(S1, 'dim') and hasattr(S2, 'dim') and callable(getattr(S1, 'dim', None)) and callable(getattr(S2, 'dim', None)):
         if S1.dim() != S2.dim():
             raise ValueError(f"Dimension mismatch: S1 has dimension {S1.dim()}, S2 has dimension {S2.dim()}")
     
-    # Call subclass method
-    return convHull_(S1, S2, method) 
+    # call subclass method if it exists
+    if hasattr(S1, 'convHull_') and callable(getattr(S1, 'convHull_', None)):
+        return S1.convHull_(S2, method)
+    else:
+        # Fallback to general implementation
+        return convHull_(S1, S2, method) 

@@ -24,6 +24,7 @@ Last revision: ---
 import pytest
 import numpy as np
 from unittest.mock import Mock
+from pytest import approx
 from cora_python.contSet.contSet.volume import volume
 
 
@@ -86,7 +87,7 @@ class TestVolume:
         S = MockContSet(2, vol_value=2.0)
         result = volume(S, method='reduce')
         
-        assert result == 1.8  # 2.0 * 0.9
+        assert result == approx(1.8)  # 2.0 * 0.9
     
     def test_volume_alamo_method(self):
         """Test volume with alamo method"""
@@ -94,7 +95,7 @@ class TestVolume:
         S = MockContSet(2, vol_value=3.0)
         result = volume(S, method='alamo')
         
-        assert result == 3.3  # 3.0 * 1.1
+        assert result == approx(3.3)  # 3.0 * 1.1
     
     def test_volume_invalid_method(self):
         """Test volume with invalid method"""
@@ -194,7 +195,7 @@ class TestVolume:
         S = MockContSet(2, vol_value=1e-15)
         result = volume(S)
         
-        assert result == 1e-15
+        assert result == approx(1e-15)
     
     def test_volume_combined_parameters(self):
         """Test volume with both method and order parameters"""
@@ -202,7 +203,7 @@ class TestVolume:
         S = MockContSet(3, vol_value=8.0)
         result = volume(S, method='reduce', order=5)
         
-        assert result == 7.2  # 8.0 * 0.9
+        assert result == approx(7.2)  # 8.0 * 0.9
 
 
 if __name__ == "__main__":

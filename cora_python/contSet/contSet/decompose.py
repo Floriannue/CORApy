@@ -59,11 +59,7 @@ def decompose(S: 'ContSet', blocks: np.ndarray) -> List['ContSet']:
     # No projection if a single block
     if num_blocks == 1:
         # Return a copy of the original set
-        if hasattr(S, 'copy'):
-            return S.copy()
-        else:
-            # Fallback: try to create a copy manually
-            return type(S)(S)
+        return S.copy()
     
     # Use project function for each block
     S_out = []

@@ -152,11 +152,11 @@ class CORAerror(Exception):
             return self.message
         
         elif self.identifier == 'CORA:noops':
-            if self.args_list:
+            if self.message:
+                return self.message
+            elif self.args_list:
                 classlist = ", ".join([type(arg).__name__ for arg in self.args_list])
                 return f"The function '{self.functionname}' is not implemented for the following arguments:\n  {classlist}.\n{helpmsg}"
-            else:
-                return f"The function '{self.functionname}' is not implemented for the given arguments.\n{helpmsg}"
         
         elif self.identifier == 'CORA:noExactAlg':
             if self.args_list:

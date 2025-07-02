@@ -80,9 +80,14 @@ def compareMatrices(M1, M2, tol=None, flag='equal', ordered=False, signed=True):
     # Initialize result
     res = True
     
-    # Convert to numpy arrays
+    # Convert to numpy arrays and ensure they are 2D
     M1 = np.asarray(M1)
+    if M1.ndim == 1:
+        M1 = M1.reshape(-1, 1)
+        
     M2 = np.asarray(M2)
+    if M2.ndim == 1:
+        M2 = M2.reshape(-1, 1)
     
     # Handle empty matrices
     if M1.size == 0 and M2.size == 0:

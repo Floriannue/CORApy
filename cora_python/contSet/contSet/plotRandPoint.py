@@ -29,14 +29,18 @@ def plotRandPoint(S, *varargin):
     defaults = [[0, 1], 1000, '.k']
     dims, N, type_ = setDefaultValues(defaults, varargin)
 
-    # check input arguments
-    inputArgsCheck([[S, 'att', ['contSet']],
-                    [dims, 'att', ['numeric'], {'vector', 'integer', 'nonnegative'}],
-                    [N, 'att', ['numeric'], {'positive', 'integer', 'scalar'}],
-                    [type_, 'att', ['char']]])
+    # input argument check
+    inputArgsCheck([[S, 'att', 'contSet'],
+                    [dims, 'att', ['numeric'], ['integer', 'nonnegative', 'vector']],
+                    [N, 'att', ['numeric'], ['integer', 'nonnegative', 'scalar']],
+                    [type_, 'str', []]])
+
+    # check if dimension to be plotted is not too high
+    if len(dims) > 3:
+        raise CORAerror('CORA:plotProperties', 'Number of dimensions to plot has to be <= 3.')
 
     # generate N random points inside the set
-    points = S.randPoint_(N, 'standard')
+    points = S.randPoint(N)
     
     # Ensure dims is a list or array of integers
     if not isinstance(dims, (list, np.ndarray)):

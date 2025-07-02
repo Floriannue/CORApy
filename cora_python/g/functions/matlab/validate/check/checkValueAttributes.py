@@ -106,7 +106,9 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
             elif attribute == 'column':
                 res = (isinstance(val, np.ndarray) and val.ndim == 2 and val.shape[1] == 1)
             elif attribute == 'vector':
-                res = (isinstance(val, np.ndarray) and val.ndim == 2 and (val.shape[0] == 1 or val.shape[1] == 1))
+                is_list_of_nums = isinstance(val, list) and all(isinstance(x, (int, float, np.number)) for x in val)
+                is_numpy_vector = isinstance(val, np.ndarray) and (val.ndim == 1 or (val.ndim == 2 and (val.shape[0] == 1 or val.shape[1] == 1)))
+                res = is_list_of_nums or is_numpy_vector
             elif attribute == 'real':
                 res = np.isreal(val).all()
             elif attribute == 'finite':
@@ -156,10 +158,6 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
                 res = np.all(np.linalg.eigvals(val) > 0)
             elif attribute == 'nonnegative':
                 res = np.all(val >= 0)
-            elif attribute == 'column':
-                res = (isinstance(val, np.ndarray) and val.ndim == 2 and val.shape[1] == 1)
-            elif attribute == 'vector':
-                res = (isinstance(val, np.ndarray) and (val.ndim == 1 or (val.ndim == 2 and (val.shape[0] == 1 or val.shape[1] == 1))))
             elif attribute == 'matrix':
                 res = (isinstance(val, np.ndarray) and val.ndim == 2)
             else:
@@ -239,16 +237,11 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
         class_check_passed = isinstance(value, np.ndarray)
     else:
         try:
-            # Try to evaluate class_name as a Python class
-            # This requires the class to be imported in the scope where this function is called
-            # For now, a simplified approach. A more robust solution might use a class registry.
-            target_class = globals().get(class_name, None)
-            if target_class is None:
-                # If not found globally, try to import dynamically (less ideal but might be needed)
-                # This is complex and potentially unsafe for a general-purpose validator.
-                # For now, let's assume it's a known CORA class that should be imported.
-                pass # The outer module needs to import it.
-            class_check_passed = isinstance(value, target_class) if target_class else False
+            # Check class hierarchy. MATLAB class names are often lowercase,
+            # while Python classes are capitalized (e.g., 'zonotope' vs. 'Zonotope').
+            # We compare lowercased names to handle this.
+            mro = type(value).mro()
+            class_check_passed = any(c.__name__.lower() == class_name.lower() for c in mro)
         except Exception:
             class_check_passed = False
 

@@ -146,17 +146,27 @@ def representsa_emptyObject(S: 'ContSet', type_: str, return_conv: bool = True) 
                     S_conv = None
                     
         else:
-            # otherwise case
-            # all fully empty objects represent the empty set (except for
-            # polytopes and spectrahedral shadow); all sets can represent
-            # the empty set
-            res = (S.dim() == 0 or 
-                   (not S.__class__.__name__.lower() == 'polytope' and 
-                    not S.__class__.__name__.lower() == 'spectrashadow') or
-                   (S.__class__.__name__.lower() == 'polytope' and 
-                    hasattr(S, 'isVRep') and S.isVRep.val and 
-                    hasattr(S, 'V') and (S.V is None or len(S.V) == 0)))
+            # All other fully empty set representations can be converted to the
+            # general empty set representation of all other set classes
+            # (e.g. empty zonotope, empty ellipsoid, etc.), except for
+            # polytopes and spectrahedral shadows.
             
+            # check if S is a polytope
+            is_polytope = S.__class__.__name__.lower() == 'polytope'
+            
+            # check if S is a spectrahedral shadow
+            is_spectrashadow = S.__class__.__name__.lower() == 'spectrashadow'
+            
+            # check if polytope in V-rep is truly empty
+            poly_vrep_empty = (is_polytope and 
+                             hasattr(S, 'isVRep') and S.isVRep.val and 
+                             hasattr(S, 'V') and (S.V is None or S.V.size == 0))
+            
+            # an empty object can be represented by another class if
+            # (1) the object is not a polytope or a spectrahedral shadow
+            # (2) the object is a truly empty polytope in V-rep
+            res = (not is_polytope and not is_spectrashadow) or poly_vrep_empty
+
             if return_conv and res:
                 # Create empty set using eval equivalent: type.empty(n)
                 try:

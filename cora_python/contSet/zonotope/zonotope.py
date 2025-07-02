@@ -103,54 +103,23 @@ class Zonotope(ContSet):
     def _parse_input_args(self, *args):
         """Parse input arguments from user and assign to variables"""
         
-        if len(args) == 0:
-            return np.zeros((0, 0)), np.zeros((0, 0))
-        
         if len(args) == 1:
-            # Check if input is an Interval object
-            if hasattr(args[0], 'inf') and hasattr(args[0], 'sup'):
-                # Convert interval to zonotope: c = center, G = diag(radius)
-                interval_obj = args[0]
-                
-                # Get center and radius
-                
-                c = interval_obj.center()
-                r = interval_obj.rad()
-                
-                # Create generator matrix as diagonal matrix of radii
-                # Remove zero generators (where radius is 0)
-                nonzero_indices = r != 0
-                if np.any(nonzero_indices):
-                    G = np.diag(r)[:, nonzero_indices]
-                else:
-                    G = np.zeros((len(c), 0))
-                
-                return c, G
-            
-            # Handle numeric array input
             Z = np.asarray(args[0])
-            
-            if Z.ndim == 0:
-                # Handle scalar input
-                return np.array([Z.item()]).reshape(1, 1), np.zeros((1, 0))
-            
-            if Z.size == 0:
-                return Z, np.array([]).reshape(Z.shape[0], 0)
-            elif Z.ndim == 1:
-                return Z, np.array([]).reshape(len(Z), 0)
+            if Z.ndim <= 1:
+                # Input is a vector (point)
+                c = Z
+                G = np.array([])
             else:
+                # Input is a matrix [c, G]
                 c = Z[:, 0]
-                G = Z[:, 1:] if Z.shape[1] > 1 else np.array([]).reshape(Z.shape[0], 0)
-                return c, G
-        
+                G = Z[:, 1:]
         elif len(args) == 2:
-            c = np.asarray(args[0]) if args[0] is not None else np.array([])
-            G = np.asarray(args[1]) if args[1] is not None else np.array([])
-            return c, G
-        
+            c, G = args
         else:
-            raise CORAerror('CORA:wrongInputInConstructor',
-                          'Too many input arguments')
+            # This case should ideally be caught earlier, but as a safeguard:
+            raise CORAerror('CORA:wrongInputInConstructor', 'Invalid number of arguments for zonotope.')
+
+        return np.asarray(c), np.asarray(G)
     
     def _check_input_args(self, c, G, n_in):
         """Check correctness of input arguments"""

@@ -30,10 +30,18 @@ from cora_python.contSet.contSet.decompose import decompose
 class MockContSet:
     """Mock ContSet for testing decompose method"""
     
-    def __init__(self, dim_val=5, name="MockSet"):
-        self._dim = dim_val
-        self._name = name
-        
+    def __init__(self, *args):
+        """Mock constructor that handles both normal and copy construction."""
+        if len(args) == 1 and isinstance(args[0], MockContSet):
+            # Copy constructor
+            other = args[0]
+            self._dim = other._dim
+            self._name = f"Copy({other._name})"
+        else:
+            # Normal constructor
+            self._dim = args[0] if args else 2
+            self._name = args[1] if len(args) > 1 else "MockSet"
+    
     def dim(self):
         return self._dim
     
@@ -47,19 +55,7 @@ class MockContSet:
     
     def copy(self):
         """Mock implementation of copy method"""
-        return MockContSet(self._dim, f"Copy({self._name})")
-    
-    def __init__(self, *args):
-        """Mock constructor for copy fallback"""
-        if len(args) == 1 and isinstance(args[0], MockContSet):
-            # Copy constructor
-            other = args[0]
-            self._dim = other._dim
-            self._name = f"Copy({other._name})"
-        else:
-            # Normal constructor
-            self._dim = args[0] if args else 2
-            self._name = args[1] if len(args) > 1 else "MockSet"
+        return MockContSet(self)
 
 
 class TestDecompose:
@@ -74,6 +70,7 @@ class TestDecompose:
         result = decompose(S, blocks)
         
         # Should return a copy of the original set
+        assert isinstance(result, MockContSet)
         assert result._dim == 5
         assert "Copy" in result._name
     
@@ -226,27 +223,18 @@ class TestDecompose:
         assert result[2]._dim == 3  # Dimensions [7, 8, 9]
     
     def test_decompose_no_copy_method(self):
-        """Test decompose when copy method is not available"""
+        """Test that decompose raises an error if the object has no copy method."""
         
         class NoCopySet(MockContSet):
-            def __init__(self, *args):
-                if len(args) == 1 and isinstance(args[0], MockContSet):
-                    # Copy constructor fallback
-                    other = args[0]
-                    super().__init__(other._dim, f"ManualCopy({other._name})")
-                else:
-                    super().__init__(*args)
-            
-            # Remove copy method
+            """A mock class that intentionally lacks a working copy method."""
             def copy(self):
                 raise AttributeError("'NoCopySet' object has no attribute 'copy'")
         
         S = NoCopySet(3, "NoCopySet")
-        blocks = np.array([[1, 3]])  # Single block
+        blocks = np.array([[1, 3]])  # A single block triggers the copy behavior
         
-        # Should handle missing copy method gracefully
-        result = decompose(S, blocks)
-        assert result._dim == 3
+        with pytest.raises(AttributeError, match="'NoCopySet' object has no attribute 'copy'"):
+            decompose(S, blocks)
 
 
 if __name__ == "__main__":
