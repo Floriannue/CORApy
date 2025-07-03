@@ -65,8 +65,12 @@ def cos(I: Interval) -> Interval:
     
     # init resulting interval (avoid constructor call)
     # compute lower and upper bound using Adrian's fast algorithm
-    inf_result = -_aux_maxcos(I - np.pi)
-    sup_result = _aux_maxcos(I)
+    inf_res = -_aux_maxcos(I - np.pi)
+    sup_res = _aux_maxcos(I)
+    
+    # ensure that inf <= sup due to floating point inaccuracies
+    inf_result = np.minimum(inf_res, sup_res)
+    sup_result = np.maximum(inf_res, sup_res)
     
     return Interval(inf_result, sup_result)
 

@@ -87,7 +87,7 @@ def supportFunc(S: 'ContSet',
     try:
         # Call subclass method
         result = S.supportFunc_(direction, type_, method, max_order_or_splits, tol)
-        return result
+        return result[0]
     except Exception as ME:
         # Handle empty set case
         if S.representsa_('emptySet', 1e-15):

@@ -29,27 +29,25 @@ def compare_files(dir, test_dir):
 
     untested_methods = []
     for file in implementation_files:
-        method = file.replace('.py', '')
+        file = file.replace('_op', '')
         tested = False
-        
         for test in test_files:
-            test_method = test.replace('.py', '')
-            
-            # Direct match: method.py -> test_method.py
-            if f"test_{method}" == test_method:
+            test = test.replace('_op', '')
+            # Direct match: function.py -> test_function.py
+            if f"test_{file}" == test:
                 tested = True
                 break
             # Class-specific test: method.py -> test_<class>_method.py
-            elif test_method.endswith(f"_{method}"):
+            elif test.endswith(f"_{file}"):
                 tested = True
                 break
             # Exact filename match (should not happend)
-            elif method == test_method:
+            elif file == test:
                 tested = True 
                 break
                 
         if not tested:
-            untested_methods.append(method)
+            untested_methods.append(file)
             
     return untested_methods
 

@@ -1,17 +1,33 @@
 """
-Polygon class
+polygon - object constructor for polygon objects
 
-A polygon represents a 2D polytope with vertices.
+Description:
+    This class represents polygon objects based on vertices of a nonconvex set in 2D,
+    similar to MATLAB's polyshape class.
 
-Properties:
-    set: underlying shape representation
-    x: x-coordinates of vertices
-    y: y-coordinates of vertices
-    V: vertices matrix (2 × n)
+Syntax:
+    obj = polygon(x, y, **kwargs)
+    obj = polygon(V, **kwargs)
+    obj = polygon(set, **kwargs)
 
-Authors: Niklas Kochdumper (MATLAB)
+Inputs:
+    x - vector with x coordinates of the polygon vertices
+    y - vector with y coordinates of the polygon vertices
+    V - vertices (2-dimensional matrix)
+    set - polygon object or polyshape-like object
+    **kwargs - additional arguments
+
+Outputs:
+    obj - polygon object
+
+Example:
+    x = np.array([0, 1, 1, 0])
+    y = np.array([0, 0, 1, 1])
+    pgon = polygon(x, y)
+
+Authors: Niklas Kochdumper, Tobias Ladner (MATLAB)
          Python translation by AI Assistant
-Written: 30-October-2020 (MATLAB)
+Written: 13-March-2020 (MATLAB)
 Python translation: 2025
 """
 
@@ -19,7 +35,6 @@ import numpy as np
 from typing import Union, Optional, Any, Tuple, List
 from ..contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-from cora_python.g.macros import CHECKS_ENABLED
 
 # Import geometric computation capabilities
 try:
@@ -38,38 +53,189 @@ class Polygon(ContSet):
     """
     Polygon class
     
-    A polygon represents a 2D polytope with vertices.
+    A polygon represents a 2D polytope with vertices based on MATLAB's polyshape.
     """
-    
-    TOL = 1e-12  # tolerance for polygon operations
     
     def __init__(self, *varargin, **kwargs):
         """
         Constructor for polygon objects
         
         Args:
-            *varargin: Variable arguments
+            *varargin: Variable arguments matching MATLAB constructor patterns:
                      - polygon(): empty polygon
                      - polygon(V): vertices as 2×n matrix
                      - polygon(x, y): x and y coordinates
                      - polygon(other_polygon): copy constructor
+            **kwargs: Additional keyword arguments (name-value pairs)
         """
-        # 1. parse input arguments
-        V, x, y, other_polygon = _aux_parseInputArgs(*varargin, **kwargs)
-
-        # 2. check input arguments
-        _aux_checkInputArgs(V, x, y, other_polygon, len(varargin))
-
-        # 3. compute object
-        poly, dim, v_matrix = _aux_computeProperties(V, x, y, other_polygon, len(varargin))
-        
-        self.set = poly
-        self.dim = dim
-        self._V = v_matrix
-
-        # 4. set precedence
+        # Call parent constructor
         super().__init__()
-        self.precedence = 10
+        
+        # Parse input arguments
+        set_obj, x, y, nvpairs = self._aux_parseInputArgs(*varargin, **kwargs)
+
+        # Check input arguments
+        self._aux_checkInputArgs(set_obj, x, y, nvpairs)
+
+        # Postprocessing
+        self._aux_postprocessing(set_obj, x, y, nvpairs)
+
+        # Set precedence (fixed)
+        self.precedence = 15
+
+    def _aux_parseInputArgs(self, *varargin, **kwargs):
+        """Parse input arguments from user and assign to variables"""
+        # Default values
+        set_obj = None
+        x = np.array([])
+        y = np.array([])
+        nvpairs = kwargs
+
+        # Empty constructor
+        if len(varargin) == 0:
+            if SHAPELY_AVAILABLE:
+                set_obj = ShapelyPolygon()
+            else:
+                set_obj = None
+            return set_obj, x, y, nvpairs
+        
+        # polygon(set)
+        if len(varargin) == 1:
+            set_obj = varargin[0]
+            return set_obj, x, y, nvpairs
+
+        # len(varargin) > 1
+        # Check if set or (x,y) pair is given
+        x = varargin[0]
+        y = varargin[1]
+
+        # Check if second parameter is numeric or first name-value pair
+        if isinstance(y, (int, float, np.number)) or (isinstance(y, np.ndarray) and y.dtype.kind in 'biufc'):
+            # (x,y) given - numeric second argument
+            nvpairs.update(kwargs)  # Add any additional kwargs
+        else:
+            # 'y' is first name of first name-value pair
+            set_obj = x
+            x = np.array([])
+            y = np.array([])
+            # Combine varargin[1:] with kwargs as nvpairs
+            nvpairs.update(kwargs)
+
+        return set_obj, x, y, nvpairs
+
+    def _aux_checkInputArgs(self, set_obj, x, y, nvpairs):
+        """Check correctness of input arguments"""
+        # Check set/V
+        if set_obj is not None:
+            if isinstance(set_obj, Polygon):
+                # Valid polygon object
+                pass
+            elif SHAPELY_AVAILABLE and isinstance(set_obj, ShapelyPolygon):
+                # Valid shapely polygon
+                pass
+            elif isinstance(set_obj, np.ndarray):
+                # Numeric array - should be 2D vertices
+                if set_obj.ndim != 2 or set_obj.shape[0] != 2:
+                    raise CORAerror("CORA:wrongValue", 'first', 'Given vertices should be two dimensional.')
+            else:
+                # Try to convert to numpy array
+                try:
+                    set_obj = np.asarray(set_obj)
+                    if set_obj.ndim != 2 or set_obj.shape[0] != 2:
+                        raise CORAerror("CORA:wrongValue", 'first', 'Given vertices should be two dimensional.')
+                except:
+                    raise CORAerror("CORA:wrongInputInConstructor", 'Invalid input type for polygon constructor.')
+
+        # Check (x,y)
+        if x.size > 0 or y.size > 0:
+            x = np.asarray(x)
+            y = np.asarray(y)
+            if x.shape != y.shape or x.ndim != 1:
+                raise CORAerror("CORA:wrongInputInConstructor", 
+                    'Given vertices x,y need to be vectors of the same length.')
+
+        # Check if finite (but nan is ok)
+        if x.size > 0 and np.any(np.isinf(x)):
+            raise CORAerror("CORA:wrongInputInConstructor", 'Given vertices cannot be infinite.')
+        if y.size > 0 and np.any(np.isinf(y)):
+            raise CORAerror("CORA:wrongInputInConstructor", 'Given vertices cannot be infinite.')
+        if isinstance(set_obj, np.ndarray) and np.any(np.isinf(set_obj)):
+            raise CORAerror("CORA:wrongInputInConstructor", 'Given vertices cannot be infinite.')
+
+    def _aux_postprocessing(self, set_obj, x, y, nvpairs):
+        """Postprocessing to create the polygon object"""
+        
+        # Initialize properties
+        self._V = np.array([]).reshape(2, 0)
+        self.TOL = 1e-8
+        
+        # Shapely polygon given?
+        if SHAPELY_AVAILABLE and isinstance(set_obj, ShapelyPolygon):
+            self.set = set_obj
+            self.poly = set_obj  # For compatibility with tests
+            if not set_obj.is_empty:
+                coords = np.array(set_obj.exterior.coords)
+                if coords.shape[0] > 1:
+                    self._V = coords[:-1].T  # Remove duplicate last point
+            return
+
+        # Polygon given?
+        if isinstance(set_obj, Polygon):
+            self.set = set_obj.set
+            self.poly = set_obj.poly if hasattr(set_obj, 'poly') else set_obj.set
+            self._V = set_obj._V.copy() if hasattr(set_obj, '_V') else np.array([]).reshape(2, 0)
+            self.TOL = set_obj.TOL if hasattr(set_obj, 'TOL') else 1e-8
+            return
+
+        # 'set_obj' is a matrix
+        if isinstance(set_obj, np.ndarray) and set_obj.size > 0:
+            # Rewrite to x and y
+            x = set_obj[0, :]
+            y = set_obj[1, :]
+
+        # Empty x,y?
+        if x.size == 0:
+            if SHAPELY_AVAILABLE:
+                self.set = ShapelyPolygon()
+                self.poly = self.set
+            else:
+                self.set = None
+                self.poly = None
+            return
+
+        # x,y given
+        x = x.reshape(-1)
+        y = y.reshape(-1)
+
+        # Create shapely polygon
+        if SHAPELY_AVAILABLE:
+            try:
+                # Try to create polygon directly
+                coords = list(zip(x, y))
+                poly = ShapelyPolygon(coords)
+                
+                # Check if valid
+                if poly.is_valid and not poly.is_empty:
+                    self.set = poly
+                    self.poly = poly
+                    self._V = np.vstack([x, y])
+                else:
+                    # Try with convex hull
+                    poly = convex_hull(ShapelyPolygon(coords))
+                    self.set = poly
+                    self.poly = poly
+                    self._V = np.vstack([x, y])
+                    
+            except Exception:
+                # Fallback: create empty polygon
+                self.set = ShapelyPolygon()
+                self.poly = self.set
+                self._V = np.array([]).reshape(2, 0)
+        else:
+            # No shapely available - store vertices directly
+            self.set = {'vertices': np.vstack([x, y])}
+            self.poly = self.set
+            self._V = np.vstack([x, y])
 
     @property
     def V(self):
@@ -79,15 +245,15 @@ class Polygon(ContSet):
     @property
     def x(self):
         """Get x coordinates of vertices"""
-        if self.V.size > 0:
-            return self.V[0, :]
+        if self._V.size > 0:
+            return self._V[0, :]
         return np.array([])
     
     @property
     def y(self):
         """Get y coordinates of vertices"""
-        if self.V.size > 0:
-            return self.V[1, :]
+        if self._V.size > 0:
+            return self._V[1, :]
         return np.array([])
     
     @property
@@ -99,7 +265,7 @@ class Polygon(ContSet):
         elif SHAPELY_AVAILABLE and isinstance(self.set, ShapelyPolygon):
             return 1 if not self.set.is_empty else 0
         else:
-            return 1 if self.V.size > 0 else 0
+            return 1 if self._V.size > 0 else 0
     
     @property
     def nrOfHoles(self):
@@ -111,72 +277,7 @@ class Polygon(ContSet):
 
     def __repr__(self):
         """String representation"""
-        if self.V.size > 0:
-            return f"Polygon(vertices={self.V.shape[1]})"
+        if self._V.size > 0:
+            return f"Polygon(vertices={self._V.shape[1]})"
         else:
             return "Polygon(empty)" 
-
-
-# Auxiliary functions -----------------------------------------------------
-
-def _aux_parseInputArgs(*varargin, **kwargs) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional['Polygon']]:
-    """Parse input arguments from user and assign to variables"""
-    
-    V = np.array([])
-    x = np.array([])
-    y = np.array([])
-    other_polygon = None
-    
-    if not varargin:
-        return V, x, y, other_polygon
-        
-    # copy constructor
-    if isinstance(varargin[0], Polygon):
-        other_polygon = varargin[0]
-    # from vertices
-    elif len(varargin) == 1:
-        V = np.asarray(varargin[0])
-    # from x and y coordinates
-    elif len(varargin) == 2:
-        x, y = np.asarray(varargin[0]), np.asarray(varargin[1])
-        
-    return V, x, y, other_polygon
-
-
-def _aux_checkInputArgs(V: np.ndarray, x: np.ndarray, y: np.ndarray, other_polygon: Optional['Polygon'], n_in: int):
-    """Check correctness of input arguments"""
-    
-    # only check if macro set to true
-    if CHECKS_ENABLED:
-        if n_in == 1 and not isinstance(other_polygon, Polygon):
-            if V.ndim != 2 or V.shape[0] != 2:
-                raise CORAerror('CORA:wrongInputInConstructor', 
-                    'Input must be a 2xV matrix, where V is the number of vertices.')
-        elif n_in == 2:
-            if x.ndim != 1 or y.ndim != 1 or len(x) != len(y):
-                raise CORAerror('CORA:wrongInputInConstructor', 
-                    'Inputs x and y must be vectors of the same length.')
-
-def _aux_computeProperties(V, x, y, other_polygon, n_in) -> Tuple[Any, int, np.ndarray]:
-    """Compute properties according to given user inputs"""
-    
-    # from other polygon object (copy constructor)
-    if other_polygon is not None:
-        poly = other_polygon.set
-        v_matrix = other_polygon._V
-    # from vertices
-    elif V.size > 0:
-        poly = ShapelyPolygon(V.T) if SHAPELY_AVAILABLE else {'vertices': V}
-        v_matrix = V
-    # from x and y coordinates
-    elif x.size > 0:
-        v_matrix = np.vstack((x, y))
-        poly = ShapelyPolygon(v_matrix.T) if SHAPELY_AVAILABLE else {'vertices': v_matrix}
-    # empty polygon
-    else:
-        poly = ShapelyPolygon() if SHAPELY_AVAILABLE else None
-        v_matrix = np.array([]).reshape(2,0)
-        
-    dim = 2 # Polygons are always 2D
-        
-    return poly, dim, v_matrix

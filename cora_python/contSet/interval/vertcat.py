@@ -37,25 +37,39 @@ def vertcat(*args):
     if len(args) == 0:
         raise ValueError("At least one argument required for concatenation")
     
-    # Start with first argument
-    I = args[0]
-    
-    # If object is not an interval, convert it
-    if not isinstance(I, Interval):
-        I = Interval(I, I)
-    
+    # Process the first argument
+    first_arg = args[0]
+    if isinstance(first_arg, Interval):
+        # Start with a copy of the first interval
+        res_inf = np.copy(first_arg.inf)
+        res_sup = np.copy(first_arg.sup)
+    else:
+        # If the first argument is numeric, create a new interval
+        res_inf = np.asarray(first_arg)
+        res_sup = np.asarray(first_arg)
+
+    # Ensure starting arrays are at least 2D for concatenation
+    if res_inf.ndim < 2:
+        res_inf = res_inf.reshape(-1, 1)
+        res_sup = res_sup.reshape(-1, 1)
+
     # Concatenate with remaining arguments
     for i in range(1, len(args)):
         arg = args[i]
         
-        # Check if concatenated variable is an interval
         if isinstance(arg, Interval):
-            I.inf = np.concatenate([I.inf, arg.inf], axis=0)
-            I.sup = np.concatenate([I.sup, arg.sup], axis=0)
+            inf_to_add = arg.inf
+            sup_to_add = arg.sup
         else:
-            # Convert to numpy array for concatenation
-            arg_array = np.atleast_1d(arg)
-            I.inf = np.concatenate([I.inf, arg_array], axis=0)
-            I.sup = np.concatenate([I.sup, arg_array], axis=0)
+            inf_to_add = np.asarray(arg)
+            sup_to_add = np.asarray(arg)
+
+        # Ensure arrays to be added are at least 2D
+        if inf_to_add.ndim < 2:
+            inf_to_add = inf_to_add.reshape(-1, 1)
+            sup_to_add = sup_to_add.reshape(-1, 1)
+
+        res_inf = np.vstack([res_inf, inf_to_add])
+        res_sup = np.vstack([res_sup, sup_to_add])
     
-    return I 
+    return Interval(res_inf, res_sup) 

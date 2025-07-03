@@ -113,14 +113,24 @@ def representsa_(obj: Interval, set_type: str, tol: float = 1e-9, **kwargs) -> U
     elif set_type == 'conpolyzono':
         res = True
         if return_set:
+            from cora_python.contSet.zonotope.zonotope import Zonotope
             from cora_python.contSet.conPolyZono import ConPolyZono
-            S = ConPolyZono(obj)
+            # Convert interval to zonotope first
+            c = obj.center()
+            G = np.diag(obj.rad().flatten())
+            Z = Zonotope(c, G)
+            S = ConPolyZono(Z)
     
     elif set_type == 'conzonotope':
         res = True
         if return_set:
+            from cora_python.contSet.zonotope.zonotope import Zonotope
             from cora_python.contSet.conZonotope import ConZonotope
-            S = ConZonotope(obj)
+            # Convert interval to zonotope first
+            c = obj.center()
+            G = np.diag(obj.rad().flatten())
+            Z = Zonotope(c, G)
+            S = ConZonotope(Z)
     
     elif set_type == 'ellipsoid':
         # Either 1D, a point, or at most one dimension has non-zero width
@@ -162,8 +172,13 @@ def representsa_(obj: Interval, set_type: str, tol: float = 1e-9, **kwargs) -> U
     elif set_type == 'polyzonotope':
         res = True
         if return_set:
+            from cora_python.contSet.zonotope.zonotope import Zonotope
             from cora_python.contSet.polyZonotope import PolyZonotope
-            S = PolyZonotope(obj)
+            # Convert interval to zonotope first
+            c = obj.center()
+            G = np.diag(obj.rad().flatten())
+            Z = Zonotope(c, G)
+            S = PolyZonotope(Z)
     
     elif set_type == 'probzonotope':
         # Cannot be true
@@ -178,8 +193,10 @@ def representsa_(obj: Interval, set_type: str, tol: float = 1e-9, **kwargs) -> U
     elif set_type == 'zonotope':
         res = True
         if return_set:
-            from cora_python.contSet.zonotope import Zonotope
-            S = Zonotope(obj)
+            from cora_python.contSet.zonotope.zonotope import Zonotope
+            c = obj.center()
+            G = np.diag(obj.rad().flatten())
+            S = Zonotope(c, G)
     
     elif set_type == 'hyperplane':
         # Exactly one dimension has to be zero-width
@@ -190,8 +207,10 @@ def representsa_(obj: Interval, set_type: str, tol: float = 1e-9, **kwargs) -> U
     elif set_type == 'parallelotope':
         res = True
         if return_set:
-            from cora_python.contSet.zonotope import Zonotope
-            S = Zonotope(obj)
+            from cora_python.contSet.zonotope.zonotope import Zonotope
+            c = obj.center()
+            G = np.diag(obj.rad().flatten())
+            S = Zonotope(c, G)
     
     elif set_type == 'convexset':
         res = True

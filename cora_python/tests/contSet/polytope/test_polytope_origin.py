@@ -18,17 +18,21 @@ class TestOrigin:
         # Check that it's a 2D polytope
         assert P.dim() == 2
         
-        # Check vertex representation - should contain only the origin
-        # In d × n_vertices format: (2, 1) for 1 vertex in 2D space
-        assert P._V.shape == (2, 1)
-        assert np.array_equal(P._V, np.array([[0], [0]]))
-        assert P._has_v_rep == True
+        # Check that it's in H-representation initially
+        assert P._isHRep
+        assert not P._isVRep
         
         # Check halfspace representation
         expected_A = np.array([[1, 0], [0, 1], [-1, -1]])
         expected_b = np.array([[0], [0], [0]])
-        assert np.array_equal(P.A, expected_A)
-        assert np.array_equal(P.b, expected_b)
+        assert np.array_equal(P._A, expected_A)
+        assert np.array_equal(P._b, expected_b)
+        
+        # Trigger vertex computation and check the result
+        V = P.vertices()
+        assert P._isVRep
+        assert V.shape == (2, 1)
+        assert np.allclose(V, np.array([[0], [0]]))
 
     def test_origin_3d(self):
         # Test 3D origin polytope
@@ -37,17 +41,21 @@ class TestOrigin:
         # Check that it's a 3D polytope
         assert P.dim() == 3
         
-        # Check vertex representation - should contain only the origin
-        # In d × n_vertices format: (3, 1) for 1 vertex in 3D space
-        assert P._V.shape == (3, 1)
-        assert np.array_equal(P._V, np.array([[0], [0], [0]]))
-        assert P._has_v_rep == True
-        
+        # Check that it's in H-representation initially
+        assert P._isHRep
+        assert not P._isVRep
+
         # Check halfspace representation
         expected_A = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, -1, -1]])
         expected_b = np.array([[0], [0], [0], [0]])
-        assert np.array_equal(P.A, expected_A)
-        assert np.array_equal(P.b, expected_b)
+        assert np.array_equal(P._A, expected_A)
+        assert np.array_equal(P._b, expected_b)
+
+        # Trigger vertex computation and check the result
+        V = P.vertices()
+        assert P._isVRep
+        assert V.shape == (3, 1)
+        assert np.allclose(V, np.array([[0], [0], [0]]))
 
     def test_origin_invalid_input(self):
         # Test invalid input (non-positive dimension)

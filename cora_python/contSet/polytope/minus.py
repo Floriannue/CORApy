@@ -25,17 +25,17 @@ def minus(p: Polytope, q: object) -> Polytope:
         q_vec = q.reshape(-1, 1)
 
         # Create a deep copy to not modify the original
-        p_new = p.copy()
+        p_new = Polytope(p)
 
         # Translate H-representation if it exists
-        if p_new._has_h_rep:
-            if p_new._A is not None:
+        if p_new._isHRep:
+            if p_new._A is not None and p_new._b is not None:
                 p_new._b = p_new._b + p_new._A @ q_vec
-            if p_new._Ae is not None:
+            if p_new._Ae is not None and p_new._be is not None:
                 p_new._be = p_new._be + p_new._Ae @ q_vec
         
         # Translate V-representation if it exists
-        if p_new._has_v_rep:
+        if p_new._isVRep:
             if p_new._V is not None and p_new._V.size > 0:
                 p_new._V = p_new._V - q_vec
 

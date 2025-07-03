@@ -34,6 +34,7 @@ import numpy as np
 import sys
 import os
 from typing import TYPE_CHECKING, Union, List, Tuple
+from scipy.sparse import spmatrix
 
 # Add paths for imports
 if __name__ == "__main__":
@@ -123,54 +124,68 @@ class Interval(ContSet):
                 lb = np.asarray(args[0], dtype=float)
                 ub = lb.copy()
         elif len(args) == 2:
-            lb = np.asarray(args[0], dtype=float) if args[0] is not None else np.array([])
-            ub = np.asarray(args[1], dtype=float) if args[1] is not None else np.array([])
+            
+            if isinstance(args[0], spmatrix):
+                lb = args[0]
+            else:
+                lb = np.asarray(args[0], dtype=float) if args[0] is not None else np.array([])
+            
+            if isinstance(args[1], spmatrix):
+                ub = args[1]
+            else:
+                ub = np.asarray(args[1], dtype=float) if args[1] is not None else np.array([])
+
+        # If args has more than 2 elements, we have a problem
         else:
-            raise CORAerror('CORA:wrongInput', 'Invalid number of arguments')
+            raise CORAerror('CORA:wrongInputInConstructor', 'Invalid number of input arguments')
         
         return lb, ub
     
     def _check_input_args(self, lb, ub, n_in):
         """Check correctness of input arguments"""
         # Check for NaN values
-        if np.any(np.isnan(lb)) or np.any(np.isnan(ub)):
-            raise CORAerror('CORA:wrongInputInConstructor', 
-                           'Input arguments contain NaN values')
+        if isinstance(lb, spmatrix):
+            if np.any(np.isnan(lb.data)):
+                raise CORAerror('CORA:noNaNsAllowed')
+        elif np.any(np.isnan(lb)):
+            raise CORAerror('CORA:noNaNsAllowed')
         
-        # Check dimension compatibility
-        if lb.size > 0 and ub.size > 0:
-            if lb.shape != ub.shape:
-                raise CORAerror('CORA:wrongInputInConstructor',
-                               'Lower and upper bounds have different dimensions')
-            
-            # Check bound ordering with tolerance
-            if not np.all(lb <= ub):
-                if not np.all(withinTol(lb, ub, 1e-6) | (lb <= ub)):
-                    raise CORAerror('CORA:wrongInputInConstructor',
-                                   'Lower bound is larger than upper bound')
-    
+        if isinstance(ub, spmatrix):
+            if np.any(np.isnan(ub.data)):
+                raise CORAerror('CORA:noNaNsAllowed')
+        elif np.any(np.isnan(ub)):
+            raise CORAerror('CORA:noNaNsAllowed')
+
+        # Check for dimension mismatch
+        if n_in == 2 and lb.shape != ub.shape:
+            raise CORAerror('CORA:dimensionMismatch')
+
+        # Check for wrong arguments
+        if n_in == 2 and lb.size > 0 and ub.size > 0:
+            lb_dense = lb.toarray() if isinstance(lb, spmatrix) else lb
+            ub_dense = ub.toarray() if isinstance(ub, spmatrix) else ub
+            if np.any(lb_dense > ub_dense):
+                raise CORAerror('CORA:wrongArguments')
+
     def _compute_properties(self, lb, ub):
         """Compute properties and handle corner cases"""
         # Handle empty intervals - preserve shape for proper empty intervals
         if lb.size == 0 and ub.size == 0:
             # Keep the original shape if it was intentionally set (e.g., (n, 0))
+            # In MATLAB, empty intervals preserve dimension information
             pass
-        
+
         # Check for infinite bounds that indicate empty intervals
         if lb.size > 0 and ub.size > 0:
+            lb_dense = lb.toarray() if isinstance(lb, spmatrix) else lb
+            ub_dense = ub.toarray() if isinstance(ub, spmatrix) else ub
             # If any dimension has [-inf, -inf] or [inf, inf], it's empty
-            inf_mask = np.isinf(lb) & np.isinf(ub) & (np.sign(lb) == np.sign(ub))
+            inf_mask = np.isinf(lb_dense) & np.isinf(ub_dense) & (np.sign(lb_dense) == np.sign(ub_dense))
             if np.any(inf_mask):
-                # For matrices, this is not allowed
-                if lb.ndim > 1 and np.any(np.array(lb.shape) > 1):
-                    raise CORAerror('CORA:wrongInputInConstructor',
-                                   'Empty interval matrix cannot be instantiated')
-                # Create empty interval
-                shape = list(lb.shape)
-                shape = [s if s > 1 else 0 for s in shape]
-                lb = np.zeros(shape)
-                ub = np.zeros(shape)
-        
+                # Set corresponding intervals to be empty
+                lb[inf_mask] = np.nan
+                ub[inf_mask] = np.nan
+
         return lb, ub
     
     def end(self, k, n):
@@ -248,4 +263,10 @@ class Interval(ContSet):
         # Apply the same indexing to both inf and sup
         new_inf = self.inf[key]
         new_sup = self.sup[key]
+        return Interval(new_inf, new_sup)
+
+    def take(self, indices, axis=None):
+        """Take elements from an interval along an axis."""
+        new_inf = np.take(self.inf, indices, axis=axis)
+        new_sup = np.take(self.sup, indices, axis=axis)
         return Interval(new_inf, new_sup) 

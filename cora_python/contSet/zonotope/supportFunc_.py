@@ -7,7 +7,7 @@ from typing import Tuple, Union, Optional
 from .zonotope import Zonotope
 
 
-def supportFunc_(Z: Zonotope, dir: np.ndarray, type: str = 'upper') -> Tuple[Union[float, 'Interval'], np.ndarray, np.ndarray]:
+def supportFunc_(Z: Zonotope, dir: np.ndarray, type: str = 'upper', *args, **kwargs) -> Tuple[Union[float, 'Interval'], np.ndarray, np.ndarray]:
     """
     Calculates the upper or lower bound of a zonotope along a certain direction
     

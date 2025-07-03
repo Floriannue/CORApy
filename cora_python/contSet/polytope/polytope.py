@@ -29,23 +29,19 @@ Outputs:
     obj - generated polytope object
 
 Example: 
-    A = [1 0 -1 0 1];
-    b = [3; 2; 3; 2; 1];
-    P = polytope(A,b);
+    A = np.array([[1, 0, -1, 0, 1], [0, 1, 0, -1, 1]]).T
+    b = np.array([3, 2, 3, 2, 1])
+    P = Polytope(A, b)
 
 Other m-files required: none
 Subfunctions: none
 MAT-files required: none
 
-Authors:       Viktor Kotsev, Mark Wetzlinger, Tobias Ladner
-Written:       25-April-2022
-Last update:   01-December-2022 (MW, add CORAerrors, checks)
-               12-June-2023 (MW, add hidden properties)
-               08-December-2023 (MW, handle -Inf/Inf offsets)
-               01-January-2024 (MW, different meaning of fully empty obj)
-               13-March-2024 (TL, check if input is numeric)
-               16-July-2024 (MW, allow separate usage of VRep/HRep)
-Last revision: 25-July-2023 (MW, restructure constructor)
+Authors:       Viktor Kotsev, Mark Wetzlinger, Tobias Ladner (MATLAB)
+               Python translation by AI Assistant
+Written:       25-April-2022 (MATLAB)
+Last update:   16-July-2024 (MATLAB)
+Python translation: 2025
 """
 
 # This file is part of the CORA project.
@@ -53,10 +49,11 @@ Last revision: 25-July-2023 (MW, restructure constructor)
 # All rights reserved.
 
 import numpy as np
-from typing import Union, List, Tuple, TYPE_CHECKING
+from typing import Union, List, Tuple, TYPE_CHECKING, Optional
 
 from cora_python.contSet.contSet.contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 from .vertices_ import vertices_
 from .dim import dim
@@ -75,117 +72,301 @@ class Polytope(ContSet):
     # Give higher priority than numpy arrays for @ operator
     __array_priority__ = 1000
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args):
         """
         Constructor for the Polytope class.
 
-        Possible calls:
-        P = Polytope()
-        P = Polytope(V)
-        P = Polytope(contSetObj)
-        P = Polytope(A, b)
-        P = Polytope(A, b, Ae, be)
-        P = Polytope(A=A, b=b, A_eq=Ae, b_eq=be)
+        Args:
+            *args: Variable arguments for different construction modes:
+                   - Polytope(): Empty polytope (not allowed, throws error)
+                   - Polytope(V): Vertex representation
+                   - Polytope(A, b): Halfspace representation
+                   - Polytope(A, b, Ae, be): Halfspace with equality constraints
+                   - Polytope(other_polytope): Copy constructor
         """
         super().__init__()
-        self.precedence = 80
-        self.dimension = 0
-
-        # Representations
-        self._V = None
-        self._A = kwargs.get('A', None)
-        self._b = kwargs.get('b', None)
-        self._Ae = kwargs.get('A_eq', kwargs.get('Ae', None))
-        self._be = kwargs.get('b_eq', kwargs.get('be', None))
         
-        # Internal flags
-        self._has_v_rep = False
-        self._has_h_rep = False
-
-        # --- Constructor Logic ---
-        # Handle keyword-based H-representation initialization
-        if any(key in kwargs for key in ['A', 'b', 'A_eq', 'b_eq', 'Ae', 'be']):
-            if self._A is not None:
-                self._has_h_rep = True
-                self.dimension = np.asarray(self._A).shape[1]
-            if self._Ae is not None:
-                self._has_h_rep = True
-                if self.dimension == 0:
-                     self.dimension = np.asarray(self._Ae).shape[1]
-            if self._b is not None:
-                self._b = np.asarray(self._b).reshape(-1, 1)
-            if self._be is not None:
-                self._be = np.asarray(self._be).reshape(-1, 1)
-            return
-
+        # 0. avoid empty instantiation
         if len(args) == 0:
-            # Empty polytope
-            self._has_v_rep = True # Empty V-rep
-            self._V = np.array([[]])
-            return
+            raise CORAerror('CORA:noInputInSetConstructor')
+        
+        if len(args) > 4:
+            raise CORAerror('CORA:wrongInput', 'Too many input arguments')
 
-        # Copy constructor
+        # 1. copy constructor
         if len(args) == 1 and isinstance(args[0], Polytope):
-            p_in = args[0]
-            self._V = p_in._V.copy() if p_in._V is not None else None
-            self._A = p_in._A.copy() if p_in._A is not None else None
-            self._b = p_in._b.copy() if p_in._b is not None else None
-            self._Ae = p_in._Ae.copy() if p_in._Ae is not None else None
-            self._be = p_in._be.copy() if p_in._be is not None else None
-            self._has_v_rep = p_in._has_v_rep
-            self._has_h_rep = p_in._has_h_rep
-            self.dimension = p_in.dimension
+            P = args[0]
+            # Copy properties
+            self._A = P._A.copy() if P._A is not None else None
+            self._b = P._b.copy() if P._b is not None else None
+            self._Ae = P._Ae.copy() if P._Ae is not None else None
+            self._be = P._be.copy() if P._be is not None else None
+            self._V = P._V.copy() if P._V is not None else None
+            self.precedence = P.precedence
+            
+            # Copy set properties
+            self._isHRep = P._isHRep
+            self._isVRep = P._isVRep
+            self._emptySet = P._emptySet
+            self._fullDim = P._fullDim
+            self._bounded = P._bounded
+            self._minHRep = P._minHRep
+            self._minVRep = P._minVRep
             return
 
-        # From another set object that has vertices
-        if len(args) == 1 and isinstance(args[0], ContSet):
-            try:
-                self._V = args[0].vertices()
-                self._has_v_rep = True
-            except (NotImplementedError, Exception):
-                raise CORAerror('CORA:wrongInputInConstructor',
-                              'The provided set object must have a vertices method.')
-            if self._V is None or self._V.size == 0:
-                 self._has_v_rep = False # Could not get vertices
-            else:
-                 self.dimension = self._V.shape[0]  # rows are spatial dimensions
-            return
+        # 2. parse input arguments: varargin -> vars
+        A, b, Ae, be, V = self._aux_parseInputArgs(*args)
 
-        # From numeric arrays
-        # V-representation
-        if len(args) == 1:
-            self._V = np.asarray(args[0])
-            if self._V.size > 0:
-                self.dimension = self._V.shape[0]  # rows are spatial dimensions
-            self._has_v_rep = True
-        # H-representation
-        elif len(args) in [2, 3, 4]:
-            self._A = np.asarray(args[0])
-            self._b = np.asarray(args[1]).reshape(-1, 1)
-            if self._A.size > 0:
-                self.dimension = self._A.shape[1]
+        # 3. check correctness of input arguments
+        self._aux_checkInputArgs(A, b, Ae, be, V, len(args))
 
-            if len(args) >= 3 and args[2] is not None:
-                self._Ae = np.asarray(args[2])
-                if self.dimension == 0 and self._Ae.size > 0:
-                    self.dimension = self._Ae.shape[1]
-            if len(args) == 4 and args[3] is not None:
-                self._be = np.asarray(args[3]).reshape(-1, 1)
-            self._has_h_rep = True
+        # 4. compute properties and hidden properties
+        A, b, Ae, be, V, isHRep, isVRep = self._aux_computeProperties(A, b, Ae, be, V, len(args))
+        empty, bounded, fullDim, minHRep, minVRep, V, isHRep, isVRep = \
+            self._aux_computeHiddenProperties(A, b, Ae, be, V, isHRep, isVRep)
+
+        # 4a. assign properties
+        self._A = A
+        self._b = b
+        self._Ae = Ae
+        self._be = be
+        self._V = V
+
+        self._isHRep = isHRep
+        self._isVRep = isVRep
+        self._emptySet = empty
+        self._bounded = bounded
+        self._fullDim = fullDim
+        self._minHRep = minHRep
+        self._minVRep = minVRep
+
+        # 5. set precedence (fixed)
+        self.precedence = 80
+
+    def _aux_parseInputArgs(self, *varargin):
+        """Parse input arguments from user and assign to variables"""
+        # no input arguments
+        if len(varargin) == 0:
+            A = np.array([])
+            b = np.array([])
+            Ae = np.array([])
+            be = np.array([])
+            V = np.array([])
+            return A, b, Ae, be, V
+
+        # read out arguments
+        if len(varargin) == 1:
+            # vertices as input argument
+            V = np.asarray(varargin[0])
+            A = np.array([])
+            b = np.array([])
+            Ae = np.array([])
+            be = np.array([])
         else:
-            raise CORAerror('CORA:wrongInputInConstructor',
-                          'Invalid number of arguments for Polytope constructor.')
+            # halfspaces as input arguments
+            A = np.asarray(varargin[0]) if varargin[0] is not None else np.array([])
+            b = np.asarray(varargin[1]) if varargin[1] is not None else np.array([])
+            Ae = np.asarray(varargin[2]) if len(varargin) > 2 and varargin[2] is not None else np.array([])
+            be = np.asarray(varargin[3]) if len(varargin) > 3 and varargin[3] is not None else np.array([])
+            V = np.array([])
 
+        return A, b, Ae, be, V
+
+    def _aux_checkInputArgs(self, A, b, Ae, be, V, n_in):
+        """Check correctness of input arguments"""
+        # Only check if macro set to true (simplified for Python)
+        CHECKS_ENABLED = True
+        
+        if CHECKS_ENABLED and n_in > 0:
+            # Check numeric type of V
+            if V.size > 0:
+                if np.any(np.isnan(V)):
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'Vertices have to be non-nan.')
+                elif V.shape[0] > 1 and np.any(np.isinf(V)):
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'nD vertices for n > 1 have to be finite.')
+
+            # Check types (all should be numeric arrays)
+            for var, name in [(A, 'A'), (b, 'b'), (Ae, 'Ae'), (be, 'be')]:
+                if var.size > 0 and not np.issubdtype(var.dtype, np.number):
+                    raise CORAerror('CORA:wrongInputInConstructor', f'{name} has to be numeric.')
+
+            # Check b, be (get later reshaped to column vector)
+            if b.size > 0 and b.ndim > 1 and min(b.shape) > 1:
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Argument "b" has to be column vector.')
+            if be.size > 0 and be.ndim > 1 and min(be.shape) > 1:
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Argument "be" has to be column vector.')
+
+            # Check number of inequality constraints
+            if A.size > 0 and A.shape[0] != len(b.flatten()):
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Number of rows does not hold between arguments "A", "b".')
+            
+            # Check for empty argument
+            if A.size == 0 and b.size > 0:
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Number of rows does not hold between arguments "A", "b".')
+
+            # Check number of equality constraints
+            if Ae.size > 0 and Ae.shape[0] != len(be.flatten()):
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Number of rows does not hold between arguments "Ae", "be".')
+
+            # Same dimension if both equality and inequality constraints given
+            if A.size > 0 and Ae.size > 0 and A.shape[1] != Ae.shape[1]:
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Number of columns does not hold between arguments "A", "Ae".')
+
+    def _aux_computeProperties(self, A, b, Ae, be, V, n_in):
+        """Compute properties and fix dimensions"""
+        # Determine dimension
+        dims = []
+        if A.size > 0:
+            dims.append(A.shape[1])
+        if Ae.size > 0:
+            dims.append(Ae.shape[1])
+        if V.size > 0:
+            dims.append(V.shape[0])
+        
+        n = max(dims) if dims else 0
+
+        # Offsets must be column vectors
+        if b.size > 0:
+            b = b.reshape(-1, 1)
+        if be.size > 0:
+            be = be.reshape(-1, 1)
+
+        # Store which representation is given (constructor only allows one)
+        isVRep = n_in == 1
+        isHRep = not isVRep
+
+        # In 1D, remove redundancies (otherwise keep V as is)
+        if isVRep and n == 1 and V.size > 0:
+            V_min = np.min(V)
+            V_max = np.max(V)
+            V = np.array([V_min, V_max])
+            if withinTol(V[0], V[1], np.finfo(float).eps):
+                V = np.array([V[0]])
+
+        # Empty constraint matrices must have correct dimension
+        if A.size == 0:
+            A = np.zeros((0, n))
+        if Ae.size == 0:
+            Ae = np.zeros((0, n))
+
+        # Remove inequality constraints with Inf in offset (trivially fulfilled)
+        if b.size > 0:
+            idxRemove = np.isinf(b.flatten()) & (np.sign(b.flatten()) == 1)
+            if np.any(idxRemove):
+                A = A[~idxRemove, :]
+                b = b[~idxRemove]
+
+        return A, b, Ae, be, V, isHRep, isVRep
+
+    def _aux_computeHiddenProperties(self, A, b, Ae, be, V, isHRep, isVRep):
+        """Compute hidden properties"""
+        # Init hidden properties as unknown
+        empty = None
+        bounded = None
+        fullDim = None
+        minHRep = None
+        minVRep = None
+
+        # Determine dimension
+        dims = []
+        if A.size > 0:
+            dims.append(A.shape[1])
+        if Ae.size > 0:
+            dims.append(Ae.shape[1])
+        if V.size > 0:
+            dims.append(V.shape[0])
+        
+        n = max(dims) if dims else 0
+
+        # Check if instantiated via vertices
+        if isVRep:
+            # Check emptiness
+            empty = V.size == 0 or (V.ndim == 2 and V.shape[1] == 0)
+
+            # Max. 1 vertex -> minimal V-representation
+            minVRep = V.size <= 1 or (V.ndim == 2 and V.shape[1] <= 1) or n == 1
+
+            # Check if 1D
+            if n == 1:
+                # Inf values for vertices only supported for 1D
+                if np.any(np.isinf(V)):
+                    bounded = False
+                    fullDim = True
+                else:
+                    bounded = True
+                    fullDim = V.size > 1 if V.ndim == 1 else V.shape[1] > 1
+            else:
+                # nD -> has to be bounded
+                bounded = True
+                # Easy checks for degeneracy
+                if V.ndim == 1:
+                    num_vertices = 1 if V.size > 0 else 0
+                else:
+                    num_vertices = V.shape[1]
+                
+                if num_vertices <= n:
+                    # Full-dimensionality requires at least n+1 vertices
+                    fullDim = False
+                else:
+                    # Use SVD to check full dimensionality
+                    try:
+                        V_centered = V - np.mean(V, axis=1, keepdims=True)
+                        _, S, _ = np.linalg.svd(V_centered, full_matrices=False)
+                        fullDim = n == np.sum(~withinTol(S, 0, 1e-12))
+                    except:
+                        fullDim = None
+
+        elif isHRep:
+            if A.size == 0 and Ae.size == 0:
+                # No constraints
+                empty = False
+                bounded = False
+                fullDim = True
+                minHRep = True
+                # Do not compute -Inf/Inf vertices here...
+                V = np.array([])
+                minVRep = None
+            else:
+                # Equality constraint with -Inf or Inf in offset OR inequality
+                # constraint with -Inf in offset -> empty polytope
+                be_inf = be.size > 0 and np.any(np.isinf(be))
+                b_neg_inf = b.size > 0 and np.any(np.isinf(b) & (np.sign(b) == -1))
+                
+                if be_inf or b_neg_inf:
+                    empty = True
+                    bounded = True
+                    fullDim = False
+                    # Only a single infeasible constraint required to represent an empty set
+                    minHRep = (be.size + b.size) == 1
+                    # Init no vertices (which is the minimal representation)
+                    V = np.zeros((n, 0))
+                    isVRep = True
+                    minVRep = True
+
+        return empty, bounded, fullDim, minHRep, minVRep, V, isHRep, isVRep
+
+    # Property getters that match MATLAB behavior
     @property
     def V(self):
-        if not self._has_v_rep:
-            self._V = vertices_(self)
-            self._has_v_rep = True
+        """Get vertices (throws error if not available)"""
+        if not self._isVRep:
+            raise CORAerror('CORA:specialError',
+                           "The vertex representation is not available. " +
+                           "Call the function 'polytope/vertices'.")
         return self._V
 
     @property
     def A(self):
-        if not self._has_h_rep:
+        """Get inequality constraint matrix"""
+        if not self._isHRep:
             raise CORAerror('CORA:specialError',
                            "The halfspace representation is not available. " +
                            "Call the function 'polytope/constraints'.")
@@ -193,7 +374,8 @@ class Polytope(ContSet):
 
     @property
     def b(self):
-        if not self._has_h_rep:
+        """Get inequality constraint vector"""
+        if not self._isHRep:
             raise CORAerror('CORA:specialError',
                            "The halfspace representation is not available. " +
                            "Call the function 'polytope/constraints'.")
@@ -201,7 +383,8 @@ class Polytope(ContSet):
 
     @property
     def Ae(self):
-        if not self._has_h_rep:
+        """Get equality constraint matrix"""
+        if not self._isHRep:
             raise CORAerror('CORA:specialError',
                            "The halfspace representation is not available. " +
                            "Call the function 'polytope/constraints'.")
@@ -209,11 +392,48 @@ class Polytope(ContSet):
 
     @property
     def be(self):
-        if not self._has_h_rep:
+        """Get equality constraint vector"""
+        if not self._isHRep:
             raise CORAerror('CORA:specialError',
                            "The halfspace representation is not available. " +
                            "Call the function 'polytope/constraints'.")
         return self._be
+
+    # Additional properties for compatibility
+    @property
+    def isHRep(self):
+        """Check if halfspace representation is available"""
+        return self._isHRep
+
+    @property
+    def isVRep(self):
+        """Check if vertex representation is available"""
+        return self._isVRep
+
+    @property
+    def emptySet(self):
+        """Check if polytope is empty"""
+        return self._emptySet
+
+    @property
+    def fullDim(self):
+        """Check if polytope is full-dimensional"""
+        return self._fullDim
+
+    @property
+    def bounded(self):
+        """Check if polytope is bounded"""
+        return self._bounded
+
+    @property
+    def minHRep(self):
+        """Check if halfspace representation is minimal"""
+        return self._minHRep
+
+    @property
+    def minVRep(self):
+        """Check if vertex representation is minimal"""
+        return self._minVRep
 
     # Abstract methods implementation (required by ContSet)
     def dim(self) -> int:
@@ -231,18 +451,18 @@ class Polytope(ContSet):
         """
         try:
             if self.is_empty():
-                return f"Polytope.empty({self.dimension})"
-            elif self._has_v_rep and self._V is not None and self._V.size <= 12:
+                return f"Polytope.empty({self.dim()})"
+            elif self._isVRep and self._V is not None and self._V.size <= 12:
                 # For small polytopes, show vertices
                 return f"Polytope({self._V.tolist()})"
-            elif self._has_h_rep and self._A is not None and self._A.size <= 12:
+            elif self._isHRep and self._A is not None and self._A.size <= 12:
                 # For small polytopes, show constraints
-                if self._Ae is not None and self._be is not None:
+                if self._Ae is not None and self._be is not None and self._Ae.size > 0:
                     return f"Polytope({self._A.tolist()}, {self._b.flatten().tolist()}, {self._Ae.tolist()}, {self._be.flatten().tolist()})"
                 else:
                     return f"Polytope({self._A.tolist()}, {self._b.flatten().tolist()})"
             else:
-                return f"Polytope(dim={self.dimension})"
+                return f"Polytope(dim={self.dim()})"
         except:
             return "Polytope()"
     
@@ -256,7 +476,6 @@ class Polytope(ContSet):
             return display(self)
         except:
             return self.__repr__()
-    
 
 
 

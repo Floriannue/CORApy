@@ -34,43 +34,33 @@ def horzcat(*args):
         I: interval object
     """
     
-    if len(args) == 0:
-        raise ValueError("At least one argument required for concatenation")
-    
-    # Start with first argument
-    I = args[0]
-    
-    # If object is not an interval, convert it
-    if not isinstance(I, Interval):
-        I = Interval(I, I)
-    
-    # Ensure arrays are at least 2D for horizontal concatenation
-    if I.inf.ndim == 1:
-        I.inf = I.inf.reshape(-1, 1)
-        I.sup = I.sup.reshape(-1, 1)
-    
-    # Concatenate with remaining arguments
-    for i in range(1, len(args)):
-        arg = args[i]
-        
-        # Check if concatenated variable is an interval
+    if not args:
+        return Interval.empty()
+
+    infs = []
+    sups = []
+
+    for arg in args:
         if isinstance(arg, Interval):
-            arg_inf = arg.inf
-            arg_sup = arg.sup
-            
-            # Ensure arg arrays are at least 2D
-            if arg_inf.ndim == 1:
-                arg_inf = arg_inf.reshape(-1, 1)
-                arg_sup = arg_sup.reshape(-1, 1)
-                
-            I.inf = np.concatenate([I.inf, arg_inf], axis=1)
-            I.sup = np.concatenate([I.sup, arg_sup], axis=1)
+            if arg.is_empty():
+                continue
+            inf_val = arg.inf
+            sup_val = arg.sup
         else:
-            # Convert to numpy array for concatenation
-            arg_array = np.atleast_1d(arg)
-            if arg_array.ndim == 1:
-                arg_array = arg_array.reshape(-1, 1)
-            I.inf = np.concatenate([I.inf, arg_array], axis=1)
-            I.sup = np.concatenate([I.sup, arg_array], axis=1)
+            inf_val = np.asarray(arg)
+            sup_val = np.asarray(arg)
+
+        # Ensure values are at least 1-D for np.atleast_2d to work as expected on scalars
+        inf_val = np.atleast_1d(inf_val)
+        sup_val = np.atleast_1d(sup_val)
+        
+        infs.append(np.atleast_2d(inf_val))
+        sups.append(np.atleast_2d(sup_val))
+
+    if not infs:
+        return Interval.empty()
+
+    final_inf = np.hstack(infs)
+    final_sup = np.hstack(sups)
     
-    return I 
+    return Interval(final_inf, final_sup) 

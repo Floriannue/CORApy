@@ -84,11 +84,11 @@ def display(P: 'Polytope', name: str = None) -> str:
     output_lines.append("")
     
     # Display dimension (from base class)
-    output_lines.append(f"Polytope object with dimension: {P.dimension}")
+    output_lines.append(f"Polytope object with dimension: {P.dim()}")
     output_lines.append("")
 
     # Display vertex representation - check flag first
-    if P._has_v_rep and P._V is not None:
+    if P._isVRep and P._V is not None:
         output_lines.append('Vertex representation:')
         output_lines.extend(displayMatrixVector(P._V, 'V'))
     else:
@@ -114,14 +114,12 @@ def display(P: 'Polytope', name: str = None) -> str:
     output_lines.append("")
     
     # Display set properties (if available)
-    # Note: These would need to be computed/cached in the polytope class
-    # For now, we'll show basic info
     output_lines.append("Set properties:")
-    output_lines.append(f"Bounded?                          Unknown")
-    output_lines.append(f"Empty set?                        Unknown") 
-    output_lines.append(f"Full-dimensional set?             Unknown")
-    output_lines.append(f"Minimal halfspace representation? Unknown")
-    output_lines.append(f"Minimal vertex representation?    Unknown")
+    output_lines.append(f"Bounded?                          {aux_prop2string(P.bounded)}")
+    output_lines.append(f"Empty set?                        {aux_prop2string(P.emptySet)}") 
+    output_lines.append(f"Full-dimensional set?             {aux_prop2string(P.fullDim)}")
+    output_lines.append(f"Minimal halfspace representation? {aux_prop2string(P.minHRep)}")
+    output_lines.append(f"Minimal vertex representation?    {aux_prop2string(P.minVRep)}")
     output_lines.append("")
     
     return "\n".join(output_lines) 

@@ -42,23 +42,13 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
     n = p.dim()
 
     if set_type == 'emptySet':
-        # Check if emptiness already known
-        if hasattr(p, '_empty_set_cached') and p._empty_set_cached is not None:
-            res = p._empty_set_cached
-        elif p._has_v_rep:
-            # For V-representation, just check if no vertices
-            res = p._V.size == 0 or p._V.shape[1] == 0
-        else:
-            # For H-representation, need to call the private function
-            res = priv_representsa_emptySet(p._A, p._b, p._Ae, p._be, n, tol)
-        
-        # Cache the result
-        p._empty_set_cached = res
+        # The 'emptySet' property is computed during construction
+        res = p.emptySet
             
     elif set_type == 'point':
-        if p._has_v_rep:
+        if p._isVRep:
             V = p._V
-            if V.size == 0 or V.shape[1] == 0:
+            if V is None or V.size == 0 or V.shape[1] == 0:
                 res = False  # Empty set is not a point
             elif V.shape[1] == 1:
                 res = True  # Single vertex
@@ -66,10 +56,10 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                 # Check if all vertices are the same
                 res = np.all(withinTol(V, V[:, [0]], tol))
         else:
-            # For H-representation, would need more complex check
-            # For now, delegate to vertex computation
-            V = p.V  # This will trigger V-rep computation
-            if V.size == 0 or V.shape[1] == 0:
+            # For H-representation, have to trigger vertex computation
+            from .vertices_ import vertices_
+            V = vertices_(p)
+            if V is None or V.size == 0 or V.shape[1] == 0:
                 res = False
             elif V.shape[1] == 1:
                 res = True
@@ -78,14 +68,14 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                 
     elif set_type == 'fullspace':
         # MATLAB behavior: check H-rep constraints if available, otherwise check V-rep for 1D infinite vertices
-        if p._has_h_rep:
+        if p._isHRep:
             # All constraints must be trivially fulfilled: A*x <= b with A=0, b>=0, Ae=0, be=0
             A, b, Ae, be = p._A, p._b, p._Ae, p._be
-            res = (np.all(withinTol(A, 0, tol)) and
-                   np.all(b >= 0) or np.all(withinTol(b, 0, tol))) and \
+            res = (A is None or A.size == 0 or np.all(withinTol(A, 0, tol))) and \
+                  (b is None or b.size == 0 or np.all(b >= -tol)) and \
                   (Ae is None or Ae.size == 0 or np.all(withinTol(Ae, 0, tol))) and \
                   (be is None or be.size == 0 or np.all(withinTol(be, 0, tol)))
-        elif p._has_v_rep and n == 1:
+        elif p._isVRep and n == 1:
             # For 1D V-representation, check for infinite vertices
             V = p._V
             res = np.any(V == -np.inf) and np.any(V == np.inf)
@@ -94,21 +84,19 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
             res = False
             
     elif set_type == 'origin':
-        if p._has_v_rep:
+        if p._isVRep:
             V = p._V
-            if V.size == 0 or V.shape[1] == 0:
+            if V is None or V.size == 0 or V.shape[1] == 0:
                 res = False  # Empty set is not origin
             else:
                 # Check if all vertices are at origin
                 res = np.all(withinTol(V, 0, tol))
         else:
-            # For H-representation, would need to check if origin satisfies all constraints
-            # For now, delegate to vertex computation
-            V = p.V  # This will trigger V-rep computation
-            if V.size == 0 or V.shape[1] == 0:
-                res = False
-            else:
-                res = np.all(withinTol(V, 0, tol))
+            # For H-representation, check if origin satisfies all constraints
+            A, b, Ae, be = p._A, p._b, p._Ae, p._be
+            # Check Ax <= b (0 <= b) and Aex = be (0 = be)
+            res = (A is None or b is None or np.all(b >= -tol)) and \
+                  (Ae is None or be is None or np.all(withinTol(be, 0, tol)))
 
     if 'return_set' in kwargs and kwargs['return_set']:
         if res:

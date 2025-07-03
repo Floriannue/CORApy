@@ -6,7 +6,7 @@ import numpy as np
 from cora_python.contSet.polytope.polytope import Polytope
 from cora_python.g.functions.matlab.validate.check.input_args_check import input_args_check
 
-def origin(n: int) -> Polytope:
+def origin(n: int) -> 'Polytope':
     """
     origin - instantiates a polytope that contains only the origin
 
@@ -23,16 +23,13 @@ def origin(n: int) -> Polytope:
        P = Polytope.origin(2);
     """
 
-    input_args_check([[n, 'att', 'numeric', {'scalar', 'positive', 'integer'}]])
+    input_args_check([[n, ['att', 'numeric'], ['scalar', 'positive', 'integer']]])
 
     # init halfspace representation (simplex with zero offset)
     A = np.vstack((np.eye(n), -np.ones((1, n))))
     b = np.zeros((n + 1, 1))
+    
+    # Create polytope from H-representation
     P = Polytope(A, b)
-
-    # init vertex representation - origin is a single point at [0, 0, ..., 0]
-    # In our unified format, vertices are d × n_vertices, so shape is (n, 1)
-    P._V = np.zeros((n, 1))
-    P._has_v_rep = True
 
     return P 

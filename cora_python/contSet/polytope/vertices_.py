@@ -19,7 +19,7 @@ def vertices_(P: 'Polytope') -> np.ndarray:
     """
     tol = 1e-9
 
-    if P._has_v_rep:
+    if P._isVRep:
         return P._V
 
     n = P.dim()
@@ -28,14 +28,14 @@ def vertices_(P: 'Polytope') -> np.ndarray:
     if n == 1:
         # Simplified 1D vertex calculation
         V_list = []
-        if P.A is not None and P.b is not None:
-            for i in range(P.A.shape[0]):
-                if P.A[i, 0] != 0:
-                    V_list.append(P.b[i, 0] / P.A[i, 0])
-        if P.Ae is not None and P.be is not None:
-            for i in range(P.Ae.shape[0]):
-                if P.Ae[i, 0] != 0:
-                    V_list.append(P.be[i, 0] / P.Ae[i, 0])
+        if P._A is not None and P._b is not None:
+            for i in range(P._A.shape[0]):
+                if P._A[i, 0] != 0:
+                    V_list.append(P._b[i, 0] / P._A[i, 0])
+        if P._Ae is not None and P._be is not None:
+            for i in range(P._Ae.shape[0]):
+                if P._Ae[i, 0] != 0:
+                    V_list.append(P._be[i, 0] / P._Ae[i, 0])
         
         if not V_list:
             return np.array([[]])
@@ -56,7 +56,7 @@ def vertices_(P: 'Polytope') -> np.ndarray:
         raise ValueError("Cannot compute vertices for an unbounded polytope.")
 
     # Combine all constraints into A_ineq*x <= b_ineq form
-    A_ineq, b_ineq = priv_equalityToInequality(P.A, P.b, P.Ae, P.be)
+    A_ineq, b_ineq = priv_equalityToInequality(P._A, P._b, P._Ae, P._be)
 
     if A_ineq is None or A_ineq.shape[0] < n:
         return np.zeros((n, 0)) # Not enough constraints to define vertices

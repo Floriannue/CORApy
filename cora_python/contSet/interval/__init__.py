@@ -77,6 +77,26 @@ from .sinh import sinh
 from .cosh import cosh
 from .tanh import tanh
 from .reshape import reshape
+from .acosh import acosh
+from .asin import asin
+from .asinh import asinh
+from .atanh import atanh
+from .sign import sign
+from .round_op import round_op
+from .sum_op import sum_op
+from .prod_op import prod_op
+from .diag import diag
+from .split import split
+from .norm_ import norm_
+from .tril import tril
+from .triu import triu
+from .copy import copy
+from .isnan import isnan
+from .isscalar import isscalar
+from .issparse import issparse
+from .kron import kron
+from .lift_ import lift_
+from .minkDiff import minkDiff
 
 # Attach all methods to the Interval class
 Interval.plus = plus
@@ -118,6 +138,7 @@ Interval.min = min
 Interval.max = max
 Interval.infimum = infimum
 Interval.supremum = supremum
+Interval.sign = sign
 
 # Attach new mathematical operations
 Interval.power = power
@@ -130,6 +151,25 @@ Interval.sinh = sinh
 Interval.cosh = cosh
 Interval.tanh = tanh
 Interval.reshape = reshape
+Interval.acosh = acosh
+Interval.asin = asin
+Interval.asinh = asinh
+Interval.atanh = atanh
+Interval.round = round_op
+Interval.sum = sum_op
+Interval.prod = prod_op
+Interval.diag = diag
+Interval.split = split
+Interval.norm_ = norm_
+Interval.tril = tril
+Interval.triu = triu
+Interval.copy = copy
+Interval.isnan = isnan
+Interval.isscalar = isscalar
+Interval.issparse = issparse
+Interval.kron = kron
+Interval.lift_ = lift_
+Interval.minkDiff = minkDiff
 
 # Attach operator overloading
 Interval.__eq__ = isequal  # == operator
@@ -157,6 +197,9 @@ Interval.__pow__ = power  # ** operator (element-wise power)
 Interval.__rpow__ = lambda self, other: power(other, self)  # ** operator (reverse)
 Interval.__truediv__ = rdivide  # / operator (element-wise division)
 Interval.__rtruediv__ = lambda self, other: rdivide(other, self)  # / operator (reverse)
+Interval.__round__ = round_op
+Interval.__sum__ = sum_op
+
 # Attach static methods
 Interval.empty = staticmethod(empty)
 Interval.Inf = staticmethod(Inf)
@@ -210,6 +253,22 @@ __all__ = [
     'max',
     'infimum',
     'supremum',
+    'sign',
+    'round_op',
+    'sum_op',
+    'prod_op',
+    'diag',
+    'split',
+    'norm_',
+    'tril',
+    'triu',
+    'copy',
+    'isnan',
+    'isscalar',
+    'issparse',
+    'kron',
+    'lift_',
+    'minkDiff',
     'power',
     'rdivide', 
     'mpower',
@@ -220,4 +279,8 @@ __all__ = [
     'cosh',
     'tanh',
     'reshape',
+    'acosh',
+    'asin',
+    'asinh',
+    'atanh',
 ] 

@@ -38,7 +38,7 @@ def dim(P: 'Polytope') -> int:
     Returns:
         int: Dimension of the polytope
     """
-    if P._has_h_rep:
+    if P._isHRep:
         # either constraints A*x <= b  or  Ae*x == be  given
         if P._A is not None and P._A.size > 0:
             n = P._A.shape[1]
@@ -49,9 +49,17 @@ def dim(P: 'Polytope') -> int:
             A_cols = P._A.shape[1] if P._A is not None else 0
             Ae_cols = P._Ae.shape[1] if P._Ae is not None else 0
             n = max(A_cols, Ae_cols)
-    elif P._has_v_rep:
+    elif P._isVRep:
         n = P._V.shape[0] if P._V is not None and P._V.size > 0 else 0
     else:
-        n = 0
+        # Fallback based on which attributes are populated
+        dims = []
+        if hasattr(P, '_A') and P._A is not None and P._A.size > 0:
+            dims.append(P._A.shape[1])
+        if hasattr(P, '_Ae') and P._Ae is not None and P._Ae.size > 0:
+            dims.append(P._Ae.shape[1])
+        if hasattr(P, '_V') and P._V is not None and P._V.size > 0:
+            dims.append(P._V.shape[0])
+        n = max(dims) if dims else 0
     
     return n 

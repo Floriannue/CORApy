@@ -83,14 +83,14 @@ def mtimes(factor1: object, factor2: object) -> Polytope:
             return _aux_mtimes_square_inv(P_out, matrix)
         
         # For H-representation polytopes with non-invertible square matrices, raise error
-        if (hasattr(P_out, '_has_h_rep') and P_out._has_h_rep and 
-            not (hasattr(P_out, '_has_v_rep') and P_out._has_v_rep) and
+        if (hasattr(P_out, '_isHRep') and P_out._isHRep and 
+            not (hasattr(P_out, '_isVRep') and P_out._isVRep) and
             matrix.shape[0] == matrix.shape[1] and 
             np.linalg.matrix_rank(matrix, tol=1e-12) < matrix.shape[0]):
             raise NotImplementedError("Multiplication with non-invertible matrix not supported for H-representation polytopes")
         
         # quicker computation using V-representation
-        if hasattr(P_out, '_has_v_rep') and P_out._has_v_rep and P_out._V is not None:
+        if hasattr(P_out, '_isVRep') and P_out._isVRep and P_out._V is not None:
             # For d × n_vertices format: M @ V where M is (m × d) and V is (d × n_vertices)
             # Result should be (m × n_vertices)
             V_new = matrix @ P_out._V
@@ -129,9 +129,9 @@ def _aux_mtimes_scaling(P: 'Polytope', fac: float) -> 'Polytope':
         # resulting polytope is only the origin
         return Polytope.origin(P.dim())
     
-    P_new = P.copy()
+    P_new = Polytope(P)
     
-    if hasattr(P_new, '_has_h_rep') and P_new._has_h_rep:
+    if hasattr(P_new, '_isHRep') and P_new._isHRep:
         if fac > 0:
             if P_new._b is not None:
                 P_new._b = P_new._b * fac
@@ -147,7 +147,7 @@ def _aux_mtimes_scaling(P: 'Polytope', fac: float) -> 'Polytope':
             P_new._be = P_new._be * fac
     
     # map vertices if given
-    if hasattr(P_new, '_has_v_rep') and P_new._has_v_rep and P_new._V is not None:
+    if hasattr(P_new, '_isVRep') and P_new._isVRep and P_new._V is not None:
         # For d × n_vertices format: V_new = fac * V
         P_new._V = P_new._V * fac
         
@@ -156,10 +156,10 @@ def _aux_mtimes_scaling(P: 'Polytope', fac: float) -> 'Polytope':
 
 def _aux_mtimes_square_inv(P: 'Polytope', M: np.ndarray) -> 'Polytope':
     """Matrix M is invertible."""
-    P_new = P.copy()
+    P_new = Polytope(P)
     
     # apply well-known formula (constraints times inverse of matrix)
-    if hasattr(P_new, '_has_h_rep') and P_new._has_h_rep:
+    if hasattr(P_new, '_isHRep') and P_new._isHRep:
         M_inv = np.linalg.inv(M)
         if P_new._A is not None:
             P_new._A = P_new._A @ M_inv
@@ -167,7 +167,7 @@ def _aux_mtimes_square_inv(P: 'Polytope', M: np.ndarray) -> 'Polytope':
             P_new._Ae = P_new._Ae @ M_inv
     
     # map vertices if given
-    if hasattr(P_new, '_has_v_rep') and P_new._has_v_rep and P_new._V is not None:
+    if hasattr(P_new, '_isVRep') and P_new._isVRep and P_new._V is not None:
         # For d × n_vertices format: V_new = M @ V where M is (d × d) and V is (d × n_vertices)
         P_new._V = M @ P_new._V
     
@@ -185,7 +185,7 @@ def _aux_mtimes_projection(P: 'Polytope', M: np.ndarray) -> 'Polytope':
     # get inverted diagonal matrix with non-zero singular values
     D_inv = np.diag(1.0 / S[:r])
     
-    P_new = P.copy()
+    P_new = Polytope(P)
     
     # init polytope before projection
     transform_matrix = V.T @ np.block([
@@ -193,7 +193,7 @@ def _aux_mtimes_projection(P: 'Polytope', M: np.ndarray) -> 'Polytope':
         [np.zeros((n - r, r)), np.eye(n - r)]
     ])
     
-    if hasattr(P_new, '_has_h_rep') and P_new._has_h_rep:
+    if hasattr(P_new, '_isHRep') and P_new._isHRep:
         if P_new._A is not None:
             P_new._A = P_new._A @ transform_matrix
         if P_new._Ae is not None:
@@ -222,9 +222,9 @@ def _aux_mtimes_lifting(P: 'Polytope', M: np.ndarray) -> 'Polytope':
     # get inverted diagonal matrix with non-zero singular values
     D_inv = np.diag(1.0 / S[:r])
     
-    P_new = P.copy()
+    P_new = Polytope(P)
     
-    if hasattr(P_new, '_has_h_rep') and P_new._has_h_rep:
+    if hasattr(P_new, '_isHRep') and P_new._isHRep:
         # Transform inequality constraints
         if P_new._A is not None:
             A_transform = np.block([P_new._A @ V.T[:, :r] @ D_inv, np.zeros((nr_ineq, m - r))])
@@ -252,15 +252,15 @@ def _aux_mtimes_lifting(P: 'Polytope', M: np.ndarray) -> 'Polytope':
 
 def _project_polytope(P: 'Polytope', dims: list) -> 'Polytope':
     """Project polytope onto specified dimensions."""
-    P_new = P.copy()
+    P_new = Polytope(P)
     
-    if hasattr(P_new, '_has_h_rep') and P_new._has_h_rep:
+    if hasattr(P_new, '_isHRep') and P_new._isHRep:
         if P_new._A is not None:
             P_new._A = P_new._A[:, dims]
         if P_new._Ae is not None:
             P_new._Ae = P_new._Ae[:, dims]
     
-    if hasattr(P_new, '_has_v_rep') and P_new._has_v_rep and P_new._V is not None:
+    if hasattr(P_new, '_isVRep') and P_new._isVRep and P_new._V is not None:
         P_new._V = P_new._V[dims, :]
     
     return P_new

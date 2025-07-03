@@ -74,7 +74,12 @@ def display(I: Interval, name: str = None) -> str:
     output_lines.append("")
     
     # Display dimension
-    output_lines.append(f"Interval object with dimension: {I.dim()}")
+    dim_val = I.dim()
+    if isinstance(dim_val, list):
+        dim_str = str(dim_val)
+    else:
+        dim_str = str(dim_val)
+    output_lines.append(f"Interval object with dimension: {dim_str}")
     output_lines.append("")
     
     # Check dimension for display method
@@ -94,7 +99,12 @@ def _disp_empty_set(I: Interval, name: str) -> str:
     output_lines.append("")
     output_lines.append(f"{name} =")
     output_lines.append("")
-    output_lines.append(f"  {I.dim()}-dimensional empty set (represented as Interval)")
+    dim_val = I.dim()
+    if isinstance(dim_val, list):
+        dim_str = 'x'.join(map(str, dim_val))
+    else:
+        dim_str = str(dim_val)
+    output_lines.append(f"  {dim_str}-dimensional empty set (represented as Interval)")
     output_lines.append("")
     return "\n".join(output_lines)
 
@@ -105,7 +115,12 @@ def _disp_rn(I: Interval, name: str) -> str:
     output_lines.append("")
     output_lines.append(f"{name} =")
     output_lines.append("")
-    output_lines.append(f"  R^{I.dim()} (represented as Interval)")
+    dim_val = I.dim()
+    if isinstance(dim_val, list):
+        dim_str = 'x'.join(map(str, dim_val))
+    else:
+        dim_str = str(dim_val)
+    output_lines.append(f"  R^{dim_str} (represented as Interval)")
     output_lines.append("")
     return "\n".join(output_lines)
 

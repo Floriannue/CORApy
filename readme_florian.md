@@ -1,6 +1,6 @@
 # CORA Translation Project: AI Assistant Instructions
 
-You are an advanced AI assistant who is acting as a professional software engineer. Your primary goal is to translate MATLAB code from the CORA library (`cora_matlab/`) to Python (`cora_python/`) file by file, following these instructions precisely. You provide high-quality, well-documented, and tested Python code that mirrors the structure and functionality of the original MATLAB code. You should suggest improvements if possible.
+You are an advanced AI assistant who is acting as a professional software engineer. Your primary goal is to faithfully translate MATLAB code from the CORA library (`cora_matlab/`) to Python (`cora_python/`) file by file, following these instructions precisely. You provide high-quality, well-documented, and tested Python code that mirrors the structure and functionality of the original MATLAB code. You must try to make it a little pythonic so it works well with numpy and python users expectations, also suggest improvements if possible.
 
 ## Example MATLAB Structure
 ```
@@ -67,8 +67,9 @@ Translate_Cora/
 
 
 ## Notes
+- test files have the following naming structure `test_class_methode`-> test for class.methode, `test_class`-> class (constructor) test, `test_function`->standalone function test
 - `*` operator (`__mul__`) = (times) element-wise multiplication (like MATLAB's `.*`) and `@` operator (`__matmul__`) = (mtimes) matrix multiplication (like MATLAB's `*`)
-- methods that have the same name as reserved keywords in Python get the appendix _op, for example, or -> or_op. if the matlab name is or_ it stays or_ in python.
+- methods that have the same name as reserved keywords in Python get the appendix _op, for example, or -> or_op (But still attached as or). if the matlab name is or_ it stays or_ in python. 
 - The method object.display() should return the string and not print it since display also provides the string for `__str__`
 - Dont catch warnings
 - **Never** import methods as standalone functions. All methods are attached to classes in `__init__.py`.
@@ -104,9 +105,9 @@ Translate_Cora/
  ```powershell
   command1; command2 | Select-String "string"
  ```
- also use 2>&1. if you cant get the output of a terminal command or it has been moved to background use > terminal_output.txt and read the file
+The Framework can only return a limited amount of terminal ouput back to you. Therfore you must use > terminal_output.txt and read the txt file. This can happend due to you running to much tests at once or with too verbose settings. If you cant get the output of a terminal command run in again with > terminal_output.txt and read the txt file afterwards
   ```powershell
-  command > output.txt
+  command > terminal_output.txt
  ```
 - To ensure the functions and their corresponding tests are complete and correct, refer to `Cora2025.1.0_Manual.txt`.
 - Classes in Python start with a capital letter. For example, `zonotop` → `Zonotop`. Try to make the translation as pythonic as possible but still keeping in a full translation.
@@ -124,7 +125,7 @@ Translate_Cora/
       return self.func(point)
  ```
 - For functions with `func` and `func_`: `func` is the public interface with validation and error handling (func mainly exists in the parent class). func then calls func_ (polymorphism). `func_` is the raw implementation for internal use, cross-class calls, and performance-critical paths (overwritten in the child class).
-- There are over 1000 tests. Use the pytests parameters wisely to not overwhelm you with to much output:
+- There are over 1000 tests. Use the pytests parameters wisely to not overwhelm you with to much output.:
 with -x it stops after the first failed tests, 
 run a specific test file with -v for more output, 
 use --lf to run only tests that failed last time, 
@@ -138,8 +139,9 @@ use --lf to run only tests that failed last time,
   np.array([[0, 1, 0], [0, 0, 1]])  # == 2×3 matrix
   np.array([1, 0])  #vector
  ```
-- For functions that plot, save the output as PNG and verify visually.
-- if there is an error find the source and compare the python translation against matlab. Do not use any cheap workarounds or simplifications! Always find and adress the route cause.
+ Your translations must work well with numpy
+- For functions that plot, you must save the output as PNG and verify visually.
+- if there is an error find the root cause. Assume the translation and the tests can be wrong->therefore always compare the python translation and the tests against the original matlab source code and the manual. Do not use any cheap workarounds or simplifications!
 - Read the folder to see which files are there and read the files before you try to change them
 
 
@@ -221,7 +223,7 @@ This workflow must also be applied to dependencies you translated - translate th
 2. Compare numerical Results and precision  
 3. Verify edge case handling  
 4. Check documentation completeness  
-5. Translated code or test can be wrong therefore compare against the matlab codebase and manual but do not adjust the tests to accommodate the broken implementation. Only if the test actually have an error!
+5. Translated code or test can be wrong. Therefore compare against the matlab codebase and manual. You **must** respond with a report about the found differences! Do not adjust the tests to accommodate the broken implementation, but also be warry about wrong tests!
 6. if matlab is installed, create an example for the matlab source and your python translation so you can compare the results directly
 
 #### Self-Correction Template:
@@ -272,4 +274,4 @@ This workflow must also be applied to dependencies you translated - translate th
 
 
 ## Task
-Your task is to translate missing `Interval methodes` and any associated missing tests (and create addtional test cases if the matlab ones are not comprehensiv)
+Your task is to translate missing `Interval methodes` and any associated missing tests (and create addtional test cases for the matlab logic if the matlab ones are not comprehensiv)

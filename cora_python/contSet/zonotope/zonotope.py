@@ -177,6 +177,61 @@ class Zonotope(ContSet):
         """Representation of zonotope"""
         return self.__str__()
     
+    # Legacy properties with deprecation warnings (matching MATLAB behavior)
+    @property
+    def Z(self):
+        """Legacy property: concatenated center and generator matrix [c, G]"""
+        import warnings
+        warnings.warn(
+            "Property 'zonotope.Z' is deprecated since CORA v2024. "
+            "Please use zonotope.c and zonotope.G instead. "
+            "This change was made to be consistent with the notation in papers.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return np.hstack([self.c, self.G])
+    
+    @Z.setter
+    def Z(self, Z):
+        """Legacy setter for Z property"""
+        import warnings
+        warnings.warn(
+            "Property 'zonotope.Z' is deprecated since CORA v2024. "
+            "Please use zonotope.c and zonotope.G instead. "
+            "This change was made to be consistent with the notation in papers.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        if Z is not None and Z.size > 0:
+            self.c = Z[:, 0:1]  # Keep as column vector
+            self.G = Z[:, 1:]
+    
+    @property
+    def halfspace(self):
+        """Legacy property: halfspace representation (deprecated)"""
+        import warnings
+        warnings.warn(
+            "Property 'zonotope.halfspace' is deprecated since CORA v2025. "
+            "Please call polytope(obj) instead. "
+            "This change was made to avoid code redundancy.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return None  # Always returns None as per MATLAB implementation
+    
+    @halfspace.setter
+    def halfspace(self, hs):
+        """Legacy setter for halfspace property"""
+        import warnings
+        warnings.warn(
+            "Property 'zonotope.halfspace' is deprecated since CORA v2025. "
+            "Please use polytope objects instead. "
+            "This change was made to avoid code redundancy.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        # Do nothing, just like MATLAB implementation
+        pass
     
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Handle numpy universal functions"""

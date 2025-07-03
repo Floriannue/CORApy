@@ -57,15 +57,15 @@ def interval(P: 'Polytope') -> Interval:
     # dimension
     n = P.dim()
     
-    # obtain bounding box in halfspace representation
-    if P._has_v_rep:
+    # obtain bounding box
+    if P._isVRep:
         # vertex representation
-        A, b, empty = priv_box_V(P.V, n)
+        A, b, empty = priv_box_V(P._V, n)
     else:
         # halfspace representation
-        Ae = getattr(P, 'Ae', np.array([]).reshape(0, n))
-        be = getattr(P, 'be', np.array([]).reshape(0, 1))
-        A, b, empty = priv_box_H(P.A, P.b, Ae, be, n)
+        Ae = getattr(P, '_Ae', np.array([]).reshape(0, n))
+        be = getattr(P, '_be', np.array([]).reshape(0, 1))
+        A, b, empty = priv_box_H(P._A, P._b, Ae, be, n)
     
     # exit if already empty
     if empty:

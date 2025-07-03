@@ -1,6 +1,14 @@
 """
 acos - Overloaded 'acos()' operator for intervals
 
+x_ is x infimum, x-- is x supremum
+
+[NaN, NaN] if (x_ < -1) and (x-- > 1),
+[NaN, NaN] if (x_ > 1) or (x-- < -1),
+[NaN, pi] if (x_ < -1) and (x-- in [-1, 1]),
+[0, NaN] if (x_ in [-1, 1]) and (x-- > 1),
+[acos(x--), acos(x_)] if (x >= -1) and (x <= 1).
+
 Syntax:
     res = acos(I)
 
@@ -11,12 +19,12 @@ Outputs:
     res - interval object
 
 Example: 
-    I = Interval(-0.5, 0.8)
-    I.acos()
+    I = Interval([-0.5, 0.3])
+    res = I.acos()
 
-Authors: Dmitry Grebenyuk (MATLAB)
+Authors: Matthias Althoff (MATLAB)
          Python translation by AI Assistant
-Written: 06-February-2016 (MATLAB)
+Written: 05-February-2016 (MATLAB)
 Python translation: 2025
 """
 
@@ -37,13 +45,37 @@ def acos(I):
         Interval object result of inverse cosine operation
     """
     
-    # acos is only defined for values in [-1, 1]
-    # Check domain validity
-    if np.any(I.inf < -1) or np.any(I.sup > 1):
-        raise CORAerror('CORA:outOfDomain', 'validDomain', '[-1,1]')
+    # to preserve the shape
+    lb = I.inf.copy()
+    ub = I.sup.copy()
     
-    # acos is monotonically decreasing, so acos(inf) becomes sup and acos(sup) becomes inf
-    res_inf = np.arccos(I.sup)
-    res_sup = np.arccos(I.inf)
+    # Initialize result arrays
+    res_inf = np.full_like(lb, np.nan)
+    res_sup = np.full_like(ub, np.nan)
+    
+    # find indices
+    # Case 1: [NaN, NaN] if (x_ < -1) and (x-- > 1), or (x_ > 1) or (x-- < -1)
+    ind1 = ((lb < -1) & (ub > 1)) | (lb > 1) | (ub < -1)
+    res_inf[ind1] = np.nan
+    res_sup[ind1] = np.nan
+    
+    # Case 2: [NaN, pi] if (x_ < -1) and (x-- in [-1, 1])
+    ind2 = (lb < -1) & (ub >= -1) & (ub <= 1)
+    res_inf[ind2] = np.nan
+    res_sup[ind2] = np.pi
+    
+    # Case 3: [0, NaN] if (x_ in [-1, 1]) and (x-- > 1)
+    ind3 = (lb >= -1) & (lb <= 1) & (ub > 1)
+    res_inf[ind3] = 0
+    res_sup[ind3] = np.nan
+    
+    # Case 4: [acos(x--), acos(x_)] if (x >= -1) and (x <= 1)
+    ind4 = (lb >= -1) & (ub <= 1)
+    res_inf[ind4] = np.arccos(ub[ind4])  # acos is decreasing
+    res_sup[ind4] = np.arccos(lb[ind4])
+    
+    # return error if NaN occurs
+    if np.any(np.isnan(res_inf)) or np.any(np.isnan(res_sup)):
+        raise CORAerror('CORA:outOfDomain', 'validDomain', '>= -1 && <= 1')
     
     return Interval(res_inf, res_sup) 

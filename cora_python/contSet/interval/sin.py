@@ -74,4 +74,4 @@ def sin(I: Interval) -> Interval:
     
     # Use the fast cosine algorithm with phase shift
     # sin(x) = cos(x - pi/2)
-    return I.cos(I - np.pi/2) 
+    return (I - np.pi/2).cos() 

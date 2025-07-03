@@ -42,11 +42,11 @@ def constraints(P: 'Polytope') -> 'Polytope':
         P: Same polytope object with halfspace representation computed
     """
     # Check if halfspace representation already available
-    if P._has_h_rep:
+    if P._isHRep:
         return P
         
     # Check if vertex representation is available
-    if not P._has_v_rep or P._V is None:
+    if not P._isVRep or P._V is None:
         raise CORAerror('CORA:specialError',
                        'Cannot compute constraints: no vertex representation available.')
     
@@ -79,7 +79,7 @@ def constraints(P: 'Polytope') -> 'Polytope':
     P._Ae = Ae
     P._be = be
     # Halfspace representation now computed
-    P._has_h_rep = True
+    P._isHRep = True
     
     return P
 

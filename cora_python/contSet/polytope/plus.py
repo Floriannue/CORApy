@@ -71,16 +71,19 @@ def _aux_plus_poly_point(P: 'Polytope', S: np.ndarray) -> 'Polytope':
                         'Minkowski addition with scalar is not supported unless the set is 1-dimensional.')
     
     # Use H-representation if available, otherwise convert
-    if P._has_h_rep:
-        A, b, Ae, be = priv_plus_minus_vector(P.A, P.b, P.Ae, P.be, S)
+    if P._isHRep:
+        A, b, Ae, be = priv_plus_minus_vector(P._A, P._b, P._Ae, P._be, S)
         P_out = Polytope(A, b, Ae, be)
-    elif P._has_v_rep:
+    elif P._isVRep:
         # For vertex representation, just add the vector to all vertices
-        V_new = P.V + S.T  # S.T to broadcast correctly
-        P_out = Polytope(V_new.T)  # Transpose back to get correct shape
+        V_new = P._V + S # Broadcasting should handle this
+        P_out = Polytope(V_new)
     else:
+        # This case should not be reached with the new constructor
         # Force computation of H-rep and use that
-        A, b, Ae, be = priv_plus_minus_vector(P.A, P.b, P.Ae, P.be, S)
+        from .constraints import constraints
+        P_H = constraints(P)
+        A, b, Ae, be = priv_plus_minus_vector(P_H._A, P_H._b, P_H._Ae, P_H._be, S)
         P_out = Polytope(A, b, Ae, be)
         
     return P_out
@@ -107,10 +110,10 @@ def plus(p1: Union['Polytope', np.ndarray], p2: Union['Polytope', np.ndarray]) -
     
     if isinstance(p2, Polytope):
         # Check representation flags BEFORE representsa calls that might change them
-        has_v1_orig = p1._has_v_rep
-        has_v2_orig = p2._has_v_rep
-        has_h1_orig = p1._has_h_rep
-        has_h2_orig = p2._has_h_rep
+        has_v1_orig = p1._isVRep
+        has_v2_orig = p2._isVRep
+        has_h1_orig = p1._isHRep
+        has_h2_orig = p2._isHRep
         
         # Special case checks
         if p1.representsa('fullspace', tol) or p2.representsa('fullspace', tol):
@@ -130,9 +133,10 @@ def plus(p1: Union['Polytope', np.ndarray], p2: Union['Polytope', np.ndarray]) -
             s_out = _aux_plus_Hpoly_Hpoly(p1, p2, n)
         else:
             # Force conversion to H-representation
-            p1.constraints()
-            p2.constraints()
-            s_out = _aux_plus_Hpoly_Hpoly(p1, p2, n)
+            from .constraints import constraints
+            p1_H = constraints(p1)
+            p2_H = constraints(p2)
+            s_out = _aux_plus_Hpoly_Hpoly(p1_H, p2_H, n)
             
         return _aux_setproperties(s_out, p1, p2)
     

@@ -69,10 +69,10 @@ def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytop
     if any(d > n for d in dims):
         raise CORAerror('CORA:wrongValue', 'second', f'Cannot compute projection on higher dimension than {n}.')
 
-    if P._has_v_rep:
+    if P._isVRep:
         # Adjust dims for 0-based indexing
         py_dims = [d - 1 for d in dims]
-        return Polytope(P.V[py_dims, :])
+        return Polytope(P._V[py_dims, :])
     
     # Projection for H-representation
     from .private.priv_normalize_constraints import priv_normalize_constraints
@@ -84,7 +84,7 @@ def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytop
         return Polytope.empty(len(dims))
 
     # Normalize and compact constraints
-    A, b, Ae, be = priv_normalize_constraints(P.A, P.b, P.Ae, P.be, 'A')
+    A, b, Ae, be = priv_normalize_constraints(P._A, P._b, P._Ae, P._be, 'A')
     A, b, Ae, be, empty, _ = priv_compact_all(A, b, Ae, be, n, tol)
     
     if empty:
