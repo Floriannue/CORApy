@@ -60,7 +60,7 @@ def minnorm(Z: 'Zonotope') -> Tuple[float, np.ndarray]:
     # Get halfspace representation
     # P = polytope(Z - Z.c)
     Z_centered = Z - Z.c
-    P = Polytope(Z_centered)
+    P = Z_centered.polytope()
     
     # Compute halfspace representation if not available
     P = constraints(P)

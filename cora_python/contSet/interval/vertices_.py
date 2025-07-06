@@ -66,39 +66,45 @@ def vertices_(I: 'Interval') -> np.ndarray:
         
         # Add back removed dimensions
         V = np.zeros((n, V_proj.shape[1]))
-        V[idx_zero_dim, :] = np.tile(val_zero_dim.reshape(-1, 1), (1, V_proj.shape[1]))
         V[~idx_zero_dim, :] = V_proj
+        V[idx_zero_dim, :] = np.tile(val_zero_dim.reshape(-1, 1), (1, V_proj.shape[1]))
         
+        return V
+    
     else:
-        # Compute all possible combinations of lower/upper bounds
-        # This is equivalent to MATLAB's combinator(2, dim(I), 'p', 'r') - 1
-        n_dim = I.dim()
+        # No degenerate dimensions, computing full vertices
         
-        # Handle scalar case (1D interval)
-        if n_dim == 1:
-            # For 1D intervals, vertices are just [inf, sup]
-            if I.inf.ndim == 0:  # Scalar interval
-                V = np.array([[I.inf.item(), I.sup.item()]])
-            else:  # 1D array interval
-                V = np.array([[I.inf[0], I.sup[0]]])
+        if n == 1:
+            # One-dimensional case - vertices should be (1, 2) shape: [inf, sup]
+            V = np.array([[I.inf[0], I.sup[0]]])
+            return V
+        
         else:
             # Multi-dimensional case
-            combinations = list(product([0, 1], repeat=n_dim))
-            fac = np.array(combinations, dtype=bool)
-            nr_comb = len(combinations)
+            nr_comb = 2 ** n
             
-            # Initialize all points with lower bound
-            V = np.tile(I.inf.reshape(-1, 1), (1, nr_comb))
+            # Create factors - mimic MATLAB's combinator(2,n,'p','r')-1
+            # This generates all combinations of 0s and 1s in a specific order
+            fac = np.zeros((nr_comb, n), dtype=bool)
+            for i in range(nr_comb):
+                # Generate combinations in the same order as MATLAB's combinator
+                for j in range(n):
+                    fac[i, j] = (i // (2 ** (n - 1 - j))) % 2 == 1
+            
+            # Create vertices matrix - initialize with lower bounds
+            V = np.tile(I.inf.flatten(), (nr_comb, 1)).T
             
             # Read out supremum
-            ub = I.sup
+            ub = I.sup.flatten()
             
-            # Loop over all factors
+            # Fill in vertices where factor is True
             for i in range(nr_comb):
                 V[fac[i], i] = ub[fac[i]]
+            
+            # 2D: sort vertices counter-clockwise (MATLAB: V(:,[1 2 4 3]))
+            if n == 2 and V.shape[1] == 4:
+                V = V[:, [0, 1, 3, 2]]  # Convert MATLAB [1 2 4 3] to Python [0 1 3 2]
+            
+            return V
     
-    # 2D: sort vertices counter-clockwise
-    if n == 2 and V.shape[1] == 4:
-        V = V[:, [0, 1, 3, 2]]  # Reorder to counter-clockwise
-    
-    return V 
+    # Function ends here - removed duplicate code 

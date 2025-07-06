@@ -26,18 +26,16 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import TYPE_CHECKING
-from cora_python.g.functions.matlab.validate.preprocessing.set_default_values import set_default_values
-from cora_python.g.functions.matlab.validate.check.input_args_check import input_args_check
+from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
+from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
 from cora_python.g.functions.verbose.plot import read_name_value_pair
 from cora_python.g.functions.verbose.plot import read_plot_options
 from cora_python.g.functions.verbose.plot import get_unbounded_axis_limits
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
-if TYPE_CHECKING:
-    from cora_python.contSet.contSet.contSet import ContSet
+from cora_python.contSet.contSet.contSet import ContSet
 
-def plot(S: 'ContSet', *args, **kwargs):
+def plot(S: ContSet, *args, **kwargs):
     """
     Plot a projection of a contSet
     
@@ -50,7 +48,6 @@ def plot(S: 'ContSet', *args, **kwargs):
     Returns:
         Matplotlib graphics object handle
     """
-    from cora_python.contSet.interval import Interval
     # Extract purpose from kwargs if provided
     purpose = kwargs.pop('purpose', 'none')
     
@@ -89,8 +86,8 @@ def _parse_input(S, args, kwargs):
     args_list = list(args)
     
     # Set default values - dims defaults to [0, 1] (Python 0-based indexing)
-    dims = set_default_values([[0, 1]], [args_list[0]] if args_list else [])
-    dims = dims[0]
+    defaults, _ = setDefaultValues([[0, 1]], [args_list[0]] if args_list else [])
+    dims = defaults[0]
     
     # Convert MATLAB 1-based indexing to Python 0-based if needed
     if isinstance(dims, (list, tuple, np.ndarray)) and len(dims) > 0:
@@ -116,9 +113,9 @@ def _parse_input(S, args, kwargs):
         dims = dims.tolist() if hasattr(dims, 'tolist') else dims
     
     # Check input arguments
-    input_args_check([
+    inputArgsCheck([
         [S, 'att', 'contSet'],
-        [dims, 'att', 'numeric', {'nonempty': True, 'integer': True, 'nonnegative': True, 'vector': True}]
+        [dims, 'att', 'numeric', ['nonempty', 'integer', 'nonnegative', 'vector']]
     ])
     
     # Additional validation: check if dimensions are valid for the set
@@ -168,7 +165,7 @@ def _process(S, dims, plot_kwargs, purpose='none'):
     S = S.project(dims)
     
     # Check if set is bounded
-    if isinstance(S, Interval):
+    if hasattr(S, '__class__') and S.__class__.__name__ == 'Interval':
         I = S
     else:
         I = S.interval()
@@ -189,9 +186,13 @@ def _process(S, dims, plot_kwargs, purpose='none'):
 
 def _intersect_with_axis_limits(S, plot_kwargs):
     """Intersect unbounded sets with axis limits"""
+    from cora_python.contSet.interval.interval import Interval
     
     # Get quick estimate of vertices from interval hull
-    I = S.interval()
+    if isinstance(S, Interval):
+        I = S
+    else:
+        I = S.interval()
     V = I.vertices_()
     
     # Consider given positioning options
@@ -204,7 +205,6 @@ def _intersect_with_axis_limits(S, plot_kwargs):
         xlim, ylim = get_unbounded_axis_limits(V)
         
         # Create axis interval
-        from cora_python.contSet.interval.interval import Interval
         I_axis = Interval(np.array([xlim[0], ylim[0]]), 
                          np.array([xlim[1], ylim[1]]))
         
@@ -213,7 +213,6 @@ def _intersect_with_axis_limits(S, plot_kwargs):
         xlim, ylim, zlim = get_unbounded_axis_limits(V)
         
         # Create axis interval
-        from cora_python.contSet.interval.interval import Interval
         I_axis = Interval(np.array([xlim[0], ylim[0], zlim[0]]), 
                          np.array([xlim[1], ylim[1], zlim[1]]))
     else:

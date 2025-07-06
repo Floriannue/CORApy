@@ -10,10 +10,11 @@ Written: 2025
 """
 
 # Import the main specification module
-from .specification import *
+from .specification import Specification
+
+# Import stlInterval
+from .stlInterval import StlInterval
 
 __all__ = [
-    'Specification', 'create_safety_specification', 'create_invariant_specification', 
-    'create_unsafe_specification', 'add', 'check', 'eq', 'isequal', 'inverse', 
-    'isempty', 'ne', 'project', 'splitLogic'
+    'Specification', 'StlInterval'
 ] 

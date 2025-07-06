@@ -36,8 +36,8 @@ def dim(S: 'ContSet') -> int:
     """
     Returns the dimension of the ambient space of a continuous set.
     
-    This function delegates to the object's dim() method if available,
-    otherwise returns 0 for the base contSet class.
+    This function uses polymorphic dispatch to call the appropriate
+    subclass implementation.
     
     Args:
         S: contSet object
@@ -46,10 +46,8 @@ def dim(S: 'ContSet') -> int:
         int: dimension of the ambient space
     """
     # Check if subclass has overridden dim method
-    base_class = type(S).__bases__[0] if type(S).__bases__ else None
-    if (hasattr(type(S), 'dim') and 
-        base_class and hasattr(base_class, 'dim') and
-        type(S).dim is not base_class.dim):
+    if type(S).dim is not dim:
         return type(S).dim(S)
     else:
+        # Default case for base contSet
         return 0

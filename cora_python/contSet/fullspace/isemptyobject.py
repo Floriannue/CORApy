@@ -41,4 +41,4 @@ def isemptyobject(fs: 'Fullspace') -> bool:
     """
     
     # Fullspace is empty if dimension is 0 or not set
-    return not hasattr(fs, 'n') or fs.n == 0 
+    return fs.dimension == 0 

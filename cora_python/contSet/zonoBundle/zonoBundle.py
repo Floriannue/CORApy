@@ -55,8 +55,6 @@ from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputAr
 from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
 from cora_python.g.macros import CHECKS_ENABLED
 
-if TYPE_CHECKING:
-    from cora_python.contSet.zonotope.zonotope import Zonotope
 
 
 class ZonoBundle(ContSet):
@@ -104,14 +102,24 @@ class ZonoBundle(ContSet):
         super().__init__()
         self.precedence = 100
 
+    def __repr__(self) -> str:
+        """
+        Official string representation for programmers
+        """
+        return f"ZonoBundle({self.parallelSets} zonotopes)"
+
 
 # Auxiliary functions -----------------------------------------------------
 
 def _aux_parseInputArgs(*varargin) -> List:
     """Parse input arguments from user and assign to variables"""
     
-    # set default values
-    Z = setDefaultValues([{}], list(varargin))[0]
+    # In MATLAB: Z = setDefaultValues({{}},varargin);
+    # setDefaultValues returns just the processed values, not a tuple
+    if len(varargin) == 1:
+        Z = varargin[0]
+    else:
+        Z = list(varargin)
     
     # Convert to list if needed
     if not isinstance(Z, list):
@@ -125,11 +133,9 @@ def _aux_checkInputArgs(Z: List, n_in: int):
     
     # only check if macro set to true
     if CHECKS_ENABLED and n_in > 0:
-
-        inputArgsCheck([[Z, 'att', 'cell']])
+        from cora_python.contSet.zonotope.zonotope import Zonotope
     
         # check if zonotopes
-        from cora_python.contSet.zonotope.zonotope import Zonotope
         if not all(isinstance(z, Zonotope) for z in Z):
             raise CORAerror('CORA:wrongInputInConstructor',
                           'First input argument has to be a list of zonotope objects.')

@@ -177,6 +177,16 @@ class Zonotope(ContSet):
         """Representation of zonotope"""
         return self.__str__()
     
+    @property
+    def center(self):
+        """Center of the zonotope"""
+        return self.c
+
+    @property
+    def generators(self):
+        """Generators of the zonotope"""
+        return self.G
+    
     # Legacy properties with deprecation warnings (matching MATLAB behavior)
     @property
     def Z(self):

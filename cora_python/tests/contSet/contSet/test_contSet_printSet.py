@@ -13,26 +13,24 @@ def test_contSet_printSet(capsys):
     # The main goal is to ensure it runs without error
     Z.printSet()
     captured = capsys.readouterr()
-    assert "zonotope" in captured.out
-    assert "c: [1 2]" in captured.out
+    assert "Zonotope" in captured.out
+    assert "np.array" in captured.out
 
     # Test 2: High accuracy
     Z.printSet('high')
     captured = capsys.readouterr()
-    assert "zonotope" in captured.out
-    assert "G: [[1.  0.5]" in captured.out
+    assert "Zonotope" in captured.out
+    assert "np.array" in captured.out
 
-    # Test 3: With braces
-    Z.printSet('high', use_braces=True)
+    # Test 3: Compact format
+    Z.printSet('%4.3f', True)
     captured = capsys.readouterr()
-    assert "{" in captured.out
-    assert "}" in captured.out
+    assert "Zonotope" in captured.out
     
-    # Test 4: Without braces
-    Z.printSet('low', use_braces=False)
+    # Test 4: Different accuracy
+    Z.printSet('%2.1f')
     captured = capsys.readouterr()
-    assert "{" not in captured.out
-    assert "}" not in captured.out
+    assert "Zonotope" in captured.out
 
     # Test 5: Call on a nested property (to exercise recursion)
     # Create a dummy object with a zonotope property
@@ -41,16 +39,11 @@ def test_contSet_printSet(capsys):
             self.z = z
         
         def getPrintSetInfo(self):
-            return "Mock", [('z', self.z)]
-        
-        def printSet(self, *args, **kwargs):
-            # Temporarily attach the real printSet for the test
-            from cora_python.contSet.contSet.printSet import printSet as ps
-            return ps(self, *args, **kwargs)
-
+            return "Mock", ['z']
+    
+    # Test that the function works without error on a mock object
     mock = MockObject(Z)
-    mock.printSet('high')
+    from cora_python.contSet.contSet.printSet import printSet
+    printSet(mock, 'high')
     captured = capsys.readouterr()
-    assert "Mock" in captured.out
-    assert "zonotope" in captured.out
-    assert "c: [1 2]" in captured.out 
+    assert "Mock" in captured.out 

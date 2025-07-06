@@ -52,21 +52,27 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
         return np.all((val == 0) | (val == 1))
 
     def aux_isinteger(val: Any) -> bool:
+        val = np.asarray(val) if isinstance(val, list) else val
         return np.all(val == np.floor(val))
 
     def aux_iseven(val: Any) -> bool:
+        val = np.asarray(val) if isinstance(val, list) else val
         return np.all(val % 2 == 0)
 
     def aux_isodd(val: Any) -> bool:
+        val = np.asarray(val) if isinstance(val, list) else val
         return np.all(val % 2 != 0)
 
     def aux_ispositive(val: Any) -> bool:
+        val = np.asarray(val) if isinstance(val, list) else val
         return np.all(val > 0)
 
     def aux_isnegative(val: Any) -> bool:
+        val = np.asarray(val) if isinstance(val, list) else val
         return np.all(val < 0)
 
     def aux_iszero(val: Any) -> bool:
+        val = np.asarray(val) if isinstance(val, list) else val
         return np.all(val == 0)
 
     def aux_checkAttribute(val: Any, cls_name: str, attribute: Union[str, Callable], reduction: str) -> bool:
@@ -115,6 +121,8 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
                 res = np.isfinite(val).all()
             elif attribute == 'nonnan':
                 res = (not np.isnan(val).any()) if isinstance(val, np.ndarray) else (not np.isnan(val))
+            elif attribute == 'nan':
+                res = np.isnan(val).any() if isinstance(val, np.ndarray) else np.isnan(val)
             elif attribute == 'empty':
                 if val is None:
                     res = True
@@ -222,7 +230,9 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
     if not class_name:
         class_check_passed = True
     elif class_name == 'numeric':
-        class_check_passed = isinstance(value, (int, float, np.number)) or (isinstance(value, np.ndarray) and np.issubdtype(value.dtype, np.number))
+        class_check_passed = (isinstance(value, (int, float, np.number)) or 
+                             (isinstance(value, np.ndarray) and np.issubdtype(value.dtype, np.number)) or
+                             (isinstance(value, list) and all(isinstance(x, (int, float, np.number)) for x in value)))
     elif class_name == 'char' or class_name == 'string':
         class_check_passed = isinstance(value, str)
     elif class_name == 'logical':

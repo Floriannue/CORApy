@@ -1,14 +1,12 @@
 import numpy as np
 from cora_python.g.macros import DISPLAYDIM_MAX
-from cora_python.contSet.interval import Interval
-# from cora_python.matrixSet.intervalMatrix import IntervalMatrix # Assuming this exists
-# from cora_python.matrixSet.matZonotope import MatZonotope # Assuming this exists
 
 def display_matrix_vector(x, varname):
     """
     Displays a matrix or vector on the command window
     up to a certain maximum size and abbreviated when all-zero.
     """
+    from cora_python.contSet.interval import Interval
     res = []
     
     # TODO: Placeholder for intervalMatrix and matZonotope when they are translated

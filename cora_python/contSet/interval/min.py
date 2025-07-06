@@ -46,8 +46,8 @@ def min(I: Interval, Y=None, *args):
         Interval or numeric result
     """
     if Y is None:
-        # return infimum
-        return I.inf
+        # return infimum (copy for consistency)
+        return I.inf.copy()
     
     # Import max here to avoid circular imports
     from .max import max as max_func

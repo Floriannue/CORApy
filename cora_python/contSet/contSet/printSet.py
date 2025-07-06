@@ -12,7 +12,8 @@ def printSet(S, *varargin):
     in the workspace, this set would be created
     """
     
-    accuracy, do_compact, clear_line = setDefaultValues(['%4.3f', False, True], varargin)
+    defaults, _ = setDefaultValues(['%4.3f', False, True], varargin)
+    accuracy, do_compact, clear_line = defaults
     if isinstance(accuracy, str) and accuracy == 'high':
         accuracy = '%16.16f'
     

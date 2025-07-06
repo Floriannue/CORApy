@@ -133,14 +133,22 @@ class SpectraShadow(ContSet):
         A, c, G, ESumRep = _aux_computeProperties(A, c, G, ESumRep, len(varargin))
 
         # 5. assign properties
-        self.A = sparse.csr_matrix(A)
-        self.c = sparse.csr_matrix(c)
-        self.G = sparse.csr_matrix(G)
+        self.A = A if sparse.issparse(A) else sparse.csr_matrix(A)
+        self.c = c if sparse.issparse(c) else sparse.csr_matrix(c)
+        self.G = G if sparse.issparse(G) else sparse.csr_matrix(G)
         self.ESumRep.val = ESumRep
 
         # 6. set precedence (fixed) and initialize parent
         super().__init__()
         self.precedence = 40
+
+    def __repr__(self) -> str:
+        """String representation of the SpectraShadow object"""
+        return self.display()
+
+    def __str__(self) -> str:
+        """String representation of the SpectraShadow object"""
+        return self.display()
 
 
 # Auxiliary functions -----------------------------------------------------
@@ -149,7 +157,8 @@ def _aux_parseInputArgs(*varargin) -> Tuple[Union[np.ndarray, List], np.ndarray,
     """Parse input arguments from user and assign to variables"""
     
     # Set default values
-    A, c, G = setDefaultValues([0, [], []], list(varargin))
+    defaults, _ = setDefaultValues([0, [], []], list(varargin))
+    A, c, G = defaults
     
     # Identify if initialization is made via just A or the existential sum
     # representation
@@ -160,7 +169,7 @@ def _aux_parseInputArgs(*varargin) -> Tuple[Union[np.ndarray, List], np.ndarray,
         ESumRep = None
 
     # Convert to numpy arrays where appropriate
-    if not isinstance(A, list):
+    if not isinstance(A, list) and not sparse.issparse(A):
         A = np.array(A) if A is not None else np.array([0])
     c = np.array(c) if c is not None else np.array([])
     G = np.array(G) if G is not None else np.array([])

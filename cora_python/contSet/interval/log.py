@@ -57,6 +57,11 @@ def log(I: Interval) -> Interval:
     if I.is_empty():
         return Interval.empty(I.dim())
     
+    # Check domain validity before computing logarithm
+    # Log domain is (0, +inf), so we need all values > 0
+    if np.any(I.inf <= 0):
+        raise ValueError('CORA:outOfDomain - validDomain: > 0')
+    
     # compute logarithm
     inf_result = np.log(I.inf)
     sup_result = np.log(I.sup)

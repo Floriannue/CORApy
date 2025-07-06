@@ -69,16 +69,19 @@ def and_op(S1: 'ContSet', S2: Union['ContSet', np.ndarray], *varargin) -> 'ContS
     # handle different default types based on class
     if S1.__class__.__name__ == 'Ellipsoid':
         # parse input arguments
-        type_ = set_default_values(['outer'], varargin)[0]
+        defaults, _ = set_default_values(['outer'], varargin)
+        type_ = defaults[0]
         # check additional input arguments
         input_args_check([[type_, 'str', ['inner', 'outer']]])
     elif S1.__class__.__name__ == 'Zonotope':
         # parse input arguments  
-        type_ = set_default_values(['conZonotope'], varargin)[0]
+        defaults, _ = set_default_values(['conZonotope'], varargin)
+        type_ = defaults[0]
         # check additional input arguments
         input_args_check([[type_, 'str', ['conZonotope', 'averaging']]])
     else:
-        type_ = set_default_values(['exact'], varargin)[0]
+        defaults, _ = set_default_values(['exact'], varargin)
+        type_ = defaults[0]
     
     # check dimension mismatch
     from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check

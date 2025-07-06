@@ -25,7 +25,7 @@ def test_contSet_projVertices():
     dims_list = [[1, 2], [2, 3], [1, 3]]
     
     for dims in dims_list:
-        V_proj = Z.projVertices(dims=dims)
+        V_proj = Z.projVertices(dims)
         dims_0_based = [d - 1 for d in dims]
         
         # The projected vertices must be a subset of the original vertices

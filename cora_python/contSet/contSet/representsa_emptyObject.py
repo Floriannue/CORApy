@@ -93,11 +93,11 @@ def representsa_emptyObject(S: 'ContSet', type_: str, return_conv: bool = True) 
             # fully empty polytopes in halfspace representation represent
             # R^n (=fullspace); ensure that V representation is not given
             res = (S.__class__.__name__.lower() == 'polytope' and 
-                   ((hasattr(S, 'isHRep') and S.isHRep.val and 
+                   ((hasattr(S, 'isHRep') and S.isHRep and 
                      hasattr(S, 'b') and hasattr(S, 'be') and
                      (S.b is None or len(S.b) == 0) and 
                      (S.be is None or len(S.be) == 0)) or
-                    (hasattr(S, 'isVRep') and S.isVRep.val and 
+                    (hasattr(S, 'isVRep') and S.isVRep and 
                      hasattr(S, 'V') and S.V is not None and 
                      len(S.V) > 0 and np.all(np.isinf(S.V)))))
             
@@ -115,11 +115,11 @@ def representsa_emptyObject(S: 'ContSet', type_: str, return_conv: bool = True) 
             res = True
             if return_conv:
                 if (S.__class__.__name__.lower() == 'polytope' and 
-                    ((hasattr(S, 'isHRep') and S.isHRep.val and 
+                    ((hasattr(S, 'isHRep') and S.isHRep and 
                       hasattr(S, 'b') and hasattr(S, 'be') and
                       (S.b is None or len(S.b) == 0) and 
                       (S.be is None or len(S.be) == 0)) or
-                     (hasattr(S, 'isVRep') and S.isVRep.val and 
+                     (hasattr(S, 'isVRep') and S.isVRep and 
                       hasattr(S, 'V') and S.V is not None and 
                       len(S.V) > 0 and np.all(np.isinf(S.V))))):
                     # fullspace: interval(-Inf(dim(S),1),Inf(dim(S),1))
@@ -151,6 +151,9 @@ def representsa_emptyObject(S: 'ContSet', type_: str, return_conv: bool = True) 
             # (e.g. empty zonotope, empty ellipsoid, etc.), except for
             # polytopes and spectrahedral shadows.
             
+            # MATLAB logic: res = dim(S) == 0 || (~isa(S,'polytope') && ~isa(S,'spectraShadow')) || ...
+            #                     (isa(S,'polytope') && S.isVRep.val && isempty(S.V));
+            
             # check if S is a polytope
             is_polytope = S.__class__.__name__.lower() == 'polytope'
             
@@ -159,13 +162,13 @@ def representsa_emptyObject(S: 'ContSet', type_: str, return_conv: bool = True) 
             
             # check if polytope in V-rep is truly empty
             poly_vrep_empty = (is_polytope and 
-                             hasattr(S, 'isVRep') and S.isVRep.val and 
+                             hasattr(S, 'isVRep') and S.isVRep and 
                              hasattr(S, 'V') and (S.V is None or S.V.size == 0))
             
-            # an empty object can be represented by another class if
-            # (1) the object is not a polytope or a spectrahedral shadow
-            # (2) the object is a truly empty polytope in V-rep
-            res = (not is_polytope and not is_spectrashadow) or poly_vrep_empty
+            # Apply MATLAB logic exactly
+            res = (n == 0 or 
+                   (not is_polytope and not is_spectrashadow) or 
+                   poly_vrep_empty)
 
             if return_conv and res:
                 # Create empty set using eval equivalent: type.empty(n)

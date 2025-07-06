@@ -55,9 +55,6 @@ from cora_python.contSet.contSet.contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
-from .vertices_ import vertices_
-from .dim import dim
-from .isemptyobject import isemptyobject
 
 class Polytope(ContSet):
     """
@@ -72,7 +69,7 @@ class Polytope(ContSet):
     # Give higher priority than numpy arrays for @ operator
     __array_priority__ = 1000
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         """
         Constructor for the Polytope class.
 
@@ -83,8 +80,50 @@ class Polytope(ContSet):
                    - Polytope(A, b): Halfspace representation
                    - Polytope(A, b, Ae, be): Halfspace with equality constraints
                    - Polytope(other_polytope): Copy constructor
+            **kwargs: Keyword arguments:
+                   - A, b: Inequality constraints (A*x <= b)
+                   - Ae, be: Equality constraints (Ae*x = be)
+                   - A_eq, b_eq: Aliases for Ae, be (for convenience)
+                   - V: Vertices (alternative to positional)
         """
         super().__init__()
+        
+        # Handle keyword arguments as aliases
+        if 'A_eq' in kwargs:
+            kwargs['Ae'] = kwargs.pop('A_eq')
+        if 'b_eq' in kwargs:
+            kwargs['be'] = kwargs.pop('b_eq')
+        
+        # Convert keyword arguments to positional if provided
+        if kwargs and not args:
+            # Pure keyword argument construction
+            V = kwargs.get('V', None)
+            A = kwargs.get('A', None)
+            b = kwargs.get('b', None)
+            Ae = kwargs.get('Ae', None)
+            be = kwargs.get('be', None)
+            
+            if V is not None:
+                args = (V,)
+            elif A is not None or b is not None or Ae is not None or be is not None:
+                # Build positional args from keywords
+                A = A if A is not None else np.array([])
+                b = b if b is not None else np.array([])
+                Ae = Ae if Ae is not None else np.array([])
+                be = be if be is not None else np.array([])
+                args = (A, b, Ae, be)
+        elif kwargs and args:
+            # Mixed positional and keyword - extend args with keywords
+            args = list(args)
+            if len(args) == 2 and ('Ae' in kwargs or 'be' in kwargs):
+                # A, b provided positionally, Ae, be as keywords
+                Ae = kwargs.get('Ae', np.array([]))
+                be = kwargs.get('be', np.array([]))
+                args.extend([Ae, be])
+            elif len(args) == 1 and any(k in kwargs for k in ['A', 'b', 'Ae', 'be']):
+                # V provided positionally, but other args as keywords - this is invalid
+                raise CORAerror('CORA:wrongInput', 'Cannot mix vertex representation with constraint keywords')
+            args = tuple(args)
         
         # 0. avoid empty instantiation
         if len(args) == 0:
@@ -435,14 +474,6 @@ class Polytope(ContSet):
         """Check if vertex representation is minimal"""
         return self._minVRep
 
-    # Abstract methods implementation (required by ContSet)
-    def dim(self) -> int:
-        """Get dimension of the polytope"""
-        return dim(self)
-    
-    def is_empty(self) -> bool:
-        """Check if polytope is empty"""
-        return isemptyobject(self)
 
     def __repr__(self) -> str:
         """

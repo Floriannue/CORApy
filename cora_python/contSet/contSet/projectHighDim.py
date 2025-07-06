@@ -46,11 +46,11 @@ def projectHighDim(S, N, proj=None):
 
     s_dim = S.dim()
     if s_dim > N:
-        raise CORAerror('wrongValue', 'second', 'Dimension of higher-dimensional space must be larger than or equal to the dimension of the given set.')
+        raise CORAerror('CORA:wrongValue', 'second', 'Dimension of higher-dimensional space must be larger than or equal to the dimension of the given set.')
     elif s_dim != len(proj):
-        raise CORAerror('wrongValue', 'third', 'Number of dimensions in higher-dimensional space must match the dimension of the given set.')
+        raise CORAerror('CORA:wrongValue', 'third', 'Number of dimensions in higher-dimensional space must match the dimension of the given set.')
     elif proj and max(proj) > N:
-        raise CORAerror('wrongValue', 'third', 'Specified dimensions exceed dimension of high-dimensional space.')
+        raise CORAerror('CORA:wrongValue', 'third', 'Specified dimensions exceed dimension of high-dimensional space.')
 
     # Convert 1-based proj to 0-based for internal function
     proj_0_based = [p - 1 for p in proj]

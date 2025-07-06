@@ -162,14 +162,25 @@ class TestVertices:
     def test_vertices_empty_result_handling(self):
         """Test vertices when result is empty but set is not empty"""
         
-        class EmptyResultSet(MockContSet):
+        class EmptyResultSet:
+            def __init__(self):
+                self._dim = 3
+                self._empty = False
+                
+            def dim(self):
+                return self._dim
+                
+            def isemptyobject(self):
+                return self._empty
+                
             def vertices_(self, method, *args):
                 return np.array([])
             
             def representsa_(self, setType, tol):
                 return False  # Not an empty set
         
-        S = EmptyResultSet("CustomSet", 3)
+        S = EmptyResultSet()
+        S.__class__.__name__ = "CustomSet"
         result = vertices(S)
         
         # Should return properly shaped empty array
@@ -178,14 +189,25 @@ class TestVertices:
     def test_vertices_exception_handling_empty_set(self):
         """Test vertices exception handling when set represents empty set"""
         
-        class ExceptionSet(MockContSet):
+        class ExceptionSet:
+            def __init__(self):
+                self._dim = 2
+                self._empty = False
+                
+            def dim(self):
+                return self._dim
+                
+            def isemptyobject(self):
+                return self._empty
+                
             def vertices_(self, method, *args):
                 raise RuntimeError("Some error")
             
             def representsa_(self, setType, tol):
                 return setType == 'emptySet'
         
-        S = ExceptionSet("CustomSet", 2, empty=False)
+        S = ExceptionSet()
+        S.__class__.__name__ = "CustomSet"
         result = vertices(S)
         
         # Should handle exception and return empty array
@@ -194,14 +216,25 @@ class TestVertices:
     def test_vertices_exception_handling_non_empty_set(self):
         """Test vertices exception handling when set is not empty"""
         
-        class ExceptionSet(MockContSet):
+        class ExceptionSet:
+            def __init__(self):
+                self._dim = 2
+                self._empty = False
+                
+            def dim(self):
+                return self._dim
+                
+            def isemptyobject(self):
+                return self._empty
+                
             def vertices_(self, method, *args):
                 raise RuntimeError("Some error")
             
             def representsa_(self, setType, tol):
                 return False
         
-        S = ExceptionSet("CustomSet", 2)
+        S = ExceptionSet()
+        S.__class__.__name__ = "CustomSet"
         
         # Should re-raise the exception
         with pytest.raises(RuntimeError, match="Some error"):
@@ -210,15 +243,29 @@ class TestVertices:
     def test_vertices_with_additional_args(self):
         """Test vertices with additional arguments"""
         
-        class ArgsSet(MockContSet):
+        class ArgsSet:
+            def __init__(self):
+                self._dim = 2
+                self._empty = False
+                
+            def dim(self):
+                return self._dim
+                
+            def isemptyobject(self):
+                return self._empty
+                
             def vertices_(self, method, *args):
                 # Verify additional arguments are passed
                 assert len(args) == 2
                 assert args[0] == 'extra_arg1'
                 assert args[1] == 'extra_arg2'
                 return np.ones((self._dim, 3))
+            
+            def representsa_(self, setType, tol):
+                return False
         
-        S = ArgsSet("CustomSet", 2)
+        S = ArgsSet()
+        S.__class__.__name__ = "CustomSet"
         result = vertices(S, 'convHull', 'extra_arg1', 'extra_arg2')
         
         assert result.shape == (2, 3)

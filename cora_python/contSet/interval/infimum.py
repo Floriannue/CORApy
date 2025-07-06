@@ -37,6 +37,6 @@ def infimum(I: Interval):
         I: Interval object
         
     Returns:
-        Infimum of the interval
+        Infimum of the interval (copy to ensure independence)
     """
-    return I.inf 
+    return I.inf.copy() 

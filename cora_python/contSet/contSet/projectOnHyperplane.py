@@ -31,7 +31,7 @@ def projectOnHyperplane(S, hyp):
     
     # Ensure that the polytope represents a hyperplane
     if not hyp.representsa_('conHyperplane', 1e-12):
-        raise CORAerror('wrongValue', 'second', 'must represent a hyperplane.')
+        raise CORAerror('CORA:wrongValue', 'second', 'must represent a hyperplane.')
         
     # Dimension
     n = S.dim()
@@ -40,13 +40,13 @@ def projectOnHyperplane(S, hyp):
     hyp_norm = hyp.normalizeConstraints('A')
     
     # Extract hyperplane normal c and offset d
-    # Assuming hyp_norm.Ae and hyp_norm.be are (1, n) and (1,) respectively
-    c = hyp_norm.Ae.T
-    d = hyp_norm.be
+    # c should be a column vector (n x 1), d should be a scalar
+    c = hyp_norm.Ae.T  # Transpose to get column vector
+    d = hyp_norm.be.item() if hyp_norm.be.size == 1 else hyp_norm.be[0]  # Extract scalar
     
     # Linear map A*x + b for the projection
     A = np.eye(n) - c @ c.T
-    b = (d * c).flatten() # Ensure b is a 1D vector
+    b = (d * c).flatten()  # Ensure b is a 1D vector for broadcasting
     
     # Project the set
     S_proj = A @ S + b

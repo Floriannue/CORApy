@@ -182,7 +182,8 @@ def _aux_parseInputArgs(*varargin) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
     
     # set default values
     defaults = [np.array([]) for _ in range(5)]
-    c, G, GI, E, id_ = setDefaultValues(defaults, list(varargin))
+    result, _ = setDefaultValues(defaults, list(varargin))
+    c, G, GI, E, id_ = result
 
     # Ensure all are numpy arrays, even if empty from setDefaultValues
     c = np.array(c) if not isinstance(c, np.ndarray) else c

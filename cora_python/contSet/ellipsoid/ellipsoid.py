@@ -72,6 +72,16 @@ class Ellipsoid(ContSet):
             self.precedence = obj.precedence
             return
 
+        # 1.5. contSet constructor - if first argument is a contSet object, call its ellipsoid method
+        if len(args) == 1 and isinstance(args[0], ContSet) and not isinstance(args[0], Ellipsoid):
+            # Call the ellipsoid method of the contSet object
+            E = args[0].ellipsoid()
+            self.Q = E.Q
+            self.q = E.q
+            self.TOL = E.TOL
+            self.precedence = E.precedence
+            return
+
         # 2. parse input arguments: varargin -> vars
         Q, q, TOL = self._aux_parseInputArgs(*args)
 
@@ -159,6 +169,23 @@ class Ellipsoid(ContSet):
             # Don't modify q - keep it as zeros(n,0) to preserve dimension information
         return Q, q
     
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        """
+        Handle numpy ufuncs on ellipsoids.
+        This ensures that operations like @ (matmul) are handled by the ellipsoid's own methods.
+        """
+        if ufunc == np.matmul and method == '__call__':
+            # Handle matrix multiplication
+            if len(inputs) == 2:
+                left, right = inputs
+                if left is self:
+                    # self @ other
+                    return self.__matmul__(right)
+                elif right is self:
+                    # other @ self
+                    return self.__rmatmul__(left)
+        return NotImplemented
+
     def __repr__(self) -> str:
         """
         Official string representation for programmers.

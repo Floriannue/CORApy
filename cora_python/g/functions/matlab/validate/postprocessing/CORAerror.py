@@ -45,6 +45,7 @@ class CORAerror(Exception):
             message: Additional error message
             *args: Additional arguments for specific error types
         """
+        self.id = identifier
         self.identifier = identifier
         self.message = message
         self.args_list = list(args)

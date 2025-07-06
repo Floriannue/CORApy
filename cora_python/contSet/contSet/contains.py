@@ -59,6 +59,7 @@ import numpy as np
 from typing import TYPE_CHECKING, Union, Tuple
 
 from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
+from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
 
 if TYPE_CHECKING:
     from cora_python.contSet.contSet.contSet import ContSet
@@ -94,39 +95,33 @@ def contains(S1: 'ContSet', S2: Union['ContSet', np.ndarray], method='exact', to
         else:
             maxEval = 200
     
-    # Validate method
-    valid_methods = [
-        'exact', 'exact:venum', 'exact:polymax',
-        'exact:zonotope', 'exact:polytope',
-        'approx', 'approx:st', 'approx:stDual',
-        'opt',
-        'sampling', 'sampling:primal', 'sampling:dual'
-    ]
-    
-    if method not in valid_methods:
-        raise ValueError(f"Invalid method: {method}")
-    
-    # Validate input arguments
-    if not isinstance(tol, (int, float)) or tol < 0 or np.isnan(tol):
-        raise ValueError("Tolerance must be a non-negative number")
-    
-    if not isinstance(maxEval, (int, float)) or maxEval < 0 or np.isnan(maxEval):
-        raise ValueError("maxEval must be a non-negative number")
+    # Check input arguments using inputArgsCheck (following MATLAB exactly)
+    inputArgsCheck([
+        [S1, 'att', 'contSet'],
+        [S2, 'att', ['contSet', 'taylm', 'numeric']],
+        [method, 'str', ['exact', 'exact:venum', 'exact:polymax',
+                        'exact:zonotope', 'exact:polytope',
+                        'approx', 'approx:st', 'approx:stDual',
+                        'opt',
+                        'sampling', 'sampling:primal', 'sampling:dual']],
+        [tol, 'att', 'numeric', ['scalar', 'nonnegative', 'nonnan']],
+        [maxEval, 'att', 'numeric', ['scalar', 'nonnegative', 'nonnan']]
+    ])
     
     # --- Empty Set Handling ---
-    # Inner-body is empty numeric array or empty contSet
-    if (isinstance(S2, np.ndarray) and S2.size == 0) or \
-       (hasattr(S2, 'isemptyobject') and S2.isemptyobject()):
-        res, cert, scaling = True, True, 0
+    # Outer body is empty - check this first
+    if hasattr(S1, 'isemptyobject') and S1.isemptyobject():
+        res, cert, scaling = False, True, np.inf
         if return_scaling:
             return res, cert, scaling
         elif return_cert:
             return res, cert
         return res
-
-    # Outer body is empty
-    if hasattr(S1, 'isemptyobject') and S1.isemptyobject():
-        res, cert, scaling = False, True, np.inf
+    
+    # Inner-body is empty numeric array or empty contSet
+    if (isinstance(S2, np.ndarray) and S2.size == 0) or \
+       (hasattr(S2, 'isemptyobject') and S2.isemptyobject()):
+        res, cert, scaling = True, True, 0
         if return_scaling:
             return res, cert, scaling
         elif return_cert:
@@ -144,8 +139,20 @@ def contains(S1: 'ContSet', S2: Union['ContSet', np.ndarray], method='exact', to
         
         # Return based on what's requested
         if return_scaling:
+            # Convert arrays to scalars for single points
+            if isinstance(res, np.ndarray) and res.size == 1:
+                res = res.item()
+            if isinstance(cert, np.ndarray) and cert.size == 1:
+                cert = cert.item()
+            if isinstance(scaling, np.ndarray) and scaling.size == 1:
+                scaling = scaling.item()
             return res, cert, scaling
         elif return_cert:
+            # Convert arrays to scalars for single points
+            if isinstance(res, np.ndarray) and res.size == 1:
+                res = res.item()
+            if isinstance(cert, np.ndarray) and cert.size == 1:
+                cert = cert.item()
             return res, cert
         else:
             # For single boolean result, ensure we return a scalar

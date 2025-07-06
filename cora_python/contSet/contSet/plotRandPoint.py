@@ -27,13 +27,14 @@ def plotRandPoint(S, *varargin):
     # default values for the optional input arguments
     # In python, dimension indices start at 0
     defaults = [[0, 1], 1000, '.k']
-    dims, N, type_ = setDefaultValues(defaults, varargin)
+    defaults, _ = setDefaultValues(defaults, varargin)
+    dims, N, type_ = defaults
 
     # input argument check
     inputArgsCheck([[S, 'att', 'contSet'],
                     [dims, 'att', ['numeric'], ['integer', 'nonnegative', 'vector']],
                     [N, 'att', ['numeric'], ['integer', 'nonnegative', 'scalar']],
-                    [type_, 'str', []]])
+                    [type_, 'att', 'char']])
 
     # check if dimension to be plotted is not too high
     if len(dims) > 3:

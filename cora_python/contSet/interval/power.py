@@ -39,6 +39,8 @@ Python translation: 2025
 """
 
 import numpy as np
+from .interval import Interval
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 def power(base, exponent):
     """
@@ -51,10 +53,6 @@ def power(base, exponent):
     Returns:
         Interval object result of power operation
     """
-
-    from .interval import Interval
-    from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-
     
     # Handle base as Interval, exponent as numeric
     if isinstance(base, Interval) and not isinstance(exponent, Interval):

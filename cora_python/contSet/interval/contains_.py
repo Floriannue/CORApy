@@ -341,28 +341,7 @@ def contains_(I: 'Interval', S: Union['ContSet', np.ndarray, list, tuple], metho
     
     # Other set in interval containment
     else:
-        # Convert to polytope and use polytope containment
-        # For now, implement a basic fallback
-        try:
-            # Try to get vertices of S and check if all are contained
-            if hasattr(S, 'vertices_'):
-                vertices = S.vertices_()
-                if vertices.size > 0:
-                    vertex_results, vertex_certs, vertex_scalings = contains_(I, vertices, method, tol, maxEval, certToggle, scalingToggle)
-                    if isinstance(vertex_results, np.ndarray):
-                        res = np.all(vertex_results)
-                        cert = np.all(vertex_certs)
-                        scaling = np.max(vertex_scalings) if scalingToggle else np.nan
-                    else:
-                        res = vertex_results
-                        cert = vertex_certs
-                        scaling = vertex_scalings
-                    return res, cert, scaling
-        except Exception:
-            pass
-        
-        # Fallback: not implemented for this set type
-        res = False
-        cert = False
-        scaling = np.inf
-        return res, cert, scaling 
+        # Convert interval to polytope and use polytope containment
+        # This follows the MATLAB approach: [res,cert,scaling] = contains_(polytope(I),S,method,tol,maxEval,certToggle,scalingToggle);
+        P = I.polytope()
+        return P.contains_(S, method, tol, maxEval, certToggle, scalingToggle) 

@@ -31,22 +31,11 @@ Python translation: 2025
 """
 
 import numpy as np
-import sys
-import os
-from typing import TYPE_CHECKING, Union, List, Tuple
 from scipy.sparse import spmatrix
 
-# Add paths for imports
-if __name__ == "__main__":
-    import os
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    from cora_python.g.functions.helper.sets.contSet.contSet.reorder_numeric import reorder_numeric
-    from g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
-    from g.functions.matlab.validate.check.withinTol import withinTol
 
 from ..contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 
 class Interval(ContSet):
@@ -121,19 +110,19 @@ class Interval(ContSet):
                 lb = c - delta
                 ub = c + delta
             else:
-                lb = np.asarray(args[0], dtype=float)
+                lb = np.atleast_1d(np.asarray(args[0], dtype=float))
                 ub = lb.copy()
         elif len(args) == 2:
             
             if isinstance(args[0], spmatrix):
                 lb = args[0]
             else:
-                lb = np.asarray(args[0], dtype=float) if args[0] is not None else np.array([])
+                lb = np.atleast_1d(np.asarray(args[0], dtype=float)) if args[0] is not None else np.array([])
             
             if isinstance(args[1], spmatrix):
                 ub = args[1]
             else:
-                ub = np.asarray(args[1], dtype=float) if args[1] is not None else np.array([])
+                ub = np.atleast_1d(np.asarray(args[1], dtype=float)) if args[1] is not None else np.array([])
 
         # If args has more than 2 elements, we have a problem
         else:
@@ -257,13 +246,6 @@ class Interval(ContSet):
                     return f"Interval({self.inf.tolist()}, {self.sup.tolist()})"
         except:
             return f"Interval(dim=unknown)"
-    
-    def __getitem__(self, key):
-        """Indexing operation (e.g., I[0:2, 1:3])"""
-        # Apply the same indexing to both inf and sup
-        new_inf = self.inf[key]
-        new_sup = self.sup[key]
-        return Interval(new_inf, new_sup)
 
     def take(self, indices, axis=None):
         """Take elements from an interval along an axis."""

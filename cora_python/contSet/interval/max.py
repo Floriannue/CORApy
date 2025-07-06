@@ -46,8 +46,8 @@ def max(I: Interval, Y=None, *args):
         Interval or numeric result
     """
     if Y is None:
-        # return supremum
-        return I.sup
+        # return supremum (copy for consistency)
+        return I.sup.copy()
     
     if isinstance(Y, (int, float, np.number)) or np.isscalar(Y):
         # Handle numeric Y

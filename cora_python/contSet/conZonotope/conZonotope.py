@@ -204,10 +204,22 @@ class ConZonotope(ContSet):
 def _aux_parseInputArgs(*varargin) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Parse input arguments from user and assign to variables"""
     
+    # Handle Zonotope object input
+    from cora_python.contSet.zonotope.zonotope import Zonotope
+    if len(varargin) == 1 and isinstance(varargin[0], Zonotope):
+        # Extract center and generators from zonotope
+        z = varargin[0]
+        c = z.c
+        G = z.G
+        A = np.array([])
+        b = np.array([])
+        return c, G, A, b
+    
     # set default values depending on nargin
     if len(varargin) == 1 or len(varargin) == 3:
         # only center given, or [c,G] with A and b
-        c, A, b = setDefaultValues([[], [], []], list(varargin))
+        result, _ = setDefaultValues([[], [], []], list(varargin))
+        c, A, b = result
         if hasattr(varargin[0], 'shape') and len(varargin[0].shape) > 1 and varargin[0].shape[1] > 0:
             c_matrix = np.array(varargin[0])
             G = c_matrix[:, 1:]
@@ -218,10 +230,12 @@ def _aux_parseInputArgs(*varargin) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
         # c,G or c,G,A,b given
         defaults = [[], [], [], []] if len(varargin) == 4 else [[], [], None, None]
         if len(varargin) == 2:
-            c, G = setDefaultValues(defaults[:2], list(varargin))
+            result, _ = setDefaultValues(defaults[:2], list(varargin))
+            c, G = result
             A, b = np.array([]), np.array([])
         else:
-            c, G, A, b = setDefaultValues(defaults, list(varargin))
+            result, _ = setDefaultValues(defaults, list(varargin))
+            c, G, A, b = result
     else:
         c, G, A, b = np.array([]), np.array([]), np.array([]), np.array([])
 

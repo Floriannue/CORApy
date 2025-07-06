@@ -66,8 +66,8 @@ def projVertices(S, *varargin):
         return type(S).projVertices(S, *varargin)
 
     # --- Primary Method Body ---
-    params, _ = setDefaultValues({'dims': [1, 2]}, *varargin)
-    dims = params['dims']
+    defaults, _ = setDefaultValues([[1, 2]], varargin)
+    dims = defaults[0]
     dims_0_indexed = [d - 1 for d in dims]
 
     if not (isinstance(dims, list) and len(dims) == 2 and all(isinstance(d, int) and d > 0 for d in dims)):
@@ -88,24 +88,24 @@ def projVertices(S, *varargin):
 
     # Initial vertices
     V_init = np.zeros((2, 3))
-    _, V_init[:, 0] = S_proj.supportFunc_(np.array([1, 0]), 'upper', **other_options)
+    _, V_init[:, 0], _ = S_proj.supportFunc_(np.array([1, 0]), 'upper', **other_options)
     
     angle_120 = 120 * np.pi / 180
     dir_120 = np.array([np.cos(angle_120), np.sin(angle_120)])
-    _, V_init[:, 1] = S_proj.supportFunc_(dir_120, 'upper', **other_options)
+    _, V_init[:, 1], _ = S_proj.supportFunc_(dir_120, 'upper', **other_options)
     
     angle_240 = 240 * np.pi / 180
     dir_240 = np.array([np.cos(angle_240), np.sin(angle_240)])
-    _, V_init[:, 2] = S_proj.supportFunc_(dir_240, 'upper', **other_options)
+    _, V_init[:, 2], _ = S_proj.supportFunc_(dir_240, 'upper', **other_options)
     
     # Use a list of vectors for easier insertion
     V_list = [V_init[:, 0]]
     idx_map = {0: 0} # Maps original (0,1,2) to current list index
     
-    if not withinTol(V_init[:, 1], V_list[0], 1e-12):
+    if not withinTol(V_init[:, 1], V_list[0], 1e-12).all():
         idx_map[1] = len(V_list)
         V_list.append(V_init[:, 1])
-    if not any(withinTol(V_init[:, 2], v, 1e-12) for v in V_list):
+    if not any(withinTol(V_init[:, 2], v, 1e-12).all() for v in V_list):
         idx_map[2] = len(V_list)
         V_list.append(V_init[:, 2])
 
@@ -130,10 +130,10 @@ def projVertices(S, *varargin):
 
         direction = np.array([v[1], -v[0]]) / norm_v
         
-        _, v_new = S_proj.supportFunc_(direction, 'upper', **other_options)
+        _, v_new, _ = S_proj.supportFunc_(direction, 'upper', **other_options)
         
         # Check if v_new is already in the list
-        is_duplicate = any(withinTol(v_new, v_existing, 1e-6) for v_existing in V_list)
+        is_duplicate = any(withinTol(v_new, v_existing, 1e-6).all() for v_existing in V_list)
         
         # Check for collinearity
         pts_start_mid_end = np.column_stack((v_new - v1, v2 - v_new))

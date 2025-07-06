@@ -50,8 +50,12 @@ def plot1D(S: 'ContSet', plot_kwargs: Optional[Dict[str, Any]] = None,
     if nvpairs_interval is None:
         nvpairs_interval = []
     
-    # Convert to interval
-    if hasattr(S, 'interval'):
+    # Convert to interval if needed
+    from cora_python.contSet.interval.interval import Interval
+    if isinstance(S, Interval):
+        # Already an interval, no conversion needed
+        I = S
+    elif hasattr(S, 'interval'):
         I = S.interval(*nvpairs_interval)
     else:
         # Fallback: assume S is already an interval-like object

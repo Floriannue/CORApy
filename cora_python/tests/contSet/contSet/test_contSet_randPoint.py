@@ -25,9 +25,10 @@ import pytest
 import numpy as np
 from unittest.mock import patch
 from cora_python.contSet.contSet.randPoint import randPoint
+from cora_python.contSet.contSet.contSet import ContSet
 
 
-class MockContSet:
+class MockContSet(ContSet):
     """Mock ContSet for testing randPoint method"""
     
     def __init__(self, dim_val=2, empty=False):
@@ -66,7 +67,29 @@ class MockContSet:
             # Return Gaussian random points
             return np.random.randn(self._dim, N)
         else:
-            raise ValueError(f"Unknown type: {type}")
+            # For any other type, just return random points
+            # The validation should have caught invalid types before this point
+            return np.random.rand(self._dim, N) * 2 - 1
+    
+    def representsa_(self, type_, tol):
+        """Mock representsa_ method"""
+        if type_ == 'emptySet':
+            return self._empty
+        elif type_ == 'origin':
+            return False  # For simplicity, assume not origin
+        else:
+            return False
+    
+    def contains(self, points):
+        """Mock contains method"""
+        if points.ndim == 1:
+            return np.array([True])
+        else:
+            return np.ones(points.shape[1], dtype=bool)
+    
+    def __repr__(self):
+        """Mock __repr__ method"""
+        return f"MockContSet(dim={self._dim}, empty={self._empty})"
 
 
 class TestRandPoint:
@@ -113,10 +136,16 @@ class TestRandPoint:
     def test_randPoint_gaussian_type(self):
         """Test randPoint with gaussian type"""
         
-        S = MockContSet(3)
+        # Use a real Interval object instead of MockContSet since gaussian
+        # type requires conversion to ellipsoid
+        from cora_python.contSet.interval import Interval
+        I = Interval([-1, -1], [1, 1])
         
-        result = randPoint(S, 10, type_='gaussian')
-        assert result.shape == (3, 10)
+        # Test that gaussian type works for interval (supported via ellipsoid conversion)
+        result = randPoint(I, 10, type_='gaussian')
+        assert result.shape == (2, 10)
+        assert isinstance(result, np.ndarray)
+        # Note: gaussian points are not guaranteed to be inside the set
     
     def test_randPoint_empty_set(self):
         """Test randPoint with empty set"""
@@ -131,19 +160,21 @@ class TestRandPoint:
         
         S = MockContSet(2)
         
-        # Test invalid N
-        with pytest.raises(ValueError, match="must be a non-negative integer"):
+        # Test invalid N - inputArgsCheck throws CORAerror for negative values
+        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+        with pytest.raises(CORAerror, match="Wrong value for the 2nd input argument"):
             randPoint(S, -1)
         
-        with pytest.raises(ValueError, match="If N is string, it must be 'all'"):
+        # Test invalid string N - inputArgsCheck throws CORAerror for invalid strings
+        with pytest.raises(CORAerror, match="Wrong value for the 2nd input argument"):
             randPoint(S, 'invalid_str')
 
-        # Test invalid type
-        with pytest.raises(ValueError, match="Invalid type"):
+        # Test invalid type - inputArgsCheck throws CORAerror for invalid types
+        with pytest.raises(CORAerror, match="Wrong value for the 3rd input argument"):
             randPoint(S, 5, type_='invalid_type')
 
-        # Test invalid 'all' with non-extreme type
-        with pytest.raises(ValueError, match="If N is 'all', type must be 'extreme'"):
+        # Test invalid 'all' with non-extreme type - this is checked by randPoint itself
+        with pytest.raises(CORAerror, match="If the number of points is 'all', the type has to be 'extreme'"):
             randPoint(S, 'all', type_='standard')
     
     def test_randPoint_origin_point(self):
@@ -191,6 +222,17 @@ class TestRandPoint:
             
         # Results should be the same since we mocked the random function
         assert np.array_equal(result1, result2)
+
+    def test_randPoint_gaussian_unsupported_class(self):
+        """Test that gaussian type raises error for unsupported classes"""
+        
+        S = MockContSet(2)
+        
+        # MockContSet is not in supported classes (zonotope, interval, ellipsoid, polytope)
+        # so should raise CORAerror, matching MATLAB behavior
+        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+        with pytest.raises(CORAerror, match="does not support type = 'gaussian'"):
+            randPoint(S, 10, type_='gaussian')
 
 
 if __name__ == "__main__":

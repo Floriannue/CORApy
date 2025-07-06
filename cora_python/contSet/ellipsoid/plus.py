@@ -75,9 +75,11 @@ def plus(factor1, factor2, *args):
     
     # Default values
     if hasattr(S, '__class__') and S.__class__.__name__ == 'Ellipsoid':
-        mode, L = setDefaultValues(['outer:halder', np.zeros((E.dim, 0))], args)
+        defaults, _ = setDefaultValues(['outer:halder', np.zeros((E.dim(), 0))], args)
+        mode, L = defaults
     else:
-        mode, L = setDefaultValues(['outer', np.zeros((E.dim, 0))], args)
+        defaults, _ = setDefaultValues(['outer', np.zeros((E.dim(), 0))], args)
+        mode, L = defaults
     
     # Check input arguments
     inputArgsCheck([
@@ -89,10 +91,10 @@ def plus(factor1, factor2, *args):
     
     # Minkowski addition with empty set
     if E.representsa_('emptySet', E.TOL):
-        return Ellipsoid.empty(E.dim)
+        return Ellipsoid.empty(E.dim())
     
     if not isinstance(S, list) and hasattr(S, 'representsa_') and S.representsa_('emptySet', E.TOL):
-        return Ellipsoid.empty(E.dim)
+        return Ellipsoid.empty(E.dim())
     
     if not isinstance(S, list) and hasattr(S, 'representsa_') and S.representsa_('origin', E.TOL):
         # Adding the origin does not change the set

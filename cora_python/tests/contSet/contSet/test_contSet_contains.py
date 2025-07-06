@@ -25,10 +25,11 @@ import pytest
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
 from cora_python.contSet.contSet.contains import contains
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
-class MockContSet:
-    """Mock ContSet for testing contains method"""
+class ContSet:
+    """Mock ContSet base class for testing"""
     
     def __init__(self, dim_val=2, empty=False):
         self._dim = dim_val
@@ -60,7 +61,7 @@ class TestContains:
     def test_contains_basic(self):
         """Test basic contains functionality"""
         
-        S1 = MockContSet(2)
+        S1 = ContSet(2)
         
         # Test with single point inside
         point_inside = np.array([0.5, 0.5])
@@ -75,7 +76,7 @@ class TestContains:
     def test_contains_multiple_points(self):
         """Test contains with multiple points"""
         
-        S1 = MockContSet(2)
+        S1 = ContSet(2)
         
         # Test with multiple points
         points = np.array([[0.5, 2.0], [0.5, 2.0]])
@@ -86,7 +87,7 @@ class TestContains:
     def test_contains_with_cert(self):
         """Test contains with certification"""
         
-        S1 = MockContSet(2)
+        S1 = ContSet(2)
         point = np.array([0.5, 0.5])
         
         result, cert = contains(S1, point, return_cert=True)
@@ -96,7 +97,7 @@ class TestContains:
     def test_contains_with_scaling(self):
         """Test contains with scaling factor"""
         
-        S1 = MockContSet(2)
+        S1 = ContSet(2)
         point = np.array([0.5, 0.5])
         
         result, cert, scaling = contains(S1, point, return_scaling=True)
@@ -107,33 +108,33 @@ class TestContains:
     def test_contains_error_cases(self):
         """Test error cases for contains"""
         
-        S1 = MockContSet(2)
+        S1 = ContSet(2)
         
-        # Test invalid method
+        # Test invalid method - should raise CORAerror for 3rd argument (method)
         point = np.array([0.5, 0.5])
-        with pytest.raises(ValueError, match="Invalid method"):
+        with pytest.raises(CORAerror, match="3rd input argument"):
             contains(S1, point, method='invalid_method')
         
-        # Test invalid tolerance
-        with pytest.raises(ValueError, match="Tolerance must be"):
+        # Test invalid tolerance - should raise CORAerror for negative values (4th argument)
+        with pytest.raises(CORAerror, match="4th input argument"):
             contains(S1, point, tol=-1)
         
-        # Test invalid maxEval
-        with pytest.raises(ValueError, match="maxEval must be"):
+        # Test invalid maxEval - should raise CORAerror for negative values (5th argument)
+        with pytest.raises(CORAerror, match="5th input argument"):
             contains(S1, point, maxEval=-1)
     
     def test_contains_empty_sets(self):
         """Test contains with empty sets"""
         
         # Empty outer set
-        S1 = MockContSet(2, empty=True)
+        S1 = ContSet(2, empty=True)
         point = np.array([0.5, 0.5])
         
         result = contains(S1, point)
         assert result == False
         
         # Empty inner set (empty array)
-        S1 = MockContSet(2)
+        S1 = ContSet(2)
         empty_array = np.array([]).reshape(2, 0)
         
         result = contains(S1, empty_array)
@@ -142,7 +143,7 @@ class TestContains:
     def test_contains_default_parameters(self):
         """Test contains with default parameters"""
         
-        S1 = MockContSet(2)
+        S1 = ContSet(2)
         point = np.array([0.5, 0.5])
         
         # Test with default method, tol, maxEval

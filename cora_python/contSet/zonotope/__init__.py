@@ -53,6 +53,8 @@ from .isIntersecting_ import isIntersecting_
 from .isFullDim import isFullDim
 from .generatorLength import generatorLength
 from .getPrintSetInfo import getPrintSetInfo
+from .ellipsoid import ellipsoid
+from .quadMap import quadMap
 
 # Attach methods to the class
 Zonotope.abs = abs_op
@@ -111,8 +113,10 @@ Zonotope.isIntersecting_ = isIntersecting_
 Zonotope.isFullDim = isFullDim
 Zonotope.generatorLength = generatorLength
 Zonotope.getPrintSetInfo = getPrintSetInfo
+Zonotope.ellipsoid = ellipsoid
+Zonotope.quadMap = quadMap
 
 # Attach static methods
 Zonotope.enclosePoints = staticmethod(enclosePoints)
 
-__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo'] 
+__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap'] 

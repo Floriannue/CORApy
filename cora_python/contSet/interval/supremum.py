@@ -37,6 +37,6 @@ def supremum(I: Interval):
         I: Interval object
         
     Returns:
-        Supremum of the interval
+        Supremum of the interval (copy to ensure independence)
     """
-    return I.sup 
+    return I.sup.copy() 

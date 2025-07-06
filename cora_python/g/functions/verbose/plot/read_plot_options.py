@@ -56,7 +56,10 @@ def read_plot_options(plot_options, purpose: str = 'none') -> Dict[str, Any]:
             'DisplayName': 'label',  # Key fix for dict inputs
             'HandleVisibility': None,
             'Unify': 'Unify',  # Keep Unify as-is for reachSet plotting
-            'Set': 'Set'  # Keep Set as-is for reachSet plotting
+            'Set': 'Set',  # Keep Set as-is for reachSet plotting
+            'XPos': 'XPos',  # Keep positioning parameters as-is
+            'YPos': 'YPos',  # Keep positioning parameters as-is
+            'ZPos': 'ZPos'   # Keep positioning parameters as-is
         }
         for matlab_name, mpl_name in matlab_to_mpl.items():
             if matlab_name in plot_kwargs and mpl_name is not None:
@@ -78,7 +81,8 @@ def read_plot_options(plot_options, purpose: str = 'none') -> Dict[str, Any]:
             # Known MATLAB parameter names that are NOT linespec
             matlab_param_names = {'Color', 'LineWidth', 'LineStyle', 'Marker', 'MarkerSize', 
                                 'FaceColor', 'EdgeColor', 'FaceAlpha', 'EdgeAlpha', 
-                                'DisplayName', 'HandleVisibility', 'Unify', 'Set'}
+                                'DisplayName', 'HandleVisibility', 'Unify', 'Set', 
+                                'XPos', 'YPos', 'ZPos'}
             
             if first_elem not in matlab_param_names:
                 linespec_kwargs = _parse_linespec(first_elem)
@@ -171,7 +175,10 @@ def _parse_name_value_pairs(options: List[Any]) -> Dict[str, Any]:
         'DisplayName': 'label',  # This is the key MATLAB->Python mapping
         'HandleVisibility': None,  # Not directly supported in matplotlib
         'Unify': 'Unify',  # Keep Unify as-is for reachSet plotting
-        'Set': 'Set'  # Keep Set as-is for reachSet plotting
+        'Set': 'Set',  # Keep Set as-is for reachSet plotting
+        'XPos': 'XPos',  # Keep positioning parameters as-is
+        'YPos': 'YPos',  # Keep positioning parameters as-is
+        'ZPos': 'ZPos'   # Keep positioning parameters as-is
     }
     
     i = 0

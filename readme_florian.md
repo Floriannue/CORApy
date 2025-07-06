@@ -66,7 +66,9 @@ Translate_Cora/
 ```
 
 
-## Notes
+## General Rules
+- Dont create any simplifications or weird fallbacks if stuff is not implemented or so! it should throw erros so we now functionality is missng and needs to be translated. Otherwise we are hiding our missing translation parts and that is not good.
+- ensure keyword arguments and positional arguments are supported
 - test files have the following naming structure `test_class_methode`-> test for class.methode, `test_class`-> class (constructor) test, `test_function`->standalone function test
 - `*` operator (`__mul__`) = (times) element-wise multiplication (like MATLAB's `.*`) and `@` operator (`__matmul__`) = (mtimes) matrix multiplication (like MATLAB's `*`)
 - methods that have the same name as reserved keywords in Python get the appendix _op, for example, or -> or_op (But still attached as or). if the matlab name is or_ it stays or_ in python. 
@@ -109,14 +111,13 @@ The Framework can only return a limited amount of terminal ouput back to you. Th
   ```powershell
   command > terminal_output.txt
  ```
-- To ensure the functions and their corresponding tests are complete and correct, refer to `Cora2025.1.0_Manual.txt`.
-- Classes in Python start with a capital letter. For example, `zonotop` → `Zonotop`. Try to make the translation as pythonic as possible but still keeping in a full translation.
+- Classes in Python start with a capital letter. For example, `zonotop` → `Zonotop`, use python naming conventions. Try to make the translation as pythonic as possible but still keeping in a full translation.
 - Always mirror the MATLAB codebase and verify against it and the manual. In rare cases the matlab codebase can be wrong, in this case look at the manual and provide all information to the user!
 - Use the following two polymorphic dispatch templates depending on the situation:
  ```python
   def func():
     # Check if subclass has overridden func method
-    if type(self).func is not parent.func:
+    if type(self).func is not func:
         return type(self).func(self)
  ```
  ```python
@@ -139,9 +140,10 @@ use --lf to run only tests that failed last time,
   np.array([[0, 1, 0], [0, 0, 1]])  # == 2×3 matrix
   np.array([1, 0])  #vector
  ```
- Your translations must work well with numpy
+ Your translations must work well with numpy so use row-major(C-Order)
 - For functions that plot, you must save the output as PNG and verify visually.
-- if there is an error find the root cause. Assume the translation and the tests can be wrong->therefore always compare the python translation and the tests against the original matlab source code and the manual. Do not use any cheap workarounds or simplifications!
+- if there is an error find the root cause. Assume the translation and the tests can be wrong->therefore always compare the python translation and the tests against the original matlab source code and the `Cora2025.1.0_Manual.txt`. Do not use any cheap workarounds or simplifications!
+- you should add missing edge cases. to ensure these edge cases are correct, compare them against mathlab so they test the correct behaviour 
 - Read the folder to see which files are there and read the files before you try to change them
 
 
@@ -212,7 +214,7 @@ This workflow must also be applied to dependencies you translated - translate th
 #### Testing Requirements:
 1. One test file per function - everything must have a unit test
 2. Port **all** MATLAB test cases  
-3. Add edge cases and in general missing cases 
+3. Add edge cases and missing cases 
 4. Verify numerical accuracy  
 
 
@@ -274,4 +276,4 @@ This workflow must also be applied to dependencies you translated - translate th
 
 
 ## Task
-Your task is to translate missing `Interval methodes` and any associated missing tests (and create addtional test cases for the matlab logic if the matlab ones are not comprehensiv)
+Your task is to fix all issues of contSet.contSet and contSet.interval

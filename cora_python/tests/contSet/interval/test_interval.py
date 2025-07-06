@@ -181,6 +181,37 @@ class TestInterval:
         assert I.contains([0, 0])
         assert I.contains([-1000, 1000])  # Large values should be contained
 
+    def test_setitem(self):
+        """Test __setitem__ for interval assignment"""
+        I = Interval(np.array([-1, 1]), np.array([1, 2]))
+
+        # Assign a scalar interval
+        I[0] = Interval(-5, 5)
+        assert np.allclose(I.inf, [-5, 1])
+        assert np.allclose(I.sup, [5, 2])
+
+        # Assign a numeric value (should be converted to point interval)
+        I[1] = 0
+        assert np.allclose(I.inf, [-5, 0])
+        assert np.allclose(I.sup, [5, 0])
+
+        # Assign a slice
+        I[:] = Interval(np.array([-1,-2]), np.array([1,2]))
+        assert np.allclose(I.inf, [-1, -2])
+        assert np.allclose(I.sup, [1, 2])
+
+        # Test with matrix
+        I_mat = Interval(np.zeros((2,2)), np.ones((2,2)))
+        I_mat[0, 1] = Interval(5, 10)
+        expected_inf = np.array([[0., 5.], [0., 0.]])
+        expected_sup = np.array([[1., 10.], [1., 1.]])
+        assert np.allclose(I_mat.inf, expected_inf)
+        assert np.allclose(I_mat.sup, expected_sup)
+
+        # Test index out of bounds
+        with pytest.raises(IndexError):
+            I[2] = 0
+
 
 if __name__ == '__main__':
     pytest.main([__file__]) 

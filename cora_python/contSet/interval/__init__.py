@@ -37,6 +37,25 @@ from .uminus import uminus
 from .transpose import transpose
 from .enclosePoints import enclosePoints
 from .abs_op import abs_op
+from .enlarge import enlarge
+from .gridPoints import gridPoints
+from .partition import partition
+from .projectHighDim_ import projectHighDim_
+from .quadMap import quadMap
+from .conPolyZono import conPolyZono
+from .conZonotope import conZonotope
+from .ellipsoid import ellipsoid
+from .intervalMatrix import intervalMatrix
+from .isFullDim import isFullDim
+from .isIntersecting_ import isIntersecting_
+from .polytope import polytope
+from .polyZonotope import polyZonotope
+from .spectraShadow import spectraShadow
+from .zonotope import zonotope
+from .stlInterval import stlInterval
+from .zonoBundle import zonoBundle
+
+from .capsule import capsule
 
 # Import comparison operators
 from .le import le
@@ -97,6 +116,22 @@ from .issparse import issparse
 from .kron import kron
 from .lift_ import lift_
 from .minkDiff import minkDiff
+from .mrdivide import mrdivide
+from .radius import radius
+from .string import string
+from .ctranspose import ctranspose
+from .reduce import reduce
+from .cat import cat
+from .convHull_ import convHull_
+from .enclose import enclose
+from .getPrintSetInfo import getPrintSetInfo
+from .subsref import subsref
+from .subsasgn import subsasgn
+from .supportFunc_ import supportFunc_
+from .affine import affine
+from .boundaryPoint import boundaryPoint
+from .cartProd_ import cartProd_
+from .dirac_op import dirac_op
 
 # Attach all methods to the Interval class
 Interval.plus = plus
@@ -114,6 +149,7 @@ Interval.rad = rad
 Interval.project = project
 Interval.is_bounded = is_bounded
 Interval.vertices_ = vertices_
+Interval.vertices = vertices_
 Interval.and_ = and_
 Interval.randPoint_ = randPoint_
 Interval.display = display
@@ -170,6 +206,39 @@ Interval.issparse = issparse
 Interval.kron = kron
 Interval.lift_ = lift_
 Interval.minkDiff = minkDiff
+Interval.mrdivide = mrdivide
+Interval.radius = radius
+Interval.string = string
+Interval.ctranspose = ctranspose
+Interval.reduce = reduce
+Interval.cat = cat
+Interval.convHull_ = convHull_
+Interval.enclose = enclose
+Interval.getPrintSetInfo = getPrintSetInfo
+Interval.subsref = subsref
+Interval.subsasgn = subsasgn
+Interval.supportFunc_ = supportFunc_
+Interval.affine = affine
+Interval.boundaryPoint = boundaryPoint
+Interval.cartProd_ = cartProd_
+Interval.dirac = dirac_op
+Interval.gridPoints = gridPoints
+Interval.partition = partition
+Interval.projectHighDim_ = projectHighDim_
+Interval.quadMap = quadMap
+Interval.conPolyZono = conPolyZono
+Interval.conZonotope = conZonotope
+Interval.ellipsoid = ellipsoid
+Interval.intervalMatrix = intervalMatrix
+Interval.isFullDim = isFullDim
+Interval.isIntersecting_ = isIntersecting_
+Interval.polytope = polytope
+Interval.polyZonotope = polyZonotope
+Interval.spectraShadow = spectraShadow
+Interval.zonotope = zonotope
+Interval.stlInterval = stlInterval
+Interval.zonoBundle = zonoBundle
+Interval.capsule = capsule
 
 # Attach operator overloading
 Interval.__eq__ = isequal  # == operator
@@ -199,6 +268,8 @@ Interval.__truediv__ = rdivide  # / operator (element-wise division)
 Interval.__rtruediv__ = lambda self, other: rdivide(other, self)  # / operator (reverse)
 Interval.__round__ = round_op
 Interval.__sum__ = sum_op
+Interval.__getitem__ = subsref
+Interval.__setitem__ = subsasgn
 
 # Attach static methods
 Interval.empty = staticmethod(empty)
@@ -206,6 +277,7 @@ Interval.Inf = staticmethod(Inf)
 Interval.origin = staticmethod(origin)
 Interval.generateRandom = staticmethod(generateRandom)
 Interval.enclosePoints = staticmethod(enclosePoints)
+Interval.enlarge = enlarge
 
 # Export the Interval class and all methods
 __all__ = [
@@ -270,7 +342,7 @@ __all__ = [
     'lift_',
     'minkDiff',
     'power',
-    'rdivide', 
+    'rdivide',
     'mpower',
     'tan',
     'acos',
@@ -283,4 +355,38 @@ __all__ = [
     'asin',
     'asinh',
     'atanh',
+    'mrdivide',
+    'radius',
+    'string',
+    'ctranspose',
+    'reduce',
+    'cat',
+    'convHull_',
+    'enclose',
+    'getPrintSetInfo',
+    'subsref',
+    'subsasgn',
+    'supportFunc_',
+    'affine',
+    'boundaryPoint',
+    'cartProd_',
+    'dirac',
+    'enlarge',
+    'gridPoints',
+    'partition',
+    'projectHighDim_',
+    'quadMap',
+    'conPolyZono',
+    'conZonotope',
+    'ellipsoid',
+    'intervalMatrix',
+    'isFullDim',
+    'isIntersecting_',
+    'polytope',
+    'polyZonotope',
+    'spectraShadow',
+    'zonotope',
+    'stlInterval', 
+    'zonoBundle',
+    'capsule',
 ] 

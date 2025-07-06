@@ -163,6 +163,9 @@ from .Inf import Inf
 
 # Core methods
 ContSet.plot = plot
+ContSet.plot1D = plot1D
+ContSet.plot2D = plot2D
+ContSet.plot3D = plot3D
 ContSet.center = center
 ContSet.contains = contains
 ContSet.contains_ = contains_

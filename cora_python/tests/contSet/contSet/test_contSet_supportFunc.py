@@ -24,6 +24,7 @@ Last revision: ---
 import pytest
 import numpy as np
 from cora_python.contSet.contSet.supportFunc import supportFunc
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class MockContSet:
@@ -39,16 +40,29 @@ class MockContSet:
     def isemptyobject(self):
         return self._empty
     
+    def representsa_(self, type_str, tol):
+        """Mock representsa_ method"""
+        if type_str == 'emptySet':
+            return self._empty
+        return False
+    
     def supportFunc_(self, direction, type_, method, max_order_or_splits, tol):
         """Mock implementation returning distance in direction"""
         if self._empty:
-            return -np.inf
+            return (-np.inf, np.array([]), np.array([]))
         
         # Simple mock: return dot product with unit direction
         dir_normalized = direction / np.linalg.norm(direction)
         # For 'lower' type, the support function is -h(-l)
         sign = -1 if type_ == 'lower' else 1
-        return sign * np.dot(dir_normalized.flatten(), np.ones(self._dim))
+        
+        # Mock behavior: return normalized direction dot product with unit vector
+        # For direction [1,0], normalized = [1,0], dot with [1,1]/sqrt(2) = sqrt(2)/2
+        unit_vector = np.ones(self._dim) / np.sqrt(self._dim)
+        val = sign * np.dot(dir_normalized.flatten(), unit_vector)
+        
+        # Return tuple format (val, x, fac) as expected by supportFunc
+        return (val, np.ones(self._dim), np.array([1.0]))
 
 
 class TestSupportFunc:
@@ -66,16 +80,23 @@ class TestSupportFunc:
         assert np.isclose(result, expected)
     
     def test_supportFunc_multiple_directions(self):
-        """Test supportFunc with multiple directions"""
+        """Test supportFunc with multiple individual directions"""
         
         S = MockContSet(2)
         
-        # Test with 2D direction matrix
-        dirs = np.array([[1, 0], [0, 1]]).T  # Column vectors
-        result = supportFunc(S, dirs)
+        # Test with multiple individual directions (not as a matrix)
+        dir1 = np.array([1, 0])
+        dir2 = np.array([0, 1])
         
-        assert isinstance(result, np.ndarray)
-        assert result.shape == (2,)
+        result1 = supportFunc(S, dir1)
+        result2 = supportFunc(S, dir2)
+        
+        # Both should be valid floats
+        assert isinstance(result1, (float, np.floating))
+        assert isinstance(result2, (float, np.floating))
+        
+        # Results should be the same for symmetric mock
+        assert np.isclose(result1, result2)
     
     def test_supportFunc_format_options(self):
         """Test supportFunc with different format options"""

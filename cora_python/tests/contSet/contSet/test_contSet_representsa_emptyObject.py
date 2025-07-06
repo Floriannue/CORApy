@@ -23,23 +23,26 @@ Last revision: ---
 
 import pytest
 import numpy as np
-from unittest.mock import Mock, patch
+from unittest.mock import patch, MagicMock
+
 from cora_python.contSet.contSet.representsa_emptyObject import representsa_emptyObject
 
 
 class MockContSet:
-    """Mock ContSet for testing representsa_emptyObject method"""
+    """Mock ContSet class for testing"""
     
     def __init__(self, class_name="Zonotope", dim_val=2, empty=False, special_props=None):
         self._class_name = class_name
         self._dim = dim_val
         self._empty = empty
         self._special_props = special_props or {}
-        
+    
+    @property
     def __class__(self):
         class MockClass:
-            __name__ = self._class_name
-        return MockClass()
+            def __init__(self, name):
+                self.__name__ = name
+        return MockClass(self._class_name)
     
     def dim(self):
         return self._dim
@@ -47,21 +50,16 @@ class MockContSet:
     def isemptyobject(self):
         return self._empty
     
-    # Mock polytope properties for testing
     @property
     def isHRep(self):
         if 'isHRep' in self._special_props:
-            class Rep:
-                val = self._special_props['isHRep']
-            return Rep()
+            return self._special_props['isHRep']
         return None
     
     @property
     def isVRep(self):
         if 'isVRep' in self._special_props:
-            class Rep:
-                val = self._special_props['isVRep']
-            return Rep()
+            return self._special_props['isVRep']
         return None
     
     @property
@@ -77,20 +75,22 @@ class MockContSet:
         return self._special_props.get('V', None)
 
 
-# Mock set classes for testing
 class MockEmptySet:
     @staticmethod
     def empty(n):
         return f"EmptySet({n})"
+
 
 class MockZonotope:
     @staticmethod
     def empty(n):
         return f"Zonotope({n})"
 
+
 class MockFullspace:
     def __init__(self, n):
-        self.dim_val = n
+        self.n = n
+
 
 class MockInterval:
     def __init__(self, lower, upper=None):
@@ -99,7 +99,6 @@ class MockInterval:
 
 
 class TestRepresentsaEmptyObject:
-    """Test class for representsa_emptyObject function"""
     
     def test_representsa_emptyObject_non_empty_set(self):
         """Test representsa_emptyObject with non-empty set"""
@@ -146,7 +145,8 @@ class TestRepresentsaEmptyObject:
         }
         S = MockContSet("Polytope", 2, empty=True, special_props=special_props)
         
-        with patch('cora_python.contSet.contSet.representsa_emptyObject.Fullspace', MockFullspace):
+        # Patch the Fullspace class where it's imported
+        with patch('cora_python.contSet.fullspace.Fullspace', MockFullspace):
             empty, res, S_conv = representsa_emptyObject(S, 'fullspace')
             
             assert empty == True
@@ -159,11 +159,13 @@ class TestRepresentsaEmptyObject:
         # VRep polytope with infinite vertices represents fullspace
         special_props = {
             'isVRep': True,
+            'isHRep': False,  # Explicitly set to avoid None
             'V': np.array([[np.inf, np.inf], [np.inf, np.inf]])
         }
         S = MockContSet("Polytope", 2, empty=True, special_props=special_props)
         
-        with patch('cora_python.contSet.contSet.representsa_emptyObject.Fullspace', MockFullspace):
+        # Patch the Fullspace class where it's imported
+        with patch('cora_python.contSet.fullspace.Fullspace', MockFullspace):
             empty, res, S_conv = representsa_emptyObject(S, 'fullspace')
             
             assert empty == True
@@ -195,7 +197,8 @@ class TestRepresentsaEmptyObject:
         
         S = MockContSet("Zonotope", 2, empty=True)
         
-        with patch('cora_python.contSet.contSet.representsa_emptyObject.Interval', MockInterval):
+        # Patch the Interval class where it's imported
+        with patch('cora_python.contSet.interval.Interval', MockInterval):
             empty, res, S_conv = representsa_emptyObject(S, 'interval')
             
             assert empty == True
@@ -213,7 +216,8 @@ class TestRepresentsaEmptyObject:
         }
         S = MockContSet("Polytope", 2, empty=True, special_props=special_props)
         
-        with patch('cora_python.contSet.contSet.representsa_emptyObject.Interval', MockInterval):
+        # Patch the Interval class where it's imported
+        with patch('cora_python.contSet.interval.Interval', MockInterval):
             empty, res, S_conv = representsa_emptyObject(S, 'interval')
             
             assert empty == True
@@ -234,14 +238,18 @@ class TestRepresentsaEmptyObject:
         """Test representsa_emptyObject with general set types"""
         
         # Test with a set that can represent empty set
-        S = MockContSet("Zonotope", 2, empty=True)
+        # Use a different class name to avoid self-checking case
+        S = MockContSet("SomeOtherSet", 2, empty=True)
         
-        with patch('cora_python.contSet.contSet.representsa_emptyObject.Zonotope', MockZonotope):
-            empty, res, S_conv = representsa_emptyObject(S, 'zonotope')
-            
-            assert empty == True
-            assert res == True
-            assert S_conv == "Zonotope(2)"
+        # Test without patching - should work with real imports
+        empty, res, S_conv = representsa_emptyObject(S, 'zonotope')
+        
+        assert empty == True
+        assert res == True
+        # S_conv should be a real Zonotope object
+        assert S_conv is not None
+        assert hasattr(S_conv, '__class__')
+        assert 'zonotope' in S_conv.__class__.__name__.lower()
     
     def test_representsa_emptyObject_polytope_cannot_represent(self):
         """Test representsa_emptyObject with polytope that cannot represent empty set"""
@@ -256,6 +264,9 @@ class TestRepresentsaEmptyObject:
         empty, res, S_conv = representsa_emptyObject(S, 'zonotope')
         
         assert empty == True
+        # Based on MATLAB logic: res = dim(S) == 0 || (~isa(S,'polytope') && ~isa(S,'spectraShadow')) || (isa(S,'polytope') && S.isVRep.val && isempty(S.V))
+        # dim(S) = 2, isa(S,'polytope') = True, so we check: (isa(S,'polytope') && S.isVRep.val && isempty(S.V))
+        # S.V is not empty, so this should be False
         assert res == False  # Polytope with vertices cannot represent general empty set
     
     def test_representsa_emptyObject_spectrashadow_cannot_represent(self):
@@ -266,6 +277,9 @@ class TestRepresentsaEmptyObject:
         empty, res, S_conv = representsa_emptyObject(S, 'zonotope')
         
         assert empty == True
+        # Based on MATLAB logic: res = dim(S) == 0 || (~isa(S,'polytope') && ~isa(S,'spectraShadow')) || (isa(S,'polytope') && S.isVRep.val && isempty(S.V))
+        # dim(S) = 2, isa(S,'polytope') = False, isa(S,'spectraShadow') = True, so (~isa(S,'polytope') && ~isa(S,'spectraShadow')) = False
+        # Therefore res should be False
         assert res == False  # SpectraShadow cannot represent general empty set
     
     def test_representsa_emptyObject_zero_dimension(self):

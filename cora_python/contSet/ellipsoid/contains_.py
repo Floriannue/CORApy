@@ -11,33 +11,52 @@ if TYPE_CHECKING:
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from .private.priv_containsPoint import priv_containsPoint
 from .private.priv_containsEllipsoid import priv_containsEllipsoid
+from .private.priv_venumZonotope import priv_venumZonotope
+
+try:
+    import cvxpy as cp
+    CVXPY_AVAILABLE = True
+except ImportError:
+    CVXPY_AVAILABLE = False
 
 
 def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact', 
               tol: float = 1e-9, max_eval: int = 1000, cert_toggle: bool = False, 
-              scaling_toggle: bool = False, *args) -> Union[bool, Tuple[bool, bool, float]]:
+              scaling_toggle: bool = False, *varargin) -> Tuple[bool, bool, float]:
     """
     Determines if an ellipsoid contains a set or a point.
     
+    Syntax:
+        res = contains_(E, S)
+        res = contains_(E, S, method)
+        res, cert, scaling = contains_(E, S, method, tol, max_eval, cert_toggle, scaling_toggle)
+    
     Args:
         E: ellipsoid object
-        S: contSet object or single point (numpy array)
+        S: contSet object or single point
         method: method used for the containment check ('exact' or 'approx')
         tol: tolerance for the containment check
         max_eval: maximum evaluations (currently has no effect)
         cert_toggle: if True, cert will be computed, otherwise set to NaN
         scaling_toggle: if True, scaling will be computed, otherwise set to inf
-        *args: additional arguments
+        *varargin: additional arguments
     
     Returns:
         res: true/false
-        cert: returns true iff the result could be verified (if requested)
-        scaling: smallest scaling factor (if requested)
+        cert: returns true iff the result could be verified (if cert_toggle is True)
+        scaling: smallest scaling factor (if scaling_toggle is True)
+    
+    References:
+        [1] Yildirim, E.A., 2006. On the minimum volume covering ellipsoid of
+            of ellipsoids. SIAM Journal on Optimization, 17(3), pp.621-641.     
+        [2] SDPT3: url: http://www.math.nus.edu.sg/~mattohkc/sdpt3.html
+        [3] Kulmburg, A, Schäfer, L, Althoff, A, 2024. Approximability of the
+            Containment Problem for Zonotopes and Ellipsotopes
     """
     
-    # Validate method parameter
+    # Validate method
     if method not in ['exact', 'approx']:
-        raise CORAerror('CORA:wrongValue', f"method must be 'exact' or 'approx', got '{method}'")
+        raise CORAerror('CORA:noSpecificAlg', f'No algorithm for method {method}')
     
     cert = True
     scaling = 0.0
@@ -45,7 +64,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
     # Check trivial cases
     # If E is a point...
     try:
-        ell_is_point, p = E.representsa_('point', tol, 'return_set')
+        ell_is_point, p = E.representsa_('point', tol, return_set=True)
     except:
         ell_is_point = False
         p = None
@@ -62,19 +81,36 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
         else:
             # S is not numeric, check if S is a point (but as a contSet)
             try:
-                S_is_point, q = S.representsa_('point', tol, 'return_set')
+                # First check if S represents an empty set
+                if hasattr(S, 'representsa_') and callable(S.representsa_):
+                    is_empty = S.representsa_('emptySet', tol)
+                    if is_empty:
+                        # Empty set is always contained in any ellipsoid
+                        res = True
+                        cert = True
+                        scaling = 0.0
+                        return res, cert, scaling
+                
+                # Then check if S is a point
+                S_is_point, q = S.representsa_('point', tol, return_set=True)
                 if S_is_point:
-                    res = np.allclose(q, p, atol=tol)
+                    # q might be a numpy array or a set object
+                    if isinstance(q, np.ndarray):
+                        # Direct comparison with numpy array
+                        res = np.allclose(q, p, atol=tol)
+                    else:
+                        # q is a set object, use priv_containsPoint to check
+                        point_res, point_cert, point_scaling = priv_containsPoint(E, q, tol)
+                        if isinstance(point_res, np.ndarray):
+                            res = np.all(point_res)
+                        else:
+                            res = point_res
+                    
                     cert = True
                     if res:
                         scaling = 0.0
                     else:
                         scaling = np.inf
-                elif S.representsa_('emptySet', tol):
-                    # If S is not a point at all, test that it is not the empty set
-                    res = True
-                    cert = True
-                    scaling = 0.0
                 else:
                     # S is not numeric and not empty -> S cannot possibly be contained
                     res = False
@@ -85,9 +121,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                 cert = True
                 scaling = np.inf
         
-        if cert_toggle or scaling_toggle:
-            return res, cert, scaling
-        return res
+        return res, cert, scaling
     
     # E is not a point
     # Check if E is empty
@@ -108,8 +142,6 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
             try:
                 if hasattr(S, 'representsa_') and callable(S.representsa_):
                     is_empty = S.representsa_('emptySet', tol)
-                elif hasattr(S, 'is_empty') and callable(S.is_empty):
-                    is_empty = S.is_empty()
                 else:
                     is_empty = False
             except:
@@ -125,16 +157,12 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                 scaling = np.inf
                 cert = True
         
-        if cert_toggle or scaling_toggle:
-            return res, cert, scaling
-        return res
+        return res, cert, scaling
     
     # E is not empty
     if isinstance(S, np.ndarray):
         res, cert, scaling = priv_containsPoint(E, S, tol)
-        if cert_toggle or scaling_toggle:
-            return res, cert, scaling
-        return res
+        return res, cert, scaling
     
     # Check if S is unbounded
     if hasattr(S, 'isBounded') and callable(S.isBounded):
@@ -144,9 +172,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                 res = False
                 cert = True
                 scaling = np.inf
-                if cert_toggle or scaling_toggle:
-                    return res, cert, scaling
-                return res
+                return res, cert, scaling
         except:
             pass
     
@@ -154,8 +180,6 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
     try:
         if hasattr(S, 'representsa_') and callable(S.representsa_):
             is_empty = S.representsa_('emptySet', tol)
-        elif hasattr(S, 'is_empty') and callable(S.is_empty):
-            is_empty = S.is_empty()
         else:
             is_empty = False
     except:
@@ -166,19 +190,15 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
         res = True
         cert = True
         scaling = 0.0
-        if cert_toggle or scaling_toggle:
-            return res, cert, scaling
-        return res
+        return res, cert, scaling
     else:
         try:
             # Check if S represents a point (polymorphic)
             if hasattr(S, 'representsa_') and callable(S.representsa_):
-                is_point, p = S.representsa_('point', tol, 'return_set')
+                is_point, p = S.representsa_('point', tol, return_set=True)
                 if is_point:
                     res, cert, scaling = priv_containsPoint(E, p, tol)
-                    if cert_toggle or scaling_toggle:
-                        return res, cert, scaling
-                    return res
+                    return res, cert, scaling
         except Exception as e:
             if 'CORA:notSupported' in str(e) or 'MATLAB:maxlhs' in str(e):
                 # If the code above returns an error either because there are
@@ -195,128 +215,231 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
         
         if class_name == 'Ellipsoid':
             res, cert, scaling = priv_containsEllipsoid(E, S, tol)
-            if cert_toggle or scaling_toggle:
-                return res, cert, scaling
-            return res
+            return res, cert, scaling
         
         elif class_name == 'Capsule':
             # Check if balls at both ends of capsule are contained
-            try:
-                n = S.dim()
-                
-                # Create ellipsoids for both ends
-                E1 = type(E)((S.r ** 2) * np.eye(n), S.c + S.g)
-                E2 = type(E)((S.r ** 2) * np.eye(n), S.c - S.g)
-                
-                res1, cert1, scaling1 = priv_containsEllipsoid(E, E1, tol)
-                res2, cert2, scaling2 = priv_containsEllipsoid(E, E2, tol)
-                
-                res = res1 and res2
+            from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
+            E1 = Ellipsoid(S.r**2 * np.eye(S.dim()), S.c + S.g)
+            E2 = Ellipsoid(S.r**2 * np.eye(S.dim()), S.c - S.g)
+            
+            res1, cert1, scaling1 = priv_containsEllipsoid(E, E1, tol)
+            res2, cert2, scaling2 = priv_containsEllipsoid(E, E2, tol)
+            res = res1 and res2
+            cert = True
+            scaling = max(scaling1, scaling2)
+            return res, cert, scaling
+    
+    # Method-specific containment checks
+    if method == 'exact':
+        if hasattr(S, '__class__'):
+            class_name = S.__class__.__name__
+            
+            if class_name in ['ConZonotope', 'Interval', 'Polytope', 'ZonoBundle']:
+                # Check if all vertices of the set are contained
+                vertices = S.vertices_()
+                res, cert, scaling = priv_containsPoint(E, vertices, tol)
+                if isinstance(res, np.ndarray):
+                    res = np.all(res)
+                    scaling = np.max(scaling) if isinstance(scaling, np.ndarray) else scaling
                 cert = True
-                scaling = max(scaling1, scaling2)
+                return res, cert, scaling
                 
-                if cert_toggle or scaling_toggle:
+            elif class_name == 'Zonotope':
+                # For zonotopes, we can leverage the symmetry for a better vertex
+                # enumeration, at least for dimensions >3. For some reason,
+                # computing the vertex representation in dimension 2 is still
+                # faster:
+                if S.dim() <= 2:
+                    vertices = S.vertices_()
+                    res, cert, scaling = priv_containsPoint(E, vertices, tol)
+                    if isinstance(res, np.ndarray):
+                        res = np.all(res)
+                        scaling = np.max(scaling) if isinstance(scaling, np.ndarray) else scaling
+                    cert = True
                     return res, cert, scaling
-                return res
-            except:
+                else:
+                    res, cert, scaling = priv_venumZonotope(E, S, tol, scaling_toggle)
+                    return res, cert, scaling
+            else:
+                # Throw error for unsupported types
+                raise CORAerror('CORA:noExactAlg', f'No exact algorithm for {class_name}')
+        else:
+            raise CORAerror('CORA:noExactAlg', 'No exact algorithm for unknown set type')
+            
+    elif method == 'approx':
+        # Compute approx algorithms
+        if hasattr(S, '__class__') and S.__class__.__name__ == 'Zonotope':
+            res, cert, scaling = aux_symmetricGrothendieck(E, S, tol, cert_toggle)
+            return res, cert, scaling
+        elif hasattr(S, 'zonotope') and callable(S.zonotope):
+            # Convert to zonotope and retry
+            Z = S.zonotope()
+            res, cert, scaling = contains_(E, Z, method, tol, max_eval, cert_toggle, scaling_toggle)
+            cert = res  # For approximation, cert equals res
+            return res, cert, scaling
+        else:
+            raise CORAerror('CORA:noExactAlg', 'No approximation algorithm for this set type')
+    else:
+        raise CORAerror('CORA:noSpecificAlg', f'No algorithm for method {method}')
+
+
+def aux_symmetricGrothendieck(E: 'Ellipsoid', Z, tol: float, cert_toggle: bool) -> Tuple[bool, bool, float]:
+    """
+    Symmetric Grothendieck method for zonotope containment in ellipsoid.
+    
+    This implements the method described in [3] for checking if a zonotope
+    is contained in an ellipsoid using semidefinite programming.
+    
+    Args:
+        E: ellipsoid object
+        Z: zonotope object
+        tol: tolerance for containment check
+        cert_toggle: if True, compute certificate
+        
+    Returns:
+        res: containment result
+        cert: certificate (True if result is verified)
+        scaling: scaling factor
+    """
+    
+    n = Z.dim()
+    m = Z.generators().shape[1]
+    
+    # First, we deal with the centers; Z < E if and only if Z' < E-center(E),
+    # where Z' is the zonotope with generator matrix [G center(Z)-center(E)]:
+    from cora_python.contSet.zonotope.zonotope import Zonotope
+    
+    Z_center = Z.center()
+    E_center = E.center()
+    
+    # Create new zonotope with adjusted center
+    new_generators = np.hstack([Z.generators(), (Z_center - E_center)])
+    Z = Zonotope(np.zeros((n, 1)), new_generators)
+    
+    # Adjust ellipsoid center to origin
+    E = E - E_center
+    
+    G = Z.generators()
+    
+    # We now deal with the case where E is degenerate:
+    if not E.isFullDim():
+        # Z < E can only happen if Z lies in the same subspace as E, so we need
+        # to check that every generator of Z lies, up to some scaling, in E.
+        # The fastest way to do this is via the ellipsoid norm: if it is equal
+        # to Inf for some generator, this means that the generator in question
+        # does not lie in the same subspace:
+        for i in range(m):
+            if E.ellipsoidNorm(G[:, i:i+1]) == np.inf:
                 res = False
                 cert = False
                 scaling = np.inf
-                if cert_toggle or scaling_toggle:
-                    return res, cert, scaling
-                return res
-    
-    # Handle other set types based on method
-    if method == 'exact':
-        # Check for sets that support vertex enumeration
-        vertex_supported_types = ['conZonotope', 'interval', 'polytope', 'zonoBundle']
-        if hasattr(S, '__class__') and S.__class__.__name__ in vertex_supported_types:
-            # Check if all vertices of the set are contained
-            try:
-                vertices_S = S.vertices()
-                res, cert, scaling = priv_containsPoint(E, vertices_S, tol)
-                res = np.all(res) if isinstance(res, np.ndarray) else res
-                cert = True
-                scaling = np.max(scaling) if isinstance(scaling, np.ndarray) else scaling
-                
-                if cert_toggle or scaling_toggle:
-                    return res, cert, scaling
-                return res
-            except:
-                pass
+                return res, cert, scaling
         
-        elif hasattr(S, '__class__') and S.__class__.__name__ == 'zonotope':
-            # For zonotopes, we can leverage the symmetry for better vertex enumeration
-            try:
-                if S.dim() <= 2:
-                    vertices_S = S.vertices()
-                    res, cert, scaling = priv_containsPoint(E, vertices_S, tol)
-                    res = np.all(res) if isinstance(res, np.ndarray) else res
+        # So, now we know that Z lies in the same subspace as E. Let us rotate
+        # E using the svd in such a way, that the axes of E are aligned with
+        # the canonical ONB:
+        U, S_vals, Vt = np.linalg.svd(E.Q)
+        T = U
+        
+        # Rotate E and Z
+        E_rotated = T.T @ E
+        Z_rotated = T.T @ Z
+        
+        # We can now remove the last coordinates
+        r = np.linalg.matrix_rank(E.Q)
+        from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
+        E = Ellipsoid(E_rotated.Q[:r, :r], np.zeros((r, 1)))
+        G = Z_rotated.generators()
+        Z = Zonotope(np.zeros((r, 1)), G[:r, :])
+    
+    # We can now assume that E is non-degenerate, which means that Q is
+    # invertible. We now use the method described in [3]
+    G = Z.generators()
+    m = G.shape[1]
+    
+    if not CVXPY_AVAILABLE:
+        # Fallback to vertex-based approach
+        return _fallback_vertex_approach(E, Z, tol, cert_toggle)
+    
+    try:
+        # Use cvxpy for semidefinite programming
+        X = cp.Variable((m, m), PSD=True)
+        lambda_var = cp.Variable()
+        
+        # Constraints: X >= 0 and X(i,i) == 1 for all i
+        constraints = [X >> 0]  # PSD constraint
+        for i in range(m):
+            constraints.append(X[i, i] == 1)
+        
+        Q_inv = np.linalg.inv(E.Q)
+        
+        # Objective: minimize -trace(G^T * Q^(-1) * G * X)
+        objective = cp.Minimize(-cp.trace(G.T @ Q_inv @ G @ X))
+        
+        # Solve the problem
+        problem = cp.Problem(objective, constraints)
+        problem.solve(solver=cp.SCS, verbose=False)
+        
+        if problem.status not in ["infeasible", "unbounded"]:
+            # Compute scaling
+            X_val = X.value
+            if X_val is not None:
+                scaling = np.sqrt(np.abs(np.trace(G.T @ Q_inv @ G @ X_val)))
+                
+                if scaling <= 1 + tol:
+                    res = True
                     cert = True
-                    scaling = np.max(scaling) if isinstance(scaling, np.ndarray) else scaling
                 else:
-                    # Use more sophisticated algorithm for higher dimensions
-                    res, cert, scaling = _priv_venum_zonotope(E, S, tol, scaling_toggle)
-                
-                if cert_toggle or scaling_toggle:
-                    return res, cert, scaling
-                return res
-            except:
-                pass
+                    res = False
+                    if scaling > np.pi / 2:
+                        # If scaling > pi/2, we know from [3] that the set cannot possibly be contained
+                        cert = True
+                    else:
+                        cert = False
+                        
+                return res, cert, scaling
         
-        # If we reach here, throw error for unsupported exact algorithm
-        raise CORAerror('CORA:noExactAlg', f'No exact algorithm available for ellipsoid contains {type(S)}')
+        # If optimization failed, fall back to vertex approach
+        return _fallback_vertex_approach(E, Z, tol, cert_toggle)
+        
+    except Exception:
+        # If cvxpy fails, fall back to vertex approach
+        return _fallback_vertex_approach(E, Z, tol, cert_toggle)
+
+
+def _fallback_vertex_approach(E: 'Ellipsoid', Z, tol: float, cert_toggle: bool) -> Tuple[bool, bool, float]:
+    """
+    Fallback approach using vertex enumeration when SDP solver is not available.
     
-    elif method == 'approx':
-        # Compute approx algorithms
-        if hasattr(S, '__class__') and S.__class__.__name__ == 'zonotope':
-            res, cert, scaling = _aux_symmetric_grothendieck(E, S, tol, cert_toggle)
-            if cert_toggle or scaling_toggle:
-                return res, cert, scaling
-            return res
-        elif hasattr(S, 'zonotope') and callable(S.zonotope):
-            # Convert to zonotope and try again
-            res, cert, scaling = contains_(E, S.zonotope(), method, tol, max_eval, cert_toggle, scaling_toggle)
-            cert = res  # For approximation, cert equals res
-            if cert_toggle or scaling_toggle:
-                return res, cert, scaling
-            return res
-        else:
-            raise CORAerror('CORA:noExactAlg', f'No approximation algorithm available for ellipsoid contains {type(S)}')
-    else:
-        raise CORAerror('CORA:noSpecificAlg', f'No algorithm available for ellipsoid contains {type(S)} with method {method}')
-
-
-def _priv_venum_zonotope(E: 'Ellipsoid', Z, tol: float, scaling_toggle: bool) -> Tuple[bool, bool, float]:
+    Args:
+        E: ellipsoid object
+        Z: zonotope object
+        tol: tolerance
+        cert_toggle: certificate toggle
+        
+    Returns:
+        res: containment result
+        cert: certificate
+        scaling: scaling factor
     """
-    Vertex enumeration for zonotope containment (simplified implementation).
-    """
-    # This is a placeholder for the complex vertex enumeration algorithm
-    # Full implementation would be quite involved
     try:
-        vertices_Z = Z.vertices()
-        res, cert, scaling = priv_containsPoint(E, vertices_Z, tol)
-        res = np.all(res) if isinstance(res, np.ndarray) else res
-        cert = True
-        scaling = np.max(scaling) if isinstance(scaling, np.ndarray) else scaling
+        # Get vertices of the zonotope
+        vertices = Z.vertices_()
+        
+        # Check if all vertices are contained
+        res, cert, scaling = priv_containsPoint(E, vertices, tol)
+        
+        if isinstance(res, np.ndarray):
+            res = np.all(res)
+            scaling = np.max(scaling) if isinstance(scaling, np.ndarray) else scaling
+        
+        cert = True  # We can verify vertex-based results
         return res, cert, scaling
-    except:
-        return False, False, np.inf
-
-
-def _aux_symmetric_grothendieck(E: 'Ellipsoid', Z, tol: float, cert_toggle: bool) -> Tuple[bool, bool, float]:
-    """
-    Symmetric Grothendieck approach for zonotope containment (simplified implementation).
-    """
-    # This is a placeholder for the complex SDP-based algorithm
-    # Full implementation would require semidefinite programming solvers
-    try:
-        # Conservative fallback to vertex-based approach
-        vertices_Z = Z.vertices()
-        res, cert, scaling = priv_containsPoint(E, vertices_Z, tol)
-        res = np.all(res) if isinstance(res, np.ndarray) else res
-        cert = res  # For approximation methods
-        scaling = np.max(scaling) if isinstance(scaling, np.ndarray) else scaling
-        return res, cert, scaling
-    except:
-        return False, False, np.inf 
+        
+    except Exception:
+        # If vertex enumeration fails, return conservative result
+        res = False
+        cert = False
+        scaling = np.inf
+        return res, cert, scaling 

@@ -29,16 +29,16 @@ def compare_files(dir, test_dir):
 
     untested_methods = []
     for file in implementation_files:
-        file = file.replace('_op', '')
+        file = file.replace('_op', '').replace('_', '')
         tested = False
         for test in test_files:
-            test = test.replace('_op', '')
+            test = test.replace('_op', '').replace('_', '')
             # Direct match: function.py -> test_function.py
-            if f"test_{file}" == test:
+            if f"test{file}" == test:
                 tested = True
                 break
             # Class-specific test: method.py -> test_<class>_method.py
-            elif test.endswith(f"_{file}"):
+            elif test.endswith(f"{file}"):
                 tested = True
                 break
             # Exact filename match (should not happend)

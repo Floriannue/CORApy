@@ -98,9 +98,33 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
             res = (A is None or b is None or np.all(b >= -tol)) and \
                   (Ae is None or be is None or np.all(withinTol(be, 0, tol)))
 
+    elif set_type == 'conHyperplane':
+        # Constrained hyperplane: exactly one equality constraint
+        if p._Ae is not None and p._be is not None:
+            res = len(p._be.flatten()) == 1
+        else:
+            res = False
+
     if 'return_set' in kwargs and kwargs['return_set']:
         if res:
-            p_conv = p
+            if set_type == 'point':
+                # Return the actual point coordinates, not the polytope object
+                if p._isVRep:
+                    V = p._V
+                    if V is not None and V.size > 0 and V.shape[1] > 0:
+                        p_conv = V[:, [0]]  # Return first vertex as point coordinates
+                    else:
+                        p_conv = None
+                else:
+                    # For H-representation, get vertices first
+                    from .vertices_ import vertices_
+                    V = vertices_(p)
+                    if V is not None and V.size > 0 and V.shape[1] > 0:
+                        p_conv = V[:, [0]]  # Return first vertex as point coordinates
+                    else:
+                        p_conv = None
+            else:
+                p_conv = p
         return res, p_conv
     else:
         return res 

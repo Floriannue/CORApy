@@ -9,6 +9,7 @@ from .dim import dim
 from .display import display
 from .ellipsoidNorm import ellipsoidNorm
 from .empty import empty
+from .enclosePoints import enclosePoints
 from .generators import generators
 from .isemptyobject import isemptyobject
 from .isFullDim import isFullDim
@@ -32,6 +33,7 @@ Ellipsoid.dim = dim
 Ellipsoid.display = display
 Ellipsoid.ellipsoidNorm = ellipsoidNorm
 Ellipsoid.empty = staticmethod(empty)
+Ellipsoid.enclosePoints = staticmethod(enclosePoints)
 Ellipsoid.generators = generators
 Ellipsoid.isemptyobject = isemptyobject
 Ellipsoid.isFullDim = isFullDim
@@ -42,7 +44,7 @@ Ellipsoid.zonotope = zonotope
 Ellipsoid.copy = copy
 Ellipsoid.project = project
 Ellipsoid.mtimes = mtimes
-Ellipsoid.__matmul__ = mtimes
+Ellipsoid.__matmul__ = lambda self, other: mtimes(self, other)
 Ellipsoid.__rmatmul__ = lambda self, other: mtimes(other, self)
 Ellipsoid.distance = distance
 Ellipsoid.volume_ = volume_
@@ -59,6 +61,7 @@ __all__ = [
     'display',
     'ellipsoidNorm',
     'empty',
+    'enclosePoints',
     'generators',
     'isemptyobject',
     'isFullDim',

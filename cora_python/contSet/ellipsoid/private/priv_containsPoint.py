@@ -23,7 +23,6 @@ def priv_containsPoint(E: 'Ellipsoid', S: np.ndarray, tol: float) -> Tuple[Union
         cert: certificate (always True for point containment)
         scaling: scaling factor for each point
     """
-    from cora_python.contSet.ellipsoid.ellipsoidNorm import ellipsoidNorm
     
     if S.ndim == 1:
         S = S.reshape(-1, 1)
@@ -32,7 +31,8 @@ def priv_containsPoint(E: 'Ellipsoid', S: np.ndarray, tol: float) -> Tuple[Union
     
     # Handle empty point cloud
     if N == 0:
-        return True, True, 0.0
+        # Return empty arrays (not scalars) to match MATLAB and avoid unpacking errors
+        return np.array([], dtype=bool), np.array([], dtype=bool), np.array([], dtype=float)
     
     c = E.center()
     
@@ -41,7 +41,7 @@ def priv_containsPoint(E: 'Ellipsoid', S: np.ndarray, tol: float) -> Tuple[Union
     scaling = np.zeros(N)
     
     for i in range(N):
-        scaling[i] = ellipsoidNorm(E, S[:, i:i+1])
+        scaling[i] = E.ellipsoidNorm(S[:, i:i+1] - c)
         if scaling[i] <= 1 + tol:
             res[i] = True
         elif np.isnan(scaling[i]):
@@ -50,6 +50,6 @@ def priv_containsPoint(E: 'Ellipsoid', S: np.ndarray, tol: float) -> Tuple[Union
             res[i] = True
             scaling[i] = 0.0
     
-    if N == 1:
-        return bool(res[0]), bool(cert[0]), float(scaling[0])
+    # Always return arrays, even for a single point, to match MATLAB behavior and avoid unpacking errors in calling code.
+    # (MATLAB always returns arrays of length N, even for N=1.)
     return res, cert, scaling 

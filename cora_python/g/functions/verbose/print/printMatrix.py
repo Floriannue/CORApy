@@ -10,7 +10,8 @@ def printMatrix(M, *varargin):
     in the workspace, this matrix would be created
     """
 
-    accuracy, do_compact, clear_line = setDefaultValues(['%4.3f', False, True], varargin)
+    defaults, _ = setDefaultValues(['%4.3f', False, True], varargin)
+    accuracy, do_compact, clear_line = defaults
     if isinstance(accuracy, str) and accuracy == 'high':
         accuracy = '%16.16f'
     

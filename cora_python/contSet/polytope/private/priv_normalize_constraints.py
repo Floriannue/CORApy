@@ -49,13 +49,13 @@ def priv_normalize_constraints(A, b, Ae, be, mode):
     """
     # Make copies to avoid modifying the original arrays
     if A is not None:
-        A = A.copy()
+        A = A.copy().astype(float)
     if b is not None:
-        b = b.copy().flatten()  # Ensure b is 1D
+        b = b.copy().flatten().astype(float)  # Ensure b is 1D
     if Ae is not None:
-        Ae = Ae.copy()
+        Ae = Ae.copy().astype(float)
     if be is not None:
-        be = be.copy().flatten()  # Ensure be is 1D
+        be = be.copy().flatten().astype(float)  # Ensure be is 1D
     
     if mode == 'A':
         # Normalize with respect to A matrix
@@ -69,11 +69,11 @@ def priv_normalize_constraints(A, b, Ae, be, mode):
         
         if Ae is not None and Ae.size > 0:
             norms = np.linalg.norm(Ae, axis=1)
-            nonzero_norms = norms != 0
-            if np.any(nonzero_norms):
-                Ae[nonzero_norms, :] = Ae[nonzero_norms, :] / norms[nonzero_norms, np.newaxis]
-                if be is not None:
-                    be[nonzero_norms] = be[nonzero_norms] / norms[nonzero_norms]
+            for i in range(len(norms)):
+                if norms[i] != 0:
+                    Ae[i, :] = Ae[i, :] / norms[i]
+                    if be is not None and i < len(be):
+                        be[i] = be[i] / norms[i]
     
     elif mode == 'b':
         # Normalize with respect to b vector

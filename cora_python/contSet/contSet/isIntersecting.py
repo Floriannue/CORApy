@@ -12,6 +12,7 @@ Python translation: 2025
 
 from typing import TYPE_CHECKING, Union
 import numpy as np
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 if TYPE_CHECKING:
     from cora_python.contSet.contSet.contSet import ContSet
@@ -56,7 +57,7 @@ def isIntersecting(S1: Union['ContSet', np.ndarray],
     # Check dimension compatibility
     if hasattr(S1, 'dim') and hasattr(S2, 'dim'):
         if S1.dim() != S2.dim():
-            raise ValueError(f"Dimension mismatch: S1 has dimension {S1.dim()}, S2 has dimension {S2.dim()}")
+            raise CORAerror('CORA:dimensionMismatch', f"Dimension mismatch: S1 has dimension {S1.dim()}, S2 has dimension {S2.dim()}")
     
     try:
         # Call subclass method

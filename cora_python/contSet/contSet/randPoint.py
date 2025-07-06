@@ -14,21 +14,27 @@ Python translation: 2025
 from typing import TYPE_CHECKING, Union, Optional
 import numpy as np
 from scipy.stats import chi2, multivariate_normal
+from scipy.linalg import sqrtm, svd
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
+from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
 
 if TYPE_CHECKING:
     from cora_python.contSet.contSet.contSet import ContSet
 
-def randPoint(S: 'ContSet', 
-              N: Union[int, str] = 1, 
-              type_: str = 'standard',
-              pr: float = 0.7) -> np.ndarray:
+def randPoint(S: 'ContSet', N: Union[int, str] = 1, type_: str = 'standard', pr: float = 0.7) -> np.ndarray:
     """
     Generates a random point within a given continuous set
     
+    Syntax:
+        x = randPoint(S)
+        x = randPoint(S, N)
+        x = randPoint(S, N, type)
+        x = randPoint(S, N, type, pr)
+    
     Args:
         S: contSet object
-        N: Number of random points or 'all' for extreme points
+        N: Number of random points or 'all'
         type_: Type of random point generation:
                - 'standard': Standard random sampling
                - 'extreme': Extreme points (vertices)
@@ -53,41 +59,43 @@ def randPoint(S: 'ContSet',
         >>> points = randPoint(S, 10, 'standard')
         >>> # points is a 2x10 array of random points
     """
-    # Validate inputs
-    if isinstance(N, str):
-        if N != 'all':
-            raise ValueError("If N is string, it must be 'all'")
-        if type_ != 'extreme':
-            raise ValueError("If N is 'all', type must be 'extreme'")
-    elif not isinstance(N, int) or N < 0:
-        raise ValueError("N must be a non-negative integer or 'all'")
+    # N can be numeric or 'all'
+    if isinstance(N, (int, float)):
+        N = int(N)
+        checkN = [N, 'att', 'numeric', ['scalar', 'integer', 'positive']]
+    else:
+        checkN = [N, 'str', 'all']
     
-    valid_types = ['standard', 'extreme', 'gaussian', 'uniform', 
-                   'uniform:hitAndRun', 'uniform:ballWalk', 'uniform:billiardWalk',
-                   'radius', 'boundary']
-    if type_ not in valid_types:
-        raise ValueError(f"Invalid type '{type_}'. Use one of {valid_types}")
+    # Check input arguments
+    inputArgsCheck([
+        [S, 'att', 'contSet'],
+        checkN,
+        [type_, 'str', ['standard', 'extreme', 'gaussian', 'uniform', 
+                       'uniform:hitAndRun', 'uniform:ballWalk', 'uniform:billiardWalk', 
+                       'radius', 'boundary']],
+        [pr, 'att', 'numeric', [lambda x: 0 <= x <= 1]]
+    ])
     
-    if not (0 <= pr <= 1):
-        raise ValueError("pr must be between 0 and 1")
+    # if N = 'all', then type has to be 'extreme'
+    if isinstance(N, str) and N == 'all' and type_ != 'extreme':
+        raise CORAerror('CORA:wrongValue', 
+                       "If the number of points is 'all', the type has to be 'extreme'.")
     
-    # Handle gaussian sampling (implemented in base class)
-    if type_ == 'gaussian':
-        return _randPoint_gaussian(S, N, pr)
+    # type = 'gaussian' implemented in contSet, other types in subclass methods
+    if type_ != 'gaussian':
+        try:
+            x = S.randPoint_(N, type_)
+        except Exception as ME:
+            if S.representsa_('emptySet', np.finfo(float).eps):
+                return np.empty((S.dim(), 0))
+            elif S.representsa_('origin', np.finfo(float).eps):
+                return np.tile(np.zeros((S.dim(), 1)), (1, N if isinstance(N, int) else 1))
+            else:
+                raise ME
+        return x
     
-    # For other types, delegate to subclass
-    try:
-        x = S.randPoint_(N, type_)
-    except Exception as ME:
-        # Handle special cases
-        if S.representsa_('emptySet', 1e-15):
-            return np.empty((S.dim(), 0))
-        elif S.representsa_('origin', 1e-15):
-            return np.tile(np.zeros((S.dim(), 1)), (1, N if isinstance(N, int) else 1))
-        else:
-            raise ME
-    
-    return x
+    # Handle gaussian sampling
+    return _randPoint_gaussian(S, N, pr)
 
 
 def _randPoint_gaussian(S: 'ContSet', N: Union[int, str], pr: float) -> np.ndarray:
@@ -98,71 +106,92 @@ def _randPoint_gaussian(S: 'ContSet', N: Union[int, str], pr: float) -> np.ndarr
     ellipsoid, and polytope classes.
     """
     # Check if subclass is supported for Gaussian sampling
-    supported_classes = ['Zonotope', 'Interval', 'Ellipsoid', 'Polytope']
-    class_name = type(S).__name__
-    
-    if class_name not in supported_classes:
+    if not (type(S).__name__.lower() in ['zonotope', 'interval', 'ellipsoid', 'polytope']):
         raise CORAerror('CORA:notSupported',
-                       f"The function randPoint for {class_name} does not support type = 'gaussian'.")
+                       f"The function randPoint for {type(S).__name__} does not support type = 'gaussian'.")
     
-    # Handle degenerate zonotope case
-    if class_name == 'Zonotope':
-        # Check if zonotope has no generators (would need compact_ and generators methods)
-        # For now, assume it's handled in the subclass
-        pass
+    # Handle N = 'all' case
+    if isinstance(N, str) and N == 'all':
+        N = 1  # For gaussian with 'all', generate one point
     
-    # Enclose set by ellipsoid (if not already an ellipsoid)
-    if class_name != 'Ellipsoid':
-        # Would need ellipsoid constructor that takes a set
-        # For now, this is a placeholder - actual implementation would depend on ellipsoid class
-        raise NotImplementedError("Ellipsoid enclosure not yet implemented")
+    # zonotope: set does not have any generators
+    if type(S).__name__.lower() == 'zonotope':
+        compact_S = S.compact_('zeros', np.finfo(float).eps)
+        if compact_S.generators().size == 0:
+            return np.tile(S.c.reshape(-1, 1), (1, N))
+    
+    # generates a random vector according to Gaussian distribution within a
+    # given set enclose set by ellipsoid
+    if type(S).__name__.lower() != 'ellipsoid':
+        from cora_python.contSet.ellipsoid import Ellipsoid
+        E = Ellipsoid(S)
     else:
+        # degeneracy handling for ellipsoid: projection on proper subspace,
+        # back-transformation after sampling of points
         E = S
+        
+        # read center, shift ellipsoid
+        c = E.q.copy()
+        E = E + (-c)
+        
+        # compute rank and dimension
+        r = np.linalg.matrix_rank(E.Q)
+        n = E.dim()
+        
+        # determine degeneracy: if so, project on proper subspace (via SVD)
+        n_rem = n - r
+        if n_rem > 0:
+            T, _, _ = svd(E.Q)
+            E = T.T @ E
+            E = E.project(list(range(r)))
+            G = np.linalg.inv(sqrtm(E.Q))
+            E = G @ E
     
-    # Get center and covariance matrix
+    # obtain center
     c = E.center()
     
-    # For ellipsoid, we would need access to the Q matrix
-    # This is a placeholder implementation
-    if hasattr(E, 'Q'):
-        Q = E.Q
-    else:
-        # Fallback - would need proper ellipsoid implementation
-        Q = np.eye(E.dim())
-    
-    # Quantile function for probability pr of the chi-squared distribution
+    # quantile function for probability pr of the chi-squared distribution
     quantile_value = chi2.ppf(pr, E.dim())
     
-    # Obtain covariance matrix
-    Sigma = Q / quantile_value
+    # obtain covariance matrix
+    Sigma = E.Q / quantile_value
     
-    # Create N samples
-    if isinstance(N, str):  # N == 'all'
-        N = 1  # For 'all' with gaussian, generate one point
-    
+    # create N samples
     x = np.zeros((S.dim(), N))
     remaining_samples = N
     idx = 0
     
     while remaining_samples > 0:
-        # Create remaining number of samples from normal distribution
-        pt = multivariate_normal.rvs(mean=c.flatten(), cov=Sigma, size=remaining_samples)
+        # create remaining number of samples of normal distribution
+        # Flatten c to 1D array for multivariate_normal.rvs
+        c_flat = c.flatten()
+        pt = multivariate_normal.rvs(mean=c_flat, cov=Sigma, size=remaining_samples)
         if pt.ndim == 1:
             pt = pt.reshape(-1, 1)
         else:
             pt = pt.T
         
-        # Check containment
+        # check containment
+        # Use the public contains method to get the boolean result
         pt_inside = S.contains(pt)
-        if isinstance(pt_inside, bool):
-            pt_inside = [pt_inside]
         
-        n_inside = np.sum(pt_inside)
-        remaining_samples -= n_inside
+        # contains returns arrays in the format [1, n_points] for multiple points, so flatten for indexing
+        if isinstance(pt_inside, np.ndarray):
+            pt_inside_flat = pt_inside.flatten()
+        else:
+            # Single point case
+            pt_inside_flat = np.array([pt_inside])
         
-        # Store the ones that are contained
+        n_inside = np.sum(pt_inside_flat)
+        remaining_samples = remaining_samples - n_inside
+        
+        # store the ones that are contained, repeat loop for remaining number
         if n_inside > 0:
-            x[:, idx:idx+n_inside] = pt[:, pt_inside]
+            x[:, idx:idx+n_inside] = pt[:, pt_inside_flat]
             idx += n_inside
+    
+    # degenerate ellipsoids: stack again, backtransform and shift
+    if type(S).__name__.lower() == 'ellipsoid' and 'n_rem' in locals() and n_rem > 0:
+        x = T @ np.vstack([np.linalg.inv(G) @ x, np.zeros((n_rem, N))]) + c.reshape(-1, 1)
     
     return x 

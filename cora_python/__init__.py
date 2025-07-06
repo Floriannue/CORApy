@@ -6,4 +6,12 @@ toolbox functionality, including continuous set representations and operations.
 """
 
 __version__ = "2025.1.0"
-__all__ = [] 
+
+# Import main modules
+from . import contDynamics
+from . import contSet
+from . import g
+from . import matrixSet
+from . import specification
+
+__all__ = ['contDynamics', 'contSet', 'g', 'matrixSet', 'specification'] 

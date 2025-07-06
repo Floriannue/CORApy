@@ -3,10 +3,10 @@ from typing import Any
 
 def _get_dim(obj: Any):
     if hasattr(obj, 'dim'):
-        val = obj.dim
-        if callable(val):
-            return (val(),)
-        return (val,)
+        val = obj.dim() if callable(obj.dim) else obj.dim
+        if isinstance(val, list):
+            return tuple(val)
+        return (val,)  # a single dimension
     if hasattr(obj, 'shape'):
         return obj.shape
     if isinstance(obj, (int, float)):
@@ -38,9 +38,17 @@ def equal_dim_check(s1: Any, s2: Any, return_value: bool = False) -> bool:
             res = False
     elif is_s1_cont_set and is_s2_numeric:
         # operation between set and matrix/vector/scalar
-        # row dimension of matrix has to fit set dimension
-        if not np.isscalar(s2) and len(dim1) > 0 and len(dim2) > 0 and dim1[0] != dim2[0]:
-            res = False
+        # row dimension of matrix has to fit set dimension (MATLAB logic)
+        if not np.isscalar(s2):
+            if len(dim1) == 1:
+                # S1 is regular set
+                if dim1[0] != dim2[0]:
+                    res = False
+            else:
+                # S1 is matrix set, allow broadcasting (not implemented yet)
+                # For now, use simple comparison
+                if dim1 != dim2:
+                    res = False
     elif (is_s1_numeric or is_s1_matrix_set) and is_s2_cont_set:
         # operation between matrix/matrix set and contSet
         # column dimension of matrix has to fit set dimension

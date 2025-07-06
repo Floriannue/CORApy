@@ -26,32 +26,29 @@ def cartProd(S1, S2, *varargin):
         res - Cartesian product
     """
 
-    # parse input arguments
-    if isinstance(S1, Ellipsoid) or isinstance(S2, Ellipsoid):
-        type = setDefaultValues(['outer'], varargin)[0]
-    else:
-        type = setDefaultValues(['exact'], varargin)[0]
-
-    # check input arguments: two versions as order of input arguments matters
+    # In the MATLAB version, some basic parsing happens here, 
+    # but the core logic and type checking is delegated to the 
+    # subclass-specific cartProd_ method.
+    
     try:
-        inputArgsCheck([[S1, 'att', ['contSet', 'numeric']],
-                        [S2, 'att', ['contSet', 'numeric'], 'vector'],
-                        [type, 'str', ['outer', 'inner', 'exact']]])
-    except Exception:
-        inputArgsCheck([[S1, 'att', ['contSet', 'numeric'], 'vector'],
-                        [S2, 'att', ['contSet', 'numeric']],
-                        [type, 'str', ['outer', 'inner', 'exact']]])
-
-    # call subclass method
-    try:
-        # Since cartProd is a method of S1, we call it on S1
-        res = S1.cartProd_(S2, type)
-    except Exception as ME:
-        # Cartesian products with empty sets are currently not supported,
-        # because we cannot concatenate empty vectors with filled vectors
-        if S1.representsa_('emptySet', 1e-8) or S2.representsa_('emptySet', 1e-8):
-            raise CORAerror("CORA:notSupported", "Cartesian products with empty sets are not supported.")
+        # Check which argument is the contSet instance and call the method on it
+        if isinstance(S1, ContSet):
+            res = S1.cartProd_(S2, *varargin)
+        elif isinstance(S2, ContSet):
+            # If S1 is numeric, S2 must implement the logic
+            res = S2.cartProd_(S1, *varargin)
         else:
-            raise ME
+            # This case should ideally not be reached if called from an instance
+            raise CORAerror('CORA:noops', S1, S2)
+
+    except Exception as ME:
+        # The MATLAB code has a specific check for empty sets here.
+        # Replicating that behavior.
+        if hasattr(S1, 'is_empty') and hasattr(S2, 'is_empty'):
+             if S1.is_empty() or S2.is_empty():
+                raise CORAerror('CORA:notSupported', "Cartesian products with empty sets are not supported.")
+        
+        # If it's not an empty set issue, rethrow the original error.
+        raise ME
             
     return res 

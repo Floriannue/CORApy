@@ -77,6 +77,10 @@ def supportFunc(S: 'ContSet',
         raise CORAerror('CORA:wrongValue', 
                        f'Direction must be a {S.dim()}-dimensional column vector.')
     
+    # Check for zero direction
+    if np.allclose(direction, 0):
+        raise ValueError("Direction cannot be the zero vector")
+    
     # Validate numerical parameters
     if not isinstance(max_order_or_splits, int) or max_order_or_splits <= 0:
         raise ValueError("max_order_or_splits must be a positive integer")
