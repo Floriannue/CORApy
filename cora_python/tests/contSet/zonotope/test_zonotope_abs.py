@@ -1,5 +1,5 @@
 """
-test_zonotope_abs - unit test function of abs_
+test_zonotope_abs - unit test function of abs
 
 Syntax:
     python -m pytest test_zonotope_abs.py
@@ -92,7 +92,7 @@ def test_zonotope_abs():
 
 
 class TestZonotopeAbs:
-    """Test class for zonotope abs_ method"""
+    """Test class for zonotope abs method"""
     
     def test_positive_zonotope_abs(self):
         """Test absolute value of zonotope with all positive values"""
@@ -101,7 +101,7 @@ class TestZonotopeAbs:
         G = np.array([[1, 0.5], [0, 1]])
         Z = Zonotope(c, G)
         
-        Z_abs = Z.abs_()
+        Z_abs = Z.abs()
         
         # Should be equal to original since all values are positive
         assert Z.isequal(Z_abs)
@@ -113,7 +113,7 @@ class TestZonotopeAbs:
         G = np.array([[-1, -0.5], [0, -1]])
         Z = Zonotope(c, G)
         
-        Z_abs = Z.abs_()
+        Z_abs = Z.abs()
         
         # All coordinates should be made positive
         # Check by sampling points
@@ -128,7 +128,7 @@ class TestZonotopeAbs:
         G = np.array([[2, 0], [0, 3]])
         Z = Zonotope(c, G)
         
-        Z_abs = Z.abs_()
+        Z_abs = Z.abs()
         
         # Result should be in positive quadrant
         points = Z_abs.randPoint_(50)
@@ -142,7 +142,7 @@ class TestZonotopeAbs:
         G = np.array([[4]])  # Spans from -5 to 3
         Z = Zonotope(c, G)
         
-        Z_abs = Z.abs_()
+        Z_abs = Z.abs()
         
         # Result should span from 0 to 5
         points = Z_abs.randPoint_(30)
@@ -152,7 +152,7 @@ class TestZonotopeAbs:
     def test_origin_abs(self):
         """Test absolute value of origin zonotope"""
         Z_origin = Zonotope.origin(3)
-        Z_abs = Z_origin.abs_()
+        Z_abs = Z_origin.abs()
         
         # Should remain origin
         assert Z_origin.isequal(Z_abs)
@@ -160,7 +160,7 @@ class TestZonotopeAbs:
     def test_empty_zonotope_abs(self):
         """Test absolute value of empty zonotope"""
         Z_empty = Zonotope.empty(2)
-        Z_abs = Z_empty.abs_()
+        Z_abs = Z_empty.abs()
         
         assert Z_abs.isemptyobject()
         assert Z_abs.dim() == 2
@@ -171,7 +171,7 @@ class TestZonotopeAbs:
         G = np.array([[2, 1], [1, 2]])
         Z = Zonotope(c, G)
         
-        Z_abs = Z.abs_()
+        Z_abs = Z.abs()
         
         # Sample points from original zonotope
         points = Z.randPoint_(30)
@@ -189,8 +189,8 @@ class TestZonotopeAbs:
         G = np.array([[3, 1], [-2, 1]])
         Z = Zonotope(c, G)
         
-        Z_abs = Z.abs_()
-        Z_abs_abs = Z_abs.abs_()
+        Z_abs = Z.abs()
+        Z_abs_abs = Z_abs.abs()
         
         # Taking absolute value twice should be the same as once
         assert Z_abs.isequal(Z_abs_abs)
@@ -203,7 +203,7 @@ class TestZonotopeAbs:
             G = np.random.randn(3, 4) * 2  # Random generators
             Z = Zonotope(c, G)
             
-            Z_abs = Z.abs_()
+            Z_abs = Z.abs()
             
             # Sample points and verify all are non-negative
             points = Z_abs.randPoint_(20)
@@ -217,7 +217,7 @@ class TestZonotopeAbs:
             G = np.random.randn(dim, dim + 2)
             Z = Zonotope(c, G)
             
-            Z_abs = Z.abs_()
+            Z_abs = Z.abs()
             
             assert Z_abs.dim() == dim
 
@@ -237,4 +237,4 @@ if __name__ == "__main__":
     test_instance.test_abs_positive_orthant()
     test_instance.test_abs_dimension_preservation()
     
-    print("All zonotope abs_ tests passed!") 
+    print("All zonotope abs tests passed!") 
