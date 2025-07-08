@@ -34,8 +34,6 @@ contSet/
  └── ...
 ```
 
-> Ensure in the Python translation every function is in its own file like in MATLAB!
-
 ## Project Structure
 ```
 Translate_Cora/
