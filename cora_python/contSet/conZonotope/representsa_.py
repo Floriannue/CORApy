@@ -210,9 +210,13 @@ def _aux_isEmptySet(cZ: 'ConZonotope', tol: float) -> bool:
         Neq = Vh[len(s):, :].T.conj()
 
     # find a single point that satisfies the constraints
-    x0 = np.linalg.pinv(A) @ cZ.b
+    # Handle case where A is empty
+    if A.size == 0:
+        x0 = np.array([])
+    else:
+        x0 = np.linalg.pinv(A) @ cZ.b
 
-    if np.linalg.norm(A @ x0 - cZ.b) > 1e-10 * np.linalg.norm(cZ.b):  # infeasible
+    if A.size > 0 and np.linalg.norm(A @ x0 - cZ.b) > 1e-10 * np.linalg.norm(cZ.b):  # infeasible
         # note: the tolerance above must be hardcoded to some non-zero value
         return True
 

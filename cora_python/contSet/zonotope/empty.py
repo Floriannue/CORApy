@@ -47,10 +47,11 @@ def empty(n=0):
         raise CORAerror('CORA:wrongInputInConstructor',
                       'Dimension must be a non-negative integer')
     
-    # Create a zonotope with empty center to represent empty set
+    # Create a zonotope with empty center and generators to represent empty set
     # This matches MATLAB: zonotope(zeros(n,0))
-    empty_zono = object.__new__(Zonotope)
-    empty_zono.precedence = 110
-    empty_zono.c = np.zeros((n, 0))
-    empty_zono.G = np.zeros((n, 0))
+    if n == 0:
+        empty_zono = Zonotope(np.array([]), np.array([]))
+    else:
+        # Create empty center (n x 0 matrix) and empty generators (n x 0 matrix)
+        empty_zono = Zonotope(np.zeros((n, 0)), np.zeros((n, 0)))
     return empty_zono 
