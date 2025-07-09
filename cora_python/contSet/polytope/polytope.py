@@ -152,6 +152,32 @@ class Polytope(ContSet):
             self._minHRep = P._minHRep
             self._minVRep = P._minVRep
             return
+        
+        # 1b. handle Zonotope conversion
+        if len(args) == 1 and hasattr(args[0], 'c') and hasattr(args[0], 'G'):
+            # This is a Zonotope object, convert it to polytope
+            Z = args[0]
+            from ..zonotope import Zonotope
+            if isinstance(Z, Zonotope):
+                # Convert zonotope to polytope using the zonotope's polytope method
+                P = Z.polytope()
+                # Copy properties from the converted polytope
+                self._A = P._A.copy() if P._A is not None else None
+                self._b = P._b.copy() if P._b is not None else None
+                self._Ae = P._Ae.copy() if P._Ae is not None else None
+                self._be = P._be.copy() if P._be is not None else None
+                self._V = P._V.copy() if P._V is not None else None
+                self.precedence = P.precedence
+                
+                # Copy set properties
+                self._isHRep = P._isHRep
+                self._isVRep = P._isVRep
+                self._emptySet = P._emptySet
+                self._fullDim = P._fullDim
+                self._bounded = P._bounded
+                self._minHRep = P._minHRep
+                self._minVRep = P._minVRep
+                return
 
         # 2. parse input arguments: varargin -> vars
         A, b, Ae, be, V = self._aux_parseInputArgs(*args)
@@ -219,12 +245,18 @@ class Polytope(ContSet):
         if CHECKS_ENABLED and n_in > 0:
             # Check numeric type of V
             if V.size > 0:
-                if np.any(np.isnan(V)):
-                    raise CORAerror('CORA:wrongInputInConstructor',
-                                  'Vertices have to be non-nan.')
-                elif V.shape[0] > 1 and np.any(np.isinf(V)):
-                    raise CORAerror('CORA:wrongInputInConstructor',
-                                  'nD vertices for n > 1 have to be finite.')
+                # Check if V contains numeric data (not objects like Zonotope)
+                if hasattr(V, 'dtype') and np.issubdtype(V.dtype, np.number):
+                    if np.any(np.isnan(V)):
+                        raise CORAerror('CORA:wrongInputInConstructor',
+                                      'Vertices have to be non-nan.')
+                    elif V.shape[0] > 1 and np.any(np.isinf(V)):
+                        raise CORAerror('CORA:wrongInputInConstructor',
+                                      'nD vertices for n > 1 have to be finite.')
+                else:
+                    # V contains non-numeric objects (like Zonotope)
+                    # This will be handled by the conversion logic
+                    pass
 
             # Check types (all should be numeric arrays)
             for var, name in [(A, 'A'), (b, 'b'), (Ae, 'Ae'), (be, 'be')]:
