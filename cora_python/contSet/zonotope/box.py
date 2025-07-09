@@ -1,6 +1,7 @@
 import numpy as np
 
 from .zonotope import Zonotope
+from .empty import empty
 
 def box(Z):
     """
@@ -25,26 +26,17 @@ def box(Z):
     
     # Handle empty zonotope
     if Z.isemptyobject():
-        return Zonotope.empty(Z.dim())
+        return empty(Z.dim())
     
-    # Compute bounds directly from zonotope as in MATLAB version
-    # delta = sum(abs(Z.G),2) - sum absolute values of generators per dimension
-    c = Z.c
-    delta = np.sum(np.abs(Z.G), axis=1, keepdims=True)
+    # MATLAB implementation: Z.G = diag(sum(abs(Z.G),2))
+    # Sum absolute values of generators along each dimension
+    delta = np.sum(np.abs(Z.G), axis=1)
     
-    # Create axis-aligned box zonotope
-    c_box = c
+    # Create diagonal generator matrix from the sums
+    G_box = np.diag(delta)
     
-    # Create diagonal generator matrix from radii (half of delta)
-    n = Z.dim()
-    radii = delta
-    G_box = np.diag(radii.flatten())
+    # If all radii are zero (no generators), return empty generator matrix
+    if np.all(delta == 0):
+        G_box = np.zeros((Z.dim(), 0))
     
-    # Remove zero generators (dimensions with zero radius)
-    non_zero_mask = radii.flatten() > np.finfo(float).eps
-    if np.any(non_zero_mask):
-        G_box = G_box[:, non_zero_mask]
-    else:
-        G_box = np.zeros((n, 0))
-    
-    return Zonotope(c_box, G_box) 
+    return Zonotope(Z.c, G_box) 

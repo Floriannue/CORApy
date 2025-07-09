@@ -104,6 +104,13 @@ class Zonotope(ContSet):
         """Parse input arguments from user and assign to variables"""
         
         if len(args) == 1:
+            # Check if it's an Interval object
+            if hasattr(args[0], '__class__') and args[0].__class__.__name__ == 'Interval':
+                # Convert interval to zonotope using interval's zonotope method
+                from cora_python.contSet.interval.zonotope import zonotope
+                Z_from_interval = zonotope(args[0])
+                return Z_from_interval.c, Z_from_interval.G
+            
             Z = np.asarray(args[0])
             if Z.ndim <= 1:
                 # Input is a vector (point)
