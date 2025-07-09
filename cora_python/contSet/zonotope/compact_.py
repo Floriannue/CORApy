@@ -43,10 +43,11 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Union
+from typing import Union, Optional
 from .zonotope import Zonotope
+from cora_python.g.functions.helper.sets.contSet.zonotope import nonzeroFilter
 
-def compact_(Z, method: str = 'zeros', tol: float = None) -> Zonotope:
+def compact_(Z, method: str = 'zeros', tol: Optional[float] = None) -> Zonotope:
     """
     Returns equal zonotope in minimal representation
     
@@ -60,7 +61,7 @@ def compact_(Z, method: str = 'zeros', tol: float = None) -> Zonotope:
     """
     if tol is None:
         if method == 'zeros':
-            tol = np.finfo(float).eps
+            tol = float(np.finfo(float).eps)
         else:  # method == 'all'
             tol = 1e-3
     
@@ -84,7 +85,7 @@ def _aux_deleteZeros(Z, tol: float) -> Zonotope:
         zonotope object with zero generators removed
     """
     # Filter zero generators using nonzeroFilter
-    G_filtered = _nonzeroFilter(Z.G, tol)
+    G_filtered = nonzeroFilter(Z.G, tol)
     
     # Create new zonotope with filtered generators
     return Zonotope(Z.c, G_filtered)
@@ -102,7 +103,7 @@ def _aux_deleteAligned(Z, tol: float) -> Zonotope:
         zonotope object with aligned generators combined
     """
     # Delete zero-generators first
-    G = _nonzeroFilter(Z.G, tol)
+    G = nonzeroFilter(Z.G, tol)
     
     # Quick exit for 1D case
     if Z.dim() == 1:
@@ -158,26 +159,4 @@ def _aux_deleteAligned(Z, tol: float) -> Zonotope:
     # need to remove all subsumed generators
     G_final = G[:, idxKeep]
     
-    return Zonotope(Z.c, G_final)
-
-
-def _nonzeroFilter(G: np.ndarray, tol: float = None) -> np.ndarray:
-    """
-    Filters out generators of length 0
-    
-    Args:
-        G: matrix of generators
-        tol: tolerance (optional)
-        
-    Returns:
-        reduced matrix of generators
-    """
-    # Delete zero-generators (any non-zero entry in a column)
-    G_filtered = G[:, np.any(G != 0, axis=0)]
-    
-    if tol is not None:
-        # Also remove generators with norm below tolerance
-        G_norms = np.linalg.norm(G_filtered, axis=0)
-        G_filtered = G_filtered[:, G_norms > tol]
-    
-    return G_filtered 
+    return Zonotope(Z.c, G_final) 
