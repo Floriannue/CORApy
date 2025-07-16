@@ -65,30 +65,37 @@ Translate_Cora/
 ```
 
 
-## **Priority Hierarchy (AI Decision Framework)**
+IF** uncertain: Search manual and MATLAB source code
+
+
+
+
+## **Universal Rules**
+All of them apply always
+
+### **Priority Hierarchy (AI Decision Framework)**
 1. **CORRECTNESS**: Exact functional equivalence with MATLAB - compare translation against MATLAB original
 2. **COMPLETENESS**: All features fully translated, no simplifications, no cheap workarounds
 3. **STRUCTURE**: Mirror MATLAB file organization by putting methods in their own files except for internal helpers
 4. **PYTHONIC**: Only where it doesn't conflict with 1-3
 5. **OPTIMIZATION**: Only after all above are satisfied - if you have optimization ideas that contradict with the rest, write them in `optimization_ideas.txt`
 
-### WHEN TO USE WHICH TOOL:
+#### WHEN TO USE WHICH TOOL:
 - **Discovery Phase**: `list_dir` → `codebase_search` → `grep_search`
 - **Analysis Phase**: `read_file` → `grep_search manual` → compare patterns
 - **Implementation Phase**: Create code files → attach methods → Create test
 - **Verification Phase**: `pytest` → compare MATLAB → document
 
+### **Behavioral Requirements**
 
-## **Behavioral Requirements**
-
-### Mandatory Actions:
+#### Mandatory Actions:
 - **ALWAYS** use `codebase_search` before making changes
 - **ALWAYS** read MATLAB source files before translating
 - **ALWAYS** search manual for function specifications
 - **ALWAYS** run tests after implementation
 - **ALWAYS** after translating a file **report** back with a comparison against the MATLAB source
 
-### Prohibited Actions:
+#### Prohibited Actions:
 - **NEVER** create simplified versions
 - **NEVER** create simplified fallbacks
 - **NEVER** skip test creation
@@ -96,34 +103,12 @@ Translate_Cora/
 - **NEVER** use silent failure patterns
 - **NEVER** import methods as standalone functions. All methods are attached to classes in `__init__.py`
 
-### Conditional Actions:
+#### Conditional Actions:
 - **IF** MATLAB is available: generate results from MATLAB method and compare against Python method
 - **IF** tests fail: Investigate root cause and compare against MATLAB source code. No simplifications. No cheap workarounds.
 - **IF** uncertain: Search manual and MATLAB source code
 
 
-## **Error Handling Protocol**
-
-### Test Failures:
-- Compare against MATLAB source: `read_file matlab_file`
-- Check manual specifications: `grep_search Cora2025.1.0_Manual.txt`
-- Verify test logic against MATLAB tests, MATLAB source code, Manual
-- **NEVER** modify tests to pass, only if you compared them against the MATLAB source code and Manual and they are wrong
-- Identify root cause and fix it
-
-### Import/Integration Issues:
-- Verify file structure and correct import path
-- Check file naming conventions
-- Validate `__init__.py` class attachment
-
-### Numerical Differences:
-- Check data types 
-- Verify matrix ordering (Python translation uses row-major)
-- Compare intermediate results step-by-step with debug prints or debug script
-
-
-## **Universal Rules**
-All of them apply always
 
 ### Terminal and Tools
 - Use Windows PowerShell syntax. Framework has limited output, so use redirection:
@@ -206,7 +191,7 @@ np.array([1, 0])                  # vector
 - Verify accuracy by running the original MATLAB function and the Python translation and compare the results
 
 
-## Translation Workflow
+## Workflows
 
 ### **Discovery**
 **Apply Universal Rules** (see above)
@@ -365,7 +350,7 @@ def test_plus_edge_case1():
 # ... more cases ...
 ```
 
-## **Testing and Verification**
+### **Testing and Verification**
 **Apply Universal Rules** (see above)
 
 - Over 1000 tests exist. Use pytest parameters wisely:
@@ -388,7 +373,7 @@ pytest [path_to__tests] -args > test_output.txt
 
 **(If MATLAB available):**
 ```matlab
-% Create matlab_test.m
+% Create matlab_test.m, for example:
 i1 = interval([1, 2]);
 i2 = interval([3, 4]);
 result = i1 + i2;
@@ -401,15 +386,29 @@ disp(result);  % Compare with Python output
 - [ ] Examples from MATLAB preserved
 - [ ] Manual compliance verified: `grep_search "interval.*plus" Cora2025.1.0_Manual.txt`
 
-#### FAILURE RESPONSE PROTOCOL:
-**IF ANY verification fails:**
-1. **DO NOT** modify tests to pass
-2. **DO NOT** create workarounds  
-3. **DO** re-read MATLAB source: `read_file cora_matlab/contSet/@interval/plus.m`
-4. **DO** compare implementation line-by-line
+#### **Error Handling Protocol**
+
+##### Test Failures:
+- Compare against MATLAB source: `read_file matlab_file`
+- Check manual specifications: `grep_search Cora2025.1.0_Manual.txt`
+- Verify test logic against MATLAB tests, MATLAB source code, Manual
+- **NEVER** modify tests to pass, only if you compared them against the MATLAB source code and Manual and they are wrong
+- Identify root cause and fix it
+
+##### Import/Integration Issues:
+- Verify file structure and correct import path
+- Check file naming conventions
+- Validate `__init__.py` class attachment
+
+##### Numerical Differences:
+- Check data types 
+- Verify matrix ordering (Python translation uses row-major)
+- Compare intermediate results step-by-step with debug prints or debug script
 5. **DO** report exact discrepancies using Self-Correction Template
 
-#### Self-Correction Template:
+Apply the Self-Correction-Template
+
+##### Self-Correction Template:
 ```
 *** Self-Correction Analysis for [function/class name] ***
 
@@ -462,26 +461,24 @@ Integration Success Criteria:
 
 ## **Task**
 ### A. Translate New File:
-1. **Discover**: `codebase_search` → `list_dir` → identify dependencies
-2. **Analyze**: `read_file` MATLAB source + tests + manual
-3. **Implement**: Create class → methods → `__init__.py` → tests  
-4. **Verify**: Run tests → compare MATLAB → document
+1. Use the Discovery Workflow to find the file, its tests and all dependencies
+2. Order the discorverd dependencies and files by what should be translated first because it is required by other files.
+3. Create a TODO-List with the dependencies, files, tests
+For Every element of the TODO-List do:
+4. Use the Analysis Workflow on the n-th file in the order
+5. Use the Implement Workflow on the n-th file in the oder
+6. Use the Test and Verifiy Workflow on the n-th file in the order
 
-### B. Fix Failing Tests:
-1. **Diagnose**: Read test output → identify failure type
-2. **Compare**: Read MATLAB source → find discrepancy  
-3. **Fix**: Correct implementation (never modify tests)
-4. **Verify**: Confirm fix → document changes
+### B. Fix Failing Tests or Compare:
+1. Follow the test and verification workflow to (find and) fix the failling tests by comparing against the original MATLAB code
 
 ### C. Translate missing tests
-1. Identify files with missing tests
-2. Discovery of file and tests
-3. Analysis of file and tests
-4. Implementation of tests
-5. Testing and Verification
+1. Use the Discovery Workflow to Identify files with missing tests and create a List.
+Start with n=0 (first element)
+2. Use the Analysis Workflow on the n-th code file and its missing tests
+3. Use the Implementation Workflow to translate/implement the missing tests of the n-th code file
+5. Use the Testing and Verification workflow to ensure the n-th code file and its tests are both correct
+6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
-### D. Compare and adjust
-1. Compare file against matlab source
-2. Testing and verification 
 
-Your task is to fix all issues of contSet.contSet and contSet.interval
+Your task is to translate `contSet.EmptySet`
