@@ -29,10 +29,10 @@ def compare_files(dir, test_dir):
 
     untested_methods = []
     for file in implementation_files:
-        file = file.replace('_op', '').replace('_', '')
+        file = file.lower().replace('_op', '').replace('_', '')
         tested = False
         for test in test_files:
-            test = test.replace('_op', '').replace('_', '')
+            test = test.lower().replace('_op', '').replace('_', '')
             # Direct match: function.py -> test_function.py
             if f"test{file}" == test:
                 tested = True

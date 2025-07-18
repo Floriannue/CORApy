@@ -138,7 +138,7 @@ python test_coverage.py "cora_python/contSet/interval" "cora_python/tests/contSe
 - One test file per function - everything must have a unit test
 - Port ALL MATLAB test cases exactly  
 - Add edge cases found in examples and documentation and add missing edge cases by comparing against MATLAB behavior
-- Examples must no have tests
+- Examples must not have tests
 
 ### Code structure
 - Classes start with capital letter: `zonotope` → `Zonotope`
@@ -147,9 +147,13 @@ python test_coverage.py "cora_python/contSet/interval" "cora_python/tests/contSe
 - `*` operator (`__mul__`) = element-wise multiplication (like MATLAB's `.*`)
 - `@` operator (`__matmul__`) = matrix multiplication (like MATLAB's `*`)
 - Methods with Python reserved keywords get `_op` suffix: `or` → `or_op` (but still attached as `or`)
+- overloading for logical operations:
+  - `not` → `__invert__` (`~` operator) - Python has no `__not__` operator
+  - `and` → `__and__` (`&` operator) 
+  - `or` → `__or__` (`|` operator)
 - `object.display()` should return the string, not print it (provides string for `__str__`)
 - Don't catch warnings
-- If methods need to import their own class, do it at the top of the file
+- If methods need to import their own class or helpers, do it at the top of the file
 - `func` = public interface with validation (parent class)
 - `func_` = raw implementation for internal use (child overrides)
 - **NEVER** import methods as standalone functions. All methods are attached to classes in `__init__.py`.
@@ -189,6 +193,7 @@ np.array([1, 0])                  # vector
 - For testing plotting functions, save output as PNG and verify visually
 - Find root cause of errors by comparing against MATLAB source and `Cora2025.1.0_Manual.txt`
 - Verify accuracy by running the original MATLAB function and the Python translation and compare the results
+- **NEVER** modify tests to pass, only if you compared them against the MATLAB source code and Manual and they are wrong. the tests need to ensure the methodeS provide the same functionality as their matlab original
 
 
 ## Workflows
@@ -275,8 +280,10 @@ class Interval(ContSet):
 """
 [Copy exact MATLAB docstring here including full Author block with added entry "Automatic python translation: Florian Nüssel BA 2025]
 """
-# import interval (own class here if needed)
-# import g.anything (helper here if needed)
+
+# Import Python libraries, the methodes own class and helpers at the top
+import interval # import own class here if needed
+from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check# import helper here if needed
 
 def plus(self: type, other: type):
     """
@@ -286,7 +293,8 @@ def plus(self: type, other: type):
     Returns:
         [return descriptions]
     """
-    # import zonotope (here if needed)
+    # circular import prevention
+    from cora_python.contSet.zonotope import Zonotope
     # Translate MATLAB logic exactly
     pass
 ```
@@ -297,7 +305,11 @@ def plus(self: type, other: type):
 """
 [Copy exact MATLAB docstring here including full Author block with added entry "Automatic python translation: Florian Nüssel BA 2025]
 """
-# imports
+
+# Import Python libraries and helpers at the top
+import numpy as np
+from typing import Any, Optional
+
 def set_default_values(other: type):
     """
     Short method description

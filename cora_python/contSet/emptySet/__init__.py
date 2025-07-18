@@ -18,6 +18,19 @@ from .representsa_ import representsa_
 from .contains_ import contains_
 from .isequal import isequal
 from .volume_ import volume_
+from .convHull_ import convHull_
+from .getPrintSetInfo import getPrintSetInfo
+from .interval import interval
+from .isFullDim import isFullDim
+from .isIntersecting_ import isIntersecting_
+from .lift_ import lift_
+from .not_op import not_op
+from .polytope import polytope
+from .project import project
+from .projectHighDim_ import projectHighDim_
+from .radius import radius
+from .randPoint_ import randPoint_
+from .vertices_ import vertices_
 
 # Attach methods to the class
 EmptySet.mtimes = mtimes
@@ -34,6 +47,22 @@ EmptySet.representsa_ = representsa_
 EmptySet.contains_ = contains_
 EmptySet.isequal = isequal
 EmptySet.volume_ = volume_
+EmptySet.convHull_ = convHull_
+EmptySet.getPrintSetInfo = getPrintSetInfo
+EmptySet.interval = interval
+EmptySet.isFullDim = isFullDim
+EmptySet.isIntersecting_ = isIntersecting_
+EmptySet.lift_ = lift_
+EmptySet.not_op = not_op
+EmptySet.polytope = polytope
+EmptySet.project = project
+EmptySet.projectHighDim_ = projectHighDim_
+EmptySet.radius = radius
+EmptySet.randPoint_ = randPoint_
+EmptySet.vertices_ = vertices_
+
+# Overload operators
+EmptySet.__invert__ = not_op  # ~ operator
 
 # Attach static methods
 EmptySet.empty = staticmethod(empty)
@@ -57,5 +86,18 @@ __all__ = [
     'representsa_',
     'contains_',
     'isequal',
-    'volume_'
+    'volume_',
+    'convHull_',
+    'getPrintSetInfo',
+    'interval',
+    'isFullDim',
+    'isIntersecting_',
+    'lift_',
+    'not_op',
+    'polytope',
+    'project',
+    'projectHighDim_',
+    'radius',
+    'randPoint_',
+    'vertices_'
 ] 

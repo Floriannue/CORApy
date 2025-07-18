@@ -21,9 +21,21 @@ def empty(n: int = 0) -> Polytope:
     if not isinstance(n, int) or n < 0:
         raise ValueError("Dimension n must be a non-negative integer.")
 
-    # 0*x <= -1 is an empty set in n dimensions
-    A = np.zeros((1, n))
-    b = np.array([[-1]])
+    # the polytope 0*x <= -1 is empty (following MATLAB implementation)
+    nrRows = min([n, 1])
+    A = np.zeros((nrRows, n))
+    b = -np.ones((nrRows, 1))
     
-    # Return a new Polytope defined by this infeasible constraint
-    return Polytope(A, b) 
+    # Create polytope with infeasible constraint
+    P_out = Polytope(A, b)
+    
+    # Set properties explicitly like MATLAB does
+    P_out._emptySet = True
+    P_out._bounded = True
+    P_out._fullDim = False
+    P_out._minHRep = True
+    P_out._minVRep = True
+    P_out._V = np.zeros((n, 0))
+    P_out._isVRep = True
+    
+    return P_out 

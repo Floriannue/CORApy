@@ -171,7 +171,13 @@ class CORAerror(Exception):
             return f"Solver{solver} in {self.functionname} failed due to numerical/other issues!\n{helpmsg}"
         
         elif self.identifier == 'CORA:outOfDomain':
-            return f"Input is not inside the valid domain (function {self.functionname}).\n{self.message}\n{helpmsg}"
+            # MATLAB format: "interval is not inside the valid domain (function project).\n   Valid domain is: 1:4 \n   Type 'help emptySet.project' for more information."
+            varname = 'interval'
+            if self.args_list and isinstance(self.args_list[0], str):
+                varname = self.args_list[0]
+            
+            valid_domain = self.message if self.message else 'unknown'
+            return f"{varname} is not inside the valid domain (function {self.functionname}).\n   Valid domain is: {valid_domain}\n{helpmsg}"
         
         else:
             # Default case for unknown identifiers
