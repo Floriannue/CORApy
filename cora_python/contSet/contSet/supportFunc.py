@@ -23,7 +23,8 @@ def supportFunc(S: 'ContSet',
                 type_: str = 'upper',
                 method: str = 'interval',
                 max_order_or_splits: int = 8,
-                tol: float = 1e-3) -> Union[float, Tuple[float, np.ndarray, np.ndarray]]:
+                tol: float = 1e-3,
+                return_support_vector: bool = False) -> Union[float, Tuple[float, np.ndarray, np.ndarray]]:
     """
     Evaluates the support function of a set along a given direction
     
@@ -32,10 +33,11 @@ def supportFunc(S: 'ContSet',
     Args:
         S: contSet object
         direction: Direction vector for which bounds are calculated (n,1)
-        type_: Type of computation ('lower', 'upper', 'range')
+        type_: Type of computation ('lower','upper','range')
         method: Method for computation (depends on set type)
         max_order_or_splits: Maximum order or number of splits
         tol: Tolerance for computation
+        return_support_vector: If True, returns (val, x); else returns val only
         
     Returns:
         Union[float, Tuple]: Support function value, or tuple of (val, x, fac)
@@ -48,6 +50,7 @@ def supportFunc(S: 'ContSet',
         >>> S = interval([1, 2], [3, 4])
         >>> direction = np.array([1, 0])
         >>> val = supportFunc(S, direction, 'upper')
+        >>> val, x = supportFunc(S, direction, return_support_vector=True)
     """
     # Validate type
     if type_ not in ['lower', 'upper', 'range']:
@@ -59,11 +62,11 @@ def supportFunc(S: 'ContSet',
         if class_name == 'PolyZonotope':
             valid_methods = ['interval', 'split', 'bnb', 'bnbAdv', 'globOpt', 'bernstein', 'quadProg']
             if method not in valid_methods:
-                raise ValueError(f"Invalid method '{method}' for PolyZonotope. Use one of {valid_methods}.")
+                raise ValueError(f"Invalid method '{method}'. Use one of {valid_methods}.")
         elif class_name == 'ConPolyZono':
             valid_methods = ['interval', 'split', 'conZonotope', 'quadProg']
             if method not in valid_methods:
-                raise ValueError(f"Invalid method '{method}' for ConPolyZono. Use one of {valid_methods}.")
+                raise ValueError(f"Invalid method '{method}'. Use one of {valid_methods}.")
     
     # Ensure direction is a column vector
     direction = np.asarray(direction)
@@ -90,8 +93,11 @@ def supportFunc(S: 'ContSet',
     
     try:
         # Call subclass method
-        result = S.supportFunc_(direction, type_, method, max_order_or_splits, tol)
-        return result[0]
+        val, x = S.supportFunc_(direction, type_, method, max_order_or_splits, tol)
+        
+        if return_support_vector:
+            return val, x
+        return val
     except Exception as ME:
         # Handle empty set case
         if S.representsa_('emptySet', 1e-15):
@@ -103,6 +109,8 @@ def supportFunc(S: 'ContSet',
                 # Return interval(-inf, +inf) - would need interval class
                 val = (float('-inf'), float('+inf'))
             
-            return val, np.array([]), np.array([])
+            if return_support_vector:
+                return val, np.array([]), np.array([])
+            return val
         else:
             raise ME 

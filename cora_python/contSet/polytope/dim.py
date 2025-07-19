@@ -46,8 +46,8 @@ def dim(P: 'Polytope') -> int:
             n = P._Ae.shape[1]
         else:
             # constraints, such as zeros(0,n) given
-            A_cols = P._A.shape[1] if P._A is not None else 0
-            Ae_cols = P._Ae.shape[1] if P._Ae is not None else 0
+            A_cols = P._A.shape[1] if P._A is not None and P._A.size == 0 else 0
+            Ae_cols = P._Ae.shape[1] if P._Ae is not None and P._Ae.size == 0 else 0
             n = max(A_cols, Ae_cols)
     elif P._isVRep:
         n = P._V.shape[0] if P._V is not None and P._V.size > 0 else 0

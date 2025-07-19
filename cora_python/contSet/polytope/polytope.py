@@ -265,9 +265,15 @@ class Polytope(ContSet):
         dims = []
         if A.size > 0:
             dims.append(A.shape[1])
+        elif len(A.shape) > 1 and A.shape[1] > 0:  # Even if size is 0, check shape for dimension info
+            dims.append(A.shape[1])
         if Ae.size > 0:
             dims.append(Ae.shape[1])
+        elif len(Ae.shape) > 1 and Ae.shape[1] > 0:  # Even if size is 0, check shape for dimension info
+            dims.append(Ae.shape[1])
         if V.size > 0:
+            dims.append(V.shape[0])
+        elif len(V.shape) > 0 and V.shape[0] > 0:  # Even if size is 0, check shape for dimension info
             dims.append(V.shape[0])
         
         n = max(dims) if dims else 0
@@ -318,9 +324,15 @@ class Polytope(ContSet):
         dims = []
         if A.size > 0:
             dims.append(A.shape[1])
+        elif len(A.shape) > 1 and A.shape[1] > 0:  # Even if size is 0, check shape for dimension info
+            dims.append(A.shape[1])
         if Ae.size > 0:
             dims.append(Ae.shape[1])
+        elif len(Ae.shape) > 1 and Ae.shape[1] > 0:  # Even if size is 0, check shape for dimension info
+            dims.append(Ae.shape[1])
         if V.size > 0:
+            dims.append(V.shape[0])
+        elif len(V.shape) > 0 and V.shape[0] > 0:  # Even if size is 0, check shape for dimension info
             dims.append(V.shape[0])
         
         n = max(dims) if dims else 0

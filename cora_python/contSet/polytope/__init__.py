@@ -37,6 +37,7 @@ from .get_print_set_info import get_print_set_info
 from .enclose_points import enclose_points
 from .isIntersecting_ import isIntersecting_
 from .normalizeConstraints import normalizeConstraints
+from .supportFunc_ import supportFunc_
 
 # Attach methods to the class
 Polytope.zonotope = zonotope
@@ -64,6 +65,7 @@ Polytope.get_print_set_info = get_print_set_info
 Polytope.enclose_points = staticmethod(enclose_points)
 Polytope.isIntersecting_ = isIntersecting_
 Polytope.normalizeConstraints = normalizeConstraints
+Polytope.supportFunc_ = supportFunc_
 
 # Attach operator overloads
 Polytope.__contains__ = lambda self, other: contains_(self, other)

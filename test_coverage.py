@@ -32,7 +32,7 @@ def compare_files(dir, test_dir):
         file = file.lower().replace('_op', '').replace('_', '')
         tested = False
         for test in test_files:
-            test = test.lower().replace('_op', '').replace('_', '')
+            test = test.lower().replace('_op', '').replace('_', '').replace("constructor","")
             # Direct match: function.py -> test_function.py
             if f"test{file}" == test:
                 tested = True

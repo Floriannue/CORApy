@@ -63,6 +63,8 @@ EmptySet.vertices_ = vertices_
 
 # Overload operators
 EmptySet.__invert__ = not_op  # ~ operator
+EmptySet.__add__ = plus  # + operator
+EmptySet.__radd__ = plus  # + operator (right side)
 
 # Attach static methods
 EmptySet.empty = staticmethod(empty)

@@ -51,8 +51,12 @@ def isBounded(P: 'Polytope') -> bool:
     if P.A is not None and P.b is not None and P.A.size > 0:
         return _check_bounded_halfspace(P)
     
+    # If no constraints (empty A and b), the polytope represents R^n, which is unbounded
+    if P.A is not None and P.b is not None and P.A.size == 0:
+        return False
+    
     # For vertex representation: always bounded
-    if hasattr(P, 'V') and P.V is not None and P.V.size > 0:
+    if hasattr(P, '_isVRep') and P._isVRep and hasattr(P, 'V') and P.V is not None and P.V.size > 0:
         return True
     
     # Default case - empty polytope

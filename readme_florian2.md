@@ -272,6 +272,11 @@ class Interval(ContSet):
         """
         # Translate MATLAB constructor logic exactly
         pass
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        """
+        Handle numpy ufunc operations
+        """
 ```
 
 **Step 2: Create method files (one per MATLAB .m file)**
@@ -493,4 +498,4 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-Your task is to translate `contSet.EmptySet`
+Your task is to translate `contSet.fullspace`

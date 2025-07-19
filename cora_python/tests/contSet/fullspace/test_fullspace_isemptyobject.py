@@ -39,8 +39,8 @@ class TestFullspaceIsemptyobject:
         n = 0
         fs = Fullspace(n)
         
-        # Even zero-dimensional fullspace is not empty
-        assert not fs.isemptyobject()
+        # Zero-dimensional fullspace is empty (matches MATLAB behavior)
+        assert fs.isemptyobject()
 
     def test_isemptyobject_consistency(self):
         """Test that isemptyobject is consistent"""

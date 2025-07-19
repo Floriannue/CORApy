@@ -55,6 +55,11 @@ def plus(O: Union['EmptySet', np.ndarray], S: Union['ContSet', np.ndarray]) -> '
     # Ensure that numeric is second input argument
     S_out, S = reorder_numeric(O, S)
     
+    # Handle empty arrays specially
+    if isinstance(S, np.ndarray) and S.size == 0:
+        # Empty array - result is still empty set
+        return S_out
+    
     # Check dimensions of ambient space
     equal_dim_check(S_out, S)
     
