@@ -8,6 +8,7 @@ from .zonotope import Zonotope
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
 from cora_python.g.functions.matlab.validate.check import inputArgsCheck
+from cora_python.g.functions.helper.sets.contSet.zonotope import nonzeroFilter
 
 
 def dominantDirections(Z: Zonotope, filterLength1: Optional[int] = None, 
@@ -48,7 +49,7 @@ def dominantDirections(Z: Zonotope, filterLength1: Optional[int] = None,
     # Delete zero-generators
     if Z.G is None:
         raise CORAerror('CORA:wrongInputInConstructor', 'Generator matrix is None')
-    G = _nonzeroFilter(Z.G)
+    G = nonzeroFilter(Z.G)
     
     # Number of generators
     nrOfGens = G.shape[1]
@@ -77,27 +78,6 @@ def dominantDirections(Z: Zonotope, filterLength1: Optional[int] = None,
     S = G_picked[:, :n]
     
     return S
-
-
-def _nonzeroFilter(G: np.ndarray, tol: float = 1e-12) -> np.ndarray:
-    """
-    Filters out generators of length 0
-    
-    Args:
-        G: matrix of generators
-        tol: tolerance
-        
-    Returns:
-        reduced matrix of generators
-    """
-    # Delete zero-generators (any non-zero entry in a column)
-    G_filtered = G[:, np.any(G != 0, axis=0)]
-    
-    # Also remove generators with norm below tolerance
-    G_norms = np.linalg.norm(G_filtered, axis=0)
-    G_filtered = G_filtered[:, G_norms > tol]
-    
-    return G_filtered
 
 
 def _lengthFilter(G: np.ndarray, filterLength: int) -> np.ndarray:

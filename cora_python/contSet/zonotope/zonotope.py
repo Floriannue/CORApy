@@ -279,3 +279,18 @@ class Zonotope(ContSet):
         
         # For other ufuncs, return NotImplemented to let numpy handle it
         return NotImplemented 
+
+    def contains_(self, S, method='exact', tol=1e-12, maxEval=200, certToggle=True, scalingToggle=True, *args, **kwargs):
+        """
+        Instance method for containment check, matching MATLAB usage.
+        Calls the module-level contains_ function.
+        """
+        from .contains_ import contains_ as zonotope_contains_
+        return zonotope_contains_(self, S, method, tol, maxEval, certToggle, scalingToggle, *args) 
+
+    @staticmethod
+    def empty(dim):
+        """Return an empty zonotope of given dimension (no generators, center at 0)"""
+        c = np.zeros((dim, 1))
+        G = np.zeros((dim, 0))
+        return Zonotope(c, G) 

@@ -131,9 +131,11 @@ def representsa_(Z, set_type: str, tol: float = 1e-12, method: str = 'linearize'
                 if non_zero_count > 1:
                     res = False
                     break
-        
-        if return_set and res:
-            S = Z_compact.interval()
+        if return_set:
+            if res:
+                S = Z_compact.interval()
+            else:
+                S = None
     
     elif set_type == 'zonotope':
         # Obviously true

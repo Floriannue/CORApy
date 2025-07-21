@@ -36,6 +36,7 @@ Python translation: 2025
 import numpy as np
 from typing import List
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.g.functions.helper.sets.contSet.zonotope import nonzeroFilter
 
 from .zonotope import Zonotope
 
@@ -121,7 +122,7 @@ def _aux_quadMapSingle(Z: Zonotope, Q: List[np.ndarray]) -> Zonotope:
         return Zonotope(c, G_sum)
     else:
         # Multiple non-empty Q matrices
-        G_filtered = _nonzeroFilter(G)
+        G_filtered = nonzeroFilter(G)
         return Zonotope(c, G_filtered)
 
 
@@ -171,28 +172,5 @@ def _aux_quadMapMixed(Z1: Zonotope, Z2: Zonotope, Q: List[np.ndarray]) -> Zonoto
     else:
         # Multiple non-empty Q matrices
         c = Z[:, 0:1]  # First column as center
-        G_filtered = _nonzeroFilter(Z[:, 1:])
-        return Zonotope(c, G_filtered)
-
-
-def _nonzeroFilter(G: np.ndarray, tol: float = 1e-12) -> np.ndarray:
-    """
-    Filter out generators that are effectively zero
-    
-    Args:
-        G: Generator matrix
-        tol: Tolerance for zero detection
-        
-    Returns:
-        Filtered generator matrix
-    """
-    if G.size == 0:
-        return G
-        
-    # Find columns where all elements are within tolerance of zero
-    zero_cols = np.all(np.abs(G) <= tol, axis=0)
-    
-    # Keep only non-zero columns
-    G_filtered = G[:, ~zero_cols]
-    
-    return G_filtered 
+        G_filtered = nonzeroFilter(Z[:, 1:])
+        return Zonotope(c, G_filtered) 

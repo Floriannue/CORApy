@@ -1,410 +1,337 @@
 """
-contains_ - determines if zonotope contains a point/set
+contains_ - determines if a zonotope contains a set or a point
 
 Syntax:
-    res = contains_(Z, S)
-    res = contains_(Z, S, method)
-    res = contains_(Z, S, method, tol)
-    res, cert = contains_(Z, S, ...)
-    res, cert, scaling = contains_(Z, S, ...)
+    [res, cert, scaling] = contains_(Z, S, method, tol, maxEval, certToggle, scalingToggle)
 
 Inputs:
     Z - zonotope object
-    S - contSet object or point
-    method - (optional) algorithm for the computation:
-        'exact' (default), 'approx', 'sampling', 'opt'
-    tol - (optional) tolerance
-    maxEval - (optional) maximum number of evaluations for sampling
-    certToggle - (optional) flag for certification
-    scalingToggle - (optional) flag for scaling computation
+    S - contSet object or single point or matrix of points
+    method - method used for the containment check.
+        The available options are:
+            - 'exact': Checks for containment by using either
+                'exact:venum' or 'exact:polymax', depending on the number
+                of generators of Z and the object S.
+            - 'approx': Checks for containment using 'approx:st' (see  
+                below) if S is a zonotope, or any approximative method 
+                available otherwise.
+            - 'exact:venum': Checks for containment by enumerating all 
+                vertices of S (see Algorithm 1 in [2]).
+            - 'exact:polymax': Checks for containment by maximizing the
+                polyhedral norm w.r.t. Z over S (see Algorithm 2 in [2]).
+            - 'approx:st': Solves the containment problem using the
+                approximative method from [1]. If a solution using
+                'approx:st' returns that Z1 is contained in Z2, then this
+                is guaranteed to be the case. The runtime is polynomial
+                w.r.t. all inputs.
+            - 'approx:stDual': Solves the containment problem using the 
+                dual approximative method from [3]. Returns the same values
+                for res and scaling as 'approx:st', but cert can be more
+                precise.
+           For the next methods, note that if both certToggle and
+           scalingToggle are set to 'false', then res will be set to
+           'false' automatically, and the algorithms will not be executed.
+           This is because stochastic/optimization-based algorithms can not
+           confirm containment, so res = true can never happen. However, if
+           maxEval is set high enough, and res = false but cert = false,
+           one might conclude that with good probability, containment
+           holds.
+            - 'opt': Solves the containment problem via optimization
+                (see [2]) using the subroutine ga. If a solution
+                using 'opt' returns that Z1 is not contained in Z2, then
+                this is guaranteed to be the case. The runtime is
+                polynomial w.r.t. maxEval and the other inputs.
+            - 'sampling:primal': Solves the containment stochastically,
+                using the Shenmaier vertex sampling from [4].
+            - 'sampling:dual': Solves the containment stochastically, using
+                the Shenmaier halfspace sampling from [4].
+        The methods 'exact:venum' and 'exact:polymax' are only available if
+        S is a zonotope or a point/point cloud, and 'opt', 'approx:st', and
+        'approx:stDual' are only available if S is a zonotope.
+    tol - tolerance for the containment check; the higher the
+        tolerance, the more likely it is that points near the boundary of Z
+        will be detected as lying in Z, which can be useful to counteract
+        errors originating from floating point errors.
+    maxEval - only, if 'opt', 'sampling:primal', or 'sampling:dual' is
+        used: Number of maximal function evaluations.
+    certToggle - if set to 'true', cert will be computed (see below).
+    scalingToggle - if set to 'true', scaling will be computed (see
+        below).
 
 Outputs:
-    res - true/false whether S is contained in Z
-    cert - true/false whether result is certain
-    scaling - scaling factor
+    res - true/false
+    cert - returns true iff the result of res could be
+           verified. For example, if res=false and cert=true, S is
+           guaranteed to not be contained in Z, whereas if res=false and
+           cert=false, nothing can be deduced (S could still be
+           contained in Z).
+           If res=true, then cert=true.
+           Note that computing this certification may marginally increase
+           the runtime.
+    scaling - returns the smallest number 'scaling', such that
+           scaling*(Z - center(Z)) + center(Z) contains S.
+           For the methods 'approx' and 'approx:st' this is an upper
+           bound, for 'opt', 'sampling:primal' and 'sampling:dual', this
+           number is a lower bound.
+           Note that computing this scaling factor may significantly 
+           increase the runtime.
 
-Authors:       Matthias Althoff, Niklas Kochdumper, Mark Wetzlinger (MATLAB)
-               Python translation by AI Assistant
-Written:       30-September-2006 (MATLAB)
-Last update:   many updates
-Last revision: 12-March-2021 (MW, add set case)
+Note: For low dimensions or number of generators, and if S is a point
+cloud with a very large number of points, it may be beneficial to convert
+the zonotope to a polytope and call its containment operation
+
+Example: 
+    Z1 = zonotope([0.5 2 3 0;0.5 2 0 3])
+    Z2 = zonotope([0 -1 1 0; 0 1 0 1])
+    Z3 = Z2 + [3;0]
+ 
+    contains(Z1,Z2)
+    contains(Z1,Z3)
+ 
+    figure; hold on;
+    plot(Z1,[1,2],'b');
+    plot(Z2,[1,2],'g');
+    
+    figure; hold on;
+    plot(Z1,[1,2],'b');
+    plot(Z3,[1,2],'r');
+
+References:
+    [1] Sadraddini et. al: Linear Encodings for Polytope Containment Problems, CDC 2019
+    [2] A. Kulmburg, M. Althoff.: On the co-NP-Completeness of the Zonotope Containment Problem, European Journal of Control 2021
+    [3] A. Kulmburg, M. Althoff.: Hardness and Approximability of the Containment Problem for Zonotopes and Ellipsotopes (to appear)
+    [4] Kulmburg A., Brkan I., Althoff M.,: Search-based and Stochastic Solutions to the Zonotope and Ellipsotope Containment Problems, ECC 2024
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: contSet/contains, interval/contains_, conZonotope/contains_
+
+Authors:       Matthias Althoff, Niklas Kochdumper, Adrian Kulmburg, Ivan Brkan (MATLAB)
+               Automatic python translation: Florian Nüssel BA 2025
+Written:       07-May-2007 (MATLAB)
+Last update:   06-April-2017
+               14-September-2019
+               19-November-2019 (NK, changed to header format)
+               01-July-2021 (AK, modified input parsing, implemented methods from [2])
+               22-July-2022 (MA, method st no longer requires YALMIP)
+               25-November-2022 (LS, method st using sparse matrices)
+               25-November-2022 (MW, rename 'contains')
+               05-February-2024 (AK, moved subfunctions, added sampling methods and stDual)
+               06-March-2024 (TL, check emptiness of zonotopes)
+               27-September-2024 (MW, remove halfspace call)
+               02-October-2024 (MW, point-in-zono, type decides LP/polytope)
+               15-January-2025 (TL, point-in-zono, tol is used for degeneracy check)
+               28-March-2025 (TL, buffer degenerate sets)
+               28-May-2025 (TL, quick check for representsa interval)
+Last revision: 27-March-2023 (MW, rename contains_)
 """
-
 import numpy as np
-from scipy.optimize import linprog
-from typing import Union, Tuple, Optional
-import warnings
-
-
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-
 from .compact_ import compact_
-
 from .representsa_ import representsa_
+from .private.priv_zonotopeContainment_pointContainment import priv_zonotopeContainment_pointContainment
+from .private.priv_zonotopeContainment_vertexEnumeration import priv_zonotopeContainment_vertexEnumeration
+from .private.priv_zonotopeContainment_SadraddiniTedrake import priv_zonotopeContainment_SadraddiniTedrake
+from .private.priv_zonotopeContainment_SadraddiniTedrakeDual import priv_zonotopeContainment_SadraddiniTedrakeDual
+from .private.priv_zonotopeContainment_zonoSampling import priv_zonotopeContainment_zonoSampling
+from .private.priv_zonotopeContainment_zonoSamplingDual import priv_zonotopeContainment_zonoSamplingDual
+from .private.priv_zonotopeContainment_geneticMaximization import priv_zonotopeContainment_geneticMaximization
+from .private.priv_zonotopeContainment_DIRECTMaximization import priv_zonotopeContainment_DIRECTMaximization
+from .private.priv_zonotopeContainment_ellipsoidSampling import priv_zonotopeContainment_ellipsoidSampling
+from .private.priv_zonotopeContainment_ellipsoidSamplingDual import priv_zonotopeContainment_ellipsoidSamplingDual
 
-
-def contains_(Z, S, method: str = 'exact', tol: float = 1e-12, maxEval: int = 200, 
-              certToggle: bool = True, scalingToggle: bool = True, *varargin) -> Union[bool, Tuple]:
-    """
-    Determines if zonotope contains a point or set.
+def contains_(Z, S, method='exact', tol=1e-12, maxEval=200, certToggle=True, scalingToggle=True, *varargin):
+    def safe_representsa(obj, *args, **kwargs):
+        """Helper function to safely handle representsa_ return values"""
+        kwargs['return_set'] = True  # Always request the set to be returned
+        result = representsa_(obj, *args, **kwargs)
+        if isinstance(result, tuple):
+            return result
+        else:
+            return result, None
     
-    Args:
-        Z: zonotope object
-        S: point (numpy array) or set object to check
-        method: algorithm for computation
-        tol: tolerance for containment check
-        maxEval: maximum evaluations for sampling methods
-        certToggle: whether to return certification
-        scalingToggle: whether to compute scaling factor
-        
-    Returns:
-        bool or tuple: containment result, optionally with cert and scaling
-    """
-    
-    # Check if S is a point or a set
-    if isinstance(S, np.ndarray):
-        # Point containment
-        return _point_containment(Z, S, method, tol, certToggle, scalingToggle)
-    else:
-        # Set containment
-        return _set_containment(Z, S, method, tol, maxEval, certToggle, scalingToggle, *varargin)
-
-
-def _point_containment(Z, p: np.ndarray, method: str, tol: float, 
-                      certToggle: bool, scalingToggle: bool) -> Tuple:
-    """
-    Check if zonotope contains given point(s).
-    """
-    
-    # Import the private function
-    from .private.priv_zonotopeContainment_pointContainment import priv_zonotopeContainment_pointContainment
-    
-    # Ensure p is 2D
-    if p.ndim == 1:
-        p = p.reshape(-1, 1)
-    
-    # Check if zonotope is just a point
-    if representsa_(Z, 'point', tol):
-        # Zonotope is a single point
-        if p.shape[1] == 1:
-            # Single point query
-            res = np.max(np.abs(p - Z.c)) <= tol
+    Z = compact_(Z)
+    # Trivial case: Z is a point
+    Z_isPoint, p = safe_representsa(Z, 'point', tol)
+    if Z_isPoint:
+        if isinstance(S, np.ndarray):
+            if p is None or not isinstance(p, np.ndarray):
+                raise ValueError("representsa_ did not return a valid numpy array for Z as point.")
+            res = np.all(np.abs(S - p) <= tol)
             cert = True
-            scaling = 0.0 if res else np.inf
+            scaling = 0 if res else np.inf
+            return res, cert, scaling
         else:
-            # Multiple points
-            res = np.array([np.max(np.abs(p[:, i:i+1] - Z.c)) <= tol for i in range(p.shape[1])])
-            cert = np.ones(p.shape[1], dtype=bool)
-            scaling = np.where(res, 0.0, np.inf)
-    else:
-        # Use private function for general case
-        res, cert, scaling = priv_zonotopeContainment_pointContainment(Z, p, method, tol, scalingToggle)
-    
-    # Always return all three values for consistency
-    return res, cert, scaling
-
-
-def _set_containment(Z, S, method: str, tol: float, maxEval: int, 
-                    certToggle: bool, scalingToggle: bool, *varargin) -> Union[bool, Tuple]:
-    """
-    Check if zonotope contains given set.
-    """
-    
-    # Get the class name of S
-    S_class = S.__class__.__name__.lower()
-    
-    if S_class == 'zonotope':
-        return _zonotope_containment(Z, S, method, tol, certToggle, scalingToggle)
-    elif S_class == 'interval':
-        return _interval_containment(Z, S, method, tol, certToggle, scalingToggle)
-    elif S_class == 'polytope':
-        return _polytope_containment(Z, S, method, tol, certToggle, scalingToggle)
-    else:
-        # Try to convert to zonotope first
+            S_isPoint, q = safe_representsa(S, 'point', tol)
+            if S_isPoint:
+                if p is None or q is None or not isinstance(p, np.ndarray) or not isinstance(q, np.ndarray):
+                    raise ValueError("representsa_ did not return valid numpy arrays for Z or S as point.")
+                res = np.all(np.abs(p - q) <= tol)
+                cert = True
+                scaling = 0 if res else np.inf
+                return res, cert, scaling
+            return False, True, np.inf
+    # Trivial case: Z is interval
+    Z_isInterval, I = safe_representsa(Z, 'interval', tol)
+    if Z_isInterval and method.startswith(('exact', 'approx')):
+        print("DEBUG: Z_isInterval =", Z_isInterval, "I =", I, "type(I) =", type(I))  # Debug print
+        if not Z_isInterval:
+            return False, True, np.inf
+        if I is None:
+            raise ValueError("representsa_ did not return a valid interval object for Z.")
+        if not hasattr(I, 'contains_'):
+            raise ValueError("Invalid interval object returned - missing contains_ method.")
         try:
-            from ..zonotope import Zonotope
-            S_zono = Zonotope(S)
-            return _zonotope_containment(Z, S_zono, method, tol, certToggle, scalingToggle)
-        except:
-            raise ValueError(f"Containment check not implemented for {S_class}")
+            return I.contains_(S, method, tol, maxEval, certToggle, scalingToggle)
+        except Exception as ME:
+            if ':' in method:
+                base_method = method.split(':')[0]
+                try:
+                    return I.contains_(S, base_method, tol, maxEval, certToggle, scalingToggle)
+                except Exception:
+                    raise ME
+            else:
+                raise ME
+    # Buffer degenerate sets if not full-dimensional
+    if hasattr(Z, 'isFullDim'):
+        is_full_dim = Z.isFullDim(tol)
+    else:
+        is_full_dim = True
+    if not is_full_dim:
+        from ..interval import Interval
+        # Robustly determine dimension
+        if hasattr(Z, 'G') and isinstance(Z.G, np.ndarray):
+            d = Z.G.shape[0]
+        elif hasattr(Z, 'generators') and callable(Z.generators):
+            gens = Z.generators()
+            if gens is not None and isinstance(gens, np.ndarray):
+                d = gens.shape[0]
+            else:
+                raise ValueError("Z.generators() did not return a valid numpy array; cannot determine dimension.")
+        else:
+            raise ValueError("Z is missing required generator information (G or generators()).")
+        I = tol * Interval(-np.ones((d, 1)), np.ones((d, 1)))
+        Z = Z + I
+    # Point or point cloud
+    if isinstance(S, np.ndarray):
+        if method not in ['exact', 'exact:venum', 'exact:polymax', 'approx']:
+            raise CORAerror('CORA:noSpecificAlg', method, Z, S)
+        return priv_zonotopeContainment_pointContainment(Z, S, method, tol, scalingToggle)
+    # S is a contSet
+    S = compact_(S)
+    # Trivial cases for S
+    if hasattr(S, 'isBounded') and not S.isBounded():
+        return False, True, np.inf
+    if safe_representsa(S, 'emptySet', tol)[0]:
+        return True, True, 0
+    try:
+        isPoint, p = safe_representsa(S, 'point', tol, return_point=True)
+        if isPoint:
+            if p is None or not isinstance(p, np.ndarray):
+                raise ValueError("representsa_ did not return a valid numpy array for S as point.")
+            return priv_zonotopeContainment_pointContainment(Z, p, method, tol, scalingToggle)
+    except Exception as ME:
+        if hasattr(ME, 'identifier') and (getattr(ME, 'identifier', None) == 'CORA:notSupported' or getattr(ME, 'identifier', None) == 'MATLAB:maxlhs'):
+            pass
+        else:
+            raise ME
+    # Method dispatch
+    if method in ['exact', 'exact:venum', 'exact:polymax']:
+        return aux_exactParser(Z, S, method, tol, maxEval, certToggle, scalingToggle)
+    elif method in ['approx', 'approx:st', 'approx:stDual']:
+        return aux_approxParser(Z, S, method, tol, maxEval, certToggle, scalingToggle)
+    elif method in ['sampling', 'sampling:primal', 'sampling:dual']:
+        return aux_samplingParser(Z, S, method, tol, maxEval, certToggle, scalingToggle)
+    elif method == 'opt':
+        if not hasattr(S, '__class__') or S.__class__.__name__.lower() != 'zonotope':
+            raise CORAerror('CORA:noSpecificAlg', method, Z, S)
+        # Try genetic, fallback to DIRECT
+        try:
+            return priv_zonotopeContainment_geneticMaximization(S, Z, tol, maxEval, scalingToggle)
+        except Exception:
+            return priv_zonotopeContainment_DIRECTMaximization(S, Z, tol, maxEval, scalingToggle)
+    else:
+        raise CORAerror('CORA:noSpecificAlg', method, Z, S)
 
+def aux_exactParser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
+    class_name = S.__class__.__name__.lower() if hasattr(S, '__class__') else ''
+    if class_name in ['interval', 'zonotope']:
+        if class_name == 'interval' and hasattr(S, 'toZonotope'):
+            S = S.toZonotope()
+        if method == 'exact' and hasattr(S, 'dim') and S.dim() >= 4:
+            method = 'exact:venum'
+        else:
+            method = 'exact:polymax'
+    elif class_name in ['conhyperplane', 'emptyset', 'fullspace', 'halfspace', 'polytope', 'zonobundle']:
+        if method == 'exact':
+            method = 'exact:polymax'
+    elif class_name in ['capsule', 'ellipsoid']:
+        if method == 'exact':
+            method = 'exact:polymax'
+        elif method == 'exact:venum':
+            raise CORAerror('CORA:noSpecificAlg', method, Z, S)
+    else:
+        raise CORAerror('CORA:noExactAlg', Z, S)
+    # Algorithm dispatch
+    if method == 'exact:venum':
+        if class_name == 'zonotope':
+            return priv_zonotopeContainment_vertexEnumeration(S, Z, tol, scalingToggle)
+        else:
+            # Fallback to conZonotope if available
+            raise NotImplementedError('conZonotope/contains_ not implemented in Python')
+    elif method == 'exact:polymax':
+        # Fallback to polytope if available
+        raise NotImplementedError('polytope/contains_ not implemented in Python')
+    else:
+        raise CORAerror('CORA:noSpecificAlg', method, Z, S)
 
-def _zonotope_containment(Z, S_zono, method, tol, certToggle, scalingToggle):
-    """Helper function for zonotope-in-zonotope containment"""
-    
-    if method in ['exact', 'exact:polymax', 'exact:venum']:
-        # Fallback to vertex enumeration for exact methods
-        vertices = S_zono.vertices()
-        # It's a point cloud now, so call the point containment helper
-        res, cert, scaling = _point_containment(Z, vertices, 'exact', tol, certToggle, scalingToggle)
-
-        # For set containment, all vertices must be contained.
-        # Reduce the array results to a single boolean.
-        res_final = np.all(res)
-        cert_final = np.all(cert)
-        # The required scaling is the maximum scaling over all vertices.
-        scaling_final = np.max(scaling) if isinstance(scaling, np.ndarray) and scaling.size > 0 else scaling
-
-        return res_final, cert_final, scaling_final
-
+def aux_approxParser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
+    class_name = S.__class__.__name__.lower() if hasattr(S, '__class__') else ''
+    if class_name in ['interval', 'zonotope']:
+        if class_name == 'interval' and hasattr(S, 'toZonotope'):
+            S = S.toZonotope()
+        if certToggle and method == 'approx':
+            method = 'approx:stDual'
+        elif method == 'approx':
+            method = 'approx:st'
+    elif class_name in ['conhyperplane', 'emptyset', 'fullspace', 'halfspace', 'polytope', 'zonobundle']:
+        if method != 'approx':
+            raise CORAerror('CORA:noSpecificAlg', method, Z, S)
+    elif class_name in ['capsule', 'ellipsoid']:
+        if method != 'approx':
+            raise CORAerror('CORA:noSpecificAlg', method, Z, S)
+    else:
+        if method != 'approx':
+            raise CORAerror('CORA:noSpecificAlg', method, Z, S)
+    # Algorithm dispatch
+    if method == 'approx':
+        raise NotImplementedError('conZonotope/contains_ not implemented in Python')
     elif method == 'approx:st':
-        from .private.priv_zonotopeContainment_SadraddiniTedrake import priv_zonotopeContainment_SadraddiniTedrake
-        return priv_zonotopeContainment_SadraddiniTedrake(S_zono, Z, tol, scalingToggle)
-
+        return priv_zonotopeContainment_SadraddiniTedrake(S, Z, tol, scalingToggle)
+    elif method == 'approx:stDual':
+        return priv_zonotopeContainment_SadraddiniTedrakeDual(S, Z, tol, scalingToggle)
     else:
-        # For other approximation methods, we can try to overapproximate S_zono
-        # and check if that overapproximation is contained.
-        # This part is complex and requires more of the library to be ported.
-        # For now, we'll raise an error for unsupported methods.
-        raise ValueError(f"Unsupported method for zonotope-in-zonotope containment: {method}")
+        raise CORAerror('CORA:noSpecificAlg', method, Z, S)
 
-
-def _interval_containment(Z, I, method: str, tol: float, 
-                         certToggle: bool, scalingToggle: bool) -> Union[bool, Tuple]:
-    """
-    Check if zonotope contains interval.
-    """
-    
-    # Convert interval to zonotope and check containment
-    from ..zonotope import Zonotope
-    I_zono = Zonotope(I)
-    return _zonotope_containment(Z, I_zono, method, tol, certToggle, scalingToggle)
-
-
-def _polytope_containment(Z, P, method: str, tol: float, 
-                         certToggle: bool, scalingToggle: bool) -> Union[bool, Tuple]:
-    """
-    Check if zonotope contains polytope.
-    """
-    
-    # Check vertices of polytope
-    vertices = P.vertices_()
-    return _point_containment(Z, vertices, method, tol, certToggle, scalingToggle)
-
-
-def _point_containment_venum(Z, p, tol, scalingToggle):
-    """
-    Point containment using zonotope norm (linear programming approach).
-    """
-    if p.ndim == 1:
-        p = p.reshape(-1, 1)
-    
-    num_points = p.shape[1]
-    res = np.zeros(num_points, dtype=bool)
-    cert = np.ones(num_points, dtype=bool)
-    scaling = np.full(num_points, np.inf)
-    
-    # Get zonotope properties
-    try:
-        center = Z.center() if hasattr(Z, 'center') else np.zeros((p.shape[0], 1))
-        generators = Z.generators() if hasattr(Z, 'generators') else np.array([]).reshape(center.shape[0], 0)
-    except:
-        # Fallback for basic zonotope structure
-        center = getattr(Z, 'c', np.zeros((p.shape[0], 1)))
-        generators = getattr(Z, 'G', np.array([]).reshape(center.shape[0], 0))
-    
-    if generators.size == 0:
-        # Zonotope is just a point
-        for i in range(num_points):
-            point_diff = np.linalg.norm(p[:, i:i+1] - center, np.inf)
-            res[i] = point_diff <= tol
-            scaling[i] = point_diff if point_diff > 0 else 0
-        return res, cert, scaling
-    
-    # Check for each point whether zonotope norm is <= 1
-    for i in range(num_points):
-        point = p[:, i:i+1]
-        zono_norm = _zonotope_containment_norm(generators, point - center)
-        
-        scaling[i] = zono_norm
-        res[i] = zono_norm <= 1 + tol
-        cert[i] = True
-    
-    if num_points == 1:
-        return res[0], cert[0], scaling[0]
+def aux_samplingParser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
+    class_name = S.__class__.__name__.lower() if hasattr(S, '__class__') else ''
+    if class_name == 'conzonotope':
+        raise NotImplementedError('conZonotope/contains_ not implemented in Python')
+    elif class_name == 'zonotope':
+        if method in ['sampling', 'sampling:primal']:
+            return priv_zonotopeContainment_zonoSampling(S, Z, tol, maxEval, scalingToggle)
+        elif method == 'sampling:dual':
+            return priv_zonotopeContainment_zonoSamplingDual(S, Z, tol, maxEval, scalingToggle)
+        else:
+            raise CORAerror('CORA:noSpecificAlg', method, Z, S)
+    elif class_name == 'ellipsoid':
+        if method in ['sampling', 'sampling:primal']:
+            return priv_zonotopeContainment_ellipsoidSampling(S, Z, tol, maxEval, scalingToggle)
+        elif method == 'sampling:dual':
+            return priv_zonotopeContainment_ellipsoidSamplingDual(S, Z, tol, maxEval, scalingToggle)
+        else:
+            raise CORAerror('CORA:noSpecificAlg', method, Z, S)
     else:
-        return res, cert, scaling
-
-
-def _point_containment_polymax(Z, p, tol, scalingToggle):
-    """
-    Point containment using polytope conversion (halfspace approach).
-    """
-    # For now, implement a simplified version using bounding box
-    # This is not exact but provides a basic implementation
-    
-    if p.ndim == 1:
-        p = p.reshape(-1, 1)
-    
-    num_points = p.shape[1]
-    res = np.zeros(num_points, dtype=bool)
-    cert = np.ones(num_points, dtype=bool)
-    scaling = np.full(num_points, np.inf)
-    
-    # Get zonotope bounding box as approximation
-    try:
-        center = Z.center() if hasattr(Z, 'center') else np.zeros((p.shape[0], 1))
-        generators = Z.generators() if hasattr(Z, 'generators') else np.array([]).reshape(center.shape[0], 0)
-    except:
-        # Fallback for basic zonotope structure
-        center = getattr(Z, 'c', np.zeros((p.shape[0], 1)))
-        generators = getattr(Z, 'G', np.array([]).reshape(center.shape[0], 0))
-    
-    if generators.size == 0:
-        # Zonotope is just a point
-        for i in range(num_points):
-            point_diff = np.linalg.norm(p[:, i:i+1] - center, np.inf)
-            res[i] = point_diff <= tol
-            scaling[i] = point_diff if point_diff > 0 else 0
-        return res, cert, scaling
-    
-    # Compute bounding box
-    gen_sum = np.sum(np.abs(generators), axis=1, keepdims=True)
-    lower_bound = center - gen_sum
-    upper_bound = center + gen_sum
-    
-    for i in range(num_points):
-        point = p[:, i:i+1]
-        
-        # Check if point is within bounding box
-        within_bounds = np.all(point >= lower_bound - tol) and np.all(point <= upper_bound + tol)
-        res[i] = within_bounds
-        
-        if scalingToggle and within_bounds:
-            # Compute approximate scaling
-            diff_from_center = point - center
-            if np.any(gen_sum > 0):
-                scaling[i] = np.max(np.abs(diff_from_center) / (gen_sum + 1e-12))
-            else:
-                scaling[i] = 0
-        elif scalingToggle:
-            scaling[i] = np.inf
-    
-    if num_points == 1:
-        return res[0], cert[0], scaling[0]
-    else:
-        return res, cert, scaling
-
-
-def _zonotope_containment_norm(generators, p):
-    """
-    Compute the zonotope containment norm of point p with respect to generators.
-    
-    This solves the linear program:
-    minimize t
-    subject to: generators * x = p
-                -t <= x_i <= t for all i
-    
-    The point is contained if the optimal t <= 1.
-    
-    Args:
-        generators: generator matrix (n x m)
-        p: point (n x 1)
-        
-    Returns:
-        float: zonotope containment norm (inf if infeasible)
-    """
-    if generators.size == 0:
-        if np.allclose(p, 0):
-            return 0
-        else:
-            return np.inf
-    
-    n, m = generators.shape
-    p = p.flatten()
-    
-    # Set up linear program
-    # Variables: [t, x1, x2, ..., xm]
-    c = np.zeros(1 + m)
-    c[0] = 1  # minimize t
-    
-    # Equality constraints: generators * x = p
-    A_eq = np.hstack([np.zeros((n, 1)), generators])
-    b_eq = p
-    
-    # Inequality constraints: -t <= x_i <= t for all i
-    # This becomes: x_i - t <= 0 and -x_i - t <= 0
-    A_ub = np.zeros((2 * m, 1 + m))
-    b_ub = np.zeros(2 * m)
-    
-    for i in range(m):
-        # x_i - t <= 0
-        A_ub[2*i, 0] = -1  # -t
-        A_ub[2*i, 1+i] = 1  # x_i
-        
-        # -x_i - t <= 0
-        A_ub[2*i+1, 0] = -1  # -t
-        A_ub[2*i+1, 1+i] = -1  # -x_i
-    
-    # Bounds: t >= 0, x_i unbounded
-    bounds = [(0, None)] + [(None, None)] * m
-    
-    try:
-        # Solve linear program
-        result = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
-        
-        if result.success:
-            return result.x[0]  # Return optimal t value
-        else:
-            return np.inf
-    except Exception:
-        return np.inf
-
-
-def _exact_parser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
-    """
-    Choose exact algorithm based on set type.
-    """
-    # For now, implement basic fallback
-    if hasattr(S, '__class__'):
-        class_name = S.__class__.__name__.lower()
-        
-        if class_name in ['interval', 'zonotope']:
-            # Convert to zonotope if needed
-            if class_name == 'interval':
-                # Convert interval to zonotope (simplified)
-                S_zono = S  # Assume conversion exists
-            else:
-                S_zono = S
-            
-            # Use vertex enumeration for small zonotopes
-            if method == 'exact' and hasattr(S, 'dim') and S.dim() >= 4:
-                method = 'exact:venum'
-            else:
-                method = 'exact:polymax'
-        else:
-            # Choose polymax for other types
-            if method == 'exact':
-                method = 'exact:polymax'
-    
-    # For now, return a basic implementation
-    # This would need to be expanded with proper algorithms
-    warnings.warn("Exact zonotope-in-zonotope containment not fully implemented. Using approximation.")
-    return False, False, np.inf
-
-
-def _approx_parser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
-    """
-    Choose approximative algorithm based on set type.
-    """
-    # For now, return a basic implementation
-    warnings.warn("Approximative zonotope-in-zonotope containment not fully implemented.")
-    return False, False, np.inf
-
-
-def _sampling_parser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
-    """
-    Choose sampling algorithm based on set type.
-    """
-    # For now, return a basic implementation
-    warnings.warn("Sampling-based zonotope containment not implemented.")
-    return False, False, np.inf
-
-
-def _opt_parser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
-    """
-    Optimization-based containment checking.
-    """
-    # For now, return a basic implementation
-    warnings.warn("Optimization-based zonotope containment not implemented.")
-    return False, False, np.inf 
+        raise CORAerror('CORA:noSpecificAlg', method, Z, S) 
