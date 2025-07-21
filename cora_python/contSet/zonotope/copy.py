@@ -36,4 +36,4 @@ def copy(Z: Zonotope) -> Zonotope:
     """
     
     # Create a new zonotope with copied data
-    return Zonotope(Z.c.copy(), Z.G.copy()) 
+    return Zonotope(Z)
