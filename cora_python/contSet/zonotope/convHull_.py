@@ -25,6 +25,7 @@ import numpy as np
 from typing import Optional, Union, TYPE_CHECKING
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from .zonotope import Zonotope
+from cora_python.g.functions.helper.sets.contSet.contSet.reorder_numeric import reorder_numeric
 
 if TYPE_CHECKING:
     from cora_python.contSet.contSet import ContSet
@@ -53,9 +54,13 @@ def convHull_(Z: 'Zonotope', S: Optional[Union['ContSet', np.ndarray]] = None, m
     # Zonotope is already convex
     if S is None:
         return Z
+
+    # 新增：自身与自身的convex hull直接返回自身
+    if S is Z:
+        return Z
     
     # Ensure that numeric is second input argument (reorder if necessary)
-    Z_out, S = _reorder_numeric(Z, S)
+    Z_out, S = reorder_numeric(Z, S)
     
     # Check dimensions
     if hasattr(S, 'dim') and hasattr(Z_out, 'dim'):
@@ -81,29 +86,4 @@ def convHull_(Z: 'Zonotope', S: Optional[Union['ContSet', np.ndarray]] = None, m
         # Convert S to zonotope
         S_zono = Zonotope(S)
     
-    return Z_out.enclose(S_zono)
-
-
-def _reorder_numeric(Z, S):
-    """
-    Ensure that numeric is second input argument
-    
-    Args:
-        Z: First operand
-        S: Second operand
-        
-    Returns:
-        tuple: (zonotope_operand, other_operand) with zonotope first
-    """
-    
-    # Check for zonotope using both isinstance and class name for robustness
-    Z_is_zonotope = isinstance(Z, Zonotope) or (hasattr(Z, '__class__') and Z.__class__.__name__ == 'Zonotope')
-    S_is_zonotope = isinstance(S, Zonotope) or (hasattr(S, '__class__') and S.__class__.__name__ == 'Zonotope')
-    
-    if Z_is_zonotope:
-        return Z, S
-    elif S_is_zonotope:
-        return S, Z
-    else:
-        # Both are numeric, return as is
-        return Z, S 
+    return Z_out.enclose(S_zono) 
