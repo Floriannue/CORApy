@@ -74,22 +74,17 @@ def enclose(Z: Zonotope, Z2_or_M=None, Zplus: Optional[Zonotope] = None) -> Zono
         Gequal = Z.G
     
     # Compute enclosing zonotope
-    new_c = (Z.c + Z2.c) / 2
+    Z.c = (Z.c + Z2.c) / 2
     
-    # Construct the new generator matrix
+    # Construct the new generator matrix 
     G_parts = [(Gcut + Gequal) / 2, cG, (Gcut - Gequal) / 2]
     if Gadd.size > 0:
         G_parts.append(Gadd)
     
-    # Filter out zero-width parts
-    G_parts_filtered = []
-    for part in G_parts:
-        if part.size > 0:
-            G_parts_filtered.append(part)
-    
-    if G_parts_filtered:
-        new_G = np.hstack(G_parts_filtered)
+    # Concatenate all parts
+    if len(G_parts) > 0:
+        Z.G = np.hstack(G_parts)
     else:
-        new_G = np.array([]).reshape(new_c.shape[0], 0)
+        Z.G = np.array([]).reshape(Z.c.shape[0], 0)
     
-    return Zonotope(new_c, new_G) 
+    return Z 
