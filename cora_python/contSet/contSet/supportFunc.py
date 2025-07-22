@@ -24,7 +24,8 @@ def supportFunc(S: 'ContSet',
                 method: str = 'interval',
                 max_order_or_splits: int = 8,
                 tol: float = 1e-3,
-                return_support_vector: bool = False) -> Union[float, Tuple[float, np.ndarray, np.ndarray]]:
+                return_support_vector: bool = False,
+                return_all: bool = False) -> Union[float, Tuple]:
     """
     Evaluates the support function of a set along a given direction
     
@@ -38,19 +39,9 @@ def supportFunc(S: 'ContSet',
         max_order_or_splits: Maximum order or number of splits
         tol: Tolerance for computation
         return_support_vector: If True, returns (val, x); else returns val only
-        
+        return_all: If True, returns all outputs from supportFunc_ (e.g., val, x, fac)
     Returns:
-        Union[float, Tuple]: Support function value, or tuple of (val, x, fac)
-        
-    Raises:
-        CORAerror: If dimensions don't match or invalid parameters
-        ValueError: If invalid type or method
-        
-    Example:
-        >>> S = interval([1, 2], [3, 4])
-        >>> direction = np.array([1, 0])
-        >>> val = supportFunc(S, direction, 'upper')
-        >>> val, x = supportFunc(S, direction, return_support_vector=True)
+        float, (val, x), or (val, x, fac): Support function value, or tuple of outputs
     """
     # Validate type
     if type_ not in ['lower', 'upper', 'range']:
@@ -93,11 +84,12 @@ def supportFunc(S: 'ContSet',
     
     try:
         # Call subclass method
-        val, x = S.supportFunc_(direction, type_, method, max_order_or_splits, tol)
-        
+        result = S.supportFunc_(direction, type_, method, max_order_or_splits, tol)
+        if return_all:
+            return result
         if return_support_vector:
-            return val, x
-        return val
+            return result[:2]
+        return result[0] if isinstance(result, (tuple, list)) else result
     except Exception as ME:
         # Handle empty set case
         if S.representsa_('emptySet', 1e-15):
@@ -108,9 +100,10 @@ def supportFunc(S: 'ContSet',
             elif type_ == 'range':
                 # Return interval(-inf, +inf) - would need interval class
                 val = (float('-inf'), float('+inf'))
-            
+            if return_all:
+                return (val, np.array([]), np.array([]))
             if return_support_vector:
-                return val, np.array([]), np.array([])
+                return (val, np.array([]))
             return val
         else:
             raise ME 

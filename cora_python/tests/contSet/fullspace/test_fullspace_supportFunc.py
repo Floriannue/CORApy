@@ -105,8 +105,8 @@ class TestFullspaceSupportFunc:
             val, x = fs.supportFunc(dir, 'upper', return_support_vector=True)
             assert val == np.inf
             # For unit direction, only the corresponding component should be infinite
-            expected = np.zeros((n, 1))
-            expected[i, 0] = np.inf
+            expected = np.zeros(n)
+            expected[i] = np.inf
             assert np.all(x == expected)
 
     def test_support_function_high_dimension(self):

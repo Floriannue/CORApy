@@ -54,6 +54,7 @@ def supportFunc_(fs, dir_, type_='upper', *args):
         val: bound of the full-dimensional space in the specified direction
         x: support vector
     """
+    dir_ = np.asarray(dir_).flatten()
     if fs.dimension == 0 and len(args) > 0:  # nargout == 2 equivalent
         raise CORAerror('CORA:notSupported',
                        'Intersection check of R^0 not supported')
@@ -62,14 +63,14 @@ def supportFunc_(fs, dir_, type_='upper', *args):
     if type_ == 'upper':
         val = np.inf
         x = np.inf * np.ones(fs.dimension) * np.sign(dir_)
-        # Handle zero direction: set NaN values to 0
-        x[np.isnan(x)] = 0
+        # For zero directions, set x to 0 (not nan or inf)
+        x[np.abs(dir_) == 0] = 0
     
     elif type_ == 'lower':
         val = -np.inf
         x = -np.inf * np.ones(fs.dimension) * np.sign(dir_)
-        # Handle zero direction: set NaN values to 0
-        x[np.isnan(x)] = 0
+        # For zero directions, set x to 0 (not nan or inf)
+        x[np.abs(dir_) == 0] = 0
     
     elif type_ == 'range':
         # Import here to avoid circular imports
@@ -77,8 +78,8 @@ def supportFunc_(fs, dir_, type_='upper', *args):
         val = Interval(-np.inf, np.inf)
         x = np.column_stack([-np.inf * np.ones(fs.dimension), 
                             np.inf * np.ones(fs.dimension)]) * np.sign(dir_)
-        # Handle zero direction: set NaN values to 0
-        x[np.isnan(x)] = 0
+        # For zero directions, set x to 0 (not nan or inf)
+        x[np.abs(dir_) == 0, :] = 0
     
     # Always return both value and support vector
     return val, x

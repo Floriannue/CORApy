@@ -75,9 +75,9 @@ class TestSupportFunc:
         
         # Test with 1D direction vector
         dir = np.array([1, 0])
-        result = supportFunc(S, dir)
+        val, x, fac = supportFunc(S, dir, return_all=True)
         expected = np.sqrt(2) / 2  # Normalized [1,0] dot [1,1]
-        assert np.isclose(result, expected)
+        assert np.isclose(val, expected)
     
     def test_supportFunc_multiple_directions(self):
         """Test supportFunc with multiple individual directions"""
@@ -88,15 +88,15 @@ class TestSupportFunc:
         dir1 = np.array([1, 0])
         dir2 = np.array([0, 1])
         
-        result1 = supportFunc(S, dir1)
-        result2 = supportFunc(S, dir2)
+        val1, x1, fac1 = supportFunc(S, dir1, return_all=True)
+        val2, x2, fac2 = supportFunc(S, dir2, return_all=True)
         
         # Both should be valid floats
-        assert isinstance(result1, (float, np.floating))
-        assert isinstance(result2, (float, np.floating))
+        assert isinstance(val1, (float, np.floating))
+        assert isinstance(val2, (float, np.floating))
         
         # Results should be the same for symmetric mock
-        assert np.isclose(result1, result2)
+        assert np.isclose(val1, val2)
     
     def test_supportFunc_format_options(self):
         """Test supportFunc with different format options"""
@@ -105,12 +105,12 @@ class TestSupportFunc:
         dir = np.array([1, 1])
         
         # Test with default format ('upper')
-        result1 = supportFunc(S, dir)
+        val1, x1, fac1 = supportFunc(S, dir, return_all=True)
         
         # Test with explicit format 'lower'
-        result2 = supportFunc(S, dir, type_='lower')
+        val2, x2, fac2 = supportFunc(S, dir, type_='lower', return_all=True)
         
-        assert not np.isclose(result1, result2)
+        assert not np.isclose(val1, val2)
     
     def test_supportFunc_empty_set(self):
         """Test supportFunc with empty set"""
@@ -118,8 +118,8 @@ class TestSupportFunc:
         S = MockContSet(2, empty=True)
         dir = np.array([1, 0])
         
-        result = supportFunc(S, dir)
-        assert result == -np.inf
+        val, x, fac = supportFunc(S, dir, return_all=True)
+        assert val == -np.inf
     
     def test_supportFunc_error_cases(self):
         """Test error cases for supportFunc"""
@@ -141,13 +141,13 @@ class TestSupportFunc:
         
         # Test with unit vector
         dir1 = np.array([1, 0])
-        result1 = supportFunc(S, dir1)
+        val1, x1, fac1 = supportFunc(S, dir1, return_all=True)
         
         # Test with scaled vector (should give same result)
         dir2 = np.array([2, 0])
-        result2 = supportFunc(S, dir2)
+        val2, x2, fac2 = supportFunc(S, dir2, return_all=True)
         
-        assert np.isclose(result1, result2)
+        assert np.isclose(val1, val2)
     
     def test_supportFunc_high_dimension(self):
         """Test supportFunc with high-dimensional sets"""
@@ -155,8 +155,8 @@ class TestSupportFunc:
         S = MockContSet(5)
         dir = np.array([1, 1, 1, 1, 1])
         
-        result = supportFunc(S, dir)
-        assert isinstance(result, (float, np.floating))
+        val, x, fac = supportFunc(S, dir, return_all=True)
+        assert isinstance(val, (float, np.floating))
     
     def test_supportFunc_negative_directions(self):
         """Test supportFunc with negative directions"""
@@ -165,14 +165,14 @@ class TestSupportFunc:
         
         # Positive direction
         dir_pos = np.array([1, 0])
-        result_pos = supportFunc(S, dir_pos)
+        val_pos, x_pos, fac_pos = supportFunc(S, dir_pos, return_all=True)
         
         # Negative direction
         dir_neg = np.array([-1, 0])
-        result_neg = supportFunc(S, dir_neg)
+        val_neg, x_neg, fac_neg = supportFunc(S, dir_neg, return_all=True)
         
         # Results should be different
-        assert not np.isclose(result_pos, result_neg)
+        assert not np.isclose(val_pos, val_neg)
 
 
 if __name__ == "__main__":
