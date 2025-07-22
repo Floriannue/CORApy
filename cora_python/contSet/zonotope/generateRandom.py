@@ -38,17 +38,20 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union, Dict, Any, List
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.check.checkNameValuePairs import checkNameValuePairs
+from cora_python.g.functions.matlab.validate.preprocessing.readNameValuePair import readNameValuePair
+from cora_python.g.functions.helper.sets.contSet.zonotope.randomPointOnSphere import randomPointOnSphere
 from .zonotope import Zonotope
 
 
-def generateRandom(**kwargs) -> Zonotope:
+def generateRandom(*args) -> Zonotope:
     """
     Generates a random zonotope.
     
     Args:
-        **kwargs: Name-value pairs:
+        *args: Name-value pairs:
             - Dimension: dimension
             - Center: center
             - NrGenerators: number of generators
@@ -60,17 +63,22 @@ def generateRandom(**kwargs) -> Zonotope:
     Raises:
         CORAerror: If inputs are invalid or computation fails
     """
-    # Check valid name-value pairs
-    valid_keys = {'Dimension', 'Center', 'NrGenerators', 'Distribution'}
-    for key in kwargs:
-        if key not in valid_keys:
-            raise CORAerror('CORA:wrongValue', 'name-value pair', f'Unknown parameter: {key}')
-    
-    # Extract parameters
-    n = kwargs.get('Dimension', None)
-    c = kwargs.get('Center', None)
-    nrGens = kwargs.get('NrGenerators', None)
-    type_dist = kwargs.get('Distribution', None)
+    # name-value pairs -> number of input arguments is always a multiple of 2
+    if len(args) % 2 != 0:
+        raise CORAerror('CORA:evenNumberInputArgs')
+    else:
+        # read input arguments
+        NVpairs = list(args)
+        # check list of name-value pairs
+        checkNameValuePairs(NVpairs, ['Dimension', 'Center', 'NrGenerators', 'Distribution'])
+        # dimension given?
+        [NVpairs, n] = readNameValuePair(NVpairs, 'Dimension')
+        # center given?
+        [NVpairs, c] = readNameValuePair(NVpairs, 'Center')
+        # number of generators given?
+        [NVpairs, nrGens] = readNameValuePair(NVpairs, 'NrGenerators')
+        # distribution for generators given?
+        [NVpairs, type_dist] = readNameValuePair(NVpairs, 'Distribution')
     
     # Default computation for dimension
     if n is None:
@@ -84,6 +92,7 @@ def generateRandom(**kwargs) -> Zonotope:
     if c is None:
         c = 10 * np.random.randn(n, 1)
     else:
+        # Ensure center is a column vector
         c = np.asarray(c).reshape(-1, 1)
     
     # Default number of generators
@@ -119,26 +128,9 @@ def generateRandom(**kwargs) -> Zonotope:
     # Create generators
     for i in range(nrGens):
         # Generate random point on sphere
-        gTmp = _randomPointOnSphere(n)
+        gTmp = randomPointOnSphere(n)
         # Stretch by length
-        G[:, i] = l[i] * gTmp
+        G[:, i] = (l[i] * gTmp).flatten()
     
     # Instantiate zonotope
-    return Zonotope(c, G)
-
-
-def _randomPointOnSphere(n: int) -> np.ndarray:
-    """
-    Generate a random point on the unit sphere in n dimensions.
-    
-    Args:
-        n: Dimension of the space
-        
-    Returns:
-        np.ndarray: Random point on the unit sphere
-    """
-    # Generate random vector from standard normal distribution
-    x = np.random.randn(n)
-    
-    # Normalize to get a point on the unit sphere
-    return x / np.linalg.norm(x) 
+    return Zonotope(c, G) 
