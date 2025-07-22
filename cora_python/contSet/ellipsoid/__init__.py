@@ -25,6 +25,10 @@ from .volume_ import volume_
 from .interval import interval
 from .radius import radius
 from .plus import plus
+from .origin import origin
+from .vertices_ import vertices_
+from .norm_ import norm_
+from .or_ import or_
 
 # Attach methods to the Ellipsoid class
 Ellipsoid.center = center
@@ -52,6 +56,11 @@ Ellipsoid.interval = interval
 Ellipsoid.radius = radius
 Ellipsoid.plus = plus
 Ellipsoid.__add__ = plus
+Ellipsoid.origin = staticmethod(origin)
+Ellipsoid.vertices_ = vertices_
+Ellipsoid.norm_ = norm_
+Ellipsoid.or_ = or_
+Ellipsoid.__or__ = or_
 
 __all__ = [
     'Ellipsoid',
@@ -76,5 +85,9 @@ __all__ = [
     'volume_',
     'interval',
     'radius',
-    'plus'
+    'plus',
+    'origin',
+    'vertices_',
+    'norm_',
+    'or_'
 ] 

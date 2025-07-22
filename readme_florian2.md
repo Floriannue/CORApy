@@ -286,7 +286,7 @@ class Interval(ContSet):
 [Copy exact MATLAB docstring here including full Author block with added entry "Automatic python translation: Florian Nüssel BA 2025]
 """
 
-# Import Python libraries, the methodes own class and helpers at the top
+# Import Python libraries, the methodes own class and helpers from cora_python/g at the top
 import interval # import own class here if needed
 from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check# import helper here if needed
 
@@ -498,4 +498,4 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-Your task is to translate `contSet.fullspace`
+Your task is to translate `contSet.ellipsoid`
