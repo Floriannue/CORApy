@@ -288,6 +288,14 @@ class Zonotope(ContSet):
         from .contains_ import contains_ as zonotope_contains_
         return zonotope_contains_(self, S, method, tol, maxEval, certToggle, scalingToggle, *args) 
 
+    def cubMap(self, *args):
+        """
+        Instance method for cubic multiplication (cubMap), matching MATLAB usage.
+        Calls the module-level cubMap function.
+        """
+        from .cubMap import cubMap as zonotope_cubMap
+        return zonotope_cubMap(self, *args)
+
     @staticmethod
     def empty(dim):
         """Return an empty zonotope of given dimension (no generators, center at 0)"""
