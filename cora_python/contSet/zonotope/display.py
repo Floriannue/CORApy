@@ -29,6 +29,7 @@ Python translation: 2025
 """
 
 import numpy as np
+from cora_python.contSet.contSet.representsa import representsa
 
 
 def display(Z):
@@ -43,9 +44,12 @@ def display(Z):
     """
     lines = []
     
-    # Check for special cases
-    if Z.isemptyobject():
+    # Check for special cases using global representsa
+    if representsa(Z, 'emptySet'):
         result = f"Empty zonotope in R^{Z.dim()}"
+        return result
+    if representsa(Z, 'fullspace'):
+        result = f"Fullspace zonotope in R^{Z.dim()}"
         return result
     
     # Display basic information
