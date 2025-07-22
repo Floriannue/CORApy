@@ -32,14 +32,12 @@ import numpy as np
 
 def dim(Z):
     """
-    Returns the dimension of the ambient space of a zonotope
-    
+    Returns the dimension of the ambient space of a zonotope.
+    This matches MATLAB: n = size(Z.c,1);
+    Always returns a Python int.
     Args:
         Z: zonotope object
-        
     Returns:
         int: dimension of the ambient space
     """
-    # Simply return the number of rows in the center vector
-    # This matches MATLAB: n = size(Z.c,1);
-    return Z.c.shape[0] 
+    return int(Z.c.shape[0]) 
