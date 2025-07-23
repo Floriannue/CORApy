@@ -30,7 +30,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Tuple, Union
-from cora_python.g.functions.matlab.converter import CORAlinprog
+from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
@@ -81,18 +81,16 @@ def priv_supportFunc(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarra
     }
     
     # solve linear program
-    x, val, exitflag = CORAlinprog(problem)
-    val = s * val
-    
-    if exitflag == -3:
-        # unbounded
-        val = -s * np.inf
-        x = -s * np.sign(dir.flatten()) * np.inf * np.ones(len(dir))
-    elif exitflag == -2:
-        # infeasible -> empty set
-        val = s * np.inf
-        x = None
-    elif exitflag != 1:
-        raise CORAerror('CORA:solverIssue', 'Linear programming solver failed')
-    
-    return val, x 
+    x, val, exitflag, _, _ = CORAlinprog(problem) # Unpack all 5 return values
+
+    # Handle exitflag from CORAlinprog to determine feasibility and boundedness
+    if exitflag == 1:  # Optimal solution found
+        return val, x
+    elif exitflag == 2:  # Unbounded
+        return np.inf, None # MATLAB returns inf for unbounded, regardless of type
+    elif exitflag == 3:  # Infeasible
+        # This case means the polytope is empty. Support function is -inf.
+        return -np.inf, None # MATLAB returns -inf for infeasible
+    else: # Other exit flags (e.g., -2: no feasible solution found, -3: problem is unbounded)
+        # Treat other flags as inability to find a support vector (similar to infeasible)
+        return -np.inf, None # Return -infinity as a general 'cannot find' indicator 

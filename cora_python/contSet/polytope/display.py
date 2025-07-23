@@ -88,29 +88,47 @@ def display(P: 'Polytope', name: str = None) -> str:
     output_lines.append("")
 
     # Display vertex representation - check flag first
-    if P._isVRep and P._V is not None:
-        output_lines.append('Vertex representation:')
-        output_lines.extend(displayMatrixVector(P._V, 'V'))
+    if P.isVRep:
+        try:
+            if P.V is not None:
+                output_lines.append('Vertex representation:')
+                output_lines.extend(displayMatrixVector(P.V, 'V'))
+            else:
+                output_lines.append('Vertex representation: (none)') # Should not happen if isVRep is true
+        except CORAerror: # Catch CORAerror if V is not available for some reason
+            output_lines.append('Vertex representation: (not computed)')
     else:
         output_lines.append('Vertex representation: (not computed)')
     output_lines.append("")
 
     # Display inequality constraints - check internal properties directly
-    if P._A is None or P._A.size == 0:
-        output_lines.append('Inequality constraints (A*x <= b): (none)')
+    if P.isHRep:
+        try:
+            if P.A is None or P.A.size == 0:
+                output_lines.append('Inequality constraints (A*x <= b): (none)')
+            else:
+                output_lines.append('Inequality constraints (A*x <= b):')
+                output_lines.extend(displayMatrixVector(P.A, 'A'))
+                output_lines.extend(displayMatrixVector(P.b, 'b'))
+        except CORAerror: # Catch CORAerror if A/b are not available
+            output_lines.append('Inequality constraints (A*x <= b): (not computed)')
     else:
-        output_lines.append('Inequality constraints (A*x <= b):')
-        output_lines.extend(displayMatrixVector(P._A, 'A'))
-        output_lines.extend(displayMatrixVector(P._b, 'b'))
+        output_lines.append('Inequality constraints (A*x <= b): (not computed)')
     output_lines.append("")
 
     # Display equality constraints
-    if P._Ae is None or P._Ae.size == 0:
-        output_lines.append('Equality constraints (Ae*x = be): (none)')
+    if P.isHRep:
+        try:
+            if P.Ae is None or P.Ae.size == 0:
+                output_lines.append('Equality constraints (Ae*x = be): (none)')
+            else:
+                output_lines.append('Equality constraints (Ae*x = be):')
+                output_lines.extend(displayMatrixVector(P.Ae, 'Ae'))
+                output_lines.extend(displayMatrixVector(P.be, 'be'))
+        except CORAerror: # Catch CORAerror if Ae/be are not available
+            output_lines.append('Equality constraints (Ae*x = be): (not computed)')
     else:
-        output_lines.append('Equality constraints (Ae*x = be):')
-        output_lines.extend(displayMatrixVector(P._Ae, 'Ae'))
-        output_lines.extend(displayMatrixVector(P._be, 'be'))
+        output_lines.append('Equality constraints (Ae*x = be): (not computed)')
     output_lines.append("")
     
     # Display set properties (if available)

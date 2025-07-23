@@ -26,16 +26,22 @@ def empty(n: int = 0) -> Polytope:
     A = np.zeros((nrRows, n))
     b = -np.ones((nrRows, 1))
     
-    # Create polytope with infeasible constraint
-    P_out = Polytope(A, b)
+    # Create polytope with infeasible constraint, explicitly passing dimension
+    P_out = Polytope(A, b, dim=n)
     
     # Set properties explicitly like MATLAB does
-    P_out._emptySet = True
-    P_out._bounded = True
-    P_out._fullDim = False
-    P_out._minHRep = True
-    P_out._minVRep = True
+    P_out._emptySet_val = True
+    P_out._emptySet_is_computed = True
+    P_out._bounded_val = True
+    P_out._bounded_is_computed = True
+    P_out._fullDim_val = False
+    P_out._fullDim_is_computed = True
+    P_out._minHRep_val = True
+    P_out._minHRep_is_computed = True
+    P_out._minVRep_val = True
+    P_out._minVRep_is_computed = True
     P_out._V = np.zeros((n, 0))
-    P_out._isVRep = True
+    P_out.isVRep = True
+    # P_out.isHRep will be true because of the constructor Polytope(A,b)
     
     return P_out 

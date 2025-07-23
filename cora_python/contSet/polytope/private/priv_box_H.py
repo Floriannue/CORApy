@@ -68,7 +68,7 @@ def priv_box_H(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray,
         
         # maximize
         ub_val, _ = priv_supportFunc(A, b, Ae, be, e_i, 'upper')
-        ub[i, 0] = ub_val
+        ub[i, 0] = -ub_val # Negate to get the actual upper bound value
         if ub[i, 0] == -np.inf:
             empty = True
             A_out = np.array([]).reshape(0, n)
@@ -78,6 +78,11 @@ def priv_box_H(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray,
         # minimize
         lb_val, _ = priv_supportFunc(A, b, Ae, be, e_i, 'lower')
         lb[i, 0] = lb_val
+        if lb[i, 0] == np.inf: # If lower bound is +inf, it's empty
+            empty = True
+            A_out = np.array([]).reshape(0, n)
+            b_out = np.array([]).reshape(0, 1)
+            return A_out, b_out, empty
     
     # construct output arguments
     A_out = np.vstack([np.eye(n), -np.eye(n)])

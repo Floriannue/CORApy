@@ -46,21 +46,26 @@ def isBounded(P: 'Polytope') -> bool:
     # Empty polytope is considered bounded
     if P.isemptyobject():
         return True
-    
+
+    # Ensure P is in H-representation if not already
+    if not P.isHRep:
+        P.constraints()
+
     # For halfspace representation: A*x <= b
-    if P.A is not None and P.b is not None and P.A.size > 0:
-        return _check_bounded_halfspace(P)
+    # if P.A is not None and P.b is not None and P.A.size > 0:
+    #     return _check_bounded_halfspace(P)
     
     # If no constraints (empty A and b), the polytope represents R^n, which is unbounded
-    if P.A is not None and P.b is not None and P.A.size == 0:
+    # if P.A is not None and P.b is not None and P.A.size == 0:
+    #     return False
+
+    # After ensuring HRep, if A is still empty, it's a full-space or emptySet already handled.
+    # So, if A.size is 0, it means it's an unbounded space.
+    if P.A.size == 0:
         return False
-    
-    # For vertex representation: always bounded
-    if hasattr(P, '_isVRep') and P._isVRep and hasattr(P, 'V') and P.V is not None and P.V.size > 0:
-        return True
-    
-    # Default case - empty polytope
-    return True
+
+    # Check for unboundedness using linear programming for halfspace representation
+    return _check_bounded_halfspace(P)
 
 
 def _check_bounded_halfspace(P) -> bool:

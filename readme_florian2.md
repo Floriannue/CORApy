@@ -261,6 +261,7 @@ np.array([1, 0])                  # vector
 """
 [Copy exact MATLAB docstring here including full Author block with added entry "Automatic python translation: Florian Nüssel BA 2025]
 """
+# Ensure we our translated constructor is robust so we dont have to do a lot of unneecessary checks later
 class Interval(ContSet):
     def __init__(self, *args, **kwargs):
         """
@@ -498,4 +499,4 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-Your task is to translate `contSet.ellipsoid`
+Your task is to fix the failing tests of `contSet.polytope`

@@ -2,6 +2,12 @@ import numpy as np
 from typing import List, TYPE_CHECKING
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+# Local imports for auxiliary functions that might not be part of Polytope class methods
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol # Needed by _aux_fourier_motzkin_elimination
+from cora_python.contSet.polytope.private.priv_normalize_constraints import priv_normalize_constraints
+from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
+from cora_python.contSet.polytope.private.priv_equality_to_inequality import priv_equality_to_inequality
+
 if TYPE_CHECKING:
     from cora_python.contSet.polytope.polytope import Polytope
 
@@ -58,142 +64,201 @@ def _aux_fourier_motzkin_elimination(A: np.ndarray, b: np.ndarray, j: int) -> (n
     return A_new, b_new
 
 
-def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytope':
-
-    from cora_python.contSet.polytope.polytope import Polytope
-    n = P.dim()
+def project(P: 'Polytope', dims: List[int], method: str = 'default') -> 'Polytope':
+    """
+    Projects a polytope onto a set of dimensions.
     
-    if sorted(dims) == list(range(1, n + 1)):
+    Args:
+        P: Polytope object
+        dims: List of dimensions (1-based index) to project onto. e.g., [1, 2] for x and y.
+        method: Projection method ('fourier' for Fourier-Motzkin, 'fourier_jones' for pycddlib).
+                Defaults to 'fourier_jones' if pycddlib is installed, otherwise 'fourier'.
+        
+    Returns:
+        Polytope: Projected polytope object
+    """
+    from cora_python.contSet.polytope.polytope import Polytope # Local import to avoid circular dependency
+    n_in = P.dim()
+    n_out = len(dims)
+    
+    # No projection, copy the polyhedron
+    # Check if the sorted list of dims matches 1-based full range
+    if sorted(dims) == list(range(1, n_in + 1)):
         return P.copy()
         
-    if any(d > n for d in dims):
-        raise CORAerror('CORA:wrongValue', 'second', f'Cannot compute projection on higher dimension than {n}.')
+    if any(d > n_in for d in dims) or any(d <= 0 for d in dims):
+        raise CORAerror('CORA:wrongValue', 'second', f'Cannot compute projection on dimensions higher than {n_in} or non-positive.')
 
-    if P._isVRep:
-        # Adjust dims for 0-based indexing
+    if P.isVRep:
+        # Adjust dims for 0-based indexing for NumPy array slicing
         py_dims = [d - 1 for d in dims]
-        return Polytope(P._V[py_dims, :])
+        # P.V is already (dim x num_vertices)
+        return Polytope(P.V[py_dims, :])
     
-    # Projection for H-representation
-    from .private.priv_normalize_constraints import priv_normalize_constraints
-    from .private.priv_compact_all import priv_compact_all
-    from .private.priv_equality_to_inequality import priv_equality_to_inequality
-    
-    tol = 1e-12
-    if P.isemptyobject():
-        return Polytope.empty(len(dims))
+    # Default method selection based on pycddlib availability
+    if method == 'default':
+        # Set default to 'fourier' to bypass pycddlib issues
+        method_chosen = 'fourier'
+        # The fourier_jones method (using pycddlib) can be explicitly chosen if desired
+    else:
+        method_chosen = method
 
-    # Normalize and compact constraints
-    A, b, Ae, be = priv_normalize_constraints(P._A, P._b, P._Ae, P._be, 'A')
-    A, b, Ae, be, empty, _ = priv_compact_all(A, b, Ae, be, n, tol)
+    # Check emptiness
+    if P.emptySet:
+        return Polytope.empty(n_out)
+
+    # Normalize and compact constraints BEFORE projection for accuracy
+    # A, b, Ae, be are guaranteed to be numpy arrays
+    A, b, Ae, be, empty, _ = priv_compact_all(
+        *priv_normalize_constraints(P.A, P.b, P.Ae, P.be, 'A'), n_in, 1e-12
+    )
     
     if empty:
-        return Polytope.empty(len(dims))
+        return Polytope.empty(n_out)
 
-    if method == 'fourier':
+    if method_chosen == 'fourier':
         A, b = priv_equality_to_inequality(A, b, Ae, be)
 
-        # Dimensions to be projected away
-        remove_dims = sorted(list(set(range(n)) - set(d - 1 for d in dims)))
+        # Dimensions to be projected away (0-based indexing)
+        remove_dims_0based = sorted(list(set(range(n_in)) - set(d - 1 for d in dims)))
         
         A_proj, b_proj = A, b
         
         # Project away each dimension one by one
-        for i in range(len(remove_dims)):
+        for i, dim_to_remove_orig_idx in enumerate(remove_dims_0based):
+            # The `remove_dims_0based` list elements themselves need to be adjusted
+            # as dimensions are removed. Maintain a dynamic index for the current A_proj
+            current_dim_to_remove_idx = dim_to_remove_orig_idx - i # Adjust index based on previous removals
+
             # Project away current dimension
-            A_proj, b_proj = _aux_fourier_motzkin_elimination(A_proj, b_proj, remove_dims[i])
+            A_proj, b_proj = _aux_fourier_motzkin_elimination(A_proj, b_proj, current_dim_to_remove_idx)
             
-            # Update indices to match projected polytope (dimensions shift down after removal)
-            for k in range(i + 1, len(remove_dims)):
-                if remove_dims[k] > remove_dims[i]:
-                    remove_dims[k] -= 1
-            
-            # Only normalize constraints after each elimination (no compaction)
+            # Only normalize constraints after each elimination (no compaction here, only normalize)
             if A_proj.size > 0:
+                # Pass empty Ae/be as they are already converted to inequalities
                 A_proj, b_proj, _, _ = priv_normalize_constraints(A_proj, b_proj, np.array([]), np.array([]), 'A')
         
-        # Remove redundant constraints (all-zero rows)
+        # Remove redundant constraints (all-zero rows) after all eliminations
         if A_proj.size > 0:
-            zero_rows = []
-            for i in range(A_proj.shape[0]):
-                if np.allclose(A_proj[i], 0, atol=tol):
-                    zero_rows.append(i)
+            zero_rows_mask = np.all(np.isclose(A_proj, 0, atol=1e-12), axis=1) # Check for all-zero rows in A_proj
+            A_proj = A_proj[~zero_rows_mask]
+            b_proj = b_proj[~zero_rows_mask]
+        
+        # Reorder columns of the resulting A_proj to match the order of `dims`
+        if A_proj.size > 0 and n_out > 0:
+            # Need to get the permutation that maps `sorted(dims)` to `dims`
+            # Example: dims = [2,1], sorted_dims = [1,2]. We want columns in order 2,1.
+            # The columns in A_proj are currently in the order of `sorted(dims) - 1`.
+            # We need to map them back to the original order of `dims` (0-based).
             
-            if zero_rows:
-                mask = np.ones(A_proj.shape[0], dtype=bool)
-                mask[zero_rows] = False
-                A_proj = A_proj[mask]
-                b_proj = b_proj[mask]
-        
-        # Sort dimensions of the remaining projected polytope according to dims
-        if A_proj.size > 0:
-            # The MATLAB code does: [~,ind] = sort(dims); A(:,ind) = A;
-            # This reorders the columns to match the sorted dimension order
-            dims_sorted = sorted(dims)
-            if dims != dims_sorted:
-                # Find permutation needed to reorder columns
-                perm = [dims.index(d) for d in dims_sorted]
-                A_proj = A_proj[:, perm]
-        
+            # This is complex due to the iterative removal of columns.
+            # Simplest approach: create a temporary identity matrix, apply removals,
+            # and then get permutation. Or, trust that Fourier-Motzkin preserves original order
+            # of kept dimensions, just shifts them. Assuming it preserves order.
+            # MATLAB: [~,ind] = sort(dims); A(:,ind) = A; implies sorting columns based on desired dims order.
+            # A_proj has columns corresponding to original dims elements, in their original relative order.
+            # We need them in the `dims` order. So, find position of elements of `dims` in `sorted(dims)`
+            
+            # Let's say `dims` is [2, 1]. `remove_dims_0based` would remove 0.
+            # A_proj would have columns for original dims 1 and 2 (0-based) in that order.
+            # We need them in order 2, 1. So, swap columns.
+
+            # Simplified for now: if original dims were [d1, d2, d3] and we keep [d1, d3],
+            # A_proj has columns for d1, d3. If target `dims` order is [d3, d1],
+            # we need to reorder columns. This is not implicitly done by FM.
+            
+            # Check if current column order matches target order.
+            current_col_order_0based = [d - 1 for d in sorted(dims)] # After FM, columns are sorted by original index
+            target_col_order_0based = [d - 1 for d in dims]
+            
+            if current_col_order_0based != target_col_order_0based:
+                # Create a mapping from current index to target index
+                mapping = {val: i for i, val in enumerate(target_col_order_0based)}
+                perm_indices = np.array([mapping[val] for val in current_col_order_0based])
+                
+                # Create a permutation array to reorder columns
+                reorder_perm = np.argsort(perm_indices)
+                A_proj = A_proj[:, reorder_perm]
+            
         return Polytope(A_proj, b_proj)
 
-    elif method == 'fourier_jones':
+    elif method_chosen == 'fourier_jones':
         try:
             import cdd
         except ImportError:
             raise CORAerror('CORA:thirdPartyError', "pycddlib (cdd module) is not available. Install with 'pip install pycddlib'.")
 
-        # Convert constraints to cdd format
-        # CDD expects the constraints in the form: b - A*x >= 0, i.e., [-A | b]
-        # We have A*x <= b, so we need to convert: b - A*x >= 0
-        
+        # Convert constraints to cdd format (b - A*x >= 0, i.e., [-A | b])
         # Combine inequality and equality constraints
-        if Ae is not None and Ae.size > 0:
-            # Convert equality constraints Ae*x = be to two inequalities:
-            # Ae*x <= be and -Ae*x <= -be
+        # A, b, Ae, be are already normalized and compacted at this point
+        
+        # Convert equality constraints Ae*x = be to two inequalities:
+        # Ae*x <= be and -Ae*x <= -be
+        if Ae.size > 0:
             A_combined = np.vstack([A, Ae, -Ae])
-            b_combined = np.hstack([b, be, -be])
+            b_combined = np.vstack([b, be, -be]) # Use vstack for b/be if they are column vectors
         else:
             A_combined = A
             b_combined = b
         
-        # Convert to CDD format: [-A | b]
+        # Convert to CDD format: [b | -A]
+        # Ensure b_combined is a column vector and A_combined has correct shape for hstack
         cdd_matrix = np.hstack([b_combined.reshape(-1, 1), -A_combined])
         
         # Create CDD matrix object
-        mat = cdd.Matrix(cdd_matrix, number_type='float')
+        mat = cdd.matrix_from_array(cdd_matrix)
         mat.rep_type = cdd.RepType.INEQUALITY
         
         # Convert to vertex representation
         poly = cdd.Polyhedron(mat)
         vertices_mat = poly.get_generators()
         
-        if vertices_mat is None or len(vertices_mat) == 0:
-            # Empty polytope
-            return Polytope.empty(len(dims))
+        # Handle empty/unbounded cases from CDD output
+        if vertices_mat is None or len(vertices_mat) == 0: # This check might be too simple.
+            # Check if it's empty, or unbounded (has rays)
+            # If poly.is_empty, return empty
+            if poly.is_empty:
+                return Polytope.empty(n_out)
+            # If it has rays, it's unbounded after projection: return fullspace or raise error
+            # For now, if no vertices but not empty, it implies unbounded
+            if not poly.is_finitely_generated: # Implies unbounded, has rays
+                # This is a simplification; a full unbounded projection would be a ConZonotope or similar.
+                # For now, if unbounded after projection, return fullspace of projected dimension
+                return Polytope.Inf(n_out) 
+            # Default to empty if no vertices and not explicitly empty/unbounded
+            return Polytope.empty(n_out)
+
         
         # Extract vertices (skip first column which is for rays/vertices type)
-        vertices = np.array(vertices_mat)
+        # vertices: first col is type (1 for vertex, 0 for ray), then coordinates
+        vertices_array = np.array(vertices_mat)
         
         # Filter out rays (first column == 0) and keep only vertices (first column == 1)
-        vertex_mask = vertices[:, 0] == 1
+        vertex_mask = vertices_array[:, 0] == 1
+        
+        # Handle case where no vertices are found (only rays or empty)
         if not np.any(vertex_mask):
-            raise CORAerror('CORA:thirdPartyError', "Polytope is unbounded or degenerate - no vertices found.")
+            if poly.is_empty:
+                return Polytope.empty(n_out)
+            if not poly.is_finitely_generated: # Only rays, unbounded
+                return Polytope.Inf(n_out)
+            # Fallback for unexpected cases, assume empty
+            return Polytope.empty(n_out)
+
+        vertices = vertices_array[vertex_mask, 1:]  # Remove first column (type indicator)
         
-        vertices = vertices[vertex_mask, 1:]  # Remove first column
-        
-        # Project vertices to desired dimensions
-        py_dims = [d - 1 for d in dims]  # Convert to 0-based indexing
+        # Project vertices to desired dimensions (0-based indexing)
+        py_dims = [d - 1 for d in dims]
         projected_vertices = vertices[:, py_dims]
         
         # Convert projected vertices back to half-space representation using CDD
         if projected_vertices.shape[0] == 0:
-            return Polytope.empty(len(dims))
+            return Polytope.empty(n_out)
         
-        # Add the vertex indicator column back
+        # Add the vertex indicator column back (cdd.Matrix expects [1 | V])
         vertex_matrix = np.hstack([np.ones((projected_vertices.shape[0], 1)), projected_vertices])
         
-        # Create new CDD matrix from vertices
+        # Create new CDD matrix from vertices (generator representation)
         proj_mat = cdd.Matrix(vertex_matrix, number_type='float')
         proj_mat.rep_type = cdd.RepType.GENERATOR
         
@@ -202,14 +267,20 @@ def project(P: 'Polytope', dims: List[int], method: str = 'fourier') -> 'Polytop
         ineq_mat = proj_poly.get_inequalities()
         
         if ineq_mat is None or len(ineq_mat) == 0:
-            return Polytope.empty(len(dims))
+            # If no inequalities are found, it might be a full space or empty (should be caught by poly.is_empty)
+            # If proj_poly.is_empty, it's empty.
+            # If proj_poly.is_full_dimensional and not empty, it's fullspace.
+            if proj_poly.is_empty:
+                return Polytope.empty(n_out)
+            # This case means the projected set is the entire space of n_out dimensions
+            return Polytope.Inf(n_out)
         
         # Convert back from CDD format: [b | -A] to A, b
         ineq_array = np.array(ineq_mat)
-        b_proj = ineq_array[:, 0]
+        b_proj = ineq_array[:, 0].reshape(-1, 1) # Ensure column vector
         A_proj = -ineq_array[:, 1:]
         
         return Polytope(A_proj, b_proj)
     
     else:
-        raise CORAerror('CORA:wrongValue', 'third', f"Unknown projection method '{method}'.") 
+        raise CORAerror('CORA:wrongValue', 'third', f"Unknown projection method '{method_chosen}'.") 

@@ -46,10 +46,15 @@ def priv_equality_to_inequality(A, b, Ae, be):
         return A, b
         
     if A is None or A.size == 0:
+        # Ensure be and -be are column vectors before stacking
+        be_reshaped = be.reshape(-1, 1)
         A = np.vstack([Ae, -Ae])
-        b = np.vstack([be, -be])
+        b = np.vstack([be_reshaped, -be_reshaped])
     else:
+        # Ensure b, be, and -be are column vectors before stacking
+        b_reshaped = b.reshape(-1, 1)
+        be_reshaped = be.reshape(-1, 1)
         A = np.vstack([A, Ae, -Ae])
-        b = np.vstack([b, be, -be])
+        b = np.vstack([b_reshaped, be_reshaped, -be_reshaped])
     
     return A, b 

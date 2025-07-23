@@ -23,7 +23,13 @@ def test_display():
     assert len(s_v) > 0
 
     # Empty
-    p_e = Polytope()
+    p_e = Polytope.empty(0) # Use .empty() for explicit empty polytope
     s_e = p_e.display()
     assert isinstance(s_e, str)
-    assert len(s_e) > 0 
+    assert len(s_e) > 0
+
+    # Unbounded (Inf)
+    p_inf = Polytope.Inf(2) # Use .Inf() for explicit unbounded polytope
+    s_inf = p_inf.display()
+    assert isinstance(s_inf, str)
+    assert len(s_inf) > 0 

@@ -162,8 +162,14 @@ def inputArgsCheck(inputArgs: List[List[Any]]) -> None:
         else:
             validateStr = [input_arg[2]]
 
+        # Ensure 'value' is a scalar string if it's meant to be a single option.
+        # This handles cases where 'value' might incorrectly be passed as ['single_option']
+        actual_value = value
+        if isinstance(value, list) and len(value) == 1:
+            actual_value = value[0]
+
         # check exact match with admissible values
-        if value not in validateStr:
+        if actual_value not in validateStr:
             # generate string of admissible values (user info)
             validrange = f"'" + "', '".join(validateStr) + "'"
 

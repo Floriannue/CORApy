@@ -106,7 +106,15 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
             elif attribute in ['zero', 'iszero']:
                 res = aux_iszero(val)
             elif attribute == 'scalar':
-                res = np.isscalar(val)
+                if class_name.lower() == 'polytope':
+                    # For polytope, 'scalar' often means it represents a single point (0-dimensional).
+                    # Assuming Polytope has a dim() method.
+                    try:
+                        res = value.dim() == 0
+                    except Exception:
+                        res = False # Cannot determine dimension, assume not scalar
+                else:
+                    res = np.isscalar(value)
             elif attribute == 'row':
                 res = (isinstance(val, np.ndarray) and val.ndim == 2 and val.shape[0] == 1)
             elif attribute == 'column':

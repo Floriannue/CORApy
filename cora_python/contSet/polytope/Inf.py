@@ -30,11 +30,20 @@ def Inf(n: int = 0) -> Polytope:
     # the polytope 0*x <= 1 is R^n
     # For R^n, A and b should be empty, representing no constraints.
     # The MATLAB code creates zeros(0,n) and ones(0,1), which effectively are empty constraints.
-    P_out = Polytope(np.zeros((0, n)), np.ones((0, 1)))
+    P_out = Polytope(np.zeros((0, n)), np.ones((0, 1)), dim=n)
 
-    # Note: In Python, we don't set properties directly. Instead, we rely on
-    # functions like isBounded(), representsa_('emptySet'), etc. to compute
-    # these properties when needed. This avoids the complexity of maintaining
-    # cached state and follows better Python design principles.
+    # Explicitly set properties for R^n as they are known at construction
+    P_out._emptySet_val = False
+    P_out._emptySet_is_computed = True
+    P_out._bounded_val = False
+    P_out._bounded_is_computed = True
+    P_out._fullDim_val = True
+    P_out._fullDim_is_computed = True
+    P_out._minHRep_val = True
+    P_out._minHRep_is_computed = True
+    P_out._minVRep_val = False # R^n has no minimal V-representation
+    P_out._minVRep_is_computed = True
+    P_out._V = np.zeros((n, 0)) # Explicitly set V to empty for R^n
+    P_out.isVRep = False # Explicitly set VRep flag
 
     return P_out 

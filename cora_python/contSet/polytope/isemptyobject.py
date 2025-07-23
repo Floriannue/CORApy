@@ -35,16 +35,5 @@ def isemptyobject(P: 'Polytope') -> bool:
         res: true if polytope is empty, false otherwise
     """
     
-    # The emptiness is determined during construction and stored in _emptySet
-    if hasattr(P, '_emptySet') and P._emptySet is not None:
-        return P._emptySet
-    
-    # Fallback for older/uninitialized objects, though this path shouldn't be
-    # taken with the new constructor.
-    if hasattr(P, '_isVRep') and P._isVRep:
-        return P._V is None or P._V.size == 0
-    
-    # For H-representation, determining emptiness is non-trivial and
-    # should have been handled in the constructor. If we reach this,
-    # we conservatively assume it's not empty.
-    return False 
+    # The emptiness is determined by the lazy-loaded emptySet property.
+    return P.emptySet 

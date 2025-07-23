@@ -83,18 +83,22 @@ def mtimes(factor1: object, factor2: object) -> Polytope:
             return _aux_mtimes_square_inv(P_out, matrix)
         
         # For H-representation polytopes with non-invertible square matrices, raise error
-        if (hasattr(P_out, '_isHRep') and P_out._isHRep and 
-            not (hasattr(P_out, '_isVRep') and P_out._isVRep) and
+        if (P_out.isHRep and 
+            not P_out.isVRep and
             matrix.shape[0] == matrix.shape[1] and 
             np.linalg.matrix_rank(matrix, tol=1e-12) < matrix.shape[0]):
             raise NotImplementedError("Multiplication with non-invertible matrix not supported for H-representation polytopes")
         
         # quicker computation using V-representation
-        if hasattr(P_out, '_isVRep') and P_out._isVRep and P_out._V is not None:
+        # P_out.V is guaranteed to be a numpy array
+        if P_out.isVRep:
             # For d × n_vertices format: M @ V where M is (m × d) and V is (d × n_vertices)
             # Result should be (m × n_vertices)
-            V_new = matrix @ P_out._V
-            return Polytope(V_new)
+            V_new = matrix @ P_out.V
+            new_P = Polytope(V_new)
+            # Reset lazy flags for new_P since its representation was derived
+            new_P._reset_lazy_flags() # Use the consolidated reset method
+            return new_P
         else:
             # method for general mappings
             m, n_mat = matrix.shape
@@ -120,36 +124,39 @@ def _aux_mtimes_scaling(P: 'Polytope', fac: float) -> 'Polytope':
        M S = { M s | s in S }
     -> fac * I * S = { fac * I * x | A x <= b, Ae x == b}    set y = fac*I*x
                    = { y | A (1/fac*I*y) <= b, Ae (1/fac*I*y) == b }
-                   = { y | A/fac y <= b, Ae/fac y == b }
                    = { y | A y <= b*fac, Ae y == b*fac }     if fac > 0
                 OR = { y | -A y <= -b*fac, Ae y == b*fac }   if fac < 0
     (note: case with fac = 0 yields a polytope that is just the origin)
     """
+    # resulting polytope is only the origin
     if fac == 0:
-        # resulting polytope is only the origin
         return Polytope.origin(P.dim())
     
-    P_new = Polytope(P)
+    P_new = Polytope(P) # Create copy to modify
     
-    if hasattr(P_new, '_isHRep') and P_new._isHRep:
-        if fac > 0:
-            if P_new._b is not None:
-                P_new._b = P_new._b * fac
-        else:
-            # fac < 0: flip inequality directions
-            if P_new._A is not None:
-                P_new._A = -P_new._A
-            if P_new._b is not None:
-                P_new._b = -P_new._b * fac
-        
-        # Equality constraints
-        if P_new._be is not None:
-            P_new._be = P_new._be * fac
+    if P_new.isHRep:
+        if P_new.A.size > 0: # Only scale if A is not empty
+            if fac > 0:
+                P_new._b = P_new.b * fac # Write to private for efficiency within class method
+            else:
+                # fac < 0: flip inequality directions
+                P_new._A = -P_new.A # Write to private
+                P_new._b = -P_new.b * fac # Write to private
+            
+        if P_new.Ae.size > 0: # Only scale if Ae is not empty
+            # Equality constraints
+            P_new._be = P_new.be * fac # Write to private
+
+        P_new._reset_lazy_flags() # Reset lazy flags after modifying H-representation
     
     # map vertices if given
-    if hasattr(P_new, '_isVRep') and P_new._isVRep and P_new._V is not None:
-        # For d × n_vertices format: V_new = fac * V
-        P_new._V = P_new._V * fac
+    # P_new.V is guaranteed to be a numpy array
+    if P_new.isVRep:
+        if P_new.V.size > 0: # Only scale if V is not empty
+            # For d × n_vertices format: V_new = fac * V
+            P_new._V = P_new.V * fac # Write to private
+
+        P_new._reset_lazy_flags() # Reset lazy flags after modifying V-representation
         
     return P_new
 
@@ -159,17 +166,33 @@ def _aux_mtimes_square_inv(P: 'Polytope', M: np.ndarray) -> 'Polytope':
     P_new = Polytope(P)
     
     # apply well-known formula (constraints times inverse of matrix)
-    if hasattr(P_new, '_isHRep') and P_new._isHRep:
+    if P_new.isHRep:
         M_inv = np.linalg.inv(M)
-        if P_new._A is not None:
-            P_new._A = P_new._A @ M_inv
-        if P_new._Ae is not None:
-            P_new._Ae = P_new._Ae @ M_inv
+        if P_new.A.size > 0:
+            P_new._A = P_new.A @ M_inv
+        else:
+            # Ensure empty A maintains correct column dimension after multiplication
+            P_new._A = np.zeros((0, M_inv.shape[0]))
+
+        if P_new.Ae.size > 0:
+            P_new._Ae = P_new.Ae @ M_inv
+        else:
+            # Ensure empty Ae maintains correct column dimension after multiplication
+            P_new._Ae = np.zeros((0, M_inv.shape[0]))
+
+        P_new._reset_lazy_flags() # Reset lazy flags after modifying H-representation
     
     # map vertices if given
-    if hasattr(P_new, '_isVRep') and P_new._isVRep and P_new._V is not None:
-        # For d × n_vertices format: V_new = M @ V where M is (d × d) and V is (d × n_vertices)
-        P_new._V = M @ P_new._V
+    # P_new.V is guaranteed to be a numpy array
+    if P_new.isVRep:
+        if P_new.V.size > 0:
+            # For d × n_vertices format: V_new = M @ V where M is (d × d) and V is (d × n_vertices)
+            P_new._V = M @ P_new.V
+        else:
+            # Ensure empty V maintains correct row dimension after multiplication
+            P_new._V = np.zeros((M.shape[0], 0))
+
+        P_new._reset_lazy_flags() # Reset lazy flags after modifying V-representation
     
     return P_new
 
@@ -193,13 +216,16 @@ def _aux_mtimes_projection(P: 'Polytope', M: np.ndarray) -> 'Polytope':
         [np.zeros((n - r, r)), np.eye(n - r)]
     ])
     
-    if hasattr(P_new, '_isHRep') and P_new._isHRep:
-        if P_new._A is not None:
-            P_new._A = P_new._A @ transform_matrix
-        if P_new._Ae is not None:
-            P_new._Ae = P_new._Ae @ transform_matrix
+    if P_new.isHRep:
+        P_new._A = P_new.A @ transform_matrix
+        P_new._Ae = P_new.Ae @ transform_matrix
+
+        P_new._reset_lazy_flags() # Reset lazy flags after modifying H-representation
     
     # project onto first r dimensions
+    # If P_new is empty at this point, the projection should also be an empty polytope
+    if P_new.emptySet: # Check if the source polytope is already empty
+        return Polytope.empty(r) # Return empty polytope of the projected dimension
     P_proj = _project_polytope(P_new, list(range(r)))
     
     # multiply with orthogonal matrix
@@ -212,8 +238,8 @@ def _aux_mtimes_lifting(P: 'Polytope', M: np.ndarray) -> 'Polytope':
     m = M.shape[0]
     
     # number of inequality constraints and equality constraints
-    nr_ineq = P._A.shape[0] if P._A is not None else 0
-    nr_eq = P._Ae.shape[0] if P._Ae is not None else 0
+    nr_ineq = P.A.shape[0]
+    nr_eq = P.Ae.shape[0]
     
     # compute singular value decomposition of the matrix
     U, S, V = np.linalg.svd(M, full_matrices=True)
@@ -224,28 +250,47 @@ def _aux_mtimes_lifting(P: 'Polytope', M: np.ndarray) -> 'Polytope':
     
     P_new = Polytope(P)
     
-    if hasattr(P_new, '_isHRep') and P_new._isHRep:
+    if P_new.isHRep:
         # Transform inequality constraints
-        if P_new._A is not None:
-            A_transform = np.block([P_new._A @ V.T[:, :r] @ D_inv, np.zeros((nr_ineq, m - r))])
-            P_new._A = A_transform @ U.T
+        nr_ineq_actual = P_new.A.shape[0]
+        if nr_ineq_actual > 0:
+            A_transform_block = P_new.A @ V.T[:, :r] @ D_inv
+            A_transform = np.block([A_transform_block, np.zeros((nr_ineq_actual, m - r))])
+        else:
+            A_transform = np.zeros((0, m)) # Ensure correct dimensions for empty A
+        P_new._A = A_transform @ U.T
         
         # Transform equality constraints  
-        if P_new._Ae is not None:
-            Ae_transform = np.block([P_new._Ae @ V.T[:, :r] @ D_inv, np.zeros((nr_eq, m - r))])
-            # Add new equality constraints for lifted dimensions
-            Ae_lift = np.block([np.zeros((m - r, r)), np.eye(m - r)])
-            Ae_combined = np.vstack([Ae_transform, Ae_lift])
-            P_new._Ae = Ae_combined @ U.T
-            
-            # Extend be vector
-            be_new = np.vstack([P_new._be, np.zeros((m - r, 1))])
-            P_new._be = be_new
+        nr_eq_actual = P_new.Ae.shape[0]
+        if nr_eq_actual > 0:
+            Ae_transform_block = P_new.Ae @ V.T[:, :r] @ D_inv
+            Ae_transform = np.block([Ae_transform_block, np.zeros((nr_eq_actual, m - r))])
         else:
-            # Create new equality constraints for the lifted dimensions
-            Ae_lift = np.block([np.zeros((m - r, r)), np.eye(m - r)])
-            P_new._Ae = Ae_lift @ U.T
-            P_new._be = np.zeros((m - r, 1))
+            Ae_transform = np.zeros((0, m)) # Ensure correct dimensions for empty Ae
+        
+        # Add new equality constraints for lifted dimensions
+        Ae_lift = np.block([np.zeros((m - r, r)), np.eye(m - r)])
+        
+        # Combine existing and new equality constraints
+        if Ae_transform.size > 0 and Ae_lift.size > 0: # Both non-empty
+            Ae_combined = np.vstack([Ae_transform, Ae_lift])
+        elif Ae_transform.size > 0: # Only existing transformed constraints
+            Ae_combined = Ae_transform
+        elif Ae_lift.size > 0: # Only new lifted constraints
+            Ae_combined = Ae_lift
+        else: # Both empty, result is empty with correct dimensions
+            Ae_combined = np.zeros((0, m))
+
+        P_new._Ae = Ae_combined @ U.T
+        
+        # Extend be vector
+        if P_new.be.size > 0 or m - r > 0:
+            be_new = np.vstack([P_new.be, np.zeros((m - r, 1))])
+        else:
+            be_new = np.zeros((0,1)) # Ensure empty be has correct dimension
+        P_new._be = be_new
+
+        P_new._reset_lazy_flags() # Reset lazy flags after modifying H-representation
     
     return P_new
 
@@ -254,15 +299,15 @@ def _project_polytope(P: 'Polytope', dims: list) -> 'Polytope':
     """Project polytope onto specified dimensions."""
     P_new = Polytope(P)
     
-    if hasattr(P_new, '_isHRep') and P_new._isHRep:
-        if P_new._A is not None:
-            P_new._A = P_new._A[:, dims]
-        if P_new._Ae is not None:
-            P_new._Ae = P_new._Ae[:, dims]
+    if P_new.isHRep:
+        P_new._A = P_new.A[:, dims]
+        P_new._Ae = P_new.Ae[:, dims]
     
-    if hasattr(P_new, '_isVRep') and P_new._isVRep and P_new._V is not None:
-        P_new._V = P_new._V[dims, :]
-    
+    if P_new.isVRep:
+        P_new._V = P_new.V[dims, :]
+
+    P_new._reset_lazy_flags() # Reset lazy flags after modifying representation
+
     return P_new
 
 
