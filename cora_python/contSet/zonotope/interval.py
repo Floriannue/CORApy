@@ -46,12 +46,19 @@ def interval(Z):
     # Import here to avoid circular imports
     from cora_python.contSet.interval import Interval
     
+    # Handle empty zonotope: return truly empty interval of correct dimension
+    if hasattr(Z, 'isemptyobject') and Z.isemptyobject():
+        from cora_python.contSet.interval.empty import empty as interval_empty
+        from cora_python.contSet.zonotope.dim import dim as zonotope_dim
+        n = zonotope_dim(Z)
+        return interval_empty(n)
+
     # extract center
-    c = Z.c
+    c = np.asarray(Z.c).flatten()  # ensure 1D as in MATLAB
     
     # determine lower and upper bounds in each dimension
     # sum(abs(Z.G),2) in MATLAB sums along columns (axis=1 in Python)
-    delta = np.sum(np.abs(Z.G), axis=1, keepdims=True)
+    delta = np.sum(np.abs(Z.G), axis=1)  # 1D array, shape (n,)
     leftLimit = c - delta
     rightLimit = c + delta
     
