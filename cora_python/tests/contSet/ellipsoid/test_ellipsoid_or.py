@@ -7,7 +7,6 @@ from cora_python.contSet.polytope.polytope import Polytope
 
 class TestEllipsoidOr:
     def test_ellipsoid_or_empty_set(self):
-        pytest.skip("Focusing on random point tests")
         """Test union with an empty ellipsoid."""
         E1 = Ellipsoid(np.array([[5.43878115, 12.49771836], [12.49771836, 29.66621173]]),
                        np.array([[-0.74450683], [3.58006475]]))
@@ -25,7 +24,6 @@ class TestEllipsoidOr:
         assert np.allclose(result_union_rev.q, E1.q)
 
     def test_ellipsoid_or_non_degenerate(self):
-        pytest.skip("Focusing on random point tests")
         """Test union of two non-degenerate ellipsoids."""
         E1 = Ellipsoid(np.array([[5.43878115, 12.49771836], [12.49771836, 29.66621173]]),
                        np.array([[-0.74450683], [3.58006475]]))
@@ -41,7 +39,6 @@ class TestEllipsoidOr:
         assert result_union.dim() == E1.dim()
 
     def test_ellipsoid_or_zero_rank_ellipsoid(self):
-        pytest.skip("Focusing on random point tests")
         """Test union with a zero-rank ellipsoid (point)."""
         E1 = Ellipsoid(np.array([[5.43878115, 12.49771836], [12.49771836, 29.66621173]]),
                        np.array([[-0.74450683], [3.58006475]]))
