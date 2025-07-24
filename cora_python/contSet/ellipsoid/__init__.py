@@ -29,6 +29,7 @@ from .origin import origin
 from .vertices_ import vertices_
 from .norm_ import norm_
 from .or_ import or_
+from .randPoint_ import randPoint_
 
 # Attach methods to the Ellipsoid class
 Ellipsoid.center = center
@@ -61,6 +62,7 @@ Ellipsoid.vertices_ = vertices_
 Ellipsoid.norm_ = norm_
 Ellipsoid.or_ = or_
 Ellipsoid.__or__ = or_
+Ellipsoid.randPoint_ = randPoint_
 
 __all__ = [
     'Ellipsoid',
@@ -89,5 +91,6 @@ __all__ = [
     'origin',
     'vertices_',
     'norm_',
-    'or_'
+    'or_',
+    'randPoint_'
 ] 

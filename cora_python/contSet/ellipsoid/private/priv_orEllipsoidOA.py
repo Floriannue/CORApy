@@ -1,155 +1,193 @@
 """
-priv_orEllipsoidOA - Computes an outer-approximation of the union between ellipsoids
+priv_orEllipsoidOA - Computes an outer-approximation of the union between
+ellipsoids
 
 Syntax:
-    E = priv_orEllipsoidOA(E_cell)
+   E = priv_orEllipsoidOA(E)
 
 Inputs:
-    E_cell - list of Ellipsoid objects
+   E_cell - cell-array of ellipsoid objects
 
 Outputs:
-    E - Ellipsoid after union
+   E - ellipsoid after union
 
 References:
-   [1] S. Boyd et al. "Convex Optimization"
+  [1] S. Boyd et al. "Convex Optimization"
 
-Authors:       Victor Gassmann (MATLAB)
-               Automatic python translation: Florian Nüssel BA 2025
-Written:       15-March-2021 (MATLAB)
-Python translation: 2025
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: ellipsoid/or
+
+Authors:       Victor Gassmann
+Written:       15-March-2021
+Last update:   05-July-2022 (VG, remove unecessary input)
+Last revision: ---
+
+------------------------------ BEGIN CODE -------------------------------
 """
 
 import numpy as np
 import cvxpy as cp
-# from cora_python.g.functions.matlab.validate.check.isFullDim import isFullDim # Assuming this will be available or implemented
-from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid # For creating new ellipsoid objects
+import scipy.linalg
+from typing import List, TYPE_CHECKING
+
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid # Added direct import
 
-def priv_orEllipsoidOA(E_cell):
-    """
-    priv_orEllipsoidOA - Computes an outer-approximation of the union between ellipsoids
+if TYPE_CHECKING:
+    from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
 
-    Syntax:
-        E = priv_orEllipsoidOA(E_cell)
-
-    Inputs:
-        E_cell - list of Ellipsoid objects
-
-    Outputs:
-        E - Ellipsoid after union
-
-    References:
-       [1] S. Boyd et al. "Convex Optimization"
-
-    Authors:       Victor Gassmann (MATLAB)
-                   Automatic python translation: Florian Nüssel BA 2025
-    Written:       15-March-2021 (MATLAB)
-    Python translation: 2025
-    """
-
-    # WARNING: This function attempts to solve a Semidefinite Programming (SDP) problem
-    # for the Minimum Volume Covering Ellipsoid (MVEE). The original MATLAB implementation
-    # relies on highly optimized commercial solvers (MOSEK, SDPT3, YALMIP with external solvers)
-    # which are more robust for these types of numerically challenging problems, especially
-    # with complex LMI formulations and potentially degenerate inputs.
-    #
-    # Despite implementing preprocessing steps for numerical stability and restricting
-    # the problem to N=2 ellipsoids, open-source CVXPY solvers (ECOS, SCS, Clarabel) have
-    # consistently failed to find solutions due to numerical issues.
-    #
-    # For a full and robust implementation, a commercial SDP solver with a Python API
-    # (e.g., MOSEK through CVXPY) or a more advanced, tailored open-source SDP formulation
-    # (which is a research-level task) would be required.
-    #
-    # This current implementation will likely raise a CORAerror indicating solver failure
-    # for non-trivial inputs.
-
+def priv_orEllipsoidOA(E_cell: List['Ellipsoid']) -> 'Ellipsoid':
+    # collapse cell array
     N = len(E_cell)
     n = E_cell[0].dim()
 
-    if N != 2:
-        raise NotImplementedError('Union of more than two ellipsoids is not yet implemented for open-source solvers due to numerical stability challenges with complex SDP formulations. Consider using commercial solvers like MOSEK or contributing advanced reformulations.')
-
-    # Normalize via maximum singular value to prevent numerical issues
-    # MATLAB: max_val = max(cellfun(@(E_i) max(svd(E_i.Q)),E_cell,'UniformOutput',true));
+    # normalize via maximum singular value to prevent numerical issues
     max_val = 0.0
     for E_i in E_cell:
-        if E_i.Q.size > 0: # Check if Q is not empty for svd
-            max_val = max(max_val, np.max(np.linalg.svd(E_i.Q)[1])) # svd returns (U, s, Vh) where s are singular values
-
-    # Pre-compute scaling
-    fac = 0.001
+        if E_i.Q.size > 0:
+            current_max_sv = np.max(np.linalg.svd(E_i.Q, compute_uv=False))
+            if current_max_sv > max_val:
+                max_val = current_max_sv
+    
+    # pre-compute scaling
+    fac = 0.001 
     th = fac * max_val
     if th == 0:
-        th = fac
+        th = fac # Fallback if max_val was 0 (e.g., all zero matrices)
 
-    # If any ellipsoid is degenerate, add small perturbation (possible since we
+    # if any ellipsoid is degenerate, add small perturbation (possible since we
     # compute an overapproximation)
-    E_reg = []
-    for i in range(N):
+    for i in range(len(E_cell)):
         E_i = E_cell[i]
-        # MATLAB: if ~isFullDim(E_i)
-        # Using np.linalg.matrix_rank for isFullDim equivalent
-        if np.linalg.matrix_rank(E_i.Q) < n:
-            nd_i = np.linalg.matrix_rank(E_i.Q)
-            U_i, s_i, V_i = np.linalg.svd(E_i.Q) # V_i is Vh in numpy
-            s_i = np.diag(s_i)
+        if not E_i.isFullDim():
+            nd_i = E_i.rank()
+            Ti, Si_diag, Vh = np.linalg.svd(E_i.Q)
+            si = Si_diag # Si_diag is already a 1D array of singular values
 
-            # MATLAB: Si = diag([si(1:nd_i);th*ones(n-nd_i,1)]);
-            # Python: reconstruct Si
-            Si_diag_vals = np.concatenate((np.diag(s_i)[:nd_i], th * np.ones(n - nd_i)))
-            Si = np.diag(Si_diag_vals)
-
-            # MATLAB: E_cell{i} = ellipsoid(Ti*Si*Ti',E_i.q);
-            E_reg.append(Ellipsoid(U_i @ Si @ U_i.T, E_i.q))
-        else:
-            E_reg.append(E_i)
-
-    # Step 2: Set up the SDP for the MVEE
+            # bloat to remove degeneracy
+            Si_bloated = np.diag(np.concatenate((si[:nd_i], th * np.ones(n - nd_i))))
+            E_cell[i] = Ellipsoid(Ti @ Si_bloated @ Ti.T, E_i.q)
+    
+    # CVXPY implementation
+    # Find minimum volume ellipsoid spanning union [1]
+    
+    # Define CVXPY variables
     A2 = cp.Variable((n, n), symmetric=True)
     bt = cp.Variable((n, 1))
-    l = cp.Variable(N, nonneg=True)
-    constraints = [A2 >> 0]
+    l = cp.Variable(N, pos=True) # l must be positive (>=0)
 
-    for i, E in enumerate(E_reg):
-        # MATLAB assumes Q is full rank here due to preprocessing, so can directly invert.
-        Qi_inv = np.linalg.inv(E.Q)
-        qi = E.q
-        c_j_scalar = (qi.T @ Qi_inv @ qi - 1)[0,0] # This is a numpy scalar.
+    constraints = [A2 >> 0] # A2 must be positive semi-definite (PSD) for log_det
 
-        # Ensure this scalar expression is a 1x1 matrix for cp.bmat
-        block22_scalar_expr = cp.reshape(cp.Constant(-1.0) - l[i] * cp.Constant(c_j_scalar), (1, 1), order='F')
+    for i in range(N):
+        Q_i = E_cell[i].Q
+        q_i = E_cell[i].q
 
-        # Exact LMI from MATLAB: [A2-l(i)*Qiinv, bt+l(i)*Qiinv*qi, zeros(n);
-        #                        (bt+l(i)*Qiinv*qi)',-1-l(i)*c_j, bt';
-        #                        zeros(n), bt, -A2] >= 0
+        # Handle singular Q_i (due to initial degeneracy or numerical issues)
+        try:
+            Qinv_i = np.linalg.inv(Q_i)
+        except np.linalg.LinAlgError:
+            # If Q_i is singular, it means the ellipsoid is degenerate.
+            # It should have been perturbed above by `th` so this case should be rare.
+            # If it still occurs, it means the perturbation was not enough or it's
+            # an edge case, and we might need to handle it more robustly or
+            # throw an error if the problem becomes unsolvable.
+            # For now, let's assume the perturbation handles it.
+            # A more robust solution might involve pseudoinverse or other techniques.
+            raise CORAerror('CORA:solverIssue', 'Numerical issue with singular Q matrix after perturbation.')
+
+        c_i = q_i.T @ Qinv_i @ q_i - 1
+
+        # Construct the LMI (Linear Matrix Inequality)
+        # The structure is (n+1+n) x (n+1+n)
+        # Ci = [A2-l(i)*Qiinv,    bt+l(i)*Qiinv*qi,            zeros(n);
+        #       (bt+l(i)*Qiinv*qi)',-1-l(i)*(qi'*Qiinv*qi-1),  bt';
+        #       zeros(n),          bt,                         -A2];
+        # We need Ci <= 0, which means -Ci >= 0.
+
+        M11 = -A2 + l[i] * Qinv_i
+        M12 = -bt - l[i] * Qinv_i @ q_i
+        M13 = cp.Constant(np.zeros((n, n)))
+
+        M21 = (-bt - l[i] * Qinv_i @ q_i).T
+        M22 = 1 + l[i] * c_i
+        M23 = -bt.T
+
+        M31 = cp.Constant(np.zeros((n, n)))
+        M32 = -bt
+        M33 = A2 
+        
+        M22_matrix = cp.reshape(M22, (1, 1), order='C') # Added order='C'
 
         lmi_matrix = cp.bmat([
-            [A2 - l[i] * Qi_inv, bt + l[i] * Qi_inv @ qi, np.zeros((n, n))],
-            [(bt + l[i] * Qi_inv @ qi).T, block22_scalar_expr, bt.T],
-            [np.zeros((n, n)), bt, -A2]
+            [M11, M12, M13],
+            [M21, M22_matrix, M23],
+            [M31, M32, M33]
         ])
         constraints.append(lmi_matrix >> 0)
 
-    # Objective: minimize log det(A2^{-1}) (i.e., maximize det(A2))
-    prob = cp.Problem(cp.Minimize(-cp.log_det(A2)), constraints)
+    objective = cp.Minimize(-cp.log_det(A2))
+    prob = cp.Problem(objective, constraints)
+
+    # Solve the SDP
     try:
-        prob.solve(solver=cp.CLARABEL) # Changed solver to Clarabel
-    except Exception as e:
-        raise CORAerror('CORA:solverIssue', f'cvxpy: {e}')
+        # Try OSQP first for potentially better precision
+        prob.solve(solver=cp.OSQP, verbose=True) # Set verbose=True for OSQP
+        if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+            raise cp.SolverError(f"OSQP did not find an optimal solution. Status: {prob.status}")
+    except cp.SolverError as e_osqp:
+        try:
+            # Fallback to CLARABEL
+            prob.solve(solver=cp.CLARABEL, verbose=False) 
+            if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+                raise cp.SolverError(f"CLARABEL did not find an optimal solution. Status: {prob.status}")
+        except cp.SolverError as e_clarabel:
+            try:
+                # Fallback to MOSEK (if installed) with verbose output
+                prob.solve(solver=cp.MOSEK, verbose=True)
+                if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+                    raise cp.SolverError(f"MOSEK did not find an optimal solution. Status: {prob.status}")
+            except cp.SolverError as e_mosek:
+                try:
+                    # Fallback to SCS with increased accuracy settings
+                    prob.solve(solver=cp.SCS, verbose=False, eps_abs=1e-6, eps_rel=1e-6)
+                    if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+                        raise cp.SolverError(f"SCS did not find an optimal solution. Status: {prob.status}")
+                except cp.SolverError as e_scs:
+                    try:
+                        # Fallback to ECOS with increased accuracy settings
+                        prob.solve(solver=cp.ECOS, verbose=False, eps_abs=1e-6)
+                        if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+                            raise cp.SolverError(f"ECOS did not find an optimal solution. Status: {prob.status}")
+                    except cp.SolverError as e_ecos:
+                        raise CORAerror(f"All solvers failed for priv_orEllipsoidOA: OSQP ({e_osqp}), CLARABEL ({e_clarabel}), MOSEK ({e_mosek}), SCS ({e_scs}), ECOS ({e_ecos})")
+                    except Exception as e_ecos_general:
+                        raise CORAerror(f"ECOS solver failed or is not configured: {e_ecos_general}. OSQP failed: {e_osqp}, CLARABEL failed: {e_clarabel}, MOSEK failed: {e_mosek}, SCS failed: {e_scs}")
+                except Exception as e_scs_general:
+                    raise CORAerror(f"SCS solver failed or is not configured: {e_scs_general}. OSQP failed: {e_osqp}, CLARABEL failed: {e_clarabel}, MOSEK failed: {e_mosek}")
+            except Exception as e_mosek_general:
+                raise CORAerror(f"MOSEK solver failed or is not configured: {e_mosek_general}. OSQP failed: {e_osqp}, CLARABEL failed: {e_clarabel}")
+        except Exception as e_clarabel_general:
+            raise CORAerror(f"CLARABEL solver failed or is not configured: {e_clarabel_general}. OSQP failed: {e_osqp}")
+    except Exception as e_osqp_general:
+        raise CORAerror(f"OSQP solver failed or is not configured: {e_osqp_general}")
 
-    if A2.value is None or bt.value is None:
-        raise CORAerror('CORA:solverIssue', 'cvxpy')
 
-    # Extract solution values
-    A2_sol = A2.value
-    bt_sol = bt.value
+    # Extract results
+    if prob.status in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+        A2_sol = A2.value
+        bt_sol = bt.value
 
-    # Construct ellipsoid parameters
-    # MATLAB: q = -A2\bt_sol; Q = inv(A2);
-    q = -np.linalg.solve(A2_sol, bt_sol)
-    Q = np.linalg.inv(A2_sol)
+        # Construct ellipsoid parameters from solver output
+        # In MATLAB: Q = inv(A2); q = -A2\bt_sol;
+        # In Python: use inverse and solve for q
+        Q_sol = np.linalg.inv(A2_sol)
+        q_sol = -np.linalg.solve(A2_sol, bt_sol)
+        E = Ellipsoid(Q_sol, q_sol)
+    else:
+        # If solver did not find an optimal or inaccurate solution
+        raise CORAerror('CORA:solverIssue', f'SDP solver failed to find an optimal solution. Status: {prob.status}')
 
-    # Final ellipsoid
-    E = Ellipsoid(Q, q)
     return E 

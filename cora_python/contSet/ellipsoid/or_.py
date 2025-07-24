@@ -34,6 +34,7 @@ from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues impo
 from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
 from cora_python.g.functions.helper.sets.contSet.contSet.reorder_numeric import reorder_numeric as reorderNumeric
 from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
+from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
 
 
 def or_(E, S, mode=None):
@@ -82,27 +83,46 @@ def or_(E, S, mode=None):
     # we will raise a NotImplementedError here for now.
     # The actual SDP logic is in priv_orEllipsoidOA.py, which will also raise
     # CORAerror on solver failure.
-    raise NotImplementedError(
-        'Computing the outer-approximation of the union of non-empty ellipsoids ' +
-        'requires a robust SDP solver (e.g., commercial solvers like MOSEK) or ' +
-        'a more advanced, numerically stable open-source formulation. ' +
-        'This functionality is currently not fully supported with standard ' +
-        'open-source CVXPY solvers.'
-    )
+    # raise NotImplementedError(
+    #     'Computing the outer-approximation of the union of non-empty ellipsoids ' +
+    #     'requires a robust SDP solver (e.g., commercial solvers like MOSEK) or ' +
+    #     'a more advanced, numerically stable open-source formulation. ' +
+    #     'This functionality is currently not fully supported with standard ' +
+    #     'open-source CVXPY solvers.'
+    # )
 
     # This code block below is commented out because the functionality is being
     # disabled due to solver limitations, as described in the NotImplementedError above.
     # The logic is preserved in priv_orEllipsoidOA.py for reference and future work.
-    # E_cell = [E, S]
-    # return priv_orEllipsoidOA(E_cell)
+    
+    # All to one list
+    if not isinstance(S, list):
+        S = [S]
+    
+    # Verify contents of S (ellipsoid, polytope, or numeric column vector)
+    from cora_python.contSet.contSet.contSet import ContSet # Import here to avoid circular dependency
+    from cora_python.contSet.polytope.polytope import Polytope # Import here to avoid circular dependency
+    
+    for s_i in S:
+        if not (isinstance(s_i, (ContSet, np.ndarray))):
+            if not (isinstance(s_i, np.ndarray) and s_i.ndim == 2 and s_i.shape[1] == 1):
+                raise CORAerror('CORA:noops', E, S, mode)
+        elif isinstance(s_i, ContSet):
+            if not (isinstance(s_i, Ellipsoid) or isinstance(s_i, Polytope)):
+                raise CORAerror('CORA:noops', E, S, mode)
+
+
+    E_cell = [E] + [aux_convert(s_i) for s_i in S]
+    return priv_orEllipsoidOA(E_cell)
 
 
 def aux_convert(S):
     # Helper function to convert multiple operands to ellipsoids correctly
     from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
+    from cora_python.contSet.polytope.polytope import Polytope # Moved here
     if isinstance(S, np.ndarray) and S.ndim == 2 and S.shape[1] == 1:
         return Ellipsoid.origin(len(S)) + S
-    elif hasattr(S, '__class__') and S.__class__.__name__ == 'Polytope':
+    elif isinstance(S, Polytope):
         return Ellipsoid(S, 'outer')
     else:
         return S 

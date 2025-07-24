@@ -1,33 +1,32 @@
 """
 empty - instantiates an empty ellipsoid
+%
+% Syntax:
+%    E = empty(n)
+%
+% Inputs:
+%    n - dimension
+%
+% Outputs:
+%    E - empty ellipsoid
+%
+% Example:
+%    E = ellipsoid.empty(2)
+%
+% Other m-files required: none
+% Subfunctions: none
+% MAT-files required: none
+%
+% See also: none
 
-Syntax:
-    E = Ellipsoid.empty(n)
-
-Inputs:
-    n - dimension
-
-Outputs:
-    E - empty ellipsoid
-
-Example: 
-    E = Ellipsoid.empty(2)
-
-Other m-files required: none
-Subfunctions: none
-MAT-files required: none
-
-See also: none
-
-Authors:       Mark Wetzlinger (MATLAB)
-               Python translation by AI Assistant
-Written:       09-January-2024 (MATLAB)
-Last update:   15-January-2024 (TL, parse input, MATLAB)
-Python translation: 2025
+% Authors:       Mark Wetzlinger (MATLAB)
+%                Python translation by AI Assistant
+% Written:       09-January-2024 (MATLAB)
+% Last update:   15-January-2024 (TL, parse input, MATLAB)
+% Python translation: 2025
 """
 
 import numpy as np
-
 from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
 
 

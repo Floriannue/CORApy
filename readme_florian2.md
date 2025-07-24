@@ -105,7 +105,7 @@ All of them apply always
 
 #### Conditional Actions:
 - **IF** MATLAB is available: generate results from MATLAB method and compare against Python method
-- **IF** tests fail: Investigate root cause and compare against MATLAB source code. No simplifications. No cheap workarounds.
+- **IF** tests fail: Investigate root cause and compare against MATLAB source code and create debug scripts if needed. No simplifications. No cheap workarounds.
 - **IF** uncertain: Search manual and MATLAB source code
 
 
@@ -189,7 +189,7 @@ np.array([1, 0])                  # vector
 ```
 
 ### Testing requirements
-- Examples must **must** execute correctly
+- Examples must **must** execute correctly but not have tests
 - For testing plotting functions, save output as PNG and verify visually
 - Find root cause of errors by comparing against MATLAB source and `Cora2025.1.0_Manual.txt`
 - Verify accuracy by running the original MATLAB function and the Python translation and compare the results
@@ -236,7 +236,7 @@ np.array([1, 0])                  # vector
    - Implementation requirements: [details]
 
 3. PYTHON IMPLEMENTATION PLAN:
-   - NumPy/SciPy/CVXPy equivalents: [mapping]
+   - NumPy/SciPy/CVXPy/cvxopt equivalents: [mapping]
    - Data structure changes: [specific changes]
    - Edge case handling: [list]
 

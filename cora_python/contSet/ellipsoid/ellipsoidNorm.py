@@ -37,28 +37,32 @@ def ellipsoidNorm(E: 'Ellipsoid', p: np.ndarray) -> float:
     if p.ndim == 1:
         p = p.reshape(-1, 1)
 
+    # Special handling for zero-rank ellipsoids (points)
+    # If it's a point ellipsoid (Q is zero matrix), norm is always infinity unless it's exactly the center
+    # MATLAB's ellipsoidNorm for point ellipsoid returns Inf even for the center itself
+    if E.representsa_('point', np.finfo(float).eps): 
+        return np.inf
+
     if not E.isFullDim():
-        U, s_vals, _ = svd(E.Q)
-        
-        # We need to compute p' * pinv(Q) * p
-        # pinv(Q) = U * diag(1/s_i if s_i > tol else 0) * U'
-        # So p' * pinv(Q) * p = (U'p)' * diag(1/s_i) * (U'p)
-        
+        U, s_vals, Vh = np.linalg.svd(E.Q)
+        # Take the square root of singular values and handle potential negative values from numerical issues
+        s_sqrt = np.sqrt(np.maximum(0, s_vals))
+
+        # Calculate the norm: p' * U * inv(diag(s_vals)) * U' * p
         p_rot = U.T @ p
-        
+        print(f"ellipsoidNorm: p_shifted\n{p}\np_rot\n{p_rot}") # Debug print
+
         s_inv = np.zeros_like(s_vals)
         mask = s_vals > 1e-10 # MATLAB tolerance
         s_inv[mask] = 1.0 / s_vals[mask]
+        print(f"ellipsoidNorm: s_vals\n{s_vals}\ns_inv\n{s_inv}") # Debug print
         
-        # If a component of p_rot is non-zero where s_inv is zero (degenerate dir),
-        # the point is outside the subspace spanned by the ellipsoid. The norm is Inf.
-        if np.any(np.abs(p_rot[~mask]) > 1e-10):
-            return np.inf
-
-        # Equivalent to p_rot.T @ np.diag(s_inv) @ p_rot
         res_sq = np.sum(s_inv * (p_rot**2))
+        res = np.sqrt(res_sq)
+        print(f"ellipsoidNorm: res_sq {res_sq}, res {res}") # Debug print
         
     else:
+        # Non-degenerate case
         try:
             q_vec = np.linalg.solve(E.Q, p)
             res_sq = p.T @ q_vec

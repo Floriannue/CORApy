@@ -41,6 +41,7 @@ from scipy.sparse.linalg import eigs
 from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
 from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
 
+# Removed debug logging utility
 
 def radius(E, *args):
     """
@@ -54,12 +55,16 @@ def radius(E, *args):
         r: radius/vector of radii of enclosing hyperball
     """
     # Default: only largest radius considered
-    i = setDefaultValues([1], args)[0]
+    i_val = setDefaultValues([1], args)[0]
+    if isinstance(i_val, list) and len(i_val) == 1:
+        i = i_val[0]
+    else:
+        i = i_val
     
     # Check input arguments
     inputArgsCheck([
         [E, 'att', 'ellipsoid'],
-        [i, 'att', 'numeric', ['integer', 'positive', lambda x: x <= E.dim]]
+        [i, 'att', 'numeric', ['integer', 'positive', lambda x: x <= E.dim()]] # Reverted lambda: x is now guaranteed scalar
     ])
     
     # Quick check for empty set
