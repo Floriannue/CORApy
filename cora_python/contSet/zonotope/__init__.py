@@ -56,6 +56,10 @@ from .getPrintSetInfo import getPrintSetInfo
 from .ellipsoid import ellipsoid
 from .quadMap import quadMap
 from .constrSat import constrSat
+from .generateRandom import generateRandom
+from .intersectStrip import intersectStrip
+from .lift_ import lift_
+from .minkDiff import minkDiff
 
 # Attach methods to the class
 Zonotope.abs = abs_op
@@ -85,7 +89,7 @@ Zonotope.randPoint_ = randPoint_
 Zonotope.vertices_ = vertices_
 Zonotope.project = project
 Zonotope.mtimes = mtimes
-Zonotope.center = center
+# Zonotope.center = center
 Zonotope.representsa_ = representsa_
 Zonotope.compact_ = compact_
 Zonotope.interval = interval
@@ -117,8 +121,12 @@ Zonotope.getPrintSetInfo = getPrintSetInfo
 Zonotope.ellipsoid = ellipsoid
 Zonotope.quadMap = quadMap
 Zonotope.constrSat = constrSat
+Zonotope.intersectStrip = intersectStrip
+Zonotope.lift_ = lift_
+Zonotope.minkDiff = minkDiff
 
 # Attach static methods
 Zonotope.enclosePoints = staticmethod(enclosePoints)
+Zonotope.generateRandom = staticmethod(generateRandom)
 
-__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap', 'constrSat'] 
+__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap', 'constrSat', 'generateRandom', 'intersectStrip', 'lift_', 'minkDiff'] 
