@@ -18,12 +18,26 @@ from .empty import empty
 from .origin import origin
 from .generateRandom import generateRandom
 from .representsa_ import representsa_
+from .minkDiff import minkDiff
+from .vertices_ import vertices_
+from .compact import compact
+from .reduceConstraints import reduceConstraints
+from .plus import plus
+from .uminus import uminus
 
 # Attach methods to the ConZonotope class
 # dim and isemptyobject are required by ContSet
 ConZonotope.dim = dim
 ConZonotope.isemptyobject = isemptyobject
 ConZonotope.representsa_ = representsa_
+ConZonotope.minkDiff = minkDiff
+ConZonotope.vertices_ = vertices_
+ConZonotope.compact = compact
+ConZonotope.reduceConstraints = reduceConstraints
+ConZonotope.plus = plus
+ConZonotope.__add__ = plus
+ConZonotope.uminus = uminus
+ConZonotope.__neg__ = uminus
 
 # Attach static methods
 ConZonotope.empty = staticmethod(empty)
@@ -39,4 +53,10 @@ __all__ = [
     'origin',
     'generateRandom',
     'representsa_',
+    'minkDiff',
+    'vertices_',
+    'compact',
+    'reduceConstraints',
+    'plus',
+    'uminus',
 ] 
