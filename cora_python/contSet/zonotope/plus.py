@@ -38,6 +38,8 @@ Python translation: 2025
 import numpy as np
 from typing import Union
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.helper.sets.contSet.contSet.reorder_numeric import reorder_numeric
+from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
 from .zonotope import Zonotope
 
 def plus(Z, S):
@@ -56,16 +58,15 @@ def plus(Z, S):
     """
     
     # Ensure that numeric is second input argument (reorder if necessary)
-    S_out, S = _reorder_numeric(Z, S)
+    S_out, S = reorder_numeric(Z, S)
     
-    # Call function with higher precedence if applicable
-    if hasattr(S, 'precedence') and hasattr(S_out, 'precedence') and S.precedence > S_out.precedence:
+    # Call function with lower precedence if applicable (matching MATLAB logic)
+    if hasattr(S, 'precedence') and hasattr(S_out, 'precedence') and S.precedence < S_out.precedence:
         return S + S_out
     
     try:
         # Different cases depending on the class of the second summand
         # Check for zonotope using both isinstance and class name for robustness
-        # (handles different import paths that might create different class instances)
         if isinstance(S, Zonotope) or (hasattr(S, '__class__') and S.__class__.__name__ == 'Zonotope'):
             # Zonotope + Zonotope: see Equation 2.1 in [1]
             new_c = S_out.c + S.c
@@ -106,23 +107,11 @@ def plus(Z, S):
                 raise CORAerror('CORA:wrongInputInConstructor',
                               'Dimension mismatch in addition')
         
-        # Handle interval case - convert interval to zonotope first
+        # Handle interval case - convert interval to zonotope using zonotope() function
         if hasattr(S, '__class__') and S.__class__.__name__ == 'Interval':
-            # Convert interval to zonotope: center = interval center, generators = diag(radius)
-            
-            S_center = S.center()
-            S_radius = S.rad()
-            
-            # Create generator matrix as diagonal matrix of radii
-            # Remove zero generators (where radius is 0)
-            nonzero_indices = S_radius.flatten() != 0
-            if np.any(nonzero_indices):
-                S_G = np.diag(S_radius.flatten())[:, nonzero_indices]
-            else:
-                S_G = np.zeros((len(S_center), 0))
-            
-            # Create zonotope from interval
-            S_zono = Zonotope(S_center, S_G)
+            # Use the proper zonotope() function to convert interval to zonotope
+            from cora_python.contSet.interval.zonotope import zonotope
+            S_zono = zonotope(S)
             
             # Add zonotopes
             new_c = S_out.c + S_zono.c
@@ -141,46 +130,29 @@ def plus(Z, S):
             
             return Zonotope(new_c, new_G)
 
-    except Exception as e:
+    except Exception as ME:
         # Check whether different dimension of ambient space
-        if hasattr(S_out, 'dim') and hasattr(S, 'dim'):
-            if S_out.dim() != S.dim():
-                raise CORAerror('CORA:dimensionMismatch',
-                              f'Dimension mismatch: {S_out.dim()} vs {S.dim()}')
+        try:
+            equal_dim_check(S_out, S)
+        except CORAerror:
+            # Dimension mismatch - re-raise the original error
+            raise
         
-        # Check for empty sets
-        if hasattr(S_out, 'is_empty') and S_out.is_empty():
-            return Zonotope.empty(S_out.dim())
-        if hasattr(S, 'is_empty') and S.is_empty():
-            return Zonotope.empty(S_out.dim())
+        # Check for empty sets (matching MATLAB logic)
+        try:
+            if hasattr(S_out, 'representsa_') and S_out.representsa_('emptySet', np.finfo(float).eps)[0]:
+                return Zonotope.empty(S_out.dim())
+        except:
+            pass
         
-        # Re-raise original error
-        raise e
+        try:
+            if hasattr(S, 'representsa_') and S.representsa_('emptySet', 1e-10)[0]:
+                return Zonotope.empty(S_out.dim())
+        except:
+            pass
+        
+        # Re-raise original error (matching MATLAB rethrow(ME))
+        raise
     
     # If we get here, operation is not supported
-    raise CORAerror('CORA:noops', f'Operation not supported between {type(S_out)} and {type(S)}')
-
-
-def _reorder_numeric(Z, S):
-    """
-    Ensure that numeric is second input argument
-    
-    Args:
-        Z: First operand
-        S: Second operand
-        
-    Returns:
-        tuple: (zonotope_operand, other_operand) with zonotope first
-    """
-    
-    # Check for zonotope using both isinstance and class name for robustness
-    Z_is_zonotope = isinstance(Z, Zonotope) or (hasattr(Z, '__class__') and Z.__class__.__name__ == 'Zonotope')
-    S_is_zonotope = isinstance(S, Zonotope) or (hasattr(S, '__class__') and S.__class__.__name__ == 'Zonotope')
-    
-    if Z_is_zonotope:
-        return Z, S
-    elif S_is_zonotope:
-        return S, Z
-    else:
-        raise CORAerror('CORA:wrongInputInConstructor',
-                      'At least one operand must be a zonotope') 
+    raise CORAerror('CORA:noops', f'Operation not supported between {type(S_out)} and {type(S)}') 
