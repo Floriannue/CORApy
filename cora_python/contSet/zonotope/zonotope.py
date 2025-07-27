@@ -153,9 +153,11 @@ class Zonotope(ContSet):
             elif c.size > 0 and c.ndim > 1 and min(c.shape) > 1:
                 raise CORAerror('CORA:wrongInputInConstructor',
                               'Center is not a vector')
-            elif G.size > 0 and c.size > 0 and len(c) != G.shape[0]:
-                raise CORAerror('CORA:wrongInputInConstructor',
-                              'Dimension mismatch between center and generator matrix')
+            elif G.size > 0 and c.size > 0:
+                c1d = np.atleast_1d(c)
+                if len(c1d) != G.shape[0]:
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'Dimension mismatch between center and generator matrix')
     
     def _compute_properties(self, c, G):
         """Compute and fix properties to ensure correct dimensions"""
@@ -302,3 +304,8 @@ class Zonotope(ContSet):
         c = np.zeros((dim, 1))
         G = np.zeros((dim, 0))
         return Zonotope(c, G) 
+
+    # Attach MATLAB-like isequal as a method
+    def isequal(self, S, tol=None):
+        from cora_python.contSet.zonotope.isequal import isequal as isequal_func
+        return isequal_func(self, S, tol) 
