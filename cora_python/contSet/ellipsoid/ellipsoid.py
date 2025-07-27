@@ -1,12 +1,13 @@
 import numpy as np
-from typing import Union, Optional, Tuple, Any
+from typing import Union, List, Any
 
 from cora_python.contSet.contSet.contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-from cora_python.g.functions.matlab.validate.check import assertNarginConstructor
-from cora_python.g.functions.matlab.validate.check import inputArgsCheck
-from .dim import dim
-from .isemptyobject import isemptyobject
+from cora_python.g.functions.matlab.validate.check.assertNarginConstructor import assertNarginConstructor
+from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
+from cora_python.g.macros.CHECKS_ENABLED import CHECKS_ENABLED
+from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
+from cora_python.g.functions.matlab.validate.check.isApproxSymmetric import isApproxSymmetric
 
 
 class Ellipsoid(ContSet):
@@ -54,6 +55,7 @@ class Ellipsoid(ContSet):
                    29-March-2021 (MA, faster eigenvalue computation)
                    14-December-2022 (TL, property check in inputArgsCheck)
     Last revision: 16-June-2023 (MW, restructure using auxiliary functions)
+    Automatic python translation: Florian Nüssel BA 2025
     """
 
     def __init__(self, *args):
@@ -101,72 +103,86 @@ class Ellipsoid(ContSet):
 
     # Auxiliary functions (will be moved to separate files)
     def _aux_parseInputArgs(self, *varargin):
-        # parse input arguments from user and assign to variables
+        """
+        parse input arguments from user and assign to variables
+        """
         Q = varargin[0]
-        # setDefaultValues needs to be translated first
-        # For now, let's manually handle the defaults.
-        q = np.zeros((Q.shape[0], 1)) if len(varargin) < 2 else varargin[1]
-        TOL = 1e-6 if len(varargin) < 3 else varargin[2]
+        # set default values. In MATLAB, setDefaultValues returns values directly.
+        # In Python, setDefaultValues returns a tuple (values, remaining_args).
+        # We only need the values here.
         
-        # Convert center vector to column vector if needed
-        if q is not None and hasattr(q, 'shape'):
-            q = np.asarray(q)
-            if q.ndim == 1:
-                # Convert 1D array to column vector
-                q = q.reshape(-1, 1)
-            elif q.ndim == 2 and q.shape[1] != 1:
-                # If it's a row vector, transpose it (but not if it's empty like zeros(n,0))
-                if q.shape[0] == 1 and q.shape[1] > 0:
-                    q = q.T
+        # Check if there are more arguments for q and TOL
+        if len(varargin) > 1:
+            q_tol_args = varargin[1:]
+        else:
+            q_tol_args = []
         
+        # Default values for q and TOL
+        # The MATLAB default for TOL is 1e-6, for q it's zeros(size(Q,1),1)
+        # We need to handle this dynamically as q's default depends on Q.
+        # setDefaultValues handles arbitrary number of arguments for q and TOL.
+        # The structure is [default_q, default_TOL]
+        
+        # If Q is a matrix, then q should be a column vector of its row dimension
+        default_q = np.zeros((Q.shape[0], 1)) if Q.ndim >= 1 else np.array([])
+        
+        default_values = [default_q, 1e-6]
+
+        # setDefaultValues expects a list of defaults and then a list of actual args.
+        # The result is a tuple (values, remaining_args)
+        parsed_values, _ = setDefaultValues(default_values, q_tol_args)
+        
+        q = parsed_values[0]
+        TOL = parsed_values[1]
+
         return Q, q, TOL
 
     def _aux_checkInputArgs(self, Q, q, TOL):
-        # check correctness of input arguments
-        CHECKS_ENABLED = True # This needs to be correctly handled from a global config
-
-        if CHECKS_ENABLED:
+        """
+        check correctness of input arguments
+        """
+        if CHECKS_ENABLED(): # CHECKS_ENABLED is a function in Python
             # allow empty Q matrix for ellipsoid.empty
             if Q.size == 0:
-                # For empty ellipsoids, q should be zeros(n,0) which has size 0 in MATLAB terms
-                # but preserves dimension information
+                # only ensure that q is also empty
                 if q.size != 0:
-                    raise CORAerror('CORA:wrongInputInConstructor',
+                    raise CORAerror('CORA:wrongInputInConstructor', \
                                     'Shape matrix is empty, but center is not.')
                 return
 
+            # inputArgsCheck expects a list of lists, where each inner list describes an argument.
+            # Example: [arg_value, 'attribute', 'type', ['constraint1', 'constraint2']]
             inputArgsCheck([
-                [Q, 'att', ['numpy.ndarray'], ['finite', 'matrix']],
-                [q, 'att', ['numpy.ndarray'], ['finite', 'column']],
-                [TOL, 'att', ['numeric'], ['nonnegative', 'scalar']],
+                [Q, 'att', 'numeric', ['finite', 'matrix']],
+                [q, 'att', 'numeric', ['finite', 'column']],
+                [TOL, 'att', 'numeric', ['nonnegative', 'scalar']],
             ])
 
             # shape matrix needs to be square
             if Q.shape[0] != Q.shape[1]:
-                raise CORAerror('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor', \
                                 'The shape matrix needs to be a square matrix.')
 
             # check dimensions
             if q.size != 0 and Q.shape[0] != q.shape[0]:
-                raise CORAerror('CORA:wrongInputInConstructor',
+                raise CORAerror('CORA:wrongInputInConstructor', \
                                 'Dimensions of the shape matrix and center are different.')
-
-            # check for positive semidefinite/symmetric (isApproxSymmetric)
-            # This needs to be translated
-            # For now, a placeholder or simple check
-            mev = np.linalg.eigvalsh(Q)[0]
-            if not np.allclose(Q, Q.T, atol=TOL) or mev < -TOL:
-                raise CORAerror('CORA:wrongInputInConstructor',
+            
+            # Check for positive semi-definite and symmetric
+            # Using np.linalg.eigvalsh for symmetric matrices for better stability
+            mev = np.min(np.linalg.eigvalsh(Q))
+            if not isApproxSymmetric(Q, TOL) or mev < -TOL:
+                raise CORAerror('CORA:wrongInputInConstructor', \
                                 'The shape matrix needs to be positive semidefinite/symmetric.')
 
-
     def _aux_computeProperties(self, Q, q):
-        # returns zero values in case Q or q are empty
+        """
+        returns zero values in case Q or q are empty
+        """
         if Q.size == 0:
-            # For empty ellipsoids, Q becomes zeros(0,0) but q should preserve its dimensions
-            # In MATLAB: Q=zeros(0,0), q=zeros(n,0) where n is the dimension
             Q = np.zeros((0, 0))
-            # Don't modify q - keep it as zeros(n,0) to preserve dimension information
+            if q.size != 0:
+                q = np.zeros((0, 0))
         return Q, q
     
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):

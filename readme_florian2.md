@@ -499,4 +499,4 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-Your task is to fix the failing tests of `contSet.polytope`
+Your task is to translate missing `contSet.ellipsoid` methodes

@@ -60,7 +60,13 @@ def representsa_(S: 'ContSet', set_type: str, tol: float = 1e-12, method: str = 
     if (hasattr(type(S), 'representsa_') and 
         base_class and hasattr(base_class, 'representsa_') and
         type(S).representsa_ is not base_class.representsa_):
-        return type(S).representsa_(set_type, tol, method, iter, splits)
+        # Conditional dispatch based on set_type to handle varying argument counts in subclasses
+        if set_type == 'emptySet':
+            # emptySet.representsa_ only expects 3 arguments (self, type, tol)
+            return type(S).representsa_(S, set_type, tol)
+        else:
+            # For other set types, assume the full 5 arguments are expected
+            return type(S).representsa_(S, set_type, tol, method, iter, splits)
     else:
         # Base implementation - throw error as this method should be overridden
         raise CORAerror("CORA:noops", f"Function representsa_ not implemented for class {type(S).__name__}")
