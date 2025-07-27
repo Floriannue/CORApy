@@ -54,9 +54,18 @@ def quadMap(Z1: Zonotope, *args) -> Zonotope:
     
     if len(args) == 1:
         Q = args[0]
-        # Check if Q contains matZonotope objects (not implemented yet)
-        # For now, assume regular matrices
-        return _aux_quadMapSingle(Z1, Q)
+        # Check if Q contains matZonotope objects (matching MATLAB logic)
+        # MATLAB: isa(varargin{1}{1},'matZonotope')
+        # Python: check if first element of Q is matZonotope type
+        try:
+            from cora_python.matrixSet import matZonotope
+            if len(Q) > 0 and isinstance(Q[0], matZonotope):
+                return _aux_quadMapSingleMatZono(Z1, Q)
+            else:
+                return _aux_quadMapSingle(Z1, Q)
+        except ImportError:
+            # matZonotope class not available, use regular matrices
+            return _aux_quadMapSingle(Z1, Q)
     elif len(args) == 2:
         Z2, Q = args
         return _aux_quadMapMixed(Z1, Z2, Q)
@@ -160,7 +169,8 @@ def _aux_quadMapMixed(Z1: Zonotope, Z2: Zonotope, Q: List[np.ndarray]) -> Zonoto
         if Qnonempty[i]:
             # Pure quadratic evaluation
             quadMat = Zmat1.T @ Q_i @ Zmat2
-            Z[i, :] = quadMat.flatten()
+            # Use column-major order (F) to match MATLAB's flattening
+            Z[i, :] = quadMat.flatten(order='F')
 
     # Generate new zonotope
     tmp_sum = np.sum(Qnonempty)
@@ -173,4 +183,44 @@ def _aux_quadMapMixed(Z1: Zonotope, Z2: Zonotope, Q: List[np.ndarray]) -> Zonoto
         # Multiple non-empty Q matrices
         c = Z[:, 0:1]  # First column as center
         G_filtered = nonzeroFilter(Z[:, 1:])
-        return Zonotope(c, G_filtered) 
+        return Zonotope(c, G_filtered)
+
+
+def _aux_quadMapSingleMatZono(Z: Zonotope, Q) -> Zonotope:
+    """
+    Compute an over-approximation of the quadratic map
+    {x_i = x^T Q{i} x | x ∈ Z} 
+    of a zonotope according to Theorem 1 in [1], where Q is a matrix zonotope
+    """
+    # zonotope Z_D for the center of the matrix zonotope
+    Q_ = [None] * len(Q)
+    
+    for i in range(len(Q)):
+        # Q_{i} = Q{i}.C  # Access the center of matZonotope
+        Q_[i] = Q[i].C
+    
+    Z_D = quadMap(Z, Q_)
+    
+    # zonotopes Z_Kj for the generator of the matrix zonotope
+    Z_K = [None] * Q[0].numgens()
+    
+    for j in range(len(Z_K)):
+        for i in range(len(Q)):
+            # Q_{i} = Q{i}.G(:,:,j)  # Access the j-th generator of matZonotope
+            Q_[i] = Q[i].G[:, :, j]
+        
+        temp = quadMap(Z, Q_)
+        Z_K[j] = np.hstack([temp.c, temp.G])
+    
+    # overall zonotope
+    if len(Z_K) > 0:
+        G_combined = np.hstack(Z_K)
+        Zquad = Zonotope(Z_D.c, np.hstack([Z_D.G, G_combined]))
+    else:
+        Zquad = Z_D
+    
+    # Compact the result
+    from .compact_ import compact_
+    Zquad = compact_(Zquad, 'zeros', np.finfo(float).eps)
+    
+    return Zquad 
