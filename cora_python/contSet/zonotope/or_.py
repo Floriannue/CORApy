@@ -287,7 +287,7 @@ def _aux_unionLinprog(Zcell: List[Zonotope], order: Optional[int]) -> Zonotope:
     nrZ = len(Zcell)
     Z_ = _aux_unionIterative(Zcell, order)
     Z_ = Z_.compact_('zeros', 1e-8)
-    G = Z_.generators
+    G = Z_.generators()
     
     G = G @ np.diag(1/np.sqrt(np.sum(G**2, axis=0)))
     
@@ -303,7 +303,7 @@ def _aux_unionLinprog(Zcell: List[Zonotope], order: Optional[int]) -> Zonotope:
             # Compute bound for the current zonotope (note: this is a
             # direct implementation of zonotope/supportFunc_ ...)
             Z_proj = P.A[i:i+1, :] @ Zcell[j]
-            val[i, j] = Z_proj.center[0, 0] + np.sum(np.abs(Z_proj.generators))
+            val[i, j] = Z_proj.center[0, 0] + np.sum(np.abs(Z_proj.generators()))
     
     d = np.max(val, axis=1)
     
@@ -321,10 +321,17 @@ def _aux_unionLinprog(Zcell: List[Zonotope], order: Optional[int]) -> Zonotope:
         'ub': None
     }
     
-    x = CORAlinprog(problem)[0]
+    result = CORAlinprog(problem)
+    x = result[0]  # Get first return value like MATLAB
+    
+    if x is None:
+        raise CORAerror('CORA:solverIssue', 'Linear programming solver failed')
+    
+    # Ensure x is a 1D array
+    x = x.flatten()
     
     # Construct final zonotope
-    c = x[:n]
+    c = x[:n].reshape(-1, 1)
     scal = x[n:]
     
     return Zonotope(c, G @ np.diag(scal))
@@ -343,7 +350,8 @@ def _aux_unionIterative(Zcell: List[Zonotope], order: Optional[int]) -> Zonotope
         # Loop over all sets in the current queue
         while counter < len(Zcell) - 1:
             # Unite sets using function enclose
-            Zcell_[counter_] = Zcell[counter].enclose(Zcell[counter + 1])
+            from .enclose import enclose
+            Zcell_[counter_] = enclose(Zcell[counter], Zcell[counter + 1])
             
             counter_ += 1
             counter += 2
@@ -360,9 +368,9 @@ def _aux_unionIterative(Zcell: List[Zonotope], order: Optional[int]) -> Zonotope
     
     if order is not None:
         if order == 1:
-            Z = Z.reduce('methC', order)
+            Z = Z.reduce_('methC', order)
         else:
-            Z = Z.reduce('pca', order)
+            Z = Z.reduce_('pca', order)
     
     return Z
 
@@ -377,19 +385,19 @@ def _aux_unionAlthoff(Z1: Zonotope, Zcell: List[Zonotope], order: Optional[int])
     n = Z1.dim()
     
     # Obtain minimum number of generators every zonotope has
-    minNrOfGens = Z1.generators.shape[1]
+    minNrOfGens = Z1.generators().shape[1]
     for iSet in range(len(Zcell)):
-        minNrOfGens = min(minNrOfGens, Zcell[iSet].generators.shape[1])
+        minNrOfGens = min(minNrOfGens, Zcell[iSet].generators().shape[1])
     
     # Obtain Zcut
-    Zcut = [Z1.generators[:, :minNrOfGens]]
+    Zcut = [Z1.generators()[:, :minNrOfGens]]
     for iSet in range(len(Zcell)):
-        Zcut.append(np.hstack([Zcell[iSet].center, Zcell[iSet].generators[:, :minNrOfGens]]))
+        Zcut.append(np.hstack([Zcell[iSet].center, Zcell[iSet].generators()[:, :minNrOfGens]]))
     
     # Obtain Zadd
-    Zadd = [Z1.generators[:, minNrOfGens:]]
+    Zadd = [Z1.generators()[:, minNrOfGens:]]
     for iSet in range(len(Zcell)):
-        Zadd.append(Zcell[iSet].generators[:, minNrOfGens:])
+        Zadd.append(Zcell[iSet].generators()[:, minNrOfGens:])
     
     # As center is prepended
     minNrOfGens = minNrOfGens + 1
@@ -406,14 +414,14 @@ def _aux_unionAlthoff(Z1: Zonotope, Zcell: List[Zonotope], order: Optional[int])
             else:
                 v = np.hstack([v, -v_new])
         
-        # Compute vertices
-        V = v.vertices()
+        # Compute vertices - v is already a matrix of points
+        V = v
         
         # Compute enclosing zonotope
         Z_encl = Zonotope.enclosePoints(V)
         
         # Concatenate enclosing zonotopes
-        Zmat = np.hstack([Zmat, np.hstack([Z_encl.center, Z_encl.generators])])
+        Zmat = np.hstack([Zmat, np.hstack([Z_encl.center, Z_encl.generators()])])
     
     # Add Zadd to the resulting generator matrix
     for i in range(len(Zadd)):
@@ -422,9 +430,9 @@ def _aux_unionAlthoff(Z1: Zonotope, Zcell: List[Zonotope], order: Optional[int])
     # Create enclosing zonotope
     Z = Zonotope(Zmat)
     
-    # Reduce zonotope to the desired zonotope order
+        # Reduce zonotope to the desired zonotope order
     if order is not None:
-        Z = Z.reduce('pca', order)
+       Z = Z.reduce_('pca', order)
     
     return Z
 
@@ -452,9 +460,11 @@ def _aux_unionParallelotope(Zcell: List[Zonotope]) -> Zonotope:
     U, _, _ = np.linalg.svd(C)
     
     # Enclose zonotopes with intervals in the transformed space
+    from .interval import interval
     I = Interval.empty(n)
     for i in range(len(Zcell)):
-        I = (U.T @ Zcell[i]).interval() | I
+        transformed_zono = U.T @ Zcell[i]
+        I = interval(transformed_zono) | I
     
     # Transform back to original space
     return U @ Zonotope(I) 
