@@ -475,6 +475,7 @@ Integration Success Criteria:
 - [ ] Class hierarchy preserved exactly
 - [ ] No circular import issues
 - [ ] Performance as good as MATLAB
+- [ ] All functionality translate (fully translated)
 
 
 ## **Task**
@@ -499,4 +500,4 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-Your task is to translate missing `contSet.ellipsoid` methodes
+Your task is to translate easy missing methodes from `contSet.ellipsoid` 

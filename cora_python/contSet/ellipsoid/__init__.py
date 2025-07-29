@@ -30,6 +30,11 @@ from .vertices_ import vertices_
 from .norm_ import norm_
 from .or_ import or_
 from .randPoint_ import randPoint_
+from .isBounded import isBounded
+from .isnan import isnan
+from .getPrintSetInfo import getPrintSetInfo
+from .isBadDir import isBadDir
+from .isequal import isequal
 
 # Attach methods to the Ellipsoid class
 Ellipsoid.center = center
@@ -51,18 +56,26 @@ Ellipsoid.project = project
 Ellipsoid.mtimes = mtimes
 Ellipsoid.__matmul__ = lambda self, other: mtimes(self, other)
 Ellipsoid.__rmatmul__ = lambda self, other: mtimes(other, self)
+Ellipsoid.__mul__ = lambda self, other: mtimes(self, other) # For scalar multiplication
+Ellipsoid.__rmul__ = lambda self, other: mtimes(other, self) # For scalar multiplication
 Ellipsoid.distance = distance
 Ellipsoid.volume_ = volume_
 Ellipsoid.interval = interval
 Ellipsoid.radius = radius
 Ellipsoid.plus = plus
 Ellipsoid.__add__ = plus
-Ellipsoid.origin = staticmethod(origin)
+Ellipsoid.__radd__ = plus
+Ellipsoid.origin = origin
 Ellipsoid.vertices_ = vertices_
 Ellipsoid.norm_ = norm_
 Ellipsoid.or_ = or_
-Ellipsoid.__or__ = or_
 Ellipsoid.randPoint_ = randPoint_
+Ellipsoid.isBounded = isBounded
+Ellipsoid.isnan = isnan
+Ellipsoid.getPrintSetInfo = getPrintSetInfo
+Ellipsoid.isBadDir = isBadDir
+Ellipsoid.isequal = isequal
+
 
 __all__ = [
     'Ellipsoid',
@@ -92,5 +105,10 @@ __all__ = [
     'vertices_',
     'norm_',
     'or_',
-    'randPoint_'
+    'randPoint_',
+    'isBounded',
+    'isnan',
+    'getPrintSetInfo',
+    'isBadDir',
+    'isequal'
 ] 

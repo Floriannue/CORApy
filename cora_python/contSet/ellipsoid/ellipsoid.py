@@ -54,11 +54,11 @@ class Ellipsoid(ContSet):
                    02-May-2020 (MW, add property validation)
                    29-March-2021 (MA, faster eigenvalue computation)
                    14-December-2022 (TL, property check in inputArgsCheck)
-    Last revision: 16-June-2023 (MW, restructure using auxiliary functions)
+                   16-June-2023 (MW, restructure using auxiliary functions)
     Automatic python translation: Florian Nüssel BA 2025
     """
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
 
         # 0. avoid empty instantiation
         if not args:
@@ -85,7 +85,7 @@ class Ellipsoid(ContSet):
             return
 
         # 2. parse input arguments: varargin -> vars
-        Q, q, TOL = self._aux_parseInputArgs(*args)
+        Q, q, TOL = self._aux_parseInputArgs(*args, **kwargs)
 
         # 3. check correctness of input arguments
         self._aux_checkInputArgs(Q, q, TOL)
@@ -102,38 +102,81 @@ class Ellipsoid(ContSet):
         self.precedence = 50
 
     # Auxiliary functions (will be moved to separate files)
-    def _aux_parseInputArgs(self, *varargin):
+    def _aux_parseInputArgs(self, *varargin, **kwargs):
         """
-        parse input arguments from user and assign to variables
+        _aux_parseInputArgs - helper function to parse input arguments and set default values
+
+        Syntax:
+            [Q,q,TOL] = _aux_parseInputArgs(varargin)
+
+        Inputs:
+            varargin - arguments of constructor
+
+        Outputs:
+            Q - shape matrix
+            q - center
+            TOL - tolerance
+
+        Other m-files required: none
+        Subfunctions: none
+        MAT-files required: none
+
+        See also: setDefaultValues.m
+
+        Author:         Matthias Althoff, S. Rakovic
+        Written:        05-May-2016
+        Last update:    26-February-2019
+        Last revision:  11-August-2021
+        Automatic python translation: Florian Nüssel BA 2025
         """
+
+        # Extract main arguments: Q, q, TOL
+        # Assume Q is the first argument, q the second, TOL the third if provided
         Q = varargin[0]
-        # set default values. In MATLAB, setDefaultValues returns values directly.
-        # In Python, setDefaultValues returns a tuple (values, remaining_args).
-        # We only need the values here.
-        
-        # Check if there are more arguments for q and TOL
+        q_passed = varargin[1] if len(varargin) > 1 else None
+        TOL = varargin[2] if len(varargin) > 2 else None
+
+        # Remaining arguments (if any) are passed to setDefaultValues for q
+        q_args = []
         if len(varargin) > 1:
-            q_tol_args = varargin[1:]
-        else:
-            q_tol_args = []
-        
-        # Default values for q and TOL
+            q_args = varargin[1:]
+
+        # Default values for q
         # The MATLAB default for TOL is 1e-6, for q it's zeros(size(Q,1),1)
         # We need to handle this dynamically as q's default depends on Q.
-        # setDefaultValues handles arbitrary number of arguments for q and TOL.
-        # The structure is [default_q, default_TOL]
-        
-        # If Q is a matrix, then q should be a column vector of its row dimension
-        default_q = np.zeros((Q.shape[0], 1)) if Q.ndim >= 1 else np.array([])
-        
-        default_values = [default_q, 1e-6]
+        # setDefaultValues handles arbitrary number of arguments for q.
+        # The structure is [default_q]
 
-        # setDefaultValues expects a list of defaults and then a list of actual args.
-        # The result is a tuple (values, remaining_args)
-        parsed_values, _ = setDefaultValues(default_values, q_tol_args)
-        
-        q = parsed_values[0]
-        TOL = parsed_values[1]
+        # Initialize default_q based on Q's size.
+        # If Q is empty (0x0), the q should be an n x 0 zero vector (from ellipsoid.empty)
+        # Otherwise, if Q is a matrix, then q should be a column vector of its row dimension
+        if Q.size == 0:
+            # If Q is empty, and q_passed is also empty (n x 0 from empty() constructor),
+            # then default_q should reflect that dimension (n x 0).
+            # Otherwise, it's a 0x0 empty matrix for a default.
+            if q_passed is not None and q_passed.shape[1] == 0: # Check if it's an n x 0 empty vector
+                default_q = q_passed # Use the passed n x 0 vector
+            else:
+                default_q = np.zeros((0, 0)) # Default to 0x0 for q if Q is 0x0 and q is not n x 0
+        else:
+            default_q = np.zeros((Q.shape[0], 1))
+
+        # Pass q_args to setDefaultValues for processing.
+        # If q_passed was provided (not None), we include it in q_args
+        # so setDefaultValues can handle it.
+        if q_passed is not None:
+            # If q_passed is already handled by our specific empty logic, don't pass it again
+            # as a general argument, otherwise setDefaultValues might misinterpret it.
+            # Only pass if it's not the case of an n x 0 empty vector which is our default.
+            if not (Q.size == 0 and q_passed.shape[1] == 0):
+                q_args_for_set_default = [q_passed] + list(varargin[2:]) # varargin[2:] are the actual q args if q_passed is varargin[1]
+            else:
+                q_args_for_set_default = list(varargin[2:])
+        else:
+            q_args_for_set_default = list(varargin[1:]) # if q_passed is None, then varargin[1:] are actual q args
+
+        parsed_q, _ = setDefaultValues([default_q], q_args_for_set_default)
+        q = parsed_q[0]
 
         return Q, q, TOL
 
@@ -144,11 +187,7 @@ class Ellipsoid(ContSet):
         if CHECKS_ENABLED(): # CHECKS_ENABLED is a function in Python
             # allow empty Q matrix for ellipsoid.empty
             if Q.size == 0:
-                # only ensure that q is also empty
-                if q.size != 0:
-                    raise CORAerror('CORA:wrongInputInConstructor', \
-                                    'Shape matrix is empty, but center is not.')
-                return
+                return # If Q is empty, we trust _aux_computeProperties to handle it.
 
             # inputArgsCheck expects a list of lists, where each inner list describes an argument.
             # Example: [arg_value, 'attribute', 'type', ['constraint1', 'constraint2']]
@@ -170,19 +209,31 @@ class Ellipsoid(ContSet):
             
             # Check for positive semi-definite and symmetric
             # Using np.linalg.eigvalsh for symmetric matrices for better stability
-            mev = np.min(np.linalg.eigvalsh(Q))
-            if not isApproxSymmetric(Q, TOL) or mev < -TOL:
-                raise CORAerror('CORA:wrongInputInConstructor', \
-                                'The shape matrix needs to be positive semidefinite/symmetric.')
+            # Only check if Q is not empty (e.g. for Ellipsoid.empty() cases where Q is 0x0)
+            if Q.size > 0:
+                mev = np.min(np.linalg.eigvalsh(Q))
+                if not isApproxSymmetric(Q, TOL) or mev < -TOL:
+                    raise CORAerror('CORA:wrongInputInConstructor', \
+                                    'The shape matrix needs to be positive semidefinite/symmetric.')
 
     def _aux_computeProperties(self, Q, q):
         """
         returns zero values in case Q or q are empty
         """
-        if Q.size == 0:
+        # If Q is 0x0, it indicates an empty ellipsoid (or a point ellipsoid if q is non-empty)
+        # We should not force q to be empty if Q is 0x0 and q is provided and non-empty.
+        # Instead, the dimension should be handled.
+        # The dimensions of Q and q are checked in _aux_checkInputArgs.
+        # The only thing left here is to ensure if Q is 0x0 and q is also 0x0,
+        # they are correctly represented as empty arrays in Python.
+        if Q.size == 0 and q.shape[1] == 0:
+            # If Q is 0x0 and q is n x 0, it's an empty ellipsoid. 
+            # We ensure Q remains 0x0 and q remains n x 0 (empty in MATLAB sense).
             Q = np.zeros((0, 0))
-            if q.size != 0:
-                q = np.zeros((0, 0))
+            pass # q remains n x 0, which is empty in MATLAB sense
+        elif Q.size == 0 and q.size != 0: 
+            # Q is 0x0 but q is non-empty (point ellipsoid).
+            pass # Keep Q as 0x0, q as is
         return Q, q
     
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):

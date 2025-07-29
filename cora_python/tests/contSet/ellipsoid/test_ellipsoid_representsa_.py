@@ -9,244 +9,172 @@ Python translation: 2025
 
 import numpy as np
 import pytest
-from cora_python.contSet.ellipsoid import Ellipsoid
+from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
+from cora_python.contSet.ellipsoid.representsa_ import representsa_
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.contSet.interval import Interval
+from cora_python.contSet.zonotope import Zonotope
+from cora_python.contSet.emptySet import EmptySet
+from cora_python.contSet.fullspace import Fullspace
 
 
-def test_representsa_point():
-    """Test representsa_ for point representation"""
-    
-    # Point ellipsoid (zero shape matrix)
-    E_point = Ellipsoid(np.zeros((2, 2)), np.array([[1], [2]]))
-    
-    # Should represent a point
-    assert E_point.representsa_('point'), "Zero shape matrix should represent a point"
-    
-    # Non-point ellipsoid
-    E_nonpoint = Ellipsoid(np.eye(2))
-    assert not E_nonpoint.representsa_('point'), "Non-zero shape matrix should not represent a point"
+class TestEllipsoidRepresentsa:
 
+    def create_ellipsoid(self, Q, q=None, TOL=1e-6):
+        if q is None:
+            q = np.zeros((Q.shape[0], 1))
+        return Ellipsoid(Q, q, TOL)
 
-def test_representsa_origin():
-    """Test representsa_ for origin representation"""
-    
-    # Point ellipsoid at origin
-    E_origin = Ellipsoid(np.zeros((2, 2)), np.zeros((2, 1)))
-    assert E_origin.representsa_('origin'), "Zero shape matrix at origin should represent origin"
-    
-    # Point ellipsoid not at origin
-    E_not_origin = Ellipsoid(np.zeros((2, 2)), np.array([[1], [0]]))
-    assert not E_not_origin.representsa_('origin'), "Point not at origin should not represent origin"
-    
-    # Non-point ellipsoid at origin
-    E_nonpoint_origin = Ellipsoid(np.eye(2), np.zeros((2, 1)))
-    assert not E_nonpoint_origin.representsa_('origin'), "Non-point at origin should not represent origin"
+    # Test cases for an empty ellipsoid, handled by representsa_emptyObject
+    def test_representsa_empty_ellipsoid_empty_set(self):
+        E_empty = self.create_ellipsoid(np.array([[]]).reshape(0,0), np.array([[]]).reshape(0,1), 1e-6)
+        res, S_conv = representsa_(E_empty, 'emptySet', 1e-6, return_set=True)
+        assert res is True
+        assert isinstance(S_conv, EmptySet)
+        assert S_conv.dim() == 0 # Assuming 0-dim empty set for empty ellipsoid
 
+    def test_representsa_empty_ellipsoid_fullspace(self):
+        # An empty ellipsoid should NOT represent a fullspace typically
+        E_empty = self.create_ellipsoid(np.array([[]]).reshape(0,0), np.array([[]]).reshape(0,1), 1e-6)
+        res, S_conv = representsa_(E_empty, 'fullspace', 1e-6, return_set=True)
+        assert res is False
+        assert S_conv is None
 
-def test_representsa_ellipsoid():
-    """Test representsa_ for ellipsoid representation"""
-    
-    # Any ellipsoid should represent an ellipsoid
-    E = Ellipsoid(np.eye(2))
-    assert E.representsa_('ellipsoid'), "Any ellipsoid should represent an ellipsoid"
-    
-    # Point ellipsoid should also represent an ellipsoid
-    E_point = Ellipsoid(np.zeros((2, 2)), np.array([[1], [2]]))
-    assert E_point.representsa_('ellipsoid'), "Point ellipsoid should represent an ellipsoid"
+    # Test cases for a point ellipsoid
+    def test_representsa_point_ellipsoid_origin(self):
+        E_point = self.create_ellipsoid(np.zeros((2,2)), np.zeros((2,1)), 1e-6)
+        res, S_conv = representsa_(E_point, 'origin', 1e-6, return_set=True)
+        assert res == True
+        assert np.allclose(S_conv, np.zeros((2,1)))
 
+    def test_representsa_point_ellipsoid_point(self):
+        E_point = self.create_ellipsoid(np.zeros((2,2)), np.array([[1],[2]]), 1e-6)
+        res, S_conv = representsa_(E_point, 'point', 1e-6, return_set=True)
+        assert res == True
+        assert np.allclose(S_conv, np.array([[1],[2]]))
 
-def test_representsa_interval():
-    """Test representsa_ for interval representation"""
-    
-    # 1D ellipsoid should represent an interval
-    E_1d = Ellipsoid(np.array([[2]]), np.array([[1]]))
-    assert E_1d.representsa_('interval'), "1D ellipsoid should represent an interval"
-    
-    # Point ellipsoid should represent an interval
-    E_point = Ellipsoid(np.zeros((2, 2)), np.array([[1], [2]]))
-    assert E_point.representsa_('interval'), "Point ellipsoid should represent an interval"
-    
-    # 2D non-point ellipsoid should NOT represent an interval (MATLAB logic)
-    E_2d = Ellipsoid(np.eye(2))
-    assert not E_2d.representsa_('interval'), "2D non-point ellipsoid should not represent an interval"
+    def test_representsa_point_ellipsoid_interval_1d(self):
+        E_point_1d = self.create_ellipsoid(np.zeros((1,1)), np.array([[5]]), 1e-6)
+        res, S_conv = representsa_(E_point_1d, 'interval', 1e-6, return_set=True)
+        assert res is True
+        assert isinstance(S_conv, Interval)
+        assert np.allclose(S_conv.inf, np.array([5]))
+        assert np.allclose(S_conv.sup, np.array([5]))
 
-    # 2D ellipsoid with non-zero center
-    E_2d_center = Ellipsoid(np.eye(2), np.array([[1], [2]]))
-    assert not E_2d_center.representsa_('interval'), "2D ellipsoid with center should not represent an interval"
+    def test_representsa_point_ellipsoid_zonotope_1d(self):
+        E_point_1d = self.create_ellipsoid(np.zeros((1,1)), np.array([[5]]), 1e-6)
+        res, S_conv = representsa_(E_point_1d, 'zonotope', 1e-6, return_set=True)
+        assert res is True
+        assert isinstance(S_conv, Zonotope)
+        assert np.allclose(S_conv.c, np.array([5]))
+        assert S_conv.G.size == 0 # No generators for a point zonotope
 
+    # Test cases for 1D ellipsoid as interval/zonotope
+    def test_representsa_1d_ellipsoid_interval(self):
+        Q = np.array([[4.0]]) # Corresponds to radius 2
+        q = np.array([[1.0]])
+        E_1d = self.create_ellipsoid(Q, q, 1e-6)
+        res, S_conv = representsa_(E_1d, 'interval', 1e-6, return_set=True)
+        assert res is True
+        assert isinstance(S_conv, Interval)
+        assert np.allclose(S_conv.inf, np.array([-1.0]))
+        assert np.allclose(S_conv.sup, np.array([3.0]))
 
-def test_representsa_convexSet():
-    """Test representsa_ for convex set representation"""
-    
-    # Any ellipsoid should represent a convex set
-    E = Ellipsoid(np.eye(3))
-    assert E.representsa_('convexSet'), "Any ellipsoid should represent a convex set"
-    
-    E_point = Ellipsoid(np.zeros((2, 2)), np.array([[1], [2]]))
-    assert E_point.representsa_('convexSet'), "Point ellipsoid should represent a convex set"
+    def test_representsa_1d_ellipsoid_zonotope(self):
+        Q = np.array([[4.0]]) # Corresponds to radius 2
+        q = np.array([[1.0]])
+        E_1d = self.create_ellipsoid(Q, q, 1e-6)
+        res, S_conv = representsa_(E_1d, 'zonotope', 1e-6, return_set=True)
+        assert res is True
+        assert isinstance(S_conv, Zonotope)
+        assert np.allclose(S_conv.c, np.array([1.0]))
+        assert np.allclose(S_conv.G, np.array([[2.0]]))
 
+    # Test cases for unsupported conversions that *should* raise CORAerror when S is requested
+    # These match MATLAB's behavior of throwing CORA:notSupported if nargout == 2 and res is true
+    def test_representsa_unsupported_conversion_capsule_throws_error(self):
+        E = self.create_ellipsoid(np.eye(2) * 2) # Makes res=True possible
+        with pytest.raises(CORAerror) as excinfo:
+            representsa_(E, 'capsule', 1e-6, return_set=True)
+        assert excinfo.value.identifier == 'CORA:notSupported'
 
-def test_representsa_unsupported_types():
-    """Test representsa_ for unsupported set types"""
-    
-    E = Ellipsoid(np.eye(2))
-    
-    # These should raise errors or return False
-    unsupported_types = [
-        'halfspace',      # Ellipsoids are bounded
-        'fullspace',      # Ellipsoids are bounded  
-        'probZonotope',   # Not supported
-    ]
-    
-    for set_type in unsupported_types:
-        result = E.representsa_(set_type)
-        assert not result, f"Ellipsoid should not represent {set_type}"
+    def test_representsa_unsupported_conversion_conHyperplane_throws_error(self):
+        E = self.create_ellipsoid(np.eye(1) * 2) # Makes res=True possible (1D)
+        with pytest.raises(CORAerror) as excinfo:
+            representsa_(E, 'conHyperplane', 1e-6, return_set=True)
+        assert excinfo.value.identifier == 'CORA:notSupported'
 
+    def test_representsa_unsupported_conversion_polytope_throws_error(self):
+        E = self.create_ellipsoid(np.eye(1) * 2) # Makes res=True possible (1D)
+        with pytest.raises(CORAerror) as excinfo:
+            representsa_(E, 'polytope', 1e-6, return_set=True)
+        assert excinfo.value.identifier == 'CORA:notSupported'
 
-def test_representsa_empty_set():
-    """Test representsa_ for empty set representation"""
-    
-    # Empty ellipsoid
-    E_empty = Ellipsoid.empty(2)
-    assert E_empty.representsa_('emptySet'), "Empty ellipsoid should represent empty set"
-    
-    # Non-empty ellipsoid
-    E_nonempty = Ellipsoid(np.eye(2))
-    assert not E_nonempty.representsa_('emptySet'), "Non-empty ellipsoid should not represent empty set"
+    def test_representsa_unsupported_conversion_zonoBundle_throws_error(self):
+        E = self.create_ellipsoid(np.eye(1) * 2) # Makes res=True possible (1D)
+        with pytest.raises(CORAerror) as excinfo:
+            representsa_(E, 'zonoBundle', 1e-6, return_set=True)
+        assert excinfo.value.identifier == 'CORA:notSupported'
 
+    # Test cases for comparisons that always throw CORAerror if S is requested
+    def test_representsa_unsupported_comparison_conPolyZono_throws_error(self):
+        E = self.create_ellipsoid(np.eye(2) * 2)
+        with pytest.raises(CORAerror) as excinfo:
+            representsa_(E, 'conPolyZono', 1e-6, return_set=True)
+        assert excinfo.value.identifier == 'CORA:notSupported'
 
-def test_representsa_capsule():
-    """Test representsa_ for capsule representation"""
-    
-    # 1D ellipsoid should represent a capsule
-    E_1d = Ellipsoid(np.array([[1]]))
-    assert E_1d.representsa_('capsule'), "1D ellipsoid should represent a capsule"
-    
-    # Point ellipsoid should represent a capsule
-    E_point = Ellipsoid(np.zeros((2, 2)), np.array([[1], [2]]))
-    assert E_point.representsa_('capsule'), "Point ellipsoid should represent a capsule"
-    
-    # Ball (isotropic ellipsoid) should represent a capsule
-    E_ball = Ellipsoid(2 * np.eye(2))
-    assert E_ball.representsa_('capsule'), "Ball should represent a capsule"
-    
-    # Non-isotropic 2D ellipsoid should NOT represent a capsule  
-    E_aniso = Ellipsoid(np.array([[1, 0], [0, 4]]))
-    assert not E_aniso.representsa_('capsule'), "Non-isotropic ellipsoid should not represent a capsule"
+    def test_representsa_unsupported_comparison_levelSet_throws_error(self):
+        E = self.create_ellipsoid(np.eye(2) * 2)
+        with pytest.raises(CORAerror) as excinfo:
+            representsa_(E, 'levelSet', 1e-6, return_set=True)
+        assert excinfo.value.identifier == 'CORA:notSupported'
 
+    def test_representsa_unsupported_comparison_polyZonotope_throws_error(self):
+        E = self.create_ellipsoid(np.eye(2) * 2)
+        with pytest.raises(CORAerror) as excinfo:
+            representsa_(E, 'polyZonotope', 1e-6, return_set=True)
+        assert excinfo.value.identifier == 'CORA:notSupported'
 
-def test_representsa_dual_output():
-    """Test representsa_ with dual output (when conversion set is requested)"""
-    
-    # This test checks the introspection-based dual output detection
-    # In practice, you would call: res, S = E.representsa_('type')
-    
-    E = Ellipsoid(np.eye(2))
-    
-    # Single output case (detected automatically)
-    result = E.representsa_('ellipsoid')
-    assert result is True, "Single output should return boolean"
-    
-    # Try to trigger dual output manually (this is tricky due to introspection)
-    # We'll test this by examining the behavior when the calling pattern suggests dual output
-    
-    # For now, just verify single output works
-    point_result = E.representsa_('point')
-    assert point_result == False, "Regular ellipsoid should not represent a point"
+    def test_representsa_unsupported_comparison_parallelotope_throws_error(self):
+        E = self.create_ellipsoid(np.eye(2) * 2)
+        with pytest.raises(CORAerror) as excinfo:
+            representsa_(E, 'parallelotope', 1e-6, return_set=True)
+        assert excinfo.value.identifier == 'CORA:notSupported'
 
-    # Test dual output with return_set=True
-    res, S = E.representsa_('ellipsoid', return_set=True)
-    assert res == True, "Should return True for ellipsoid"
-    assert S is E, "Should return the same ellipsoid object"
+    # Test cases for general ellipsoid properties (no conversion requested or returns False)
+    def test_representsa_ellipsoid_itself(self):
+        E = self.create_ellipsoid(np.eye(2))
+        res, S_conv = representsa_(E, 'ellipsoid', 1e-6, return_set=True)
+        assert res is True
+        assert S_conv is E # Should return the same object
 
+    def test_representsa_ellipsoid_convex_set(self):
+        E = self.create_ellipsoid(np.eye(2))
+        res, S_conv = representsa_(E, 'convexSet', 1e-6, return_set=True)
+        assert res is True
+        assert S_conv is None # convexSet doesn't have a direct conversion object here
 
-def test_representsa_tolerance_sensitivity():
-    """Test representsa_ with different tolerance values"""
-    
-    # Create ellipsoid with very small eigenvalue
-    small_val = 1e-12
-    Q = np.diag([1, small_val])
-    
-    # With default tolerance, might be considered point-like
-    E_default = Ellipsoid(Q)
-    result_default = E_default.representsa_('point')
-    
-    # With very tight tolerance, should not be point-like
-    result_tight = E_default.representsa_('point', tol=1e-15)
-    
-    # The results might differ based on tolerance
-    # Both are valid depending on tolerance interpretation
-    assert isinstance(result_default, (bool, np.bool_)), "Should return boolean"
-    assert isinstance(result_tight, (bool, np.bool_)), "Should return boolean"
+    def test_representsa_ellipsoid_fullspace_false(self):
+        E = self.create_ellipsoid(np.eye(2))
+        res, S_conv = representsa_(E, 'fullspace', 1e-6, return_set=True)
+        assert res is False
+        assert S_conv is None
 
-    # Test near-zero matrix
-    Q_zero = np.array([[1e-15, 0], [0, 1e-15]])
-    E_near_zero = Ellipsoid(Q_zero)
-    
-    # Should be considered a point with default tolerance
-    assert E_near_zero.representsa_('point', tol=1e-9)
+    def test_representsa_ellipsoid_halfspace_false(self):
+        E = self.create_ellipsoid(np.eye(2))
+        res, S_conv = representsa_(E, 'halfspace', 1e-6, return_set=True)
+        assert res is False
+        assert S_conv is None
 
+    def test_representsa_ellipsoid_probZonotope_false(self):
+        E = self.create_ellipsoid(np.eye(2))
+        res, S_conv = representsa_(E, 'probZonotope', 1e-6, return_set=True)
+        assert res is False
+        assert S_conv is None
 
-def test_representsa_various_types():
-    """Test representsa_ for various set types with different ellipsoids"""
-    
-    # Test matrix of ellipsoids and types
-    ellipsoids = {
-        'unit_2d': Ellipsoid(np.eye(2)),
-        'point': Ellipsoid(np.zeros((2, 2)), np.array([[1], [2]])),
-        'unit_1d': Ellipsoid(np.array([[1]])),
-        'degenerate': Ellipsoid(np.array([[1, 0], [0, 0]])),
-    }
-    
-    types_to_test = [
-        'point', 'origin', 'ellipsoid', 'interval', 'convexSet', 
-        'emptySet', 'fullspace', 'halfspace'
-    ]
-    
-    for ell_name, E in ellipsoids.items():
-        for set_type in types_to_test:
-            try:
-                result = E.representsa_(set_type)
-                assert isinstance(result, bool), f"representsa_({set_type}) should return boolean for {ell_name}"
-            except Exception as e:
-                # Some combinations might raise errors, which is acceptable
-                print(f"Expected error for {ell_name}.representsa_('{set_type}'): {e}")
-
-
-def test_representsa_error_cases():
-    """Test error handling in representsa_"""
-    
-    E = Ellipsoid(np.eye(2))
-    
-    # Invalid set type - MATLAB doesn't throw error, just returns false
-    result = E.representsa_('invalid_type')
-    assert result == False, "Invalid set type should return False"
-
-    # Test unsupported conversions that should raise NotImplementedError
-    with pytest.raises(NotImplementedError):
-        E.representsa_('conPolyZono')
-
-    with pytest.raises(NotImplementedError):
-        E.representsa_('levelSet')
-
-    with pytest.raises(NotImplementedError):
-        E.representsa_('polyZonotope')
-
-    with pytest.raises(NotImplementedError):
-        E.representsa_('parallelotope')
-
-
-if __name__ == "__main__":
-    test_representsa_point()
-    test_representsa_origin()
-    test_representsa_ellipsoid()
-    test_representsa_interval()
-    test_representsa_convexSet()
-    test_representsa_unsupported_types()
-    test_representsa_empty_set()
-    test_representsa_capsule()
-    test_representsa_dual_output()
-    test_representsa_tolerance_sensitivity()
-    test_representsa_various_types()
-    test_representsa_error_cases()
-    print("All representsa_ tests passed!") 
+    # Test cases for invalid type_str (returns False in MATLAB)
+    def test_representsa_invalid_type_string(self):
+        E = self.create_ellipsoid(np.eye(2))
+        res, S_conv = representsa_(E, 'invalid_type', 1e-6, return_set=True)
+        assert res is False
+        assert S_conv is None 

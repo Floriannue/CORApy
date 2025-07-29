@@ -49,13 +49,15 @@ def priv_distancePolytope(E: Ellipsoid, P: Polytope) -> float:
         return 0.5 * x.T @ H @ x + f.T @ x
 
     # Constraints: A_norm * x <= b_norm
-    constraints = [{'type': 'ineq', 'fun': lambda x: b_norm - A_norm @ x}]
+    constraints = [{'type': 'ineq', 'fun': lambda x: (b_norm - A_norm @ x).flatten()}]
 
     # Initial guess (center of the ellipsoid)
     x0 = q
     
     # Solve the QP
     res = minimize(objective, x0, method='SLSQP', constraints=constraints)
+    print(f"[DEBUG] priv_distancePolytope: res.x = {res.x}")
+    print(f"[DEBUG] priv_distancePolytope: res.fun = {res.fun}")
 
     # Post-process result to match MATLAB output
     # objval_ is the raw objective value from the solver

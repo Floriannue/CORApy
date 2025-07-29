@@ -80,7 +80,11 @@ def distance(factor1, factor2):
     # Loop over individual pairs
     val = np.zeros(len(S))
     for i in range(len(S)):
-        val[i] = aux_distance(E, S[i])
+        current_S = S[i]
+        if isinstance(current_S, np.ndarray):
+            val[i] = priv_distancePoint(E, current_S)
+        else:
+            val[i] = aux_distance(E, current_S)
     
     # Return scalar if single element
     if len(val) == 1:

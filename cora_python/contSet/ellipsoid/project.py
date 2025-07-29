@@ -35,6 +35,9 @@ def project(E: 'Ellipsoid', dims: np.ndarray) -> 'Ellipsoid':
     """
     from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
     
+    # Convert dims to numpy array if it's not already
+    dims = np.asarray(dims)
+
     # Check input arguments - convert dims to 0-based indexing for checking
     # Note: MATLAB uses 1-based indexing, Python uses 0-based
     # The dims input should already be 0-based in Python context

@@ -4,6 +4,10 @@ from typing import Any, List, Union, Tuple
 from .checkValueAttributes import checkValueAttributes
 from cora_python.g.functions.matlab.validate.preprocessing import readNameValuePair
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger(__name__)
 
 # Assume CHECKS_ENABLED is True for now, or needs to be imported from g.macros if it exists.
 # For a more robust solution, CHECKS_ENABLED would be a configuration or global variable.
@@ -86,7 +90,7 @@ def inputArgsCheck(inputArgs: List[List[Any]]) -> None:
                 text += ", "
         return text
 
-    def aux_checkAtt(i: int, input_arg: List[Any], value: Any) -> None:
+    def aux_checkAtt(i: int, input_arg: List[Any], value: Any, log: logging.Logger) -> None:
         # check attribute
         # input_arg: [value,'att',classes,attributes]
 
@@ -124,10 +128,15 @@ def inputArgsCheck(inputArgs: List[List[Any]]) -> None:
         # check class and attributes
         resvec = [False] * len(classes)
         for j in range(len(classes)):
-            resvec[j] = checkValueAttributes(value, classes[j], attributes[j])
-
+            current_class_name = classes[j]
+            current_attributes = attributes[j]
+            log.debug(f"aux_checkAtt: Checking value={value} against class={current_class_name}, attributes={current_attributes}")
+            resvec[j] = checkValueAttributes(value, current_class_name, current_attributes)
+            log.debug(f"aux_checkAtt: checkValueAttributes result for class {current_class_name}: {resvec[j]}")
+    
         # gather results
         res = any(resvec)
+        log.debug(f"aux_checkAtt: Overall resvec={resvec}, any(resvec)={res}")
         if not res:
             # find best guess for given class
             classresvec = []
@@ -155,7 +164,7 @@ def inputArgsCheck(inputArgs: List[List[Any]]) -> None:
             # throw error
             raise CORAerror('CORA:wrongValue',aux_countingNumber(i), text)
 
-    def aux_checkStr(i: int, input_arg: List[Any], value: Any) -> None:
+    def aux_checkStr(i: int, input_arg: List[Any], value: Any, log: logging.Logger) -> None:
         # read string
         if isinstance(input_arg[2], list):
             validateStr = input_arg[2]
@@ -196,10 +205,10 @@ def inputArgsCheck(inputArgs: List[List[Any]]) -> None:
 
         # case distinction
         if identifier == 'att': # check classname (and attributes) in this case
-            aux_checkAtt(i + 1, inputArg, value) # i+1 to match MATLAB 1-indexing for error messages
+            aux_checkAtt(i + 1, inputArg, value, log) # i+1 to match MATLAB 1-indexing for error messages
 
         elif identifier == 'str': # check the strings in this case
-            aux_checkStr(i + 1, inputArg, value)
+            aux_checkStr(i + 1, inputArg, value, log)
 
         else:
             raise CORAerror("CORA:wrongValue", 'second', "'att' or 'str'.") 

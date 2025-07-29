@@ -50,13 +50,14 @@ def interval(E):
     # Check inputs
     inputArgsCheck([[E, 'att', 'ellipsoid', 'scalar']])
     
-    n = E.dim
+    n = E.dim()
     E0 = Ellipsoid(E.Q, np.zeros_like(E.q))
     
     # Compute width of the ellipsoid in each dimension using support functions
     dI = np.zeros((n, 1))
     for i in range(n):
-        dI[i] = E0.supportFunc_(unitvector(i, n), 'upper')
+        val, _ = E0.supportFunc_(unitvector(i + 1, n), 'upper') # unitvector is 1-indexed
+        dI[i, 0] = val
     
     # Import here to avoid circular imports
     from cora_python.contSet.interval.interval import Interval

@@ -25,12 +25,11 @@ def test_interval_basic():
         expected_inf = np.array([[-1.0], [-1.0]])
         expected_sup = np.array([[1.0], [1.0]])
         
-        assert np.allclose(I.infimum, expected_inf, rtol=1e-10)
-        assert np.allclose(I.supremum, expected_sup, rtol=1e-10)
+        assert np.allclose(I.inf, expected_inf, rtol=1e-10)
+        assert np.allclose(I.sup, expected_sup, rtol=1e-10)
         
-    except ImportError:
-        # If Interval class is not available, mark as skipped
-        pytest.skip("Interval class not available - circular dependency")
+    except Exception as e:
+        pytest.fail(f"Interval conversion failed: {e}")
 
 
 def test_interval_shifted():
@@ -45,11 +44,11 @@ def test_interval_shifted():
         expected_inf = np.array([[0.0], [1.0]])
         expected_sup = np.array([[2.0], [3.0]])
         
-        assert np.allclose(I.infimum, expected_inf, rtol=1e-10)
-        assert np.allclose(I.supremum, expected_sup, rtol=1e-10)
+        assert np.allclose(I.inf, expected_inf, rtol=1e-10)
+        assert np.allclose(I.sup, expected_sup, rtol=1e-10)
         
-    except ImportError:
-        pytest.skip("Interval class not available - circular dependency")
+    except Exception as e:
+        pytest.fail(f"Interval conversion failed: {e}")
 
 
 def test_interval_scaled():
@@ -65,11 +64,11 @@ def test_interval_scaled():
         expected_inf = np.array([[-1.0], [-2.0]])
         expected_sup = np.array([[1.0], [2.0]])
         
-        assert np.allclose(I.infimum, expected_inf, rtol=1e-10)
-        assert np.allclose(I.supremum, expected_sup, rtol=1e-10)
+        assert np.allclose(I.inf, expected_inf, rtol=1e-10)
+        assert np.allclose(I.sup, expected_sup, rtol=1e-10)
         
-    except ImportError:
-        pytest.skip("Interval class not available - circular dependency")
+    except Exception as e:
+        pytest.fail(f"Interval conversion failed: {e}")
 
 
 def test_interval_ellipse():
@@ -86,11 +85,11 @@ def test_interval_ellipse():
         # We don't test exact values here since they depend on support function computation
         # Just verify that interval was created and has correct dimension
         assert I.dim == 2
-        assert hasattr(I, 'infimum')
-        assert hasattr(I, 'supremum')
+        assert hasattr(I, 'inf')
+        assert hasattr(I, 'sup')
         
-    except ImportError:
-        pytest.skip("Interval class not available - circular dependency")
+    except Exception as e:
+        pytest.fail(f"Interval conversion failed: {e}")
 
 
 def test_interval_degenerate():
@@ -105,8 +104,8 @@ def test_interval_degenerate():
         expected_inf = np.array([[1.0], [2.0]])
         expected_sup = np.array([[1.0], [2.0]])
         
-        assert np.allclose(I.infimum, expected_inf, rtol=1e-10)
-        assert np.allclose(I.supremum, expected_sup, rtol=1e-10)
+        assert np.allclose(I.inf, expected_inf, rtol=1e-10)
+        assert np.allclose(I.sup, expected_sup, rtol=1e-10)
         
-    except ImportError:
-        pytest.skip("Interval class not available - circular dependency") 
+    except Exception as e:
+        pytest.fail(f"Interval conversion failed: {e}") 

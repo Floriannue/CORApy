@@ -27,27 +27,41 @@ empty - instantiates an empty ellipsoid
 """
 
 import numpy as np
-from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
+from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
 
 
-def empty(n: int = 0):
+def empty(n: int) -> 'Ellipsoid':
     """
-    Instantiates an empty ellipsoid
-    
-    Args:
-        n: dimension (default: 0)
-        
-    Returns:
-        E: empty ellipsoid
+    empty - instantiates an empty ellipsoid
+
+    Syntax:
+        E = empty(n)
+
+    Inputs:
+        n - dimension of the ellipsoid
+
+    Outputs:
+        E - generated empty ellipsoid object
+
+    Example:
+        E = ellipsoid.empty(2);
+        % true
+        isemptyobject(E)
+
+    Other m-files required: none
+    Subfunctions: none
+    MAT-files required: none
+
+    See also: none
+
+    Authors:       Victor Gassmann, Matthias Althoff
+    Written:       13-March-2019
+    Last update:   16-October-2019
+    Last revision: 16-June-2023 (MW, restructure using auxiliary functions)
+    Automatic python translation: Florian Nüssel BA 2025
     """
-    # Import here to avoid circular import
-    from .ellipsoid import Ellipsoid
-    
-    # Parse input - n should be nonnegative (0 or positive)
-    inputArgsCheck([[n, 'att', 'numeric', ['scalar', 'nonnegative']]])
-    
-    # For empty ellipsoids:
-    # - Q should be zeros(0,0) to indicate empty shape matrix
-    # - q should be zeros(n,0) to indicate empty center in n-dimensional space
-    # This matches MATLAB behavior where empty sets have specific representations
-    return Ellipsoid(np.zeros((0, 0)), np.zeros((n, 0))) 
+    # An empty ellipsoid is represented by an empty (0x0) shape matrix.
+    # The center vector q should also be empty to be consistent with MATLAB's `isempty`.
+    Q_empty = np.array([[]]).reshape(0, 0)
+    q_initial = np.zeros((n, 0))  # q should be an n x 0 zero vector to be empty in MATLAB sense
+    return Ellipsoid(Q_empty, q_initial) 
