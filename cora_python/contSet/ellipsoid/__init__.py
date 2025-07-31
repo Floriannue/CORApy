@@ -35,6 +35,7 @@ from .isnan import isnan
 from .getPrintSetInfo import getPrintSetInfo
 from .isBadDir import isBadDir
 from .isequal import isequal
+from .reduce import reduce
 
 # Attach methods to the Ellipsoid class
 Ellipsoid.center = center
@@ -75,6 +76,7 @@ Ellipsoid.isnan = isnan
 Ellipsoid.getPrintSetInfo = getPrintSetInfo
 Ellipsoid.isBadDir = isBadDir
 Ellipsoid.isequal = isequal
+Ellipsoid.reduce = reduce
 
 
 __all__ = [
@@ -110,5 +112,6 @@ __all__ = [
     'isnan',
     'getPrintSetInfo',
     'isBadDir',
-    'isequal'
+    'isequal',
+    'reduce'
 ] 

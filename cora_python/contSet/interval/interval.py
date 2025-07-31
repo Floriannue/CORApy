@@ -23,11 +23,18 @@ Example:
     b = [2, 3]
     I = Interval(a, b)
 
-Authors: Matthias Althoff, Niklas Kochdumper, Mark Wetzlinger (MATLAB)
-         Python translation by AI Assistant
-Written: 19-June-2015 (MATLAB)
-Last update: 08-December-2023 (MATLAB)
-Python translation: 2025
+Authors:       Matthias Althoff, Niklas Kochdumper, Mark Wetzlinger
+Written:       19-June-2015
+Last update:   18-November-2015
+               26-January-2016
+               15-July-2017 (NK)
+               01-May-2020 (MW, delete redundant if-else)
+               20-March-2021 (MW, error messages)
+               14-December-2022 (TL, property check in inputArgsCheck)
+               29-March-2023 (TL, optimized constructor)
+               08-December-2023 (MW, handle [-Inf,-Inf] / [Inf,Inf] case)
+Last revision: 16-June-2023 (MW, restructure using auxiliary functions)
+               Automatic python translation: Florian Nüssel BA 2025
 """
 
 import numpy as np

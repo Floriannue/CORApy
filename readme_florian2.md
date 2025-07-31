@@ -80,16 +80,10 @@ All of them apply always
 4. **PYTHONIC**: Only where it doesn't conflict with 1-3
 5. **OPTIMIZATION**: Only after all above are satisfied - if you have optimization ideas that contradict with the rest, write them in `optimization_ideas.txt`
 
-#### WHEN TO USE WHICH TOOL:
-- **Discovery Phase**: `list_dir` → `codebase_search` → `grep_search`
-- **Analysis Phase**: `read_file` → `grep_search manual` → compare patterns
-- **Implementation Phase**: Create code files → attach methods → Create test
-- **Verification Phase**: `pytest` → compare MATLAB → document
-
 ### **Behavioral Requirements**
 
 #### Mandatory Actions:
-- **ALWAYS** use `codebase_search` before making changes
+- **ALWAYS** use `codebase_search` and `file_search` before making changes
 - **ALWAYS** read MATLAB source files before translating
 - **ALWAYS** search manual for function specifications
 - **ALWAYS** run tests after implementation
@@ -203,6 +197,7 @@ np.array([1, 0])                  # vector
 - `list_dir` to see current state
 - `codebase_search` for function usage patterns
 - `grep_search` for inheritance and dependencies
+- `file_search` to check if file already translated
 
 **Optional diagnostic tools:**
 - `python translation_progress.py "matlab_folder_path" "python_folder_path"` - find untranslated files
@@ -259,17 +254,67 @@ np.array([1, 0])                  # vector
 ```python
 # Example: cora_python/contSet/interval/interval.py
 """
-[Copy exact MATLAB docstring here including full Author block with added entry "Automatic python translation: Florian Nüssel BA 2025]
+[Replace this string with the exact MATLAB docstring, including the Author block with added entry "Automatic python translation: Florian Nüssel BA 2025"]
+In this example for interval:
+'''
+interval - object constructor for real-valued intervals
+
+Description:
+    This class represents interval objects defined as
+    {x | a_i <= x <= b_i, ∀ i = 1,...,n}.
+
+Syntax:
+    obj = Interval(I)
+    obj = Interval(a)
+    obj = Interval(a,b)
+
+Inputs:
+    I - interval object
+    a - lower limit
+    b - upper limit
+
+Outputs:
+    obj - generated interval object
+
+Example:
+    a = [1, -1]
+    b = [2, 3]
+    I = Interval(a, b)
+
+Authors:       Matthias Althoff, Niklas Kochdumper, Mark Wetzlinger
+Written:       19-June-2015
+Last update:   18-November-2015
+               26-January-2016
+               15-July-2017 (NK)
+               01-May-2020 (MW, delete redundant if-else)
+               20-March-2021 (MW, error messages)
+               14-December-2022 (TL, property check in inputArgsCheck)
+               29-March-2023 (TL, optimized constructor)
+               08-December-2023 (MW, handle [-Inf,-Inf] / [Inf,Inf] case)
+Last revision: 16-June-2023 (MW, restructure using auxiliary functions)
+               Automatic python translation: Florian Nüssel BA 2025
+'''
 """
 # Ensure we our translated constructor is robust so we dont have to do a lot of unneecessary checks later
 class Interval(ContSet):
+    """
+    Interval class for real-valued intervals
+    
+    This class represents interval objects defined as
+    {x | a_i <= x <= b_i, ∀ i = 1,...,n}.
+    
+    Properties:
+        inf: Lower bound (numpy array)
+        sup: Upper bound (numpy array)
+        precedence: Set to 120 for intervals
+    """
     def __init__(self, *args, **kwargs):
         """
-        Short method description
         Args:
-            [parameter descriptions]
-        Returns:
-            [return descriptions]
+            *args: Variable arguments for different construction modes:
+                   - Interval(I): Copy constructor
+                   - Interval(a): Point interval
+                   - Interval(a, b): Interval with bounds
         """
         # Translate MATLAB constructor logic exactly
         pass
@@ -284,7 +329,7 @@ class Interval(ContSet):
 ```python
 # Example: cora_python/contSet/interval/plus.py
 """
-[Copy exact MATLAB docstring here including full Author block with added entry "Automatic python translation: Florian Nüssel BA 2025]
+[Replace this string with the exact MATLAB docstring here, including the full Author block with added entry "Automatic python translation: Florian Nüssel BA 2025]
 """
 
 # Import Python libraries, the methodes own class and helpers from cora_python/g at the top
@@ -293,11 +338,14 @@ from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_
 
 def plus(self: type, other: type):
     """
-    Short method description
+    Overloaded '+' operator for the Minkowski sum of an interval and another set or point
+    
     Args:
-        [parameter descriptions]
+        I: Interval object or numeric
+        S: contSet object or numeric
+        
     Returns:
-        [return descriptions]
+        S_out: Minkowski sum
     """
     # circular import prevention
     from cora_python.contSet.zonotope import Zonotope
@@ -309,7 +357,7 @@ def plus(self: type, other: type):
 ```python
 # Example: cora_python/g/functions/matlab/validate/preprocessing/set_default_values.py
 """
-[Copy exact MATLAB docstring here including full Author block with added entry "Automatic python translation: Florian Nüssel BA 2025]
+[Replace this string with the exact MATLAB docstring here including full Author block with added entry "Automatic python translation: Florian Nüssel BA 2025]
 """
 
 # Import Python libraries and helpers at the top
@@ -377,6 +425,7 @@ def test_plus_edge_case1():
   - `--lf` runs only last failed tests
   - `--tb=no` reduces traceback for overview
   - `-q` for less output
+  always use > test_output.txt and read the file
 
 #### VERIFICATION CHECKLIST (Complete ALL steps for each translated file):
 

@@ -86,8 +86,8 @@ class Ellipsoid(ContSet):
 
         # 2. parse input arguments: varargin -> vars
         Q, q, TOL = self._aux_parseInputArgs(*args, **kwargs)
-
-        # 3. check correctness of input arguments
+        
+        # Call input argument check
         self._aux_checkInputArgs(Q, q, TOL)
 
         # 4. compute properties
@@ -177,6 +177,12 @@ class Ellipsoid(ContSet):
 
         parsed_q, _ = setDefaultValues([default_q], q_args_for_set_default)
         q = parsed_q[0]
+
+        # Ensure q is a column vector (d x 1) before returning
+        if isinstance(q, np.ndarray) and q.ndim == 1:
+            q = q.reshape(-1, 1)
+        elif isinstance(q, list):
+            q = np.array(q).reshape(-1, 1)
 
         return Q, q, TOL
 
