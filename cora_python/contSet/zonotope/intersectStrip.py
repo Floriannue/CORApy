@@ -125,7 +125,7 @@ def intersectStrip(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray,
         raise CORAerror('CORA:dimensionMismatch', C, y)
     
     # Parse method
-    if isinstance(method, (int, float)):
+    if isinstance(method, (int, float)) or (isinstance(method, np.ndarray) and method.size > 0):
         lambda_val = method
         return _aux_zonotopeFromLambda(Z, phi, C, y, lambda_val)
     
@@ -134,7 +134,7 @@ def intersectStrip(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray,
         _aux_checkAuxStruct(aux)
         method = aux['method']
     
-    if method not in ['normGen', 'svd', 'radius', 'alamo-FRad', 
+    if not isinstance(method, str) or method not in ['normGen', 'svd', 'radius', 'alamo-FRad', 
                       'alamo-volume', 'wang-FRad', 'bravo']:
         raise CORAerror('CORA:wrongValue', 'fifth', f"Unknown method '{method}'")
     
@@ -166,16 +166,16 @@ def intersectStrip(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray,
 def _aux_methodSvd(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray, method: str) -> Zonotope:
     """SVD and radius method"""
     
-    G = Z.generators
+    G = Z.G
     dim, _ = G.shape
     
     # Initialize lambda
     lambda0 = np.zeros((dim, len(phi)))
     
     # Find optimal lambda
-    def fun(lambda_vec):
+    def fun(lambda_vec_param):
         """Embedded function to be minimized for optimal lambda"""
-        lambda_mat = lambda_vec.reshape(dim, -1)
+        lambda_mat = lambda_vec_param.reshape(dim, -1)
         part1 = np.eye(len(Z.center))
         part2 = np.zeros((dim, len(phi)))
         
@@ -207,7 +207,7 @@ def _aux_methodAlamoVolume(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.nd
         raise CORAerror('CORA:specialError',
                        'Alamo method should only be used for single strips to ensure convergence')
     
-    G = Z.generators
+    G = Z.G
     dim, nrGens = G.shape
     
     # Implement volume expression from [3], Vol(\hat{X}(lambda)) (last eq.
@@ -236,7 +236,16 @@ def _aux_methodAlamoVolume(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.nd
         
         # rank(Bi) = n-1 => there exists exactly 1 vector orthogonal to
         # image(Bi) (vi'*Bi = 0)
-        vi = np.linalg.null_space(Bi.T)
+        # Compute null space manually since numpy.linalg.null_space may not exist
+        U, S, Vt = np.linalg.svd(Bi.T)
+        # Find the singular value closest to zero
+        min_idx = np.argmin(S)
+        vi = U[:, min_idx:min_idx+1]  # Ensure vi is a column vector
+        # Ensure vi has the same number of rows as Bi for concatenation
+        if vi.shape[0] != Bi.shape[0]:
+            # If dimensions don't match, we need to handle this case
+            # This should not happen in normal cases, but let's add a safety check
+            continue
         b_obj[iComb] = 2**dim * phi[0] * abs(np.linalg.det(np.hstack([Bi, vi])))
         Bp_cstr[iComb, :] = vi.flatten()
     
@@ -253,9 +262,10 @@ def _aux_methodAlamoVolume(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.nd
     
     # Constraints for |1-phi'*lambda|<=r (same as =r since we want to
     # minimize the expression)
+    # Note: alamo-volume method is only for single strips, so use C[0:1, :]
     Cr_cstr = np.vstack([
-        np.hstack([-C, -np.ones((C.shape[0], 1)), np.zeros((C.shape[0], nz))]),
-        np.hstack([C, -np.ones((C.shape[0], 1)), np.zeros((C.shape[0], nz))])
+        np.hstack([-C[0:1, :], -np.ones((1, 1)), np.zeros((1, nz))]),
+        np.hstack([C[0:1, :], -np.ones((1, 1)), np.zeros((1, nz))])
     ])
     dr_cstr = np.array([-1, 1])
     
@@ -280,19 +290,25 @@ def _aux_methodAlamoVolume(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.nd
         'lb': None,
         'ub': None
     }
-    x_opt = CORAlinprog(problem)[0]
     
-    # Extract lambda
-    lambda = x_opt[:dim]
+    x_opt, fval, exitflag, output, lambda_out = CORAlinprog(problem)
+    
+    if exitflag != 1:
+        print(f"Warning: Linear programming failed with exitflag {exitflag}")
+        # Fallback to a simple method
+        lambda_val = np.zeros(dim)
+    else:
+        # Extract lambda
+        lambda_val = x_opt[:dim]
     
     # Resulting zonotope
-    return _aux_zonotopeFromLambda(Z, phi, C, y, lambda)
+    return _aux_zonotopeFromLambda(Z, phi, C, y, lambda_val)
 
 
 def _aux_methodAlamoFRad(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray) -> Zonotope:
     """F-radius minimization according to Alamo, [3]"""
     
-    G = Z.generators
+    G = Z.G
     
     # Auxiliary variables
     aux1 = G @ G.T
@@ -315,7 +331,7 @@ def _aux_methodAlamoFRad(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndar
 def _aux_methodWangFRad(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray, aux: Dict) -> Zonotope:
     """F-radius minimization according to Wang, Theorem 2 in [4]"""
     
-    G = Z.generators
+    G = Z.G
     
     # Auxiliary variables
     P = G @ G.T
@@ -344,7 +360,7 @@ def _aux_methodBravo(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray)
     # Property 1 in [5]
     # Obtain center of zonotope
     p = Z.center
-    G = Z.generators
+    G = Z.G
     dim, nrGens = G.shape
     
     c_cell = [None] * (nrGens + 1)
@@ -391,7 +407,7 @@ def _aux_methodBravo(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray)
 
 def _aux_methodNormGen(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray) -> Zonotope:
     """Norm Gen method"""
-    G = Z.generators
+    G = Z.G
     
     # Find the analytical solution
     gamma = np.eye(C.shape[0])
@@ -417,7 +433,7 @@ def _aux_zonotopeFromLambda(Z: Zonotope, phi: np.ndarray, C: np.ndarray, y: np.n
     
     # New generators
     I = np.eye(len(c_new))
-    G_new = np.hstack([(I - Lambda @ C) @ Z.generators, Lambda @ np.diag(phi.flatten())])
+    G_new = np.hstack([(I - Lambda @ C) @ Z.G, Lambda @ np.diag(phi.flatten())])
     
     # Resulting zonotope
     return Zonotope(c_new, G_new)

@@ -11,7 +11,7 @@ from .and_ import and_
 from .box import box
 from .plus import plus
 from .minus import minus
-from .times import times
+
 from .uminus import uminus
 from .isequal import isequal
 from .mtimes import mtimes
@@ -60,6 +60,7 @@ from .generateRandom import generateRandom
 from .intersectStrip import intersectStrip
 from .lift_ import lift_
 from .minkDiff import minkDiff
+from .or_ import or_
 
 # Attach methods to the class
 Zonotope.abs = abs_op
@@ -72,8 +73,8 @@ Zonotope.__add__ = plus
 Zonotope.__radd__ = plus
 Zonotope.minus = minus
 Zonotope.__sub__ = minus
-Zonotope.__mul__ = times
-Zonotope.__rmul__ = times
+Zonotope.__mul__ = mtimes
+Zonotope.__rmul__ = lambda self, other: mtimes(other, self)
 Zonotope.uminus = uminus
 Zonotope.__neg__ = uminus
 Zonotope.__eq__ = isequal
@@ -81,7 +82,7 @@ Zonotope.__matmul__ = mtimes
 Zonotope.__rmatmul__ = lambda self, other: mtimes(other, self)
 Zonotope.dim = dim
 Zonotope.empty = empty
-Zonotope.origin = origin
+Zonotope.origin = staticmethod(origin)
 Zonotope.isemptyobject = isemptyobject
 Zonotope.is_empty = isemptyobject
 Zonotope.display = display
@@ -124,9 +125,11 @@ Zonotope.constrSat = constrSat
 Zonotope.intersectStrip = intersectStrip
 Zonotope.lift_ = lift_
 Zonotope.minkDiff = minkDiff
+Zonotope.or_ = or_
+Zonotope.__or__ = or_
 
 # Attach static methods
 Zonotope.enclosePoints = staticmethod(enclosePoints)
 Zonotope.generateRandom = staticmethod(generateRandom)
 
-__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'times', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap', 'constrSat', 'generateRandom', 'intersectStrip', 'lift_', 'minkDiff'] 
+__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap', 'constrSat', 'generateRandom', 'intersectStrip', 'lift_', 'minkDiff', 'or_'] 

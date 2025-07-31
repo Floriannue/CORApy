@@ -69,7 +69,7 @@ def _aux_ellipsoid_inner(P, n):
     
     # Use a simplified approach: find the largest inscribed ellipsoid
     # by solving a simplified optimization problem
-    E = _approximate_inner_ellipsoid(A, b, n)
+    E = _approximate_inner_ellipsoid(A, b, n, P)
     
     return E
 
@@ -88,7 +88,7 @@ def _normalize_constraints(A, b):
     return A_norm, b_norm
 
 
-def _approximate_inner_ellipsoid(A, b, n):
+def _approximate_inner_ellipsoid(A, b, n, P=None):
     """
     Approximate inner ellipsoid using a simplified approach.
     """
@@ -98,8 +98,12 @@ def _approximate_inner_ellipsoid(A, b, n):
     # For simplicity, use the centroid of the polytope vertices
     # In practice, this would be computed more efficiently
     try:
-        V = P.vertices_()
-        center = np.mean(V, axis=1, keepdims=True)
+        if P is not None:
+            V = P.vertices_()
+            center = np.mean(V, axis=1, keepdims=True)
+        else:
+            # Fallback: use origin as center
+            center = np.zeros((n, 1))
     except:
         # Fallback: use origin as center
         center = np.zeros((n, 1))

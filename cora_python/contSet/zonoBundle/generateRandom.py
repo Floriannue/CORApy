@@ -76,7 +76,7 @@ def generateRandom(**kwargs) -> 'ZonoBundle':
     # Generate random zonotopes
     zonotopes = []
     for i in range(nrZonos):
-        zono = Zonotope.generateRandom(Dimension=n, NrGenerators=nrGens)
+        zono = Zonotope.generateRandom('Dimension', n, 'NrGenerators', nrGens)
         zonotopes.append(zono)
     
     return ZonoBundle(zonotopes) 

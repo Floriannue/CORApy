@@ -91,7 +91,15 @@ def supportFunc(S: 'ContSet',
     try:
         # Call subclass method
         result = S.supportFunc_(direction, type_, method, max_order_or_splits, tol)
-        return result[0]
+        
+        # Handle different return types
+        if isinstance(result, tuple):
+            # Return the first element (the value) for single return
+            return result[0]
+        else:
+            # If result is not a tuple, return it directly
+            return result
+            
     except Exception as ME:
         # Handle empty set case
         if S.representsa_('emptySet', 1e-15):
@@ -103,6 +111,6 @@ def supportFunc(S: 'ContSet',
                 # Return interval(-inf, +inf) - would need interval class
                 val = (float('-inf'), float('+inf'))
             
-            return val, np.array([]), np.array([])
+            return val
         else:
             raise ME 

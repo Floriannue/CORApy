@@ -86,4 +86,4 @@ def convHull_(Z: 'Zonotope', S: Optional[Union['ContSet', np.ndarray]] = None, m
         # Convert S to zonotope
         S_zono = Zonotope(S)
     
-    return Z_out.enclose(S_zono) 
+    return Z_out.enclose(S_zono)

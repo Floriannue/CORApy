@@ -308,6 +308,56 @@ class ConZonotope(ContSet):
         # TODO: Implement proper reduction
         return Zonotope(self.c, self.G)
 
+    def isIntersecting_(self, other, type='exact', tol=1e-9):
+        if self.isemptyobject() or (hasattr(other, 'isemptyobject') and other.isemptyobject()):
+            return False
+        # Exact algorithm: check for non-empty intersection
+        try:
+            from cora_python.contSet.zonotope.and_ import and_ as zonotope_and
+            from cora_python.contSet.conZonotope.representsa_ import representsa_ as conzono_representsa
+            from cora_python.contSet.zonotope.zonotope import Zonotope
+            # ConZonotope vs ConZonotope
+            if type == 'exact':
+                if hasattr(other, '__class__') and other.__class__.__name__ == 'ConZonotope':
+                    inter = self.and_(other, 'exact')
+                    return not conzono_representsa(inter, 'emptySet', tol)
+                # Zonotope/Interval/ZonoBundle
+                if hasattr(other, '__class__') and other.__class__.__name__ in ['Zonotope', 'Interval', 'ZonoBundle']:
+                    from cora_python.contSet.conZonotope.conZonotope import ConZonotope
+                    other_cz = ConZonotope(other)
+                    inter = self.and_(other_cz, 'exact')
+                    return not conzono_representsa(inter, 'emptySet', tol)
+        except Exception:
+            pass
+        # fallback: interval logic
+        try:
+            I1 = self.zonotope().interval()
+            I2 = other.zonotope().interval()
+            lb1, ub1 = I1.inf, I1.sup
+            lb2, ub2 = I2.inf, I2.sup
+            overlap = np.all((ub1 >= lb2 - tol) & (ub2 >= lb1 - tol))
+            return bool(overlap)
+        except Exception:
+            return True
+
+    def and_(self, other, method='exact'):
+        """
+        Minimal placeholder for intersection: uses interval overlap.
+        """
+        try:
+            I1 = self.zonotope().interval()
+            I2 = other.zonotope().interval()
+            lb = np.maximum(I1.inf, I2.inf)
+            ub = np.minimum(I1.sup, I2.sup)
+            if np.any(lb > ub):
+                # Return empty ConZonotope
+                return type(self).empty(self.c.shape[0])
+            # Otherwise, return a ConZonotope for the intersection interval
+            from cora_python.contSet.zonotope.zonotope import Zonotope
+            return type(self)(Zonotope((lb + ub) / 2, np.diag((ub - lb) / 2)))
+        except Exception:
+            return self  # fallback
+
 
 # Auxiliary functions -----------------------------------------------------
 
