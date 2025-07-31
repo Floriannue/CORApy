@@ -2,45 +2,113 @@
 reduce - reduces the order of a zonotope, the resulting zonotope is an
     over-approximation of the original zonotope
 
-Authors: Matthias Althoff (MATLAB)
-         Python translation by AI Assistant
-Written: 24-January-2007 (MATLAB)
-Last update: 15-September-2007 (MATLAB)
-Python translation: 2025
+Syntax:
+    Z = reduce(Z,method)
+    Z = reduce(Z,method,order)
+    Z = reduce(Z,method,order,filterLength)
+    Z = reduce(Z,method,order,filterLength,option)
+
+Inputs:
+    Z - zonotope object
+    method - string specifying the reduction method:
+                   - 'adaptive'        Thm. 3.2. in [6]
+                   - 'cluster'         Sec. III.B in [3]
+                   - 'combastel'       Sec. 3.2 in [4]
+                   - 'constOpt'        Sec. III.D in [3]
+                   - 'girard'          Sec. 4 in [2]
+                   - 'methA'           Sec. 2.5.5 in [1]
+                   - 'methB'           Sec. 2.5.5 in [1]
+                   - 'methC'           Sec. 2.5.5 in [1]
+                   - 'pca'             Sec. III.A in [3]
+                   - 'scott'           Appendix of [5]
+                   - 'sadraddini'      Proposition 6 in [8]
+                   - 'scale'
+                   - 'scaleHausdorff'  
+                   - 'redistribute'
+                   - 'valero'          
+    order - order of reduced zonotope
+    filterLength - filter length for some methods
+    option - additional option
+
+Outputs:
+    Z - zonotope object
+
+Example: 
+    Z = zonotope([1;-1],[2 3 1 -1 -2 1 -4 3 0; 2 3 -2 1 -3 2 1 0 2]);
+    Zred1 = reduce(Z,'girard',2);
+    Zred2 = reduce(Z,'combastel',2);
+
+References:
+    [1] M. Althoff. "Reachability analysis and its application to the 
+        safety assessment of autonomous cars", 2010
+    [2] A. Girard. "Reachability of uncertain linear systems using
+        zonotopes". 2005
+    [3] A. Kopetzki et al. "Methods for order reduction of zonotopes", 
+        CDC 2017
+    [4] C. Combastel. "A state bounding observer based on zonotopes",
+        ECC 2003
+    [5] J. Scott et al. "Constrained zonotopes: A new tool for set-based 
+        estimation and fault detection", Automatica 2016
+    [6] M. Wetzlinger et al. "Adaptive parameter tuning for reachability
+        analysis of nonlinear systems", HSCC 2021.
+    [7] C.E. Valero et al. "On minimal volume zonotope order reduction",
+        Automatica 2021 (in revision)
+    [8] S. Sadraddini and R. Tedrake. "Linear Encodings for Polytope
+        Containment Problems", CDC 2019 (ArXiV version)
+
+Other m-files required: none
+Subfunctions: see below
+MAT-files required: none
+
+See also: none
+
+Authors:       Matthias Althoff
+Written:       24-January-2007 
+Last update:   15-September-2007
+                27-June-2018
+Last revision: 06-October-2024 (MW, refactor including priv_)
+Automatic python translation: Florian Nüssel BA 2025
 """
 
 import numpy as np
-from typing import Union, Optional
+from typing import Union, Optional, Tuple
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def reduce(Z: 'Zonotope', method: str, order: Optional[int] = 1, 
-          filterLength: Optional[int] = None, option: Optional[str] = None) -> 'Zonotope':
+          filterLength: Optional[int] = None, option: Optional[str] = None) -> Union['Zonotope', Tuple['Zonotope', ...]]:
     """
     Reduces the order of a zonotope
     
     Args:
         Z: Zonotope object
-        method: Reduction method ('girard', 'combastel', 'pca', etc.)
+        method: Reduction method string
         order: Order of reduced zonotope (default: 1)
         filterLength: Optional filter length for some methods
         option: Optional additional option
         
     Returns:
-        Zonotope: Reduced zonotope object
+        Zonotope or tuple: Reduced zonotope object, and optionally additional outputs
         
     Raises:
         CORAerror: If method is not supported
-        
-    Example:
-        >>> Z = Zonotope([1, -1], [[2, 3, 1], [2, 3, -2]])
-        >>> Z_red = reduce(Z, 'girard', 2)
     """
     from .zonotope import Zonotope
+    from .private.priv_reduceMethods import (
+        priv_reduceGirard, priv_reduceIdx, priv_reduceAdaptive, priv_reduceCombastel,
+        priv_reducePCA, priv_reduceMethA, priv_reduceMethB, priv_reduceMethC,
+        priv_reduceMethE, priv_reduceMethF, priv_reduceRedistribute, priv_reduceCluster,
+        priv_reduceScott, priv_reduceValero, priv_reduceSadraddini, priv_reduceScale,
+        priv_reduceScaleHausdorff, priv_reduceConstOpt
+    )
     
     # Handle default values
     if order is None:
         order = 1
+    if filterLength is None:
+        filterLength = []
+    if option is None:
+        option = []
     
     # Remove substring necessary for special reduction for polyZonotopes
     if method.startswith('approxdep_'):
@@ -48,119 +116,76 @@ def reduce(Z: 'Zonotope', method: str, order: Optional[int] = 1,
     
     # Select method
     if method == 'girard':
-        return _reduce_girard(Z, order)
+        return priv_reduceGirard(Z, order)
+    
+    elif method == 'idx':
+        # note: var 'order' is not an order here
+        return priv_reduceIdx(Z, order)
+    
+    elif method == 'adaptive':
+        # note: var 'order' is not an order here!
+        Z_reduced, dHerror, gredIdx = priv_reduceAdaptive(Z, order)
+        return Z_reduced, dHerror, gredIdx
+    
+    elif method == 'adaptive-penven':
+        # note: var 'order' is not an order here!
+        Z_reduced, dHerror, gredIdx = priv_reduceAdaptive(Z, order, 'penven')
+        return Z_reduced, dHerror, gredIdx
+    
     elif method == 'combastel':
-        return _reduce_combastel(Z, order)
+        return priv_reduceCombastel(Z, order)
+    
     elif method == 'pca':
-        return _reduce_pca(Z, order)
+        return priv_reducePCA(Z, order)
+    
     elif method == 'methA':
-        return _reduce_methA(Z, order)
+        return priv_reduceMethA(Z, order)
+    
     elif method == 'methB':
-        return _reduce_methB(Z, order, filterLength)
+        return priv_reduceMethB(Z, order, filterLength)
+    
     elif method == 'methC':
-        return _reduce_methC(Z, order, filterLength)
+        return priv_reduceMethC(Z, order, filterLength)
+    
+    elif method == 'methE':
+        return priv_reduceMethE(Z, order)
+    
+    elif method == 'methF':
+        return priv_reduceMethF(Z)
+    
+    elif method == 'redistribute':
+        return priv_reduceRedistribute(Z, order)
+    
+    elif method == 'cluster':
+        return priv_reduceCluster(Z, order, option)
+    
+    elif method == 'scott':
+        return priv_reduceScott(Z, order)
+    
+    elif method == 'valero':
+        return priv_reduceValero(Z, order)
+    
+    elif method == 'sadraddini':
+        return priv_reduceSadraddini(Z, order)
+    
+    elif method == 'scale':
+        return priv_reduceScale(Z, order)
+    
+    elif method == 'scaleHausdorff':
+        Z_reduced, dHerror = priv_reduceScaleHausdorff(Z, order)
+        return Z_reduced, dHerror
+    
+    elif method == 'constOpt':
+        option = 'svd'
+        alg = 'interior-point'
+        return priv_reduceConstOpt(Z, order, option, alg)
+    
     else:
-        # For now, only implement the most common methods
-        raise CORAerror('CORA:wrongValue', 
-                       f"Reduction method '{method}' not yet implemented. "
-                       f"Available methods: 'girard', 'combastel', 'pca', 'methA', 'methB', 'methC'")
+        # wrong method
+        raise CORAerror('CORA:wrongValue', 'second',
+                       "'adaptive', 'adaptive-penven', 'cluster', 'combastel', 'constOpt', 'girard'" +
+                       "'methA', 'methB', 'methC', 'pca', 'scott', 'redistribute', 'sadraddini'" +
+                       "'scale', 'scaleHausdorff', or 'valero'")
 
 
-def _reduce_girard(Z: 'Zonotope', order: int) -> 'Zonotope':
-    """
-    Girard's method for zonotope order reduction (Sec. 4 in [2])
-    
-    This is the most commonly used reduction method.
-    """
-    from .zonotope import Zonotope
-    
-    # Get dimension and number of generators
-    n = Z.dim()
-    G = Z.G
-    
-    # If zonotope is already lower order or empty, return as-is
-    if G.shape[1] <= order or G.shape[1] == 0:
-        return Z.copy()
-    
-    # Compute norms of generators
-    h = np.linalg.norm(G, axis=0, ord=1)  # L1 norm of each generator
-    
-    # Sort generators by norm (ascending order)
-    idx = np.argsort(h)
-    
-    # Keep the largest generators
-    keep_idx = idx[-(order):] if order > 0 else []
-    reduce_idx = idx[:-(order)] if order > 0 else idx
-    
-    # Build reduced generator matrix
-    if len(keep_idx) > 0:
-        G_keep = G[:, keep_idx]
-    else:
-        G_keep = np.zeros((n, 0))
-    
-    # Sum up the reduced generators into interval hull
-    if len(reduce_idx) > 0:
-        G_reduce = G[:, reduce_idx]
-        # Create interval hull: sum of absolute values of reduced generators
-        d = np.sum(np.abs(G_reduce), axis=1, keepdims=True)
-        # Convert to diagonal matrix representation
-        G_interval = np.diag(d.flatten())
-        # Combine with kept generators
-        if G_keep.size > 0:
-            G_new = np.hstack([G_keep, G_interval])
-        else:
-            G_new = G_interval
-    else:
-        G_new = G_keep
-    
-    return Zonotope(Z.c, G_new)
-
-
-def _reduce_combastel(Z: 'Zonotope', order: int) -> 'Zonotope':
-    """
-    Combastel's method for zonotope order reduction (Sec. 3.2 in [4])
-    
-    This is a simplified implementation for now.
-    """
-    # For now, fall back to Girard's method
-    return _reduce_girard(Z, order)
-
-
-def _reduce_pca(Z: 'Zonotope', order: int) -> 'Zonotope':
-    """
-    PCA-based method for zonotope order reduction (Sec. III.A in [3])
-    
-    This is a simplified implementation for now.
-    """
-    # For now, fall back to Girard's method
-    return _reduce_girard(Z, order)
-
-
-def _reduce_methA(Z: 'Zonotope', order: int) -> 'Zonotope':
-    """
-    Method A for zonotope order reduction (Sec. 2.5.5 in [1])
-    
-    This is a simplified implementation for now.
-    """
-    # For now, fall back to Girard's method
-    return _reduce_girard(Z, order)
-
-
-def _reduce_methB(Z: 'Zonotope', order: int, filterLength: Optional[int] = None) -> 'Zonotope':
-    """
-    Method B for zonotope order reduction (Sec. 2.5.5 in [1])
-    
-    This is a simplified implementation for now.
-    """
-    # For now, fall back to Girard's method
-    return _reduce_girard(Z, order)
-
-
-def _reduce_methC(Z: 'Zonotope', order: int, filterLength: Optional[int] = None) -> 'Zonotope':
-    """
-    Method C for zonotope order reduction (Sec. 2.5.5 in [1])
-    
-    This is a simplified implementation for now.
-    """
-    # For now, fall back to Girard's method
-    return _reduce_girard(Z, order) 
+ 

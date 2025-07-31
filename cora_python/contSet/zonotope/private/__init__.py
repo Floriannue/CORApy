@@ -1,8 +1,5 @@
 """
-Private functions for zonotope operations
-
-This package contains private helper functions used internally by zonotope methods.
-These functions mirror the structure of the MATLAB private functions.
+Private functions for zonotope reduction methods
 """
 
 from .priv_zonotopeContainment_pointContainment import priv_zonotopeContainment_pointContainment
