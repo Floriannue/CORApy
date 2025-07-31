@@ -53,5 +53,8 @@ def empty(n=0):
         empty_zono = Zonotope(np.array([]), np.array([]))
     else:
         # Create empty center (n x 0 matrix) and empty generators (n x 0 matrix)
+        # This matches MATLAB: zonotope(zeros(n,0))
+        # The MATLAB constructor receives zeros(n,0) as input
+        # and sets c = zeros(n,0) and G = zeros(n,0)
         empty_zono = Zonotope(np.zeros((n, 0)), np.zeros((n, 0)))
     return empty_zono 

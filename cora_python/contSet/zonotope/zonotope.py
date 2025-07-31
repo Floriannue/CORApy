@@ -118,8 +118,13 @@ class Zonotope(ContSet):
                 G = np.array([])
             else:
                 # Input is a matrix [c, G]
-                c = Z[:, 0]
-                G = Z[:, 1:]
+                if Z.shape[1] == 0:
+                    # Empty matrix case: create empty center and generators
+                    c = np.zeros((Z.shape[0], 0))
+                    G = np.zeros((Z.shape[0], 0))
+                else:
+                    c = Z[:, 0]
+                    G = Z[:, 1:]
         elif len(args) == 2:
             c, G = args
         else:
@@ -162,17 +167,32 @@ class Zonotope(ContSet):
     def _compute_properties(self, c, G):
         """Compute and fix properties to ensure correct dimensions"""
         
-        # Ensure c is a column vector
-        if c.size > 0:
-            c = c.reshape(-1, 1)
-        
-        # If G is empty, set correct dimension
-        if G.size == 0 and c.size > 0:
-            G = np.zeros((len(c), 0))
-        elif G.size > 0:
-            # Ensure G is 2D
-            if G.ndim == 1:
-                G = G.reshape(-1, 1)
+        # Handle empty zonotope case (both c and G are empty but have correct dimensions)
+        if c.size == 0 and G.size == 0:
+            # Both are empty, but we need to preserve the dimension information
+            # This happens when we create an empty zonotope with Zonotope.empty(n)
+            # The dimension is encoded in the shape of the empty arrays
+            if c.shape[0] > 0:
+                # c has the correct number of rows, keep it as is
+                pass
+            elif G.shape[0] > 0:
+                # G has the correct number of rows, set c to match
+                c = np.zeros((G.shape[0], 0))
+            else:
+                # Both are completely empty, this is an error
+                raise CORAerror('CORA:wrongInputInConstructor', 'Cannot create zonotope with zero dimension')
+        else:
+            # Ensure c is a column vector
+            if c.size > 0:
+                c = c.reshape(-1, 1)
+            
+            # If G is empty, set correct dimension
+            if G.size == 0 and c.size > 0:
+                G = np.zeros((len(c), 0))
+            elif G.size > 0:
+                # Ensure G is 2D
+                if G.ndim == 1:
+                    G = G.reshape(-1, 1)
         
         return c, G
     
@@ -297,6 +317,14 @@ class Zonotope(ContSet):
         """
         from .cubMap import cubMap as zonotope_cubMap
         return zonotope_cubMap(self, *args)
+
+    def randPoint_(self, N=1, type_='standard'):
+        """
+        Instance method for random point generation, matching MATLAB usage.
+        Calls the module-level randPoint_ function.
+        """
+        from .randPoint_ import randPoint_ as zonotope_randPoint_
+        return zonotope_randPoint_(self, N, type_)
 
     @staticmethod
     def empty(dim):
