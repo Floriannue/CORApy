@@ -30,9 +30,10 @@ def project(Z: Zonotope, dims) -> Zonotope:
     # Convert dims to numpy array for indexing
     dims = np.array(dims)
     
-    # Project center and generators
+    # Project center (matching MATLAB: Z.c = Z.c(dims,:))
     c_proj = Z.c[dims]
     
+    # Project generators (matching MATLAB: if size(Z.G,1) > 0; Z.G = Z.G(dims,:); end)
     if Z.G.shape[0] > 0:
         G_proj = Z.G[dims, :]
     else:
