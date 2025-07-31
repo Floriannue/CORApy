@@ -35,6 +35,7 @@ from .copy import copy
 from .convHull_ import convHull_
 from .enclose import enclose
 from .reduce import reduce
+from .reduceUnderApprox import reduceUnderApprox
 from .minnorm import minnorm
 from .enclosePoints import enclosePoints
 from .boundaryPoint import boundaryPoint
@@ -102,6 +103,7 @@ Zonotope.copy = copy
 Zonotope.convHull_ = convHull_
 Zonotope.enclose = enclose
 Zonotope.reduce = reduce
+Zonotope.reduceUnderApprox = reduceUnderApprox
 Zonotope.minnorm = minnorm
 Zonotope.boundaryPoint = boundaryPoint
 Zonotope.supportFunc_ = supportFunc_
@@ -132,4 +134,4 @@ Zonotope.__or__ = or_
 Zonotope.enclosePoints = staticmethod(enclosePoints)
 Zonotope.generateRandom = staticmethod(generateRandom)
 
-__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap', 'constrSat', 'generateRandom', 'intersectStrip', 'lift_', 'minkDiff', 'or_'] 
+__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'reduceUnderApprox', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap', 'constrSat', 'generateRandom', 'intersectStrip', 'lift_', 'minkDiff', 'or_'] 
