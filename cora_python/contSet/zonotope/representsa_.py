@@ -37,7 +37,7 @@ def representsa_(Z, set_type: str, tol: float = 1e-12, method: str = 'linearize'
     Checks if a zonotope can also be represented by a different set type
     
     Args:
-        Z: zonotope object or numpy array
+        Z: zonotope object
         set_type: string indicating the target set type
         tol: tolerance (default: 1e-12)
         **kwargs: additional arguments
@@ -50,18 +50,23 @@ def representsa_(Z, set_type: str, tol: float = 1e-12, method: str = 'linearize'
     from cora_python.contSet.interval import Interval
     from cora_python.contSet.capsule import Capsule
     
-    # Handle numpy arrays - they cannot represent empty sets
-    if isinstance(Z, np.ndarray):
-        if set_type == 'emptySet':
-            return False
-        # For other types, would need conversion to zonotope first
-        return False
-    
     # Check if we need to return the converted set
     return_set = 'return_set' in kwargs and kwargs['return_set']
     
     # Check empty object case
-    # TODO: Implement representsa_emptyObject when needed
+    try:
+        from cora_python.contSet.contSet.representsa_emptyObject import representsa_emptyObject
+        if return_set:
+            empty, res, S = representsa_emptyObject(Z, set_type)
+            if empty:
+                return res, S
+        else:
+            empty, res = representsa_emptyObject(Z, set_type)
+            if empty:
+                return res
+    except:
+        # If representsa_emptyObject not available, continue
+        pass
     
     # Dimension
     n = Z.dim()
@@ -69,44 +74,21 @@ def representsa_(Z, set_type: str, tol: float = 1e-12, method: str = 'linearize'
     # Init second output argument (covering all cases with res = false)
     S = None
     
-    # Delete zero-length generators and compact the zonotope
+    # Delete zero-length generators
     Z_compact = Z.compact_('zeros', np.finfo(float).eps)
-    
     # Number of generators
     nrGens = Z_compact.G.shape[1] if Z_compact.G.size > 0 else 0
     
     if set_type == 'origin':
         c = Z_compact.c
-        if c is None or c.size == 0:
-            res = False
-        elif nrGens == 0:
-            # No generators, just check if center is close to origin
-            res = np.allclose(c, 0, atol=tol)
-        else:
-            # Check if the interval norm is within tolerance
-            try:
-                I = Z_compact.interval()
-                res = I.norm() <= tol
-            except:
-                # Fallback: use more conservative check
-                res = np.linalg.norm(c) <= tol and np.linalg.norm(Z_compact.G, 'fro') <= tol
-        
+        res = (c is not None and c.size > 0 and 
+               ((nrGens == 0 and np.allclose(c, 0, atol=tol)) or 
+                Z_compact.interval().norm_(2) <= tol))
         if return_set and res:
             S = np.zeros((n, 1))
     
     elif set_type == 'point':
-        if nrGens == 0:
-            res = True
-        else:
-            # Check if all generators are within tolerance
-            try:
-                Z_centered = Z_compact - Z_compact.c
-                I = Z_centered.interval()
-                res = I.norm() <= tol
-            except:
-                # Fallback: check generator matrix norm
-                res = np.linalg.norm(Z_compact.G, 'fro') <= tol
-        
+        res = nrGens == 0 or (Z_compact - Z_compact.c).interval().norm_(2) <= tol
         if return_set and res:
             S = Z_compact.c
     
@@ -116,26 +98,80 @@ def representsa_(Z, set_type: str, tol: float = 1e-12, method: str = 'linearize'
         if return_set and res:
             S = Capsule(Z_compact.c, Z_compact.G, 0)
     
-    elif set_type == 'interval':
-        # Check if zonotope is axis-aligned (generators are axis-aligned)
-        if nrGens == 0:
-            res = True
-        else:
-            # Check if all generators are axis-aligned
-            G = Z_compact.G
-            res = True
-            for i in range(G.shape[1]):
-                gen = G[:, i]
-                # Generator is axis-aligned if it has only one non-zero entry
-                non_zero_count = np.sum(np.abs(gen) > tol)
-                if non_zero_count > 1:
-                    res = False
-                    break
+    elif set_type == 'conHyperplane':
+        # TODO: condition?
+        raise CORAerror('CORA:notSupported',
+                       f'Comparison of zonotope to {set_type} not supported.')
+    
+    elif set_type == 'conPolyZono':
+        res = True
         if return_set:
-            if res:
-                S = Z_compact.interval()
-            else:
-                S = None
+            # Convert zonotope to conPolyZono via polyZonotope
+            from ..conPolyZono import ConPolyZono
+            from ..polyZonotope import PolyZonotope
+            pZ = PolyZonotope(Z_compact)
+            S = ConPolyZono(pZ)
+    
+    elif set_type == 'conZonotope':
+        res = True
+        if return_set:
+            # Convert zonotope to conZonotope using constructor
+            from ..conZonotope import ConZonotope
+            S = ConZonotope(Z_compact.c, Z_compact.G)
+    
+    elif set_type == 'ellipsoid':
+        raise CORAerror('CORA:notSupported',
+                       f'Comparison of zonotope to {set_type} not supported.')
+    
+    elif set_type == 'halfspace':
+        # Zonotopes cannot be unbounded
+        res = False
+    
+    elif set_type == 'interval':
+        res = _aux_isInterval(Z_compact, tol)
+        if return_set and res:
+            # Get interval and ensure it's in the expected format (column vectors)
+            I = Z_compact.interval()
+            # Convert to column vector format if needed
+            if I.inf.ndim == 1:
+                I.inf = I.inf.reshape(-1, 1)
+                I.sup = I.sup.reshape(-1, 1)
+            S = I
+    
+    elif set_type == 'levelSet':
+        res = True
+        if return_set:  # no conversion
+            raise CORAerror('CORA:notSupported',
+                           'Conversion from zonotope to levelSet not supported.')
+    
+    elif set_type == 'polytope':
+        res = True
+        if return_set:
+            # Convert zonotope to polytope using exact method
+            from ..polytope import Polytope
+            S = Z_compact.polytope('exact')
+    
+    elif set_type == 'polyZonotope':
+        res = True
+        if return_set:
+            # Convert zonotope to polyZonotope
+            from ..polyZonotope import PolyZonotope
+            c = Z_compact.c
+            G = Z_compact.G
+            E = np.eye(G.shape[1]) if G.size > 0 else np.empty((0, 0))
+            GI = np.empty((c.shape[0], 0))  # Empty independent generators
+            S = PolyZonotope(c, G, GI, E)
+    
+    elif set_type == 'probZonotope':
+        # Is never true
+        res = False
+    
+    elif set_type == 'zonoBundle':
+        res = True
+        if return_set:
+            # Convert zonotope to zonoBundle
+            from ..zonoBundle import ZonoBundle
+            S = ZonoBundle([Z_compact])
     
     elif set_type == 'zonotope':
         # Obviously true
@@ -143,56 +179,90 @@ def representsa_(Z, set_type: str, tol: float = 1e-12, method: str = 'linearize'
         if return_set:
             S = Z_compact
     
-    elif set_type == 'emptySet':
-        # Check if zonotope represents empty set
-        res = Z.isemptyobject()
-    
-    elif set_type == 'fullspace':
-        # Zonotopes are bounded, so never fullspace
+    elif set_type == 'hyperplane':
+        # Zonotopes cannot be unbounded
         res = False
-
+    
     elif set_type == 'parallelotope':
-        # Check if zonotope is a parallelotope (n generators in n dimensions)
-        if nrGens == 0:
-            res = False  # Point is not a parallelotope
-        elif n == 1 and nrGens > 0:
-            res = True  # 1D zonotopes with generators are parallelotopes
-        else:
-            # Check if we have exactly n linearly independent generators
-            if nrGens < n:
-                res = False
-            elif nrGens == n:
-                # Check if generators are linearly independent
-                try:
-                    rank = np.linalg.matrix_rank(Z_compact.G)
-                    res = rank == n
-                except:
-                    res = False
-            else:
-                res = False  # Too many generators
-        
+        res = n == 1 or _aux_isParallelotope(Z_compact, tol)
         if return_set and res:
             S = Z_compact
-
-    elif set_type == 'conZonotope':
-        # Every zonotope is a constrained zonotope
+    
+    elif set_type == 'convexSet':
         res = True
-        if return_set:
-            # For now, return the zonotope itself (would need conZonotope class)
-            S = Z_compact
-
-    elif set_type == 'polyZonotope':
-        # Every zonotope is a polynomial zonotope
-        res = True
-        if return_set:
-            # For now, return the zonotope itself (would need polyZonotope class)
-            S = Z_compact
-
+    
+    elif set_type == 'emptySet':
+        # Check if zonotope represents empty set
+        res = Z_compact.isemptyobject()
+    
+    elif set_type == 'fullspace':
+        # Zonotope cannot be unbounded
+        res = False
+    
     else:
-        raise CORAerror("CORA:notSupported",
-                       f"Comparison of zonotope to {set_type} not supported.")
+        raise CORAerror('CORA:notSupported',
+                       f'Comparison of zonotope to {set_type} not supported.')
     
     if return_set:
         return res, S
     else:
-        return res 
+        return res
+
+
+# Auxiliary functions -----------------------------------------------------
+
+def _aux_isInterval(Z, tol):
+    """
+    Check if zonotope is axis-aligned (can be represented as interval)
+    """
+    res = True
+    # One-dimensional zonotopes are always intervals
+    if Z.dim() == 1:
+        return res
+    
+    # Check if no generator has more than one entry
+    G = Z.G
+    if G.size == 0:
+        return res
+    
+    # Check each generator
+    for i in range(G.shape[1]):
+        gen = G[:, i]
+        # Count non-zero entries (within tolerance)
+        non_zero_count = np.sum(np.abs(gen) > tol)
+        if non_zero_count > 1:
+            res = False
+            break
+    
+    return res
+
+
+def _aux_isParallelotope(Z, tol):
+    """
+    Check if zonotope is a parallelotope
+    """
+    res = True
+    
+    # Dimension and generators of zonotope
+    n = Z.dim()
+    G = Z.G
+    
+    # One-dimensional zonotopes are always parallelotopes (with at least one generator)
+    if n == 1 and G.shape[1] > 0:
+        return res
+    
+    # Delete zero-length generators
+    Z_compact = Z.compact_('zeros', np.finfo(float).eps)
+    G = Z_compact.G
+    
+    # Quick check: not enough generators
+    if G.shape[1] < n:
+        res = False
+        return res
+    
+    if Z_compact.isFullDim() and G.shape[1] == n:
+        return res
+    
+    # Not a parallelotope
+    res = False
+    return res 
