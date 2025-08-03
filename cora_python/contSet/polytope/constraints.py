@@ -54,7 +54,14 @@ def constraints(P: 'Polytope') -> 'Polytope':
     V = P._V
     
     # Read out dimension and number of vertices
-    n, nrVert = V.shape
+    if V.ndim == 1:
+        # 1D case: V is a single value or array of values
+        n = 1
+        nrVert = V.size
+        # Reshape to 2D for consistency
+        V = V.reshape(1, -1)
+    else:
+        n, nrVert = V.shape
     
     # Special cases
     if nrVert == 1:

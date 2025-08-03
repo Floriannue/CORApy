@@ -63,7 +63,7 @@ def split(Z: Zonotope, *args) -> Union[List[Zonotope], List[List[Zonotope]]]:
             return _aux_halfspace_split(Z, h)
     
     elif len(args) == 2:
-        if args[1] == 'bundle':
+        if isinstance(args[1], str) and args[1] == 'bundle':
             # Split halfway in a direction using a zonotope bundle
             dir_vec = args[0]
             return _aux_direction_split_bundle(Z, dir_vec)
@@ -132,8 +132,8 @@ def _aux_direction_split(Z: Zonotope, dir_vec: np.ndarray) -> List[Zonotope]:
         List of two split zonotopes
     """
     # Center and generator matrix
-    c = Z.c
-    G = Z.G
+    c = Z.c.copy()
+    G = Z.G.copy()  # Make a copy to avoid modifying the original
     
     # Aligned generator
     alignedVal = 0
@@ -197,7 +197,7 @@ def _aux_direction_split_bundle(Z: Zonotope, dir_vec: np.ndarray) -> List[List[Z
     intervals1 = np.array([[-1, 1]])  # Placeholder
     intervals2 = intervals1.copy()
     
-    # Split intervals
+        # Split intervals
     intervals1[0, 1] = 0.5 * (intervals1[0, 0] + intervals1[0, 1])
     intervals2[0, 0] = 0.5 * (intervals2[0, 0] + intervals2[0, 1])
     
@@ -206,9 +206,13 @@ def _aux_direction_split_bundle(Z: Zonotope, dir_vec: np.ndarray) -> List[List[Z
     IH1 = Interval(intervals1[:, 0:1], intervals1[:, 1:2])
     IH2 = Interval(intervals2[:, 0:1], intervals2[:, 1:2])
     
+    # Convert intervals to zonotopes
+    Z1_interval = Zonotope(IH1)
+    Z2_interval = Zonotope(IH2)
+    
     # Zonotopes for zonotope bundle
-    Z1 = [Z, Zonotope(rotMat.T @ IH1.c, rotMat.T @ IH1.G)]
-    Z2 = [Z, Zonotope(rotMat.T @ IH2.c, rotMat.T @ IH2.G)]
+    Z1 = [Z, Zonotope(rotMat.T @ Z1_interval.c, rotMat.T @ Z1_interval.G)]
+    Z2 = [Z, Zonotope(rotMat.T @ Z2_interval.c, rotMat.T @ Z2_interval.G)]
     
     # Instantiate zonotope bundles (simplified - return as lists for now)
     Zsplit = [Z1, Z2]
@@ -232,8 +236,8 @@ def _aux_halfspace_split(Z: Zonotope, hs) -> List[Zonotope]:
     d = hs.b
     
     # Center and generator matrix
-    c = Z.c
-    G = Z.G
+    c = Z.c.copy()
+    G = Z.G.copy()  # Make a copy to avoid modifying the original
     
     # Aligned generator
     alignedVal = 0

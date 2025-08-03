@@ -32,27 +32,49 @@ def simplex(Z: Zonotope):
     
     # Construct an n-dimensional standard simplex with origin 0
     V = np.eye(n + 1)
-    B = _gram_schmidt(np.ones((n + 1, 1)))
     
-    # Create polytope from the simplex
-    from cora_python.contSet.polytope.polytope import Polytope
-    P = Polytope((B[:, 1:].T @ V))
+    # Create basis matrix for Gram-Schmidt
+    # In MATLAB: if size(B,2) == 1, B_ = eye(length(B)); [~,ind] = max(abs(B'*B_)); B_(:,ind) = []; B = [B,B_];
+    v = np.ones((n + 1, 1))
+    B_ = np.eye(n + 1)
+    # Find the index of maximum absolute value in v'*B_
+    dot_products = np.abs(v.T @ B_)
+    ind = np.argmax(dot_products)
+    # Remove the column at index ind
+    B_ = np.delete(B_, ind, axis=1)
+    # Concatenate v and B_
+    B_input = np.hstack([v, B_])
+    
+    from cora_python.g.functions.matlab.init.gramSchmidt import gramSchmidt
+    B = gramSchmidt(B_input)
+    
+    # Create polytope from the simplex vertices
+    # (B[:,2:end]'*V) creates vertices for the simplex
+    vertices = B[:, 1:].T @ V
+    from cora_python.contSet.polytope import Polytope
+    P = Polytope(vertices)
     
     # Compute the halfspace representation
-    P.constraints()
+    from cora_python.contSet.polytope.constraints import constraints
+    P = constraints(P)
     
     # Scale the simplex so that it tightly encloses the zonotope
     A = P.A
-    if A is None:
-        raise CORAerror('CORA:wrongInputInConstructor', 'Polytope constraints are None')
+    if A is None or A.size == 0:
+        raise CORAerror('CORA:wrongInputInConstructor', 'Polytope constraints are None or empty')
     
     # Compute supremum of interval(A*Z)
-    from cora_python.contSet.interval.interval import interval
-    Z_interval = interval(Z)
-    if Z_interval is None:
-        raise CORAerror('CORA:wrongInputInConstructor', 'Could not create interval from zonotope')
+    # First compute A*Z (matrix multiplication of A with zonotope Z)
+    from cora_python.contSet.zonotope.mtimes import mtimes
+    AZ = mtimes(A, Z)
     
-    b = Z_interval.supremum()
+    # Convert to interval and get supremum
+    from cora_python.contSet.zonotope.interval import interval
+    AZ_interval = interval(AZ)
+    if AZ_interval is None:
+        raise CORAerror('CORA:wrongInputInConstructor', 'Could not create interval from A*Z')
+    
+    b = AZ_interval.supremum()
     if b is None:
         raise CORAerror('CORA:wrongInputInConstructor', 'Interval supremum is None')
     
@@ -62,27 +84,4 @@ def simplex(Z: Zonotope):
     return P
 
 
-def _gram_schmidt(v: np.ndarray) -> np.ndarray:
-    """
-    Gram-Schmidt orthogonalization
-    
-    Args:
-        v: input vector
-        
-    Returns:
-        Orthogonalized matrix
-    """
-    n = v.shape[0]
-    B = np.zeros((n, n))
-    B[:, 0] = v.flatten()
-    
-    for i in range(1, n):
-        B[:, i] = np.eye(n)[:, i]
-        for j in range(i):
-            B[:, i] = B[:, i] - np.dot(B[:, i], B[:, j]) / np.dot(B[:, j], B[:, j]) * B[:, j]
-        # Normalize
-        norm = np.linalg.norm(B[:, i])
-        if norm > 0:
-            B[:, i] = B[:, i] / norm
-    
-    return B 
+ 

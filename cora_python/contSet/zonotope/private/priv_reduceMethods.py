@@ -74,7 +74,46 @@ def priv_reduceCombastel(Z: 'Zonotope', order: int) -> 'Zonotope':
 
 def priv_reducePCA(Z: 'Zonotope', order: int) -> 'Zonotope':
     """PCA-based method for zonotope order reduction (Sec. III.A in [3])"""
-    return priv_reduceGirard(Z, order)
+    from cora_python.contSet.zonotope import Zonotope
+    from cora_python.g.functions.helper.sets.contSet.zonotope import pickedGenerators
+    
+    # initialize Z_red
+    Zred = Z.copy()
+    
+    # pick generators to reduce
+    _, Gunred, Gred, _ = pickedGenerators(Z, order)
+    
+    if Gred.size == 0:
+        return Zred
+    
+    # obtain matrix of points from generator matrix
+    V = np.hstack([Gred, -Gred])  # has zero mean
+    
+    # compute the covariance matrix
+    # Note: V has shape (n, 2*m) where n is dimension, m is number of generators
+    # We want covariance of the n-dimensional points, so we use V directly
+    C = np.cov(V)
+    
+    # singular value decomposition
+    U, _, _ = np.linalg.svd(C)
+    
+    # map generators
+    Gtrans = U.T @ Gred
+    
+    # box generators
+    Gbox = np.diag(np.sum(np.abs(Gtrans), axis=1))
+    
+    # transform generators back
+    Gred_new = U @ Gbox
+    
+    # build reduced zonotope
+    # Zred.c stays the same
+    if Gunred.size > 0:
+        Zred.G = np.hstack([Gunred, Gred_new])
+    else:
+        Zred.G = Gred_new
+    
+    return Zred
 
 
 def priv_reduceMethA(Z: 'Zonotope', order: int) -> 'Zonotope':
