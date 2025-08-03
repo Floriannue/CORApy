@@ -1,5 +1,17 @@
 """
-volume_ method for zonotope class
+volume_ - computes the volume of a zonotope
+
+Authors: Matthias Althoff (MATLAB)
+         Automatic python translation: Florian Nüssel BA 2025
+Written: 24-August-2007 (MATLAB)
+Last update: 19-July-2010 (MATLAB)
+            02-September-2019 (incl. approx) (MATLAB)
+            04-May-2020 (MW, add vol=0 cases) (MATLAB)
+            09-September-2020 (MA, Alamo approx added, reduce changed) (MATLAB)
+            27-July-2022 (ME, included batchCombinator) (MATLAB)
+            18-August-2022 (MW, include standardized preprocessing) (MATLAB)
+Last revision: 27-March-2023 (MW, rename volume_) (MATLAB)
+Python translation: 2025
 """
 
 import numpy as np
