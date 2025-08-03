@@ -1,7 +1,34 @@
 """
-splitLongestGen method for zonotope class
-"""
+splitLongestGen - splits the longest generator
 
+Syntax:
+    Znew = splitLongestGen(Z)
+
+Inputs:
+    Z - zonotope object
+
+Outputs:
+    Znew - list storing the split zonotope objects
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, splitLongestGen
+    import numpy as np
+    Z = Zonotope(np.array([[1], [0]]), np.array([[1, 3, -2, -1], [0, 2, -1, 1]]))
+    Znew = splitLongestGen(Z)
+    # Znew is a list of two zonotope objects
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: zonotope/splitFirstGen, zonotope/split
+
+Authors:       Niklas Kochdumper (MATLAB)
+               Python translation by AI Assistant
+Written:       31-May-2022 (MATLAB)
+Last update:   --- (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+"""
 import numpy as np
 from typing import List
 from .zonotope import Zonotope
@@ -10,17 +37,7 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 def splitLongestGen(Z: Zonotope) -> List[Zonotope]:
     """
-    Splits the longest generator
-    
-    Args:
-        Z: zonotope object
-        
-    Returns:
-        List storing the split zonotope objects
-        
-    Example:
-        Z = Zonotope(np.array([[1], [0]]), np.array([[1, 3, -2, -1], [0, 2, -1, 1]]))
-        Znew = splitLongestGen(Z)
+    Splits the longest generator of a zonotope.
     """
     # Check for None values
     if Z.c is None or Z.G is None:

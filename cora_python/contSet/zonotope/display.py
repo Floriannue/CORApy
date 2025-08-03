@@ -11,8 +11,8 @@ Inputs:
 Outputs:
     ---
 
-Example:
-    Z = zonotope([1, 0], [[1, 2, -1], [0, -1, 1]])
+Example: 
+    Z = Zonotope(np.array([[1], [0]]), np.array([[1, 2, -1], [0, -1, 1]]))
     display(Z)
 
 Other m-files required: none
@@ -25,7 +25,7 @@ Authors:       Matthias Althoff (MATLAB)
                Python translation by AI Assistant
 Written:       14-September-2006 (MATLAB)
 Last update:   09-June-2020 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

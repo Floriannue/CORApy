@@ -4,21 +4,31 @@ convHull_ - computes an enclosure for the convex hull of a zonotope and
 
 Syntax:
     Z = convHull_(Z, S)
-    Z = convHull_(Z, S, method)
 
 Inputs:
     Z - zonotope object
-    S - contSet object or None
-    method - method for computation (optional)
+    S - contSet object
 
 Outputs:
     Z - zonotope enclosing the convex hull
 
+Example: 
+    Z1 = Zonotope(np.array([[2, 1, 0], [2, 0, 1]]))
+    Z2 = Zonotope(np.array([[-2, 1, 0], [-2, 0, 1]]))
+
+    Z = convHull_(Z1, Z2)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: contSet/convHull, conZonotope/convHull_
+
 Authors: Niklas Kochdumper (MATLAB)
          Python translation by AI Assistant
 Written: 26-November-2019 (MATLAB)
-Last update: 29-September-2024 (MATLAB)
-Python translation: 2025
+Last update: 29-September-2024 (MW, integrate precedence) (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

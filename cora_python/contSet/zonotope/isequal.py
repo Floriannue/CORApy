@@ -19,7 +19,7 @@ Written:       16-September-2019 (MATLAB)
 Last update:   09-June-2020 (MATLAB)
                 13-November-2022 (MW, integrate modular check)
                 05-October-2024 (MW, fix 1D case)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

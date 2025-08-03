@@ -21,14 +21,9 @@ Outputs:
     S_out - zonotope object enclosing the union
 
 Example: 
-    Z1 = zonotope([4 2 2;1 2 0])
-    Z2 = zonotope([3 1 -1 1;3 1 2 0])
+    Z1 = Zonotope(np.array([[4, 2, 2], [1, 2, 0]]))
+    Z2 = Zonotope(np.array([[3, 1, -1, 1], [3, 1, 2, 0]]))
     S_out = Z1 | Z2
-
-    figure; hold on;
-    plot(Z1,[1,2],'r')
-    plot(Z2,[1,2],'b')
-    plot(S_out,[1,2],'g')
 
 References:
     [1] Sadraddini et. al: Linear Encodings for Polytope Containment
@@ -44,7 +39,7 @@ Authors:       Matthias Althoff, Niklas Kochdumper (MATLAB)
                Python translation by AI Assistant
 Written:       20-September-2013 (MATLAB)
 Last update:   12-November-2019 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

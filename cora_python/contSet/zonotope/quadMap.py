@@ -17,9 +17,9 @@ Inputs:
 Outputs:
     Zquad - zonotope object
 
-Example:
-    Z = zonotope([0, 1, 1; 0, 1, 0])
-    Q = [[[0.5, 0.5], [0, -0.5]], [[-1, 0], [1, 1]]]
+Example: 
+    Z = Zonotope(np.array([[0, 1, 1], [0, 1, 0]]))
+    Q = [np.array([[0.5, 0.5], [0, -0.5]]), np.array([[-1, 0], [1, 1]])]
     res = quadMap(Z, Q)
 
 References:
@@ -30,7 +30,7 @@ Authors: Matthias Althoff, Niklas Kochdumper (MATLAB)
          Python translation by AI Assistant
 Written: 07-December-2011 (MATLAB)
 Last update: 22-November-2019 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

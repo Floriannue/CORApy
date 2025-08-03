@@ -1,7 +1,33 @@
 """
-taylm method for zonotope class
-"""
+taylm - enclose a zonotope object with a Taylor model
 
+Syntax:
+    t = taylm(Z)
+
+Inputs:
+    Z - zonotope object
+
+Outputs:
+    t - taylm object
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, taylm
+    import numpy as np
+    Z = Zonotope(np.array([[1], [0]]), np.array([[1, -1], [0, 1]]))
+    t = taylm(Z)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: ---
+
+Authors:       Niklas Kochdumper (MATLAB)
+               Python translation by AI Assistant
+Written:       13-August-2018 (MATLAB)
+Last update:   --- (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+"""
 import numpy as np
 from typing import Optional
 from .zonotope import Zonotope
@@ -10,17 +36,7 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 def taylm(Z: Zonotope):
     """
-    Enclose a zonotope object with a Taylor model
-    
-    Args:
-        Z: zonotope object
-        
-    Returns:
-        Taylm object
-        
-    Example:
-        Z = Zonotope(np.array([[1], [0]]), np.array([[1, -1], [0, 1]]))
-        t = taylm(Z)
+    Enclose a zonotope object with a Taylor model.
     """
     # Check for None values
     if Z.c is None or Z.G is None:
@@ -29,28 +45,13 @@ def taylm(Z: Zonotope):
     
     # Create taylor models for factors
     m = Z.G.shape[1]
-    dom = interval(-np.ones((m, 1)), np.ones((m, 1)))
-    t = taylm(dom)
+    from cora_python.contSet.interval.interval import Interval
+    from cora_python.contSet.taylm.taylm import Taylm
+    
+    dom = Interval(-np.ones((m, 1)), np.ones((m, 1)))
+    t = Taylm(dom)
     
     # Create taylor model for the zonotope
     t = Z.c + Z.G @ t
     
-    return t
-
-
-def interval(lower: np.ndarray, upper: np.ndarray):
-    """
-    Create an interval object (placeholder for actual interval implementation)
-    """
-    # This is a placeholder - in a full implementation, this would create
-    # an actual interval object from the cora_python.contSet.interval module
-    return {'lower': lower, 'upper': upper}
-
-
-def taylm(dom):
-    """
-    Create a Taylor model object (placeholder for actual taylm implementation)
-    """
-    # This is a placeholder - in a full implementation, this would create
-    # an actual taylm object from the cora_python.contSet.taylm module
-    return {'domain': dom} 
+    return t 

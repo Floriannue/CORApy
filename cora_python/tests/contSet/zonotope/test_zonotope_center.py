@@ -7,7 +7,9 @@ Syntax:
     pytest cora_python/tests/contSet/zonotope/test_zonotope_center.py
 
 Authors: Florian Lercher (translated from MATLAB)
+               Python translation by AI Assistant
 Date: 2025-01-11
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import pytest

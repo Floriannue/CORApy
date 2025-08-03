@@ -1,5 +1,38 @@
 """
-tensorMultiplication method for zonotope class
+tensorMultiplication - computes {M_{ijk...l}*x_j*x_k*...*x_l|x \in Z} when the center of Z is the origin
+
+Syntax:
+    Zres = tensorMultiplication(Z, M, options)
+
+Inputs:
+    Z - zonotope object
+    M - tensor
+    options - options dictionary containing list with perm, comb, and map
+
+Outputs:
+    Zres - zonotope object
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, tensorMultiplication
+    import numpy as np
+    Z = Zonotope(np.array([[0], [0]]), np.array([[1, 0], [0, 1]]))
+    M = [np.random.rand(2, 2, 2)]  # 3D tensor
+    options = {'list': {'perm': np.array([[0, 1], [1, 0]]), 
+                       'comb': np.array([[0, 1]]), 
+                       'map': np.array([0, 0])}}
+    Zres = tensorMultiplication(Z, M, options)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       10-October-2011 (MATLAB)
+Last update:   --- (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -10,23 +43,7 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 def tensorMultiplication(Z: Zonotope, M: List[np.ndarray], options: Dict[str, Any]) -> Zonotope:
     """
-    Computes {M_{ijk...l}*x_j*x_k*...*x_l|x \in Z} when the center of Z is the origin
-    
-    Args:
-        Z: zonotope object
-        M: tensor
-        options: options dictionary containing list with perm, comb, and map
-        
-    Returns:
-        Zonotope object
-        
-    Example:
-        Z = Zonotope(np.array([[0], [0]]), np.array([[1, 0], [0, 1]]))
-        M = [np.random.rand(2, 2, 2)]  # 3D tensor
-        options = {'list': {'perm': np.array([[0, 1], [1, 0]]), 
-                           'comb': np.array([[0, 1]]), 
-                           'map': np.array([0, 0])}}
-        Zres = tensorMultiplication(Z, M, options)
+    Computes {M_{ijk...l}*x_j*x_k*...*x_l|x \in Z} when the center of Z is the origin.
     """
     # Check for None values
     if Z.c is None or Z.G is None:

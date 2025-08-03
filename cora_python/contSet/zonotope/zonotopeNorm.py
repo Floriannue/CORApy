@@ -1,9 +1,7 @@
 """
-zonotopeNorm - computes the norm of the point p w.r.t. the zonotope-norm
-    induced by the zonotope Z (see [1, Definition 4]).
+zonotopeNorm - computes the norm of the point p w.r.t. the zonotope-norm induced by the zonotope Z (see [1, Definition 4])
 
 Syntax:
-    res = zonotopeNorm(Z, p)
     res, minimizer = zonotopeNorm(Z, p)
 
 Inputs:
@@ -12,32 +10,33 @@ Inputs:
 
 Outputs:
     res - zonotope-norm of the point p
-    minimizer - (optional) returns a solution x s.t. Gx = p and for
-                 which norm(x,inf) = zonotopeNorm(Z,p)
+    minimizer - (optional) returns a solution x s.t. Gx = p and for which norm(x,inf) = zonotopeNorm(Z,p)
 
 Example:
-    c = [0;0]
-    G = [[2 3 0];[2 0 3]]
-    Z = zonotope(c, G)
-    
-    p = rand([2 1])
-
-    # Set of points that have the same distance to the origin as p, with
-    # respect to the zonotope norm of Z    
-    d = zonotopeNorm(Z, p)
+    from cora_python.contSet.zonotope import Zonotope, zonotopeNorm
+    import numpy as np
+    c = np.array([[0], [0]])
+    G = np.array([[2, 3, 0], [2, 0, 3]])
+    Z = Zonotope(c, G)
+    p = np.random.rand(2, 1)
+    d, minimizer = zonotopeNorm(Z, p)
 
 References:
-    [1] A. Kulmburg, M. Althoff. "On the co-NP-Completeness of the
-        Zonotope Containment Problem", European Journal of Control 2021
+    [1] A. Kulmburg, M. Althoff. "On the co-NP-Completeness of the Zonotope Containment Problem", European Journal of Control 2021
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
 
 Authors:       Adrian Kulmburg (MATLAB)
                Python translation by AI Assistant
 Written:       14-May-2021 (MATLAB)
-Last update:   16-January-2024 (MW, handle edge cases)
-Last revision: ---
+Last update:   28-March-2025 (TL, return minimizer) (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
-from __future__ import annotations
 import numpy as np
 from typing import TYPE_CHECKING, Tuple, Union
 from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check
@@ -50,22 +49,7 @@ if TYPE_CHECKING:
 
 def zonotopeNorm(Z: 'Zonotope', p: np.ndarray) -> Tuple[float, np.ndarray]:
     """
-    Computes the norm of the point p w.r.t. the zonotope-norm
-    induced by the zonotope Z (see [1, Definition 4]).
-
-    Args:
-        Z (Zonotope): A zonotope object.
-        p (np.ndarray): A nx1-array, with n the dimension of Z.
-
-    Returns:
-        tuple: A tuple containing:
-            - res (float): The zonotope-norm of the point p.
-            - minimizer (np.ndarray): A solution x s.t. Gx = p and for
-              which norm(x,inf) = zonotopeNorm(Z,p).
-
-    References:
-        [1] A. Kulmburg, M. Althoff. "On the co-NP-Completeness of the
-            Zonotope Containment Problem", European Journal of Control 2021
+    Computes the norm of the point p w.r.t. the zonotope-norm induced by the zonotope Z.
     """
     
     # Check number of input arguments (Python equivalent of narginchk(2,2))

@@ -32,7 +32,7 @@ Authors:       Matthias Althoff, Niklas Kochdumper, Tobias Ladner (MATLAB)
                Python translation by AI Assistant
 Written:       14-September-2006 (MATLAB)
 Last update:   05-October-2024 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

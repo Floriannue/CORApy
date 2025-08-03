@@ -2,17 +2,17 @@
 conZonotope - convert a zonotope object into a conZonotope object
 
 Syntax:
-    cZ = conZonotope(Z)
+   cZ = conZonotope(Z)
 
 Inputs:
-    Z - zonotope object
+   Z - zonotope object
 
 Outputs:
-    cZ - conZonotope object
+   cZ - conZonotope object
 
 Example:
-    Z = zonotope([1;0],[1 0; 0 1])
-    cZ = conZonotope(Z)
+   Z = Zonotope(np.array([[1], [0]]), np.array([[1, 0], [0, 1]]))
+   cZ = conZonotope(Z)
 
 Other m-files required: none
 Subfunctions: none
@@ -20,10 +20,11 @@ MAT-files required: none
 
 See also: none
 
-Authors:       Niklas Kochdumper
-Written:       23-May-2018
-Last update:   ---
-Last revision: ---
+Authors: Niklas Kochdumper (MATLAB)
+         Python translation by AI Assistant
+Written: 23-May-2018 (MATLAB)
+Last update: --- (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 from .zonotope import Zonotope

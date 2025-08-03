@@ -5,7 +5,7 @@ Mirrors MATLAB test_zonotope_supportFunc.m
 Authors: Mark Wetzlinger, Victor Gassmann (MATLAB)
          Python translation by AI Assistant
 Written: 27-July-2021 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

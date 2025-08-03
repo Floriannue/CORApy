@@ -3,9 +3,9 @@ randPoint_ - generates random points within a zonotope
 
 Syntax:
     p = randPoint_(Z)
-    p = randPoint_(Z,N)
-    p = randPoint_(Z,N,type)
-    p = randPoint_(Z,'all','extreme')
+    p = randPoint_(Z, N)
+    p = randPoint_(Z, N, type)
+    p = randPoint_(Z, 'all', 'extreme')
 
 Inputs:
     Z - zonotope object
@@ -17,12 +17,11 @@ Inputs:
 Outputs:
     p - random point (cloud) in R^n
 
-Example: 
-    Z = zonotope([1;0],[1 0 1; -1 2 1]);
-    p = randPoint(Z);
-
-    plot(Z); hold on;
-    scatter(p(1,:),p(2,:),16,'r');
+Example:
+    from cora_python.contSet.zonotope import Zonotope, randPoint_
+    import numpy as np
+    Z = Zonotope(np.array([[1], [0]]), np.array([[1, 0, 1], [-1, 2, 1]]))
+    p = randPoint_(Z)
 
 References:
     [1] Robert L. Smith: Efficient Monte Carlo Procedures for Generating
@@ -37,21 +36,17 @@ MAT-files required: none
 
 See also: contSet/randPoint, interval/randPoint_
 
-Authors:       Matthias Althoff, Mark Wetzlinger, Adrian Kulmburg, Severin Prenitzer
-Written:       23-September-2008 
-Last update:   25-June-2021 (MP, add type gaussian)
-                19-August-2022 (MW, integrate standardized pre-processing)
-                22-May-2023 (AK, implemented uniform sampling)
-                20-January-2024 (TL, added radius method)
-                03-March-2024 (TL, made boundary method accessible)
-Last revision: 05-October-2024 (MW, refactor)
-Automatic python translation: Florian Nüssel BA 2025
+Authors:       Matthias Althoff, Mark Wetzlinger, Adrian Kulmburg, Severin Prenitzer (MATLAB)
+               Python translation by AI Assistant
+Written:       23-September-2008 (MATLAB)
+Last update:   05-October-2024 (MW, refactor) (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
-from typing import Union, TYPE_CHECKING
 import numpy as np
 from scipy.linalg import svd
 import warnings
+from typing import TYPE_CHECKING, Union
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
 from cora_python.g.functions.helper.sets.contSet.zonotope.ndimCross import ndimCross
@@ -62,17 +57,7 @@ if TYPE_CHECKING:
 
 def randPoint_(Z: 'Zonotope', N: Union[int, str] = 1, type_: str = 'standard') -> np.ndarray:
     """
-    Generates random points within a zonotope
-    
-    Args:
-        Z: zonotope object
-        N: number of random points
-        type_: type of the random point ('standard', 'extreme', 'uniform' or
-               'uniform:hitAndRun', 'uniform:billiardWalk',
-               'uniform:ballWalk')
-        
-    Returns:
-        p: random point (cloud) in R^n
+    Generates random points within a zonotope.
     """
     # Zonotope is just a point -> replicate center N times
     if Z.representsa_('point', 1e-15):

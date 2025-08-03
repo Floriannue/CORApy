@@ -1,5 +1,27 @@
 """
-filterOut method for zonotope class
+filterOut - deletes parallelotopes that are covered by other parallelotopes
+
+Syntax:
+    Zrem = filterOut(Z)
+
+Inputs:
+    Z - cell array of zonotope objects
+
+Outputs:
+    Zrem - cell array of remaining zonotope objects
+
+Example:
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: ---
+
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       09-October-2008 (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -33,7 +55,8 @@ def filterOut(Z: List[Zonotope]) -> List[Zonotope]:
     # Sort the parallelotopes by volume
     vol = []
     for i in range(len(Z)):
-        vol.append(volume(Z[i]))
+        from .volume_ import volume_
+        vol.append(volume_(Z[i], 'exact'))
     
     # Sort by volume (ascending)
     sorted_indices = np.argsort(vol)
@@ -41,6 +64,7 @@ def filterOut(Z: List[Zonotope]) -> List[Zonotope]:
     # Convert to halfspace representation
     P = []
     for i in range(len(Z)):
+        from .polytope import polytope
         P.append(polytope(Z[i]))
     
     # Intersect parallelotopes
@@ -52,40 +76,10 @@ def filterOut(Z: List[Zonotope]) -> List[Zonotope]:
             if j != ind:
                 Pint = Pint.difference(P[j])
         
-        # Is parallelotope empty?
-        xCheb, RCheb = chebyball(Pint)
-        if RCheb != -np.inf:
+        # Is parallelotope empty? Check if the polytope is empty
+        if not Pint.isemptyobject():
             Zrem.append(Z[ind])
         else:
             print('canceled!!')
     
-    return Zrem
-
-
-def volume(Z: Zonotope) -> float:
-    """
-    Compute volume of zonotope (simplified implementation)
-    """
-    if Z.G is None:
-        return 0.0
-    
-    # Simple volume approximation
-    return float(np.linalg.det(Z.G @ Z.G.T) ** 0.5)
-
-
-def polytope(Z: Zonotope):
-    """
-    Convert zonotope to polytope (placeholder implementation)
-    """
-    # This is a placeholder - in a full implementation, this would create
-    # an actual polytope object from the zonotope
-    return {'type': 'polytope', 'zonotope': Z}
-
-
-def chebyball(P):
-    """
-    Compute Chebyshev ball of polytope (placeholder implementation)
-    """
-    # This is a placeholder - in a full implementation, this would compute
-    # the Chebyshev ball of the polytope
-    return np.zeros(2), 1.0  # center and radius 
+    return Zrem 

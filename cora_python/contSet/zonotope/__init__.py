@@ -63,6 +63,12 @@ from .lift_ import lift_
 from .minkDiff import minkDiff
 from .or_ import or_
 from .underapproximate import underapproximate
+from .dH2box import dH2box
+from .dominantDirections import dominantDirections
+from .spectraShadow import spectraShadow
+from .taylm import taylm
+from .volumeRatio import volumeRatio
+from .filterOut import filterOut
 
 # Attach methods to the class
 Zonotope.abs = abs_op
@@ -131,9 +137,15 @@ Zonotope.minkDiff = minkDiff
 Zonotope.or_ = or_
 Zonotope.__or__ = or_
 Zonotope.underapproximate = underapproximate
+Zonotope.dH2box = dH2box
+Zonotope.dominantDirections = dominantDirections
+Zonotope.spectraShadow = spectraShadow
+Zonotope.taylm = taylm
+Zonotope.volumeRatio = volumeRatio
+Zonotope.filterOut = filterOut
 
 # Attach static methods
 Zonotope.enclosePoints = staticmethod(enclosePoints)
 Zonotope.generateRandom = staticmethod(generateRandom)
 
-__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'reduceUnderApprox', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap', 'constrSat', 'generateRandom', 'intersectStrip', 'lift_', 'minkDiff', 'or_', 'underapproximate'] 
+__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'reduceUnderApprox', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap', 'constrSat', 'generateRandom', 'intersectStrip', 'lift_', 'minkDiff', 'or_', 'underapproximate', 'dH2box', 'dominantDirections', 'spectraShadow', 'taylm', 'volumeRatio', 'filterOut'] 

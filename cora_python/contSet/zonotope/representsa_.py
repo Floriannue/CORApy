@@ -1,19 +1,24 @@
+import numpy as np
+from typing import Tuple, Union, Optional, Any
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+
+
 """
 representsa_ - checks if a zonotope can also be represented by a
-   different set, e.g., a special case
+    different set, e.g., a special case
 
 Syntax:
-   res = representsa_(Z, type, tol)
-   [res, S] = representsa_(Z, type, tol)
+    res = representsa_(Z,type,tol)
+    [res,S] = representsa_(Z,type,tol)
 
 Inputs:
-   Z - zonotope object
-   type - other set representation or 'origin', 'point', 'hyperplane'
-   tol - tolerance
+    Z - zonotope object
+    type - other set representation or 'origin', 'point', 'hyperplane'
+    tol - tolerance
 
 Outputs:
-   res - true/false
-   S - converted set
+    res - true/false
+    S - converted set
 
 Other m-files required: none
 Subfunctions: none
@@ -21,10 +26,11 @@ MAT-files required: none
 
 See also: contSet/representsa
 
-Authors: Mark Wetzlinger (MATLAB)
-         Python translation by AI Assistant
-Written: 19-July-2023 (MATLAB)
-Python translation: 2025
+Authors:       Mark Wetzlinger (MATLAB)
+               Python translation by AI Assistant
+Written:       19-July-2023 (MATLAB)
+Last update:   28-May-2025 (TL, speed up for 'interval') (MATLAB)
+             2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -33,19 +39,6 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 
 def representsa_(Z, set_type: str, tol: float = 1e-12, method: str = 'linearize', iter_val: int = 1, splits: int = 0, **kwargs):
-    """
-    Checks if a zonotope can also be represented by a different set type
-    
-    Args:
-        Z: zonotope object
-        set_type: string indicating the target set type
-        tol: tolerance (default: 1e-12)
-        **kwargs: additional arguments
-        
-    Returns:
-        bool: Whether Z can be represented by set_type (if called with single output)
-        tuple: (bool, converted_set) if called expecting two outputs
-    """
     # Import here to avoid circular imports
     from cora_python.contSet.interval import Interval
     from cora_python.contSet.capsule import Capsule

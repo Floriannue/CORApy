@@ -17,12 +17,6 @@ Inputs:
 Outputs:
     Z - random zonotope
 
-Example: 
-    Z1 = zonotope.generateRandom();
-    Z2 = zonotope.generateRandom('Dimension',3);
-    Z3 = zonotope.generateRandom('Center',ones(2,1));
-    Z4 = zonotope.generateRandom('Dimension',4,'NrGenerators',10);
-    Z5 = zonotope.generateRandom('Distribution','gamma');
 
 Other m-files required: none
 Subfunctions: none
@@ -34,7 +28,7 @@ Authors:       Matthias Althoff, Mark Wetzlinger (MATLAB)
                Python translation by AI Assistant
 Written:       17-September-2019 (MATLAB)
 Last update:   19-May-2022 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

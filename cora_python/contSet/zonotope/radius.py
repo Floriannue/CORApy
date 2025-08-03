@@ -10,37 +10,30 @@ Inputs:
 Outputs:
     r - radius
 
-Example: 
-    Z = zonotope([1;-1],[-1 2 1; 3 2 0]);
+Example:
+    from cora_python.contSet.zonotope import Zonotope, radius
+    import numpy as np
+    Z = Zonotope(np.array([[1], [-1]]), np.array([[-1, 2, 1], [3, 2, 0]]))
     r = radius(Z)
 
 Other m-files required: ---
 Subfunctions: none
 MAT-files required: none
 
-See also: 
+See also: ---
 
-Authors:       Matthias Althoff
-Written:       19-April-2010
-Last update:   27-July-2016
-                27-August-2019 (MW)
-Last revision: ---
-Automatic python translation: Florian Nüssel BA 2025
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       19-April-2010 (MATLAB)
+Last update:   27-August-2019 (MW) (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
-
 import numpy as np
 from .zonotope import Zonotope
 
-
 def radius(Z: Zonotope) -> float:
     """
-    Computes the radius of a hypersphere enclosing a zonotope
-    
-    Args:
-        Z: zonotope object
-        
-    Returns:
-        r: radius
+    Computes the radius of a hypersphere enclosing a zonotope.
     """
     # Extract generators
     G = Z.G

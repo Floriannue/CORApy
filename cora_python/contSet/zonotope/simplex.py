@@ -1,5 +1,35 @@
 """
-simplex method for zonotope class
+simplex - enclose a zonotope by a simplex
+
+Syntax:
+    P = simplex(Z)
+
+Inputs:
+    Z - zonotope object
+
+Outputs:
+    P - polytope object representing the simplex
+
+Example: 
+    Z = Zonotope(np.array([[1], [0]]), np.array([[1, -1, 0.5], [0, 1, 1]]))
+    P = simplex(Z)
+    
+    # Visualization (equivalent to MATLAB plotting)
+    # figure; hold on; box on;
+    # plot(Z);
+    # plot(P, [1,2], 'r');
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: zonotope/interval, zonotope/polytope
+
+Authors:       Niklas Kochdumper (MATLAB)
+               Python translation by AI Assistant
+Written:       31-May-2022 (MATLAB)
+Last update:   --- (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -10,17 +40,13 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 def simplex(Z: Zonotope):
     """
-    Enclose a zonotope by a simplex
+    Enclose a zonotope by a simplex.
     
     Args:
         Z: zonotope object
         
     Returns:
-        Polytope object representing the simplex
-        
-    Example:
-        Z = Zonotope(np.array([[1], [0]]), np.array([[1, -1, 0.5], [0, 1, 1]]))
-        P = simplex(Z)
+        P: polytope object representing the simplex
     """
     # Check for None values
     if Z.c is None or Z.G is None:

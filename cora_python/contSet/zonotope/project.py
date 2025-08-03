@@ -1,11 +1,31 @@
 """
 project - projects a zonotope onto the specified dimensions
 
+Syntax:
+    Z = project(Z,dims)
+
+Inputs:
+    Z - (zonotope) zonotope
+    dims - dimensions for projection
+
+Outputs:
+    Z - (zonotope) projected zonotope
+
+Example: 
+    Z = Zonotope(np.array([[1, -1, 0], [0, 0, -1], [1, 0, 1]]))
+    Z = project(Z, [0, 2])
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
 Authors: Matthias Althoff (MATLAB)
          Python translation by AI Assistant
 Written: 15-September-2008 (MATLAB)
-Last update: 20-October-2023 (MATLAB)
-Python translation: 2025
+Last update: 20-October-2023 (TL, correct projection for G\in\R^{n x 0}) (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

@@ -4,7 +4,7 @@ test_zonotope_zonotopeNorm - unit test function of zonotope norm
 Authors: Mark Wetzlinger (MATLAB)
          Python translation by AI Assistant
 Written: 16-January-2024 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import pytest

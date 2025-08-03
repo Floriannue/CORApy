@@ -1,5 +1,29 @@
 """
-orthVectors method for zonotope class
+orthVectors - computes remaining orthogonal vectors when the zonotope is
+    not full dimensional
+
+Syntax:
+    V = orthVectors(Z)
+
+Inputs:
+    Z - zonotope
+
+Outputs:
+    V - orthogonal vectors in matrix form
+
+Example:
+
+Other m-files required: vertices, polytope
+Subfunctions: none
+MAT-files required: none
+
+See also: interval, vertices
+
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       17-January-2012 (MATLAB)
+Last update:   27-August-2019 (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

@@ -20,7 +20,7 @@ Authors:       Mark Wetzlinger (MATLAB)
                Python translation by AI Assistant
 Written:       27-September-2019 (MATLAB)
 Last update:   19-May-2022 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import pytest

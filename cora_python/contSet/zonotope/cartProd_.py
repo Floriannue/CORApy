@@ -1,7 +1,36 @@
 """
-cartProd_ method for zonotope class
-"""
+cartProd_ - computes the Cartesian product of two zonotopes
 
+Syntax:
+    Z = cartProd_(Z, S)
+
+Inputs:
+    Z - zonotope object
+    S - contSet object
+
+Outputs:
+    Z - zonotope object
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, cartProd_
+    import numpy as np
+    Z1 = Zonotope(np.array([[-1], [1]]), np.array([[1, 3, 2], [-3, 0, 1]]))
+    Z2 = Zonotope(np.array([[0], [2], [-3]]), np.array([[1, 4, -2], [2, 0, -1], [0, 2, 2]]))
+    Z = cartProd_(Z1, Z2)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: contSet/cartProd
+
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       18-May-2011 (MATLAB)
+Last update:   05-May-2020 (MW, standardized error message) (MATLAB)
+Last revision: 27-March-2023 (MW, rename cartProd_) (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+"""
 import numpy as np
 from typing import Union
 from .zonotope import Zonotope
@@ -17,14 +46,7 @@ if TYPE_CHECKING:
     
 def cartProd_(Z: Union[Zonotope, np.ndarray], S: Union[Zonotope, np.ndarray, 'Interval', 'ConZonotope', 'ZonoBundle', 'Polytope', 'PolyZonotope', 'ConPolyZono']) -> Zonotope:
     """
-    Computes the Cartesian product of two zonotopes
-    
-    Args:
-        Z: zonotope object or numeric array
-        S: contSet object or numeric array
-        
-    Returns:
-        Zonotope object representing the Cartesian product
+    Computes the Cartesian product of two zonotopes.
     """
     from ..interval import Interval
     from ..conZonotope import ConZonotope

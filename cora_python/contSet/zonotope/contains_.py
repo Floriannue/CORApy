@@ -2,105 +2,103 @@
 contains_ - determines if a zonotope contains a set or a point
 
 Syntax:
-    [res, cert, scaling] = contains_(Z, S, method, tol, maxEval, certToggle, scalingToggle)
+   [res,cert,scaling] = contains_(Z,S,method,tol,maxEval,certToggle,scalingToggle)
 
 Inputs:
-    Z - zonotope object
-    S - contSet object or single point or matrix of points
-    method - method used for the containment check.
-        The available options are:
-            - 'exact': Checks for containment by using either
-                'exact:venum' or 'exact:polymax', depending on the number
-                of generators of Z and the object S.
-            - 'approx': Checks for containment using 'approx:st' (see  
-                below) if S is a zonotope, or any approximative method 
-                available otherwise.
-            - 'exact:venum': Checks for containment by enumerating all 
-                vertices of S (see Algorithm 1 in [2]).
-            - 'exact:polymax': Checks for containment by maximizing the
-                polyhedral norm w.r.t. Z over S (see Algorithm 2 in [2]).
-            - 'approx:st': Solves the containment problem using the
-                approximative method from [1]. If a solution using
-                'approx:st' returns that Z1 is contained in Z2, then this
-                is guaranteed to be the case. The runtime is polynomial
-                w.r.t. all inputs.
-            - 'approx:stDual': Solves the containment problem using the 
-                dual approximative method from [3]. Returns the same values
-                for res and scaling as 'approx:st', but cert can be more
-                precise.
-           For the next methods, note that if both certToggle and
-           scalingToggle are set to 'false', then res will be set to
-           'false' automatically, and the algorithms will not be executed.
-           This is because stochastic/optimization-based algorithms can not
-           confirm containment, so res = true can never happen. However, if
-           maxEval is set high enough, and res = false but cert = false,
-           one might conclude that with good probability, containment
-           holds.
-            - 'opt': Solves the containment problem via optimization
-                (see [2]) using the subroutine ga. If a solution
-                using 'opt' returns that Z1 is not contained in Z2, then
-                this is guaranteed to be the case. The runtime is
-                polynomial w.r.t. maxEval and the other inputs.
-            - 'sampling:primal': Solves the containment stochastically,
-                using the Shenmaier vertex sampling from [4].
-            - 'sampling:dual': Solves the containment stochastically, using
-                the Shenmaier halfspace sampling from [4].
-        The methods 'exact:venum' and 'exact:polymax' are only available if
-        S is a zonotope or a point/point cloud, and 'opt', 'approx:st', and
-        'approx:stDual' are only available if S is a zonotope.
-    tol - tolerance for the containment check; the higher the
-        tolerance, the more likely it is that points near the boundary of Z
-        will be detected as lying in Z, which can be useful to counteract
-        errors originating from floating point errors.
-    maxEval - only, if 'opt', 'sampling:primal', or 'sampling:dual' is
-        used: Number of maximal function evaluations.
-    certToggle - if set to 'true', cert will be computed (see below).
-    scalingToggle - if set to 'true', scaling will be computed (see
-        below).
+   Z - zonotope object
+   S - contSet object or single point or matrix of points
+   method - method used for the containment check.
+      The available options are:
+          - 'exact': Checks for containment by using either
+              'exact:venum' or 'exact:polymax', depending on the number
+              of generators of Z and the object S.
+          - 'approx': Checks for containment using 'approx:st' (see  
+              below) if S is a zonotope, or any approximative method 
+              available otherwise.
+          - 'exact:venum': Checks for containment by enumerating all 
+              vertices of S (see Algorithm 1 in [2]).
+          - 'exact:polymax': Checks for containment by maximizing the
+              polyhedral norm w.r.t. Z over S (see Algorithm 2 in [2]).
+          - 'approx:st': Solves the containment problem using the
+              approximative method from [1]. If a solution using
+              'approx:st' returns that Z1 is contained in Z2, then this
+              is guaranteed to be the case. The runtime is polynomial
+              w.r.t. all inputs.
+          - 'approx:stDual': Solves the containment problem using the 
+              dual approximative method from [3]. Returns the same values
+              for res and scaling as 'approx:st', but cert can be more
+              precise.
+         For the next methods, note that if both certToggle and
+         scalingToggle are set to 'false', then res will be set to
+         'false' automatically, and the algorithms will not be executed.
+         This is because stochastic/optimization-based algorithms can not
+         confirm containment, so res = true can never happen. However, if
+         maxEval is set high enough, and res = false but cert = false,
+         one might conclude that with good probability, containment
+         holds.
+          - 'opt': Solves the containment problem via optimization
+              (see [2]) using the subroutine ga. If a solution
+              using 'opt' returns that Z1 is not contained in Z2, then
+              this is guaranteed to be the case. The runtime is
+              polynomial w.r.t. maxEval and the other inputs.
+          - 'sampling:primal': Solves the containment stochastically,
+              using the Shenmaier vertex sampling from [4].
+          - 'sampling:dual': Solves the containment stochastically, using
+              the Shenmaier halfspace sampling from [4].
+      The methods 'exact:venum' and 'exact:polymax' are only available if
+      S is a zonotope or a point/point cloud, and 'opt', 'approx:st', and
+      'approx:stDual' are only available if S is a zonotope.
+   tol - tolerance for the containment check; the higher the
+      tolerance, the more likely it is that points near the boundary of Z
+      will be detected as lying in Z, which can be useful to counteract
+      errors originating from floating point errors.
+   maxEval - only, if 'opt', 'sampling:primal', or 'sampling:dual' is
+      used: Number of maximal function evaluations.
+   certToggle - if set to 'true', cert will be computed (see below).
+   scalingToggle - if set to 'true', scaling will be computed (see
+      below).
 
 Outputs:
-    res - true/false
-    cert - returns true iff the result of res could be
-           verified. For example, if res=false and cert=true, S is
-           guaranteed to not be contained in Z, whereas if res=false and
-           cert=false, nothing can be deduced (S could still be
-           contained in Z).
-           If res=true, then cert=true.
-           Note that computing this certification may marginally increase
-           the runtime.
-    scaling - returns the smallest number 'scaling', such that
-           scaling*(Z - center(Z)) + center(Z) contains S.
-           For the methods 'approx' and 'approx:st' this is an upper
-           bound, for 'opt', 'sampling:primal' and 'sampling:dual', this
-           number is a lower bound.
-           Note that computing this scaling factor may significantly 
-           increase the runtime.
+   res - true/false
+   cert - returns true iff the result of res could be
+          verified. For example, if res=false and cert=true, S is
+          guaranteed to not be contained in Z, whereas if res=false and
+          cert=false, nothing can be deduced (S could still be
+          contained in Z).
+          If res=true, then cert=true.
+          Note that computing this certification may marginally increase
+          the runtime.
+   scaling - returns the smallest number 'scaling', such that
+          scaling*(Z - center(Z)) + center(Z) contains S.
+          For the methods 'approx' and 'approx:st' this is an upper
+          bound, for 'opt', 'sampling:primal' and 'sampling:dual', this
+          number is a lower bound.
+          Note that computing this scaling factor may significantly 
+          increase the runtime.
 
 Note: For low dimensions or number of generators, and if S is a point
 cloud with a very large number of points, it may be beneficial to convert
 the zonotope to a polytope and call its containment operation
 
 Example: 
-    Z1 = zonotope([0.5 2 3 0;0.5 2 0 3])
-    Z2 = zonotope([0 -1 1 0; 0 1 0 1])
-    Z3 = Z2 + [3;0]
- 
-    contains(Z1,Z2)
-    contains(Z1,Z3)
- 
-    figure; hold on;
-    plot(Z1,[1,2],'b');
-    plot(Z2,[1,2],'g');
-    
-    figure; hold on;
-    plot(Z1,[1,2],'b');
-    plot(Z3,[1,2],'r');
+   Z1 = Zonotope(np.array([[0.5, 2, 3, 0], [0.5, 2, 0, 3]]))
+   Z2 = Zonotope(np.array([[0, -1, 1, 0], [0, 1, 0, 1]]))
+   Z3 = Z2 + np.array([[3], [0]])
+
+   contains_(Z1, Z2)
+   contains_(Z1, Z3)
 
 References:
-    [1] Sadraddini et. al: Linear Encodings for Polytope Containment Problems, CDC 2019
-    [2] A. Kulmburg, M. Althoff.: On the co-NP-Completeness of the Zonotope Containment Problem, European Journal of Control 2021
-    [3] A. Kulmburg, M. Althoff.: Hardness and Approximability of the Containment Problem for Zonotopes and Ellipsotopes (to appear)
-    [4] Kulmburg A., Brkan I., Althoff M.,: Search-based and Stochastic Solutions to the Zonotope and Ellipsotope Containment Problems, ECC 2024
+   [1] Sadraddini et. al: Linear Encodings for Polytope Containment
+       Problems, CDC 2019
+   [2] A. Kulmburg, M. Althoff.: On the co-NP-Completeness of the
+       Zonotope Containment Problem, European Journal of Control 2021
+   [3] A. Kulmburg, M. Althoff.: Hardness and Approximability of the
+       Containment Problem for Zonotopes and Ellipsotopes
+       (to appear)
+   [4] Kulmburg A., Brkan I., Althoff M.,: Search-based and Stochastic
+       Solutions to the Zonotope and Ellipsotope Containment Problems,
+       ECC 2024
 
 Other m-files required: none
 Subfunctions: none
@@ -108,25 +106,13 @@ MAT-files required: none
 
 See also: contSet/contains, interval/contains_, conZonotope/contains_
 
-Authors:       Matthias Althoff, Niklas Kochdumper, Adrian Kulmburg, Ivan Brkan (MATLAB)
-               Automatic python translation: Florian Nüssel BA 2025
-Written:       07-May-2007 (MATLAB)
-Last update:   06-April-2017
-               14-September-2019
-               19-November-2019 (NK, changed to header format)
-               01-July-2021 (AK, modified input parsing, implemented methods from [2])
-               22-July-2022 (MA, method st no longer requires YALMIP)
-               25-November-2022 (LS, method st using sparse matrices)
-               25-November-2022 (MW, rename 'contains')
-               05-February-2024 (AK, moved subfunctions, added sampling methods and stDual)
-               06-March-2024 (TL, check emptiness of zonotopes)
-               27-September-2024 (MW, remove halfspace call)
-               02-October-2024 (MW, point-in-zono, type decides LP/polytope)
-               15-January-2025 (TL, point-in-zono, tol is used for degeneracy check)
-               28-March-2025 (TL, buffer degenerate sets)
-               28-May-2025 (TL, quick check for representsa interval)
-Last revision: 27-March-2023 (MW, rename contains_)
+Authors: Matthias Althoff, Niklas Kochdumper, Adrian Kulmburg, Ivan Brkan (MATLAB)
+         Python translation by AI Assistant
+Written: 07-May-2007 (MATLAB)
+Last update: 28-May-2025 (TL, quick check for representsa interval) (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
+
 import numpy as np
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from .compact_ import compact_

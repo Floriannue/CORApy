@@ -1,36 +1,28 @@
 """
-reduceUnderApprox - reduces the order of a zonotope so that an
-   under-approximation of the original set is obtained
+reduceUnderApprox - reduces the order of a zonotope so that an under-approximation of the original set is obtained
 
 Syntax:
-   Z = reduceUnderApprox(Z,method,order)
+    Z = reduceUnderApprox(Z, method, order)
 
 Inputs:
-   Z - zonotope object
-   method - reduction method ('sum','scale','linProg','wetzlinger')
-   order - zonotope order
+    Z - zonotope object
+    method - reduction method ('sum','scale','linProg','wetzlinger')
+    order - zonotope order
 
 Outputs:
-   Z - reduced zonotope
+    Z - reduced zonotope
 
-Example: 
-   Z = zonotope([1;-1],[3 2 -3 -1 2 4 -3 -2 1; 2 0 -2 -1 2 -2 1 0 -1]);
-
-   Zsum = reduceUnderApprox(Z,'sum',3); 
-   Zscale = reduceUnderApprox(Z,'scale',3);
-   ZlinProg = reduceUnderApprox(Z,'linProg',3);
- 
-   figure; hold on;
-   plot(Z,[1,2],'r','LineWidth',2);
-   plot(Zsum,[1,2],'b');
-   plot(Zscale,[1,2],'g');
-   plot(ZlinProg,[1,2],'m');
+Example:
+    from cora_python.contSet.zonotope import Zonotope, reduceUnderApprox
+    import numpy as np
+    Z = Zonotope(np.array([[1], [-1]]), np.array([[3, 2, -3, -1, 2, 4, -3, -2, 1], [2, 0, -2, -1, 2, -2, 1, 0, -1]]))
+    Zsum = reduceUnderApprox(Z, 'sum', 3)
+    Zscale = reduceUnderApprox(Z, 'scale', 3)
+    ZlinProg = reduceUnderApprox(Z, 'linProg', 3)
 
 References:
-   [1] Sadraddini et al. "Linear Encodings for Polytope Containment
-       Problems", CDC 2019
-   [2] Wetzlinger et al. "Adaptive Parameter Tuning for Reachability 
-       Analysis of Nonlinear Systems", HSCC 2021             
+    [1] Sadraddini et al. "Linear Encodings for Polytope Containment Problems", CDC 2019
+    [2] Wetzlinger et al. "Adaptive Parameter Tuning for Reachability Analysis of Nonlinear Systems", HSCC 2021             
 
 Other m-files required: none
 Subfunctions: see below
@@ -38,14 +30,12 @@ MAT-files required: none
 
 See also: reduce
 
-Authors:       Niklas Kochdumper
-Written:       19-November-2018
-Last update:   29-August-2019
-               15-April-2020 (added additional reduction techniques)
-Last revision: ---
-Automatic python translation: Florian Nüssel BA 2025
+Authors:       Niklas Kochdumper (MATLAB)
+               Python translation by AI Assistant
+Written:       19-November-2018 (MATLAB)
+Last update:   15-April-2020 (added additional reduction techniques) (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
-
 import numpy as np
 from typing import Optional, Tuple
 from .zonotope import Zonotope
@@ -55,15 +45,7 @@ from cora_python.g.functions.matlab.validate.check import inputArgsCheck
 
 def reduceUnderApprox(Z: Zonotope, method: str, order: int) -> Zonotope:
     """
-    Reduces the order of a zonotope so that an under-approximation of the original set is obtained
-    
-    Args:
-        Z: zonotope object
-        method: reduction method ('sum', 'scale', 'linProg', 'wetzlinger')
-        order: zonotope order
-        
-    Returns:
-        Reduced zonotope
+    Reduces the order of a zonotope so that an under-approximation of the original set is obtained.
     """
     # Check input arguments
     inputArgsCheck([

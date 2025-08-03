@@ -3,10 +3,10 @@ reduce - reduces the order of a zonotope, the resulting zonotope is an
     over-approximation of the original zonotope
 
 Syntax:
-    Z = reduce(Z,method)
-    Z = reduce(Z,method,order)
-    Z = reduce(Z,method,order,filterLength)
-    Z = reduce(Z,method,order,filterLength,option)
+    Z = reduce(Z, method)
+    Z = reduce(Z, method, order)
+    Z = reduce(Z, method, order, filterLength)
+    Z = reduce(Z, method, order, filterLength, option)
 
 Inputs:
     Z - zonotope object
@@ -27,16 +27,16 @@ Inputs:
                    - 'redistribute'
                    - 'valero'          
     order - order of reduced zonotope
-    filterLength - filter length for some methods
-    option - additional option
+    filterLength - ???
+    options - ???
+    alg - ???
 
 Outputs:
     Z - zonotope object
-
-Example: 
-    Z = zonotope([1;-1],[2 3 1 -1 -2 1 -4 3 0; 2 3 -2 1 -3 2 1 0 2]);
-    Zred1 = reduce(Z,'girard',2);
-    Zred2 = reduce(Z,'combastel',2);
+    dHerror - (optional, only 'adaptive' and 'scaleHausdorff') 
+              over-approximation of the Hausdorff distance between the 
+              original and reduced zonotope
+    gredIdx - index of reduced generators
 
 References:
     [1] M. Althoff. "Reachability analysis and its application to the 
@@ -62,12 +62,11 @@ MAT-files required: none
 
 See also: none
 
-Authors:       Matthias Althoff
-Written:       24-January-2007 
-Last update:   15-September-2007
-                27-June-2018
-Last revision: 06-October-2024 (MW, refactor including priv_)
-Automatic python translation: Florian Nüssel BA 2025
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       24-January-2007 (MATLAB)
+Last update:   06-October-2024 (MW, refactor including priv_) (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

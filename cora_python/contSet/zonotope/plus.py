@@ -13,10 +13,10 @@ Inputs:
 Outputs:
     S_out - zonotope after Minkowski addition
 
-Example:
-    Z = zonotope([1, 0], [[1, 0], [0, 1]])
+Example: 
+    Z = Zonotope(np.array([[1], [0]]), np.array([[1, 0], [0, 1]]))
     Z1 = Z + Z
-    Z2 = Z + [2, -1]
+    Z2 = Z + np.array([[2], [-1]])
 
 References:
     [1] M. Althoff. "Reachability analysis and its application to the 
@@ -32,7 +32,7 @@ Authors:       Matthias Althoff (MATLAB)
                Python translation by AI Assistant
 Written:       30-September-2006 (MATLAB)
 Last update:   25-February-2025 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

@@ -10,8 +10,8 @@ Inputs:
 Outputs:
     Z - empty zonotope
 
-Example:
-    Z = zonotope.empty(2)
+Example: 
+    Z = empty(2)
 
 Other m-files required: none
 Subfunctions: none
@@ -23,7 +23,7 @@ Authors:       Mark Wetzlinger (MATLAB)
                Python translation by AI Assistant
 Written:       09-January-2024 (MATLAB)
 Last update:   15-January-2024 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

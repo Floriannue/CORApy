@@ -1,27 +1,40 @@
-import numpy as np
+"""
+box - computes an enclosing axis-aligned box; the result is equivalent to a conversion to intervals but yields a zonotope representation
 
+Syntax:
+    Z = box(Z)
+
+Inputs:
+    Z - zonotope object
+
+Outputs:
+    Z - zonotope object
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, box
+    import numpy as np
+    Z = Zonotope(np.array([[1], [-1]]), np.array([[-3, 2, 1], [-1, 0, 3]]))
+    B = box(Z)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       09-March-2009 (MATLAB)
+Last update:   27-August-2019 (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+"""
+import numpy as np
 from .zonotope import Zonotope
 from .empty import empty
 
 def box(Z):
     """
-    Computes an enclosing axis-aligned box in generator representation.
-    
-    According to CORA manual Appendix A.1, this method returns a zonotope that 
-    represents the smallest axis-aligned box (interval) that encloses the given zonotope.
-    
-    Args:
-        Z: Zonotope object
-        
-    Returns:
-        Zonotope: Axis-aligned box zonotope
-        
-    Examples:
-        >>> c = np.array([[1], [0]])
-        >>> G = np.array([[2, -1], [4, 1]])
-        >>> Z = Zonotope(c, G)
-        >>> Z_box = box(Z)
-        >>> # Z_box has axis-aligned generators only
+    Computes an enclosing axis-aligned box.
     """
     
     # Handle empty zonotope

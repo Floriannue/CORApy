@@ -17,22 +17,25 @@ Syntax:
 
 Inputs:
     Z,Z1,Z2,Z3 - zonotope objects
-    T - third-order tensor (list of lists of numpy arrays)
-    ind - list of lists containing the non-zero indices of the tensor (optional)
+    T - third-order tensor
+    ind - cell-array containing the non-zero indices of the tensor
 
 Outputs:
     res - zonotope object representing the set of the cubic mapping
 
-Example:
+Example: 
     # cubic multiplication
     Z = Zonotope(np.array([[1],[-1]]), np.array([[1, 3, -2, -1], [0, 2, -1, 1]]))
+    
     temp = np.random.rand(2,2)
     T = [[temp, temp], [temp, temp]]
+
     Zcub = cubMap(Z,T)
 
     # mixed cubic multiplication
     Z2 = Zonotope(np.array([[1],[-1]]), np.array([[-1, 3, -2, 0, 3], [-2, 1, 0, 2, -1]]))
     Z3 = Zonotope(np.array([[1],[-1]]), np.array([[-3, 2, 0], [2, 1, -1]]))
+
     ZcubMixed = cubMap(Z,Z2,Z3,T)
 
 Other m-files required: none
@@ -41,12 +44,11 @@ MAT-files required: none
 
 See also: quadMap
 
-Authors:       Niklas Kochdumper (MATLAB)
-               Python translation by AI Assistant
-Written:       17-August-2018 (MATLAB)
-Last update:   ---
-Last revision: ---
-Python translation: 2025
+Authors: Niklas Kochdumper (MATLAB)
+         Python translation by AI Assistant
+Written: 17-August-2018 (MATLAB)
+Last update: --- (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

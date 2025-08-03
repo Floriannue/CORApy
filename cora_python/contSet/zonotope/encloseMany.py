@@ -26,7 +26,7 @@ Authors:       Matthias Althoff (MATLAB)
 Written:       15-January-2008 (MATLAB)
 Last update:   ---
 Last revision: ---
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

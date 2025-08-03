@@ -1,5 +1,39 @@
 """
-quadMap_parallel method for zonotope class
+quadMap_parallel - computes \{Q_{ijk}*x_j*x_k|x \in Z\} using parfor
+
+Syntax:
+    Z = quadMap_parallel(Z, Q)
+
+Inputs:
+    Z - zonotope object
+    Q - quadratic coefficients as a cell of matrices
+
+Outputs:
+    Z - zonotope object
+
+Example:
+    Z = zonotope([0 1 1;0 1 0]);
+    Q{1} = [0.5 0.5; 0 -0.5];
+    Q{2} = [-1 0; 1 1];
+
+    res = quadMap_parallel(Z,Q);
+
+    figure; hold on;
+    plot(Z,[1,2],'r');
+
+    figure; hold on;
+    plot(res,[1,2],'b');
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       07-December-2011 (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

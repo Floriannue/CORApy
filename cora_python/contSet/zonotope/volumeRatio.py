@@ -1,7 +1,36 @@
 """
-volumeRatio method for zonotope class
-"""
+volumeRatio - computes the approximate volume ratio of a zonotope and its over-approximating polytope
 
+Syntax:
+    ratio = volumeRatio(Z, P, dims)
+
+Inputs:
+    Z - zonotope object
+    P - polytope object
+    dims - considered dimensions for the approximation (optional)
+
+Outputs:
+    ratio - approximated normalized volume ratio
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, volumeRatio
+    import numpy as np
+    Z = Zonotope(np.array([[1], [0]]), np.random.rand(2, 5))
+    P = polytope(Z)
+    ratio = volumeRatio(Z, P, 1)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       12-September-2008 (MATLAB)
+Last update:   28-August-2019 (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+"""
 import numpy as np
 from typing import Optional
 from .zonotope import Zonotope
@@ -10,20 +39,7 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 def volumeRatio(Z: Zonotope, P, dims: Optional[int] = None) -> float:
     """
-    Computes the approximate volume ratio of a zonotope and its over-approximating polytope
-    
-    Args:
-        Z: zonotope object
-        P: polytope object
-        dims: considered dimensions for the approximation (optional)
-        
-    Returns:
-        Approximated normalized volume ratio
-        
-    Example:
-        Z = Zonotope(np.array([[1], [0]]), np.random.rand(2, 5))
-        P = polytope(Z)
-        ratio = volumeRatio(Z, P, 1)
+    Computes the approximate volume ratio of a zonotope and its over-approximating polytope.
     """
     # Check for None values
     if Z.c is None or Z.G is None:
@@ -32,10 +48,10 @@ def volumeRatio(Z: Zonotope, P, dims: Optional[int] = None) -> float:
     
     # Write inputs to variables
     if dims is None:
-        dims = Z.c.shape[0]  # dim(Z)
+        dims = Z.dim()  # Use dim() method instead of Z.c.shape[0]
     
     # Obtain dimension
-    n = Z.c.shape[0]
+    n = Z.dim()
     
     # Generate dim vector
     dimVector = np.arange(1, dims + 1)
@@ -60,8 +76,9 @@ def volumeRatio(Z: Zonotope, P, dims: Optional[int] = None) -> float:
         Pproj = project(P, projDims)
         
         # Compute volume of the projected zonotope and polytope
-        volZ = volume(Zproj)
-        volP = volume(Pproj)
+        from .volume_ import volume_
+        volZ = volume_(Zproj, 'exact')
+        volP = volume_(Pproj, 'exact')
         
         # Obtain normalized ratio
         if volZ > 0:
@@ -72,28 +89,4 @@ def volumeRatio(Z: Zonotope, P, dims: Optional[int] = None) -> float:
     # Final ratio is the mean value of the partial ratios
     ratio = np.mean(partialRatio)
     
-    return ratio
-
-
-def volume(obj):
-    """
-    Compute volume of an object (placeholder for actual volume implementation)
-    """
-    # This is a placeholder - in a full implementation, this would compute
-    # the actual volume of the zonotope or polytope
-    # For now, return a simple approximation
-    if hasattr(obj, 'c') and hasattr(obj, 'G') and obj.c is not None and obj.G is not None:
-        # Simple volume approximation for zonotope
-        return np.linalg.det(obj.G @ obj.G.T) ** 0.5
-    else:
-        # Placeholder for polytope volume
-        return 1.0
-
-
-def polytope(Z: Zonotope):
-    """
-    Convert zonotope to polytope (placeholder for actual polytope implementation)
-    """
-    # This is a placeholder - in a full implementation, this would create
-    # an actual polytope object from the zonotope
-    return {'type': 'polytope', 'zonotope': Z} 
+    return ratio 

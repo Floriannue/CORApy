@@ -11,9 +11,9 @@ Inputs:
 Outputs:
     res - true/false
 
-Example:
-    Z = zonotope([2, 1])
-    isemptyobject(Z)  # False
+Example: 
+    Z = Zonotope(np.array([[2], [1]]))
+    isemptyobject(Z)  # false
 
 Other m-files required: none
 Subfunctions: none
@@ -24,7 +24,7 @@ See also: none
 Authors:       Mark Wetzlinger (MATLAB)
                Python translation by AI Assistant
 Written:       24-July-2023 (MATLAB)
-Python translation: 2025
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 from typing import TYPE_CHECKING

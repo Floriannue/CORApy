@@ -1,7 +1,34 @@
 """
-underapproximate method for zonotope class
-"""
+underapproximate - returns the vertices of an underapproximation. The underapproximation is computed by finding the vertices that are extreme in the direction of a set of vectors, stored in the matrix S. If S is not specified, it is constructed by the vectors spanning an over-approximative parallelotope.
 
+Syntax:
+    V = underapproximate(Z, S)
+
+Inputs:
+    Z - zonotope object
+    S - matrix of direction vectors (optional)
+
+Outputs:
+    V - vertices
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, underapproximate
+    import numpy as np
+    Z = Zonotope(np.array([[0], [0]]), np.array([[1, 0], [0, 1]]))
+    V = underapproximate(Z)
+
+Other m-files required: ---
+Subfunctions: none
+MAT-files required: none
+
+See also: vertices
+
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       19-July-2010 (MATLAB)
+Last update:   28-August-2019 (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+"""
 import numpy as np
 from typing import Optional
 from .zonotope import Zonotope
@@ -10,21 +37,7 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 def underapproximate(Z: Zonotope, S: Optional[np.ndarray] = None) -> np.ndarray:
     """
-    Returns the vertices of an underapproximation. The underapproximation is computed 
-    by finding the vertices that are extreme in the direction of a set of vectors, 
-    stored in the matrix S. If S is not specified, it is constructed by the vectors 
-    spanning an over-approximative parallelotope.
-    
-    Args:
-        Z: zonotope object
-        S: matrix of direction vectors (optional)
-        
-    Returns:
-        Vertices of the underapproximation
-        
-    Example:
-        Z = Zonotope(np.array([[0], [0]]), np.array([[1, 0], [0, 1]]))
-        V = underapproximate(Z)
+    Returns the vertices of an underapproximation.
     """
     # Check for None values
     if Z.c is None or Z.G is None:

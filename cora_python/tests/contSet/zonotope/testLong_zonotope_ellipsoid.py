@@ -21,7 +21,7 @@ Authors:       Victor Gassmann, Matthias Althoff (MATLAB)
                Python translation by AI Assistant
 Written:       11-October-2019 (MATLAB)
 Last update:   06-June-2021 (MA, degenerate case added) (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import pytest

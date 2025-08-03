@@ -7,7 +7,7 @@ the Minkowski difference of two zonotopes.
 Authors: Mark Wetzlinger, Tobias Ladner (MATLAB)
          Python translation by AI Assistant
 Written: 05-March-2024 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import pytest

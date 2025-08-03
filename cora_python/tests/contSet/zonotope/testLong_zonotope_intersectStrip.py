@@ -6,7 +6,7 @@ Tests the intersectStrip function for zonotopes with various methods.
 Authors:       Matthias Althoff (MATLAB)
                Python translation by AI Assistant
 Written:       08-September-2020 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

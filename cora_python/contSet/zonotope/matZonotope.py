@@ -1,5 +1,29 @@
 """
-matZonotope method for zonotope class
+matZonotope - converts the given zonotope to a matrix zonotope
+
+Syntax:
+    matZ = matZonotope(Z)
+
+Inputs:
+    Z - zonotope object
+
+Outputs:
+    matZ - matZonotope object
+
+Example:
+    Z = zonotope([randn(2,1),randn(2,10)]);
+    matZ = matZonotope(Z);
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: matZonotope
+
+Authors:       Tobias Ladner (MATLAB)
+               Python translation by AI Assistant
+Written:       25-April-2024 (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

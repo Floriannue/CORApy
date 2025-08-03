@@ -1,5 +1,26 @@
 """
-deleteAligned method for zonotope class (DEPRECATED)
+deleteAligned - (DEPRECATED -> compact)
+
+Syntax:
+    Z = deleteAligned(Z)
+
+Inputs:
+    Z - zonotope object
+
+Outputs:
+    Z - zonotope object
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: zonotope/reduce
+
+Authors: Matthias Althoff, Mark Wetzlinger (MATLAB)
+         Python translation by AI Assistant
+Written: 15-January-2009 (MATLAB)
+Last update: 27-August-2019 (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

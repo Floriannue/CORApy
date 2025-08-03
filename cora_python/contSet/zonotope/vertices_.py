@@ -1,14 +1,39 @@
 """
 vertices_ - returns potential vertices of a zonotope
 
-WARNING: Do not use this function for high-order zonotopes as the
-computational complexity grows exponentially!
+WARNING: Do not use this function for high-order zonotopes as the computational complexity grows exponentially!
 
-Authors: Matthias Althoff, Niklas Kochdumper, Daniel Heß (MATLAB)
-         Python translation by AI Assistant
-Written: 14-September-2006 (MATLAB)
-Last update: 11-October-2024 (MATLAB)
-Python translation: 2025
+Syntax:
+    V = vertices_(Z)
+    V = vertices_(Z, alg)
+
+Inputs:
+    Z - zonotope object
+    alg - algorithm used
+         - 'convHull' (default)
+         - 'iterate'
+         - 'polytope'
+
+Outputs:
+    V - matrix of vertices
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, vertices_
+    import numpy as np
+    Z = Zonotope(np.array([[1], [-1]]), np.array([[1, 3, -2, 1, 0], [0, 2, 1, -2, 1]]))
+    V = vertices_(Z)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: contSet/vertices, interval, polytope
+
+Authors:       Matthias Althoff, Niklas Kochdumper, Daniel Heß (MATLAB)
+               Python translation by AI Assistant
+Written:       14-September-2006 (MATLAB)
+Last update:   11-October-2024 (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -26,24 +51,7 @@ if TYPE_CHECKING:
 
 def vertices_(Z: 'Zonotope', alg: str = 'convHull') -> np.ndarray:
     """
-    Returns potential vertices of a zonotope
-    
-    Args:
-        Z: Zonotope object
-        alg: Algorithm used:
-             - 'convHull' (default): Convex hull computation
-             - 'iterate': Iterative vertex computation
-             - 'polytope': Convert to polytope first
-        
-    Returns:
-        np.ndarray: Vertices (each column is a vertex)
-        
-    Raises:
-        CORAerror: If computation fails
-        
-    Example:
-        >>> Z = Zonotope([1, -1], [[1, 3, -2, 1, 0], [0, 2, 1, -2, 1]])
-        >>> V = vertices_(Z)
+    Returns potential vertices of a zonotope.
     """
     # Different cases for different dimensions
     n = Z.dim()

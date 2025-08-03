@@ -7,7 +7,7 @@ Authors: Mark Wetzlinger (MATLAB)
          Python translation by AI Assistant
 Written: 28-April-2023 (MATLAB)
 Last update: 11-October-2024 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import pytest

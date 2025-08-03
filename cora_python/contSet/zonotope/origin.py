@@ -10,8 +10,8 @@ Inputs:
 Outputs:
     Z - zonotope representing the origin
 
-Example:
-    Z = zonotope.origin(2)
+Example: 
+    Z = origin(2)
 
 Other m-files required: none
 Subfunctions: none
@@ -22,7 +22,7 @@ See also: none
 Authors:       Mark Wetzlinger (MATLAB)
                Python translation by AI Assistant
 Written:       21-September-2024 (MATLAB)
-Python translation: 2025
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

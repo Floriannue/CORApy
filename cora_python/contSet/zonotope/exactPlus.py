@@ -16,17 +16,6 @@ Inputs:
 Outputs:
     Z - zonotope object
 
-Example: 
-    Z1 = zonotope([0;0],[1 2 -1; 1 -1 3]);
-    Z2 = zonotope([0;0],[2 4 -1; 2 -2 3]);
-    Zexact = exactPlus(Z1,Z2);
-    Z = Z1 + Z2;
-
-    figure; hold on;
-    plot(Z1);
-    plot(Z2);
-    plot(Zexact,[1,2],'g');
-    plot(Z,[1,2],'r--');
 
 Other m-files required: none
 Subfunctions: none
@@ -38,7 +27,7 @@ Authors:       Matthias Althoff (MATLAB)
                Python translation by AI Assistant
 Written:       30-August-2013 (MATLAB)
 Last update:   06-September-2013 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -64,15 +53,6 @@ def exactPlus(Z: Zonotope, Z2: Zonotope, nrOfGens: Optional[int] = None) -> Zono
     Raises:
         CORAerror: If inputs are invalid or computation fails
     """
-    # Check input arguments
-    if not isinstance(Z, Zonotope):
-        raise CORAerror('CORA:wrongValue', 'first', 'zonotope')
-    
-    if not isinstance(Z2, Zonotope):
-        raise CORAerror('CORA:wrongValue', 'second', 'zonotope')
-    
-    if nrOfGens is not None and not isinstance(nrOfGens, (int, float)):
-        raise CORAerror('CORA:wrongValue', 'third', 'numeric')
     
     # Number of generators
     nrOfgens1 = Z.generators.shape[1]

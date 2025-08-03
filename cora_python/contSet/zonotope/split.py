@@ -1,7 +1,34 @@
 """
-split method for zonotope class
-"""
+split - splits a zonotope into two or more enclosing zonotopes
 
+Syntax:
+    Zsplit = split(Z, ...)
+
+Inputs:
+    Z - zonotope object
+
+Outputs:
+    Zsplit - list of parallelpipeds represented as zonotopes (or list of lists)
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, split
+    import numpy as np
+    Z = Zonotope(np.random.rand(2, 1), np.random.rand(2, 4))
+    Zsplit = split(Z)
+    # Zsplit is a list of lists of zonotope objects
+
+Other m-files required: reduce
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       04-January-2008 (MATLAB)
+Last update:   25-July-2016 (intervalhull replaced by interval) (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+"""
 import numpy as np
 from typing import Union, List, Optional
 from .zonotope import Zonotope
@@ -10,25 +37,7 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 def split(Z: Zonotope, *args) -> Union[List[Zonotope], List[List[Zonotope]]]:
     """
-    Splits a zonotope into two or more enclosing zonotopes
-    
-    Args:
-        Z: zonotope object
-        *args: Variable arguments
-               - split(Z): split all dimensions
-               - split(Z, N): split dimension N
-               - split(Z, dir): split halfway in direction dir
-               - split(Z, hs): split according to halfspace hs
-               - split(Z, dir, 'bundle'): split using zonotope bundle
-               - split(Z, N, maxOrder): split with reduction
-               - split(Z, origDir, auxDir): split in perpendicular direction
-        
-    Returns:
-        List of split zonotopes or list of lists for bundle case
-        
-    Example:
-        Z = Zonotope(np.random.rand(2, 4))
-        Zsplit = split(Z)
+    Splits a zonotope into two or more enclosing zonotopes.
     """
     # Check for None values
     if Z.c is None or Z.G is None:

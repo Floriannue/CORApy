@@ -3,27 +3,32 @@ norm_ - computes maximum norm value
 
 Syntax:
     val = norm_(Z, type, mode)
-    val, x = norm_(Z, type, mode)
 
 Inputs:
     Z - zonotope object
     type - (optional) which kind of norm (default: 2)
-    mode - (optional) 'exact', 'ub' (upper bound), 'ub_convex' (more
-            precise upper bound computed from a convex program)
+    mode - (optional) 'exact', 'ub' (upper bound),'ub_convex' (more
+           precise upper bound computed from a convex program)
 
 Outputs:
     val - norm value
-    x - vertex attaining maximum norm (only for 'exact' mode)
+    x - vertex attaining maximum norm
 
 Example: 
-    Z = zonotope([1;0],[1 3 -2; 2 -1 0])
+    Z = Zonotope(np.array([[1], [0]]), np.array([[1, 3, -2], [2, -1, 0]]))
     norm_(Z)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: contSet/norm, minnorm
 
 Authors:       Victor Gassmann (MATLAB)
                Python translation by AI Assistant
 Written:       31-July-2020 (MATLAB)
-Last update:   ---
-Last revision: 27-March-2023 (MW, rename norm_)
+Last update:   27-March-2023 (MW, rename norm_) (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

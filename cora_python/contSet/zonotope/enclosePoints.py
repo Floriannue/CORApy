@@ -1,13 +1,9 @@
 """
 enclosePoints - enclose a point cloud with a zonotope
 
-This method implements two algorithms to enclose a point cloud with a zonotope:
-- 'stursberg': Method from Stursberg et al. using SVD and oriented bounding box
-- 'maiga': Method from Maiga et al. using iterative optimization
-
 Syntax:
-    Z = Zonotope.enclosePoints(points)
-    Z = Zonotope.enclosePoints(points, method)
+    Z = zonotope.enclosePoints(points)
+    Z = zonotope.enclosePoints(points, method)
 
 Inputs:
     points - matrix storing point cloud (dimension: [n,p] for p points)
@@ -16,18 +12,13 @@ Inputs:
                - 'stursberg'
 
 Outputs:
-    Z - Zonotope object
+    Z - zonotope object
 
 Example: 
-    points = -1 + 2*np.random.rand(2,10)
+    points = -1 + 2 * np.random.rand(2, 10)
 
-    Z1 = Zonotope.enclosePoints(points)
-    Z2 = Zonotope.enclosePoints(points,'maiga')
-    
-    # figure; hold on
-    # plt.plot(points[0,:],points[1,:],'k.')
-    # Z1.plot([1,2],'r')
-    # Z2.plot([1,2],'b')
+    Z1 = enclosePoints(points)
+    Z2 = enclosePoints(points, 'maiga')
 
 References:
     [1] O. Stursberg et al. "Efficient representation and computation of 
@@ -35,8 +26,17 @@ References:
     [2] M. Maiga et al. "A Comprehensive Method for Reachability Analysis
         of Uncertain Nonlinear Hybrid Systems", TAC 2017
 
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: ---
+
 Authors: Niklas Kochdumper (MATLAB)
          Python translation by AI Assistant
+Written: 05-May-2020 (MATLAB)
+Last update: --- (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

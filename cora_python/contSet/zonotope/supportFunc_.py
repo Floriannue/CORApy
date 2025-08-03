@@ -1,5 +1,42 @@
 """
-supportFunc_ method for zonotope class
+supportFunc_ - calculates the upper or lower bound of a zonotope along a certain direction
+
+Syntax:
+    val, x, fac = supportFunc_(Z, dir)
+    val, x, fac = supportFunc_(Z, dir, type)
+
+Inputs:
+    Z - zonotope object
+    dir - direction for which the bounds are calculated (vector)
+    type - upper bound, lower bound, or both ('upper','lower','range')
+
+Outputs:
+    val - bound of the zonotope in the specified direction
+    x - support vector
+    fac - factor values that correspond to the upper bound
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, supportFunc_
+    import numpy as np
+    Z = Zonotope(np.array([[0], [0]]), np.eye(2))
+    direction = np.array([[1], [0]])
+    val, x, fac = supportFunc_(Z, direction, 'upper')
+    print('Upper bound:', val)
+    print('Support vector:', x)
+    print('Factors:', fac)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: contSet/supportFunc, conZonotope/supportFunc_
+
+Authors:       Niklas Kochdumper (MATLAB)
+               Python translation by AI Assistant
+Written:       19-November-2019 (MATLAB)
+Last update:   10-December-2022 (MW, add type = 'range') (MATLAB)
+Last revision: 27-March-2023 (MW, rename supportFunc_) (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -12,36 +49,8 @@ def supportFunc_(Z: Zonotope,
                  type_: str = 'upper',
                  *args) -> Tuple[Union[float, Interval], np.ndarray, np.ndarray]:
     """
-    supportFunc_ - calculates the upper or lower bound of a zonotope along a
-    certain direction
-
-    Syntax:
-        [val,x,fac] = supportFunc_(Z,dir)
-        [val,x,fac] = supportFunc_(Z,dir,type)
-
-    Inputs:
-        Z - zonotope object
-        direction - direction for which the bounds are calculated (vector)
-        type_ - upper bound, lower bound, or both ('upper','lower','range')
-
-    Outputs:
-        val - bound of the zonotope in the specified direction
-        x - support vector
-        fac - factor values that correspond to the upper bound
-
-    Other m-files required: none
-    Subfunctions: none
-    MAT-files required: none
-
-    See also: contSet/supportFunc, conZonotope/supportFunc_
-
-    Authors:       Niklas Kochdumper
-    Written:       19-November-2019
-    Last update:   10-December-2022 (MW, add type = 'range')
-    Last revision: 27-March-2023 (MW, rename supportFunc_)
-    Automatic python translation: Florian Nüssel BA 2025
+    Calculates the upper or lower bound of a zonotope along a certain direction.
     """
-    
     # Ensure direction is a column vector
     direction = np.asarray(direction)
     if direction.ndim == 1:

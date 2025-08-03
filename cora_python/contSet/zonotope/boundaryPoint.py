@@ -1,5 +1,32 @@
 """
-boundaryPoint method for zonotope class
+boundaryPoint - computes the point on the boundary of a zonotope along a
+    given direction, starting from a given start point, or, by default,
+    from the center of the set; note that the vector may immediately reach
+    the boundary of degenerate zonotopes
+
+Syntax:
+    x = boundaryPoint(Z, dir)
+    x = boundaryPoint(Z, dir, startPoint)
+
+Inputs:
+    Z - zonotope object
+    dir - direction
+    startPoint - start point for the direction vector
+
+Outputs:
+    x - point on the boundary of the zonotope
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: interval/boundaryPoint
+
+Authors:       Mark Wetzlinger (MATLAB)
+               Python translation by AI Assistant
+Written:       13-April-2024 (MATLAB)
+Last update:   17-October-2024 (MW, algorithm for different start point) (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

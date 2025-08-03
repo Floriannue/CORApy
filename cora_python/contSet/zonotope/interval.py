@@ -2,21 +2,17 @@
 interval - overapproximates a zonotope by an interval
 
 Syntax:
-   I = interval(Z)
+    I = interval(Z)
 
 Inputs:
-   Z - zonotope object
+    Z - zonotope object
 
 Outputs:
-   I - interval object
+    I - interval object
 
 Example: 
-   Z = zonotope([-1;1],[3 2 -1; 2 1 -1]);
-   I = interval(Z);
-
-   figure; hold on;
-   plot(Z,[1,2],'b');
-   plot(I,[1,2],'r');
+    Z = Zonotope(np.array([[-1], [1]]), np.array([[3, 2, -1], [2, 1, -1]]))
+    I = interval(Z)
 
 Other m-files required: interval (constructor)
 Subfunctions: none
@@ -24,10 +20,11 @@ MAT-files required: none
 
 See also: ---
 
-Authors: Matthias Althoff (MATLAB)
-         Python translation by AI Assistant
-Written: 14-September-2006 (MATLAB)
-Python translation: 2025
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       14-September-2006 (MATLAB)
+Last update:   22-July-2016 (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

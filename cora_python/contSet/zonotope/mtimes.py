@@ -13,10 +13,10 @@ Inputs:
 Outputs:
     Z - zonotope object
 
-Example:
-    Z = zonotope([1, 1, 0], [[0, 0, 1]])
-    M = [[1, 2], [1, 0]]
-    Zmat = M * Z
+Example: 
+    Z = Zonotope(np.array([[1, 1, 0], [0, 0, 1]]))
+    M = np.array([[1, 2], [1, 0]])
+    Zmat = M @ Z
 
 Other m-files required: none
 Subfunctions: none
@@ -24,10 +24,11 @@ MAT-files required: none
 
 See also: plus
 
-Authors:       Matthias Althoff
-Written:       30-September-2006 
-Last update:   04-October-2024
-Last revision: ---
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       30-September-2006 (MATLAB)
+Last update:   04-October-2024 (MW, remove InferiorClasses from zonotope) (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

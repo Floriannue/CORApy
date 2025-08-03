@@ -1,5 +1,37 @@
 """
-isIntersecting_ method for zonotope class
+isIntersecting_ - determines if zonotope intersects a set
+
+Syntax:
+    res = isIntersecting_(Z, S, type, tol)
+
+Inputs:
+    Z - zonotope object
+    S - contSet object
+    type - type of check ('exact' or 'approx')
+    tol - tolerance
+
+Outputs:
+    res - true/false
+
+Example: 
+    Z1 = Zonotope(np.array([[0, 1, 1, 0], [0, 1, 0, 1]]))
+    Z2 = Zonotope(np.array([[2, -1, 1, 0], [2, 1, 0, 1]]))
+    Z3 = Zonotope(np.array([[3.5, -1, 1, 0], [3, 1, 0, 1]]))
+
+    isIntersecting_(Z1, Z2)
+    isIntersecting_(Z1, Z3)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: contSet/isIntersecting, conZonotope/isIntersecting_
+
+Authors:       Niklas Kochdumper (MATLAB)
+               Python translation by AI Assistant
+Written:       21-November-2019 (MATLAB)
+Last update:   27-March-2023 (MW, rename isIntersecting_) (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

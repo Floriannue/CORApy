@@ -5,7 +5,7 @@ minnorm - computes the point whose norm is minimal with respect to the
     respect to the dimension
 
 Syntax:
-    val, x = minnorm(Z)
+    [val,x] = minnorm(Z)
 
 Inputs:
     Z - zonotope object
@@ -29,9 +29,10 @@ MAT-files required: none
 
 See also: norm
 
-Authors:       Victor Gassmann
-Written:       18-September-2019
-Python translation: 2025
+Authors:       Victor Gassmann (MATLAB)
+               Python translation by AI Assistant
+Written:       18-September-2019 (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

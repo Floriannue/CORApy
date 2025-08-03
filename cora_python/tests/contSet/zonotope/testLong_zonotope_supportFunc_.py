@@ -4,7 +4,7 @@ Long test for Zonotope.supportFunc_ mirroring MATLAB's testLong_zonotope_support
 Authors: Victor Gassmann (MATLAB)
          Python translation by AI Assistant
 Written: 11-October-2019 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

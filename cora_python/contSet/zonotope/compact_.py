@@ -21,11 +21,8 @@ Outputs:
    Z - zonotope object
 
 Example:
-   Z1 = zonotope([0;0],[1 0 -2 0 3 4; 0 0 1 0 -2 1]);
-   Z2 = compact(Z1);
-   
-   plot(Z1); hold on;
-   plot(Z2,[1,2],'r');
+   Z1 = Zonotope(np.array([[0], [0]]), np.array([[1, 0, -2, 0, 3, 4], [0, 0, 1, 0, -2, 1]]))
+   Z2 = compact_(Z1)
 
 Other m-files required: none
 Subfunctions: none
@@ -36,10 +33,8 @@ See also: contSet/compact, zonotope/reduce
 Authors: Mark Wetzlinger, Matthias Althoff (MATLAB)
          Python translation by AI Assistant
 Written: 15-January-2009 (MATLAB)
-Last update: 27-August-2019
-             05-October-2024 (MW, remove superfluous 'aligned', rewrite deleteAligned)
-Last revision: 29-July-2023 (MW, merged from deleteZeros/deleteAligned)
-Python translation: 2025
+Last update: 27-May-2025 (TL, bug fix, outputs are now consistent for 'all') (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

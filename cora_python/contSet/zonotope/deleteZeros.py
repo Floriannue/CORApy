@@ -1,5 +1,26 @@
 """
-deleteZeros method for zonotope class (DEPRECATED)
+deleteZeros - (DEPRECATED -> compact)
+
+Syntax:
+    Z = deleteZeros(Z)
+
+Inputs:
+    Z - zonotope object
+
+Outputs:
+    Z - zonotope object
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: zonotope/compact_
+
+Authors: Matthias Althoff, Mark Wetzlinger (MATLAB)
+         Python translation by AI Assistant
+Written: 15-January-2009 (MATLAB)
+Last update: 29-July-2023 (MW, merged into compact) (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

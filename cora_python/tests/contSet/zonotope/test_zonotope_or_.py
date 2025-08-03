@@ -19,7 +19,7 @@ See also: none
 Authors:       Tobias Ladner (MATLAB)
                Python translation by AI Assistant
 Written:       26-October-2023 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import pytest

@@ -5,7 +5,7 @@ testLong_zonotope_zonotopeNorm - long unit test function of zonotopeNorm
 Authors: Adrian Kulmburg (MATLAB)
          Python translation by AI Assistant
 Written: 06-July-2021 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

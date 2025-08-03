@@ -1,7 +1,34 @@
 """
-spectraShadow method for zonotope class
-"""
+spectraShadow - Converts a zonotope to a spectrahedral shadow
 
+Syntax:
+    SpS = spectraShadow(Z)
+
+Inputs:
+    Z - zonotope object
+
+Outputs:
+    SpS - spectraShadow object
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, spectraShadow
+    import numpy as np
+    Z = Zonotope(np.array([[0], [0]]), np.eye(2))
+    SpS = spectraShadow(Z)
+    # SpS is a spectraShadow object
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: ---
+
+Authors:       Adrian Kulmburg (MATLAB)
+               Python translation by AI Assistant
+Written:       01-August-2023 (MATLAB)
+Last update:   --- (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+"""
 import numpy as np
 from typing import Optional
 from .zonotope import Zonotope
@@ -10,17 +37,7 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 def spectraShadow(Z: Zonotope):
     """
-    Converts a zonotope to a spectrahedral shadow
-    
-    Args:
-        Z: zonotope object
-        
-    Returns:
-        SpectraShadow object
-        
-    Example:
-        Z = Zonotope(np.array([[0], [0]]), np.eye(2))
-        SpS = spectraShadow(Z)
+    Converts a zonotope to a spectrahedral shadow.
     """
     # Check for None values
     if Z.c is None or Z.G is None:
@@ -39,33 +56,8 @@ def spectraShadow(Z: Zonotope):
     
     # Additional properties
     SpS.bounded.val = True
-    SpS.emptySet.val = _representsa_(Z, 'emptySet', 1e-10)
-    SpS.fullDim.val = _isFullDim(Z)
-    SpS.center.val = Z.c
+    SpS.emptySet.val = Z.representsa_('emptySet', 1e-10)
+    SpS.fullDim.val, _ = Z.isFullDim()
+    SpS.center.val = Z.center()
     
-    return SpS
-
-
-def _representsa_(Z: Zonotope, type_str: str, tol: float) -> bool:
-    """
-    Check if zonotope represents a specific type
-    """
-    if type_str == 'emptySet':
-        # Check if zonotope is empty (simplified check)
-        if Z.c is None or Z.G is None:
-            return True
-        # More sophisticated empty set detection would go here
-        return False
-    return False
-
-
-def _isFullDim(Z: Zonotope) -> bool:
-    """
-    Check if zonotope is full dimensional
-    """
-    if Z.G is None:
-        return False
-    
-    # Check if generators span the full dimension
-    rank = np.linalg.matrix_rank(Z.G)
-    return rank == Z.G.shape[0] 
+    return SpS 
