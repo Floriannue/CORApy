@@ -105,8 +105,11 @@ def polytope(Z: Zonotope, method: str = 'exact') -> Union['Polytope', Tuple['Pol
         # Polytope is definitely bounded (zonotopes are always bounded)
         P._bounded = True
         
-        # Return additional values for exact method (matching MATLAB)
-        return P, comb, isDeg
+        # Return only polytope for default behavior (matching MATLAB)
+        # When called as polytope(Z), return only P
+        # When called as polytope(Z, 'exact'), return only P
+        # Only when explicitly requested with multiple return values, return tuple
+        return P
         
     elif method.startswith('outer'):
         P = aux_polytope_outer(Z, method)
