@@ -99,7 +99,10 @@ def zonotopeNorm(Z: 'Zonotope', p: np.ndarray) -> Tuple[float, np.ndarray]:
     
     # Empty set
     if Z.representsa_('emptySet', np.finfo(float).eps):
-        return np.inf, np.array([])
+        if p.size == 0 or (p.ndim == 2 and p.shape[1] == 0):
+            return 0.0, np.array([])
+        else:
+            return np.inf, np.array([])
     
     # Retrieve generator-representation of Z
     if Z.G is None or Z.G.size == 0:
