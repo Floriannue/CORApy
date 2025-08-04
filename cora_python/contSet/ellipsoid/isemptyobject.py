@@ -65,5 +65,5 @@ def isemptyobject(self: Ellipsoid) -> bool:
         res_tol = True
 
     # An ellipsoid is considered empty if its shape matrix Q is empty (0x0),
-    # its center vector q is empty (n x 0), and its tolerance is empty or default.
+    # its center vector q is empty (0x0), and its tolerance is empty or default.
     return res_Q_empty and res_q_empty and res_tol

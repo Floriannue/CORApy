@@ -60,8 +60,17 @@ def empty(n: int) -> 'Ellipsoid':
     Last revision: 16-June-2023 (MW, restructure using auxiliary functions)
     Automatic python translation: Florian Nüssel BA 2025
     """
+    # Parse input - handle default case
+    if n is None:
+        n = 0
+    
+    # Validate input arguments (following MATLAB exactly)
+    from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
+    inputArgsCheck([[n, 'att', 'numeric', ['scalar', 'nonnegative']]])
+    
     # An empty ellipsoid is represented by an empty (0x0) shape matrix.
     # The center vector q should also be empty to be consistent with MATLAB's `isempty`.
-    Q_empty = np.array([[]]).reshape(0, 0)
+    Q_empty = np.zeros((0, 0))
     q_initial = np.zeros((n, 0))  # q should be an n x 0 zero vector to be empty in MATLAB sense
+
     return Ellipsoid(Q_empty, q_initial) 

@@ -69,6 +69,20 @@ def mtimes(factor1, factor2):
         new_E = Ellipsoid(M, scalar * E.q, E.TOL)
         return new_E
 
+    elif (isinstance(factor1, (int, float)) or (isinstance(factor1, np.ndarray) and factor1.size == 1)) and isinstance(factor2, Ellipsoid):
+        # scalar * ellipsoid (or scalar as 1x1 array)
+        E = factor2
+        if E.representsa_('emptySet', E.TOL):
+            return Ellipsoid.empty(E.dim())
+
+        scalar = factor1 if isinstance(factor1, (int, float)) else factor1.item()
+
+        M = (scalar**2) * E.Q
+        M = 0.5 * (M + M.T)
+
+        new_E = Ellipsoid(M, scalar * E.q, E.TOL)
+        return new_E
+
     elif isinstance(factor1, Ellipsoid) and isinstance(factor2, Ellipsoid):
         # ellipsoid * ellipsoid (not supported by MATLAB mtimes for ellipsoids, usually implies inner product or Minkowski product)
         # For now, raise an error or return NotImplemented

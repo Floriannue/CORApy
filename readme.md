@@ -1,6 +1,6 @@
 # CORA Translation Project
 
-Bachelor project: supervised automatic translation of the [CORA toolbox](https://github.com/TUMcps/CORA) from MATLAB to Python using Large Language Models (LLMs). The process is organized in [Cursor](https://www.cursor.com), with **Claude-4-Sonnet** as the primary model and **Gemini-2.5-Pro/Flash** as the backup model in the background. readme_florian2.md contains my instructions for the model.
+Bachelor project: supervised automatic translation of the [CORA toolbox](https://github.com/TUMcps/CORA) from MATLAB to Python using Large Language Models (LLMs). The process is organized in [Cursor](https://www.cursor.com), with **Claude-4-Sonnet** as the primary model and **Cursor auto** as the backup. readme_florian2.md contains my instructions for the model.
 
 ## Setup Instructions
 

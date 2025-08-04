@@ -44,6 +44,16 @@ def priv_normalizeConstraints(A: Optional[np.ndarray], b: Optional[np.ndarray],
     b_out = b.copy() if b is not None and b.size > 0 else np.array([]).reshape(0,1)
     Ae_out = Ae.copy() if Ae is not None and Ae.size > 0 else np.array([]).reshape(0,0)
     be_out = be.copy() if be is not None and be.size > 0 else np.array([]).reshape(0,1)
+    
+    # Convert to float to avoid integer truncation during normalization
+    if A_out.size > 0:
+        A_out = A_out.astype(np.float64)
+    if b_out.size > 0:
+        b_out = b_out.astype(np.float64)
+    if Ae_out.size > 0:
+        Ae_out = Ae_out.astype(np.float64)
+    if be_out.size > 0:
+        be_out = be_out.astype(np.float64)
 
     # Ensure b_out and be_out are 2D column vectors if not empty
     if b_out.ndim == 1:
@@ -98,16 +108,27 @@ def priv_normalizeConstraints(A: Optional[np.ndarray], b: Optional[np.ndarray],
             
             if np.any(idx_nonzero):
                 # Normalize rows by dividing by their norms
-                # Use np.newaxis to enable broadcasting division of (N,) array by (N,1) column vector
-                A_out[idx_nonzero, :] = A_out[idx_nonzero, :] / normA[idx_nonzero, np.newaxis]
-                b_out[idx_nonzero] = b_out[idx_nonzero] / normA[idx_nonzero, np.newaxis]
+                # Match MATLAB behavior: (A(idx_nonzero,:)' ./ normA(idx_nonzero))'
+                normA_nonzero = normA[idx_nonzero]
+                # Use explicit indices to avoid boolean indexing assignment issues
+                explicit_indices = np.where(idx_nonzero)[0]
+                # Use loop to avoid NumPy assignment issues
+                for i, idx in enumerate(explicit_indices):
+                    A_out[idx, :] = A_out[idx, :] / normA_nonzero[i]
+                    b_out[idx] = b_out[idx] / normA_nonzero[i]
         
         # normalize equality constraints
         if Ae_out.size > 0:    
             normA = np.linalg.norm(Ae_out, axis=1)
             idx_nonzero = ~withinTol(normA, 0)
             if np.any(idx_nonzero):
-                Ae_out[idx_nonzero, :] = Ae_out[idx_nonzero, :] / normA[idx_nonzero, np.newaxis]
-                be_out[idx_nonzero] = be_out[idx_nonzero] / normA[idx_nonzero, np.newaxis]
+                # Match MATLAB behavior: (Ae(idx_nonzero,:)' ./ normA(idx_nonzero))'
+                normA_nonzero = normA[idx_nonzero]
+                # Use explicit indices to avoid boolean indexing assignment issues
+                explicit_indices = np.where(idx_nonzero)[0]
+                # Use loop to avoid NumPy assignment issues
+                for i, idx in enumerate(explicit_indices):
+                    Ae_out[idx, :] = Ae_out[idx, :] / normA_nonzero[i]
+                    be_out[idx] = be_out[idx] / normA_nonzero[i]
 
     return A_out, b_out, Ae_out, be_out 

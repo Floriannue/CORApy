@@ -82,9 +82,11 @@ def distance(factor1, factor2):
     for i in range(len(S)):
         current_S = S[i]
         if isinstance(current_S, np.ndarray):
-            val[i] = priv_distancePoint(E, current_S)
+            result = priv_distancePoint(E, current_S)
+            val[i] = result.item() if hasattr(result, 'item') else result
         else:
-            val[i] = aux_distance(E, current_S)
+            result = aux_distance(E, current_S)
+            val[i] = result.item() if hasattr(result, 'item') else result
     
     # Return scalar if single element
     if len(val) == 1:

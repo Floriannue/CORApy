@@ -162,6 +162,14 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
     # E is not empty
     if isinstance(S, np.ndarray):
         res, cert, scaling = priv_containsPoint(E, S, tol)
+        # Convert arrays to scalars if we have a single point
+        if S.ndim == 1 or (S.ndim == 2 and S.shape[1] == 1):
+            if isinstance(res, np.ndarray) and res.size == 1:
+                res = bool(res.item())
+            if isinstance(cert, np.ndarray) and cert.size == 1:
+                cert = bool(cert.item())
+            if isinstance(scaling, np.ndarray) and scaling.size == 1:
+                scaling = float(scaling.item())
         return res, cert, scaling
     
     # Check if S is unbounded
@@ -198,6 +206,13 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                 is_point, p = S.representsa_('point', tol, return_set=True)
                 if is_point:
                     res, cert, scaling = priv_containsPoint(E, p, tol)
+                    # Convert arrays to scalars for single points
+                    if isinstance(res, np.ndarray) and res.size == 1:
+                        res = bool(res.item())
+                    if isinstance(cert, np.ndarray) and cert.size == 1:
+                        cert = bool(cert.item())
+                    if isinstance(scaling, np.ndarray) and scaling.size == 1:
+                        scaling = float(scaling.item())
                     return res, cert, scaling
         except Exception as e:
             if 'CORA:notSupported' in str(e) or 'MATLAB:maxlhs' in str(e):

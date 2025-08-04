@@ -255,8 +255,10 @@ def _aux_vertices_comb(P: 'Polytope') -> np.ndarray:
         raise ValueError(f"Method 'comb' does not support cases where ambient dimension ({n}) is greater than the number of constraints ({nrCon}).")
 
     # All possible combinations of n constraints
-    # nchoosek(nrCon,n) equivalent to len(list(combinations(range(nrCon), n)))
-    nrComb = len(list(combinations(range(nrCon), n)))
+    # Use combinator function to match MATLAB behavior (1-indexed)
+    from cora_python.g.functions.matlab.validate.check.auxiliary import combinator
+    comb = combinator(nrCon, n, 'c')
+    nrComb = comb.shape[0]
 
     # Throw error if computational effort too high
     if nrComb > 10000:
@@ -275,7 +277,8 @@ def _aux_vertices_comb(P: 'Polytope') -> np.ndarray:
         warnings.filterwarnings('ignore', message='A_eq does not appear to be of full row rank.')
         
         # Loop over all combinations
-        for i, indices in enumerate(combinations(range(nrCon), n)):
+        for i in range(nrComb):
+            indices = comb[i, :] - 1  # Convert 1-indexed to 0-indexed
             A_sub = A[list(indices), :]
             b_sub = b[list(indices)]
 
@@ -302,7 +305,7 @@ def _aux_vertices_comb(P: 'Polytope') -> np.ndarray:
 
             # Check if vertex is contained in polytope
             val = A @ v
-            if not np.all( (val < b + tol) | withinTol(val, b, tol) ): # Check all constraints
+            if not np.all( (val < b + 1e-8) | withinTol(val, b, 1e-8) ): # Check all constraints with MATLAB tolerance
                 idxKeep[i] = False
                 continue
             

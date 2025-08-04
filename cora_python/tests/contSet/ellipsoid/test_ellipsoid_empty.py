@@ -107,13 +107,15 @@ class TestEllipsoidEmpty:
     
     def test_empty_invalid_dimension(self):
         """Test empty ellipsoid with invalid dimensions."""
-        # Test with zero dimension
-        with pytest.raises((ValueError, AssertionError)):
-            Ellipsoid.empty(0)
-        
-        # Test with negative dimension
-        with pytest.raises((ValueError, AssertionError)):
+        # Test with negative dimension (should fail)
+        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+        with pytest.raises(CORAerror):
             Ellipsoid.empty(-1)
+        
+        # Test with zero dimension (should work, as per MATLAB)
+        E = Ellipsoid.empty(0)
+        assert E.representsa_('emptySet')
+        assert E.dim() == 0
     
     def test_empty_contains(self):
         """Test containment properties of empty ellipsoid."""
@@ -121,11 +123,11 @@ class TestEllipsoidEmpty:
         
         # Empty ellipsoid should not contain any point
         point = np.array([0.0, 0.0])
-        assert not E.contains_(point)
+        assert not E.contains(point)
         
         # Empty ellipsoid should not contain other sets
         other_E = Ellipsoid(np.eye(2))
-        assert not E.contains_(other_E)
+        assert not E.contains(other_E)
     
     def test_empty_display(self):
         """Test display of empty ellipsoid doesn't crash."""

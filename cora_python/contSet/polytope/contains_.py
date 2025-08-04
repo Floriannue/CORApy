@@ -74,20 +74,20 @@ def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exa
     """
 
     # Special cases for empty sets
-    if P.representsa_('emptySet', 0)[0]:
+    if P.representsa_('emptySet', 0):
         # An empty set contains nothing unless S is also an empty set.
         if isinstance(S, np.ndarray):
             if S.size == 0: # Empty point cloud
                 return np.array([True], dtype=bool), np.array([True], dtype=bool), np.array([0.0])
             else:
                 return np.full(S.shape[1], False, dtype=bool), np.full(S.shape[1], True, dtype=bool), np.full(S.shape[1], np.inf)
-        elif S.representsa_('emptySet', 0)[0]:
+        elif S.representsa_('emptySet', 0):
             return True, True, 0.0
         else:
             return False, True, np.inf
 
     # Special cases for fullspace
-    if P.representsa_('fullspace', 0)[0]:
+    if P.representsa_('fullspace', 0):
         # A fullspace contains everything that has the same dimension.
         # If S is fullspace, it is contained. If S is not fullspace, it is still contained if it's a valid set/point in the same dimension.
         if isinstance(S, np.ndarray):

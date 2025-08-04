@@ -56,7 +56,7 @@ from cora_python.contSet.interval.interval import Interval # For 1D case
 # P.normalizeConstraints('A')
 
 # Global helper functions
-from cora_python.g.functions.helper.general.unitvector import unitvector
+from cora_python.g.functions.matlab.init.unitvector import unitvector
 from cora_python.g.functions.helper.sets.contSet.ellipsoid.vecalign import vecalign
 
 def priv_andHyperplane(E: Ellipsoid, P: Polytope) -> Ellipsoid:
@@ -133,10 +133,23 @@ def priv_andHyperplane(E: Ellipsoid, P: Polytope) -> Ellipsoid:
         # MATLAB: xH = P_.be / P_.Ae';
         # For 1D hyperplane, P_.Aeq is (1,1) and P_.beq is (1,1)
         # Aeq is effectively a scalar, beq is a scalar.
-        xH = np.squeeze(P_.be) / np.squeeze(P_.Ae) # Use squeeze to ensure scalar for division
+        Ae_val = np.squeeze(P_.Ae)
+        be_val = np.squeeze(P_.be)
+        
+        # Check for division by zero
+        if np.abs(Ae_val) < np.finfo(float).eps:
+            # If Ae is zero, the hyperplane equation is 0*x = be
+            if np.abs(be_val) < np.finfo(float).eps:
+                # 0*x = 0, hyperplane is the whole space, intersection is the ellipsoid itself
+                return E
+            else:
+                # 0*x = be (be != 0), hyperplane is empty, intersection is empty
+                return Ellipsoid.empty(n)
+        
+        xH = be_val / Ae_val
 
         # MATLAB: r_xH = max(abs(xH)) * E.TOL;
-        # Handle cases where xH might be inf or NaN from division by zero
+        # Handle cases where xH might be inf or NaN (shouldn't happen now with the check above)
         if np.isinf(xH) or np.isnan(xH):
             return Ellipsoid.empty(n_nd)  # If xH is infinite/NaN, intersection is empty
 

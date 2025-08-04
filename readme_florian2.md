@@ -150,6 +150,7 @@ python test_coverage.py "cora_python/contSet/interval" "cora_python/tests/contSe
 - If methods need to import their own class or helpers, do it at the top of the file
 - `func` = public interface with validation (parent class)
 - `func_` = raw implementation for internal use (child overrides)
+- matlab nargout is not available in python -> solve with addtional methode parameter(s)
 - **NEVER** import methods as standalone functions. All methods are attached to classes in `__init__.py`.
 **WRONG:**
 ```python
@@ -549,4 +550,4 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-Your task is to translate easy missing methodes from `contSet.ellipsoid` 
+Your task is to fix `contSet.ellipsoid`. Go from small/easy methodes to big/hard methodes. Ensure the tests are correct by comparing them against the matlab code and tests, also keep in mind that the probelm can be with polytope that still has a lot of errors.

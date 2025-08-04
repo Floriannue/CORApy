@@ -65,7 +65,7 @@ def isequal(O: 'EmptySet', S: Union['ContSet', np.ndarray], tol: float = 1e-15) 
     # other contSet classes
     if hasattr(S, 'dim') and hasattr(S, 'representsa_'):
         try:
-            return S.dim() == O.dimension and S.representsa_('emptySet', tol)[0]
+            return S.dim() == O.dimension and S.representsa_('emptySet', tol)
         except:
             return False
 

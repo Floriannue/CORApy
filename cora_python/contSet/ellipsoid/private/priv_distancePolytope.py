@@ -33,7 +33,7 @@ def priv_distancePolytope(E: Ellipsoid, P: Polytope) -> float:
     # Normalize halfspace representation
     fac = 1. / np.sqrt(np.sum(A**2, axis=1))
     A_norm = A * fac[:, np.newaxis]
-    b_norm = b * fac
+    b_norm = b.flatten() * fac
 
     # --- Solve QP using scipy.optimize.minimize ---
     # We want to find point x in P that minimizes (x-q)'Q^{-1}(x-q)

@@ -5,6 +5,9 @@ from ...polytope import Polytope
 from ....g.functions.matlab.init.unitvector import unitvector
 from ....g.functions.helper.sets.contSet.ellipsoid.vecalign import vecalign
 from ....g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from .priv_compIntersectionParam import priv_compIntersectionParam
+from .priv_rootfnc import priv_rootfnc
+from ....g.functions.matlab.validate.check.withinTol import withinTol
 
 
 def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
@@ -39,73 +42,46 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
 
     # Helper for intersection with halfspace
     def aux_andHalfspace(E: Ellipsoid, P_halfspace: Polytope, mode: str) -> Ellipsoid:
-        from ...ellipsoid import Ellipsoid
-        from ...emptySet import EmptySet
-        from ...zonotope import Zonotope # Placeholder for now, may need to import other set types
-        from ...contSet import ContSet
-        
-        # Imports of methods for ellipsoid
-        from ...ellipsoid.distance import distance
-        from ...ellipsoid.dim import dim
-        from ...ellipsoid.contains_ import contains_
-        from ...ellipsoid.isFullDim import isFullDim
-        from ...ellipsoid.rank import rank
-        from ...ellipsoid.project import project
-        from ...ellipsoid.supportFunc_ import supportFunc_
+        # If the ellipsoid is already empty, the intersection will also be empty.
+        if E.representsa_('emptySet', E.TOL):
+            return E
 
-        # Placeholder functions (need actual implementation)
-        def priv_compIntersectionParam(W1, q1, W2, q2):
-            # Placeholder for now, needs to be translated
-            raise NotImplementedError("priv_compIntersectionParam not yet translated")
-
-        def priv_rootfnc(p, W1, q1, W2, q2):
-            # Placeholder for now, needs to be translated
-            raise NotImplementedError("priv_rootfnc not yet translated")
-            
-        def withinTol(value, target, tolerance):
-            return abs(value - target) <= tolerance
-            
         # compute distance to corresponding hyperplane
-        # Note: In MATLAB, polytope(A,b) can create a halfspace. In Python, Polytope constructor should handle this.
-        dist = distance(E, Polytope([], [], P_halfspace.A, P_halfspace.b))
-        n = dim(E)
+        dist = E.distance(Polytope(A=P_halfspace.A, b=P_halfspace.b))
+        n = E.dim()
 
         # touching, completely inside or outside
         if dist >= -E.TOL:
-            if P_halfspace.A @ E.q > P_halfspace.b:
+            if (P_halfspace.A @ E.q).flatten()[0] > (P_halfspace.b).flatten()[0]: # Added .flatten()[0] for scalar comparison
                 # completely outside or touching
                 if withinTol(dist, 0, E.TOL):
                     # touching
                     # point on hyperplane
-                    # In MATLAB, P.A' is transpose, P.b is scalar. P.A' * P.b gives a vector.
                     xh = P_halfspace.A.T * P_halfspace.b
-                    # direction resulting in touching point has positive
-                    # inner product with xh
-                    # In MATLAB, sign((xh-E.q)'*P.A')*P.A'
-                    # (xh - E.q).T @ P_halfspace.A.T
                     v = np.sign((xh - E.q).T @ P_halfspace.A.T) * P_halfspace.A.T
-                    # compute touching point
-                    _, x = supportFunc_(E, v, 'upper')
-                    E = Ellipsoid(np.zeros((n, n)), x) # Need to confirm ellipsoid constructor for zeros
-                else:
-                    E = EmptySet(n)
-            # else: E completely inside (or touching) -> E = E; (no change)
-            return E
+                    _, x = E.supportFunc_(v, 'upper')
+                    E = Ellipsoid(np.zeros((n, n)), x)
+                else: 
+                    # completely outside
+                    E = Ellipsoid.empty(n)
+            else:
+                # else: E completely inside (or touching) -> E = E; (no change)
+                return E
 
         # ...now established that they are intersecting
 
         T = np.eye(n)
         x_rem = np.array([])
 
-        if not isFullDim(E):
-            nt = rank(E)
+        if not E.isFullDim():
+            nt = E.rank()
             # check if E.Q all zero
             if nt == 0:
                 # check if E is contained in the polytope
-                if contains_(P_halfspace, E.q, 'exact', 0, 0, False, False):
+                if E.contains_(P_halfspace, method='exact', tol=E.TOL, max_eval=0, cert_toggle=False, scaling_toggle=False):
                     E = Ellipsoid(np.zeros((n, n)), E.q)
                 else:
-                    E = EmptySet(n)
+                    E = Ellipsoid.empty(n)
                 return E
 
             # In MATLAB, [T,~,~] = svd(E.Q)
@@ -118,13 +94,13 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
             P_halfspace = Polytope([], [], P_halfspace.A @ T, P_halfspace.b)
             # project
             x_rem = E.q[nt:]
-            E = project(E, list(range(nt))) # 1:nt in MATLAB means 0 to nt-1 in Python
+            E = E.project(list(range(nt))) # 1:nt in MATLAB means 0 to nt-1 in Python
             # P = polytope(P.A(1:nt),P.b-P.A(nt+1:end)*x_rem);
             # P_halfspace.A[0:nt] corresponds to P.A(1:nt)
             # P_halfspace.A[nt:] corresponds to P.A(nt+1:end)
             P_halfspace = Polytope([], [], P_halfspace.A[:nt], P_halfspace.b - P_halfspace.A[nt:] @ x_rem)
             
-        n_nd = dim(E)
+        n_nd = E.dim()
         # normalize inequality constraint
         # shift E and P such that P.b = 0 and transform such that c=e_1
         A_norm = P_halfspace.A.T / np.linalg.norm(P_halfspace.A)
@@ -133,12 +109,12 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
         # compute transformation matrix so that e_1 = S*c;
         unit_vector_1 = unitvector(1, n_nd)
         S_align = vecalign(unit_vector_1, A_norm) # S is vecalign output
-        P_halfspace = Polytope([], [], unit_vector_1.T, 0)
+        P_halfspace = Polytope(A=unit_vector_1.T, b=np.array([0]).reshape(-1,1))
         E = -b_norm * unit_vector_1 + E.transform(S_align) # E = -b*unit_vector_1 + S*E;
 
 
         if mode == 'outer':
-            r_s, _ = supportFunc_(E, unit_vector_1, 'lower')
+            r_s, _ = E.supportFunc_(unit_vector_1, 'lower')
             # makes more sense than ET original: define degenerate ellipsoid that
             # covers the transformed ellipsoid "exactly"
             q2 = np.array([1/2*r_s] + [0]*(n_nd-1)).reshape(-1,1) # Column vector
@@ -161,7 +137,7 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
             q1 = E.q
 
             b1 = (E.q - E_hyp.q).T @ W1 @ (E.q - E_hyp.q)
-            _, xb = supportFunc_(E, -unit_vector_1, 'upper')
+            _, xb = E.supportFunc_(-unit_vector_1, 'upper')
             b2 = (q2 - xb).T @ W2 @ (q2 - xb)
 
             b1 = min(1, b1)
@@ -194,12 +170,17 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
         return E
 
     # compute H-rep of P (is computed if not there; expensive!)
-    A, b = P.constraints()
+    A_ineq, b_ineq = P.A, P.b
+    A_eq, b_eq = P.Ae, P.be
+
+    # Convert equality constraints to inequality constraints
+    A_combined = np.vstack((A_ineq, A_eq, -A_eq))
+    b_combined = np.vstack((b_ineq, b_eq, -b_eq))
 
     # loop over each inequality constraint
-    for i in range(A.shape[0]):
+    for i in range(A_combined.shape[0]):
         # In MATLAB, polytope(A(i,:),b(i)) means a single half-space.
         # Ensure that Polytope constructor can handle this.
-        E = aux_andHalfspace(E, Polytope([], [], A[i,:].reshape(1,-1), b[i]), mode)
+        E = aux_andHalfspace(E, Polytope(A=A_combined[i,:].reshape(1,-1), b=b_combined[i].reshape(-1,1)), mode)
 
     return E

@@ -42,7 +42,6 @@ def priv_containsPoint(E: 'Ellipsoid', S: np.ndarray, tol: float) -> Tuple[Union
     
     for i in range(N):
         scaling[i] = E.ellipsoidNorm(S[:, i:i+1] - c)
-        print(f"Point {i} scaling: {scaling[i]}, Expected <= {1 + tol}") # Re-added print statement
         if scaling[i] <= 1 + tol:
             res[i] = True
         elif np.isnan(scaling[i]):
@@ -50,6 +49,8 @@ def priv_containsPoint(E: 'Ellipsoid', S: np.ndarray, tol: float) -> Tuple[Union
             # to manually set scaling and res
             res[i] = True
             scaling[i] = 0.0
+        else:
+            res[i] = False
     
     # Always return arrays, even for a single point, to match MATLAB behavior and avoid unpacking errors in calling code.
     # (MATLAB always returns arrays of length N, even for N=1.)

@@ -53,4 +53,4 @@ def priv_distanceHyperplane(E: Ellipsoid, P: Polytope) -> float:
     
     val = numerator / denominator
 
-    return float(val) 
+    return float(val.item() if hasattr(val, 'item') else val) 
