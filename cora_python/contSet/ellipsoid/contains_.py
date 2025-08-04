@@ -54,6 +54,9 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
             Containment Problem for Zonotopes and Ellipsotopes
     """
     
+    print(f"[DEBUG CONTAINS] Starting ellipsoid contains - method: {method}, tol: {tol}")
+    print(f"[DEBUG CONTAINS] S type: {type(S)}, S: {str(S)[:100]}")
+    
     # Validate method
     if method not in ['exact', 'approx']:
         raise CORAerror('CORA:noSpecificAlg', f'No algorithm for method {method}')
@@ -65,12 +68,18 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
     # If E is a point...
     try:
         ell_is_point, p = E.representsa_('point', tol, return_set=True)
-    except:
+        print(f"[DEBUG CONTAINS] Ellipsoid ell_is_point: {ell_is_point}, p: {p}")
+    except Exception as e:
+        print(f"[DEBUG CONTAINS] Exception in E.representsa_('point'): {e}")
         ell_is_point = False
         p = None
         
+    print(f"[DEBUG CONTAINS] About to check if ell_is_point: {ell_is_point}")
     if ell_is_point:
+        print(f"[DEBUG CONTAINS] ell_is_point is True, checking S type")
+        print(f"[DEBUG CONTAINS] isinstance(S, np.ndarray): {isinstance(S, np.ndarray)}")
         if isinstance(S, np.ndarray):
+            print(f"[DEBUG CONTAINS] Taking numpy array branch")
             # S is numeric
             res = np.max(np.abs(S - p)) <= tol
             cert = True
@@ -79,25 +88,54 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
             else:
                 scaling = np.inf
         else:
+            print(f"[DEBUG CONTAINS] Taking contSet branch")
             # S is not numeric, check if S is a point (but as a contSet)
             try:
+                print(f"[DEBUG CONTAINS] Starting try block in contSet branch")
                 # First check if S represents an empty set
+                print(f"[DEBUG CONTAINS] hasattr(S, 'representsa_'): {hasattr(S, 'representsa_')}")
+                print(f"[DEBUG CONTAINS] callable(S.representsa_): {callable(S.representsa_) if hasattr(S, 'representsa_') else 'N/A'}")
                 if hasattr(S, 'representsa_') and callable(S.representsa_):
+                    print(f"[DEBUG CONTAINS] Calling S.representsa_('emptySet', {tol})")
                     is_empty = S.representsa_('emptySet', tol)
+                    print(f"[DEBUG CONTAINS] is_empty: {is_empty}")
                     if is_empty:
+                        print(f"[DEBUG CONTAINS] S is empty - returning True")
                         # Empty set is always contained in any ellipsoid
                         res = True
                         cert = True
                         scaling = 0.0
                         return res, cert, scaling
+                    else:
+                        print(f"[DEBUG CONTAINS] S is not empty - continuing to point check")
                 
                 # Then check if S is a point
-                S_is_point, q = S.representsa_('point', tol, return_set=True)
+                try:
+                    S_is_point, q = S.representsa_('point', tol, return_set=True)
+                except TypeError:
+                    # Some representsa_ methods don't support return_set parameter
+                    S_is_point = S.representsa_('point', tol)
+                    q = None
+                print(f"[DEBUG CONTAINS] S_is_point: {S_is_point}")
+                print(f"[DEBUG CONTAINS] q: {q}")
+                print(f"[DEBUG CONTAINS] p: {p}")
                 if S_is_point:
-                    # q might be a numpy array or a set object
+                    # q might be a numpy array or a set object, or None if return_set wasn't supported
+                    print(f"[DEBUG CONTAINS] isinstance(q, np.ndarray): {isinstance(q, np.ndarray)}")
+                    print(f"[DEBUG CONTAINS] q.shape == p.shape: {q.shape == p.shape if hasattr(q, 'shape') else 'no shape'}")
+                    print(f"[DEBUG CONTAINS] not np.any(np.isnan(q)): {not np.any(np.isnan(q)) if hasattr(q, 'shape') else 'no shape'}")
                     if isinstance(q, np.ndarray) and q.shape == p.shape and not np.any(np.isnan(q)):
                         # Direct comparison with numpy array (only if shapes match and no nan)
-                        res = np.allclose(q, p, atol=tol)
+                        allclose_result = np.allclose(q, p, atol=tol)
+                        print(f"[DEBUG CONTAINS] np.allclose(q, p, atol={tol}): {allclose_result}")
+                        res = allclose_result
+                        if res:
+                            cert = True
+                            scaling = 0.0
+                            print(f"[DEBUG CONTAINS] Point comparison SUCCESS - returning True")
+                            return res, cert, scaling
+                        else:
+                            print(f"[DEBUG CONTAINS] Point comparison FAILED - points not equal")
                     else:
                         # q is invalid (wrong shape, contains nan, etc.) -> fall back to vertex check
                         # This handles buggy polytope representsa_ implementations
@@ -124,20 +162,28 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                                         res = False
                                 else:
                                     res = False
-                        except:
+                        except Exception as e:
+                            print(f"[DEBUG CONTAINS] Exception in vertex fallback: {e}")
                             res = False
                     
+                    print(f"[DEBUG CONTAINS] After point check - res: {res}")
                     cert = True
                     if res:
                         scaling = 0.0
                     else:
                         scaling = np.inf
+                    print(f"[DEBUG CONTAINS] Point ellipsoid final result: res={res}, cert={cert}, scaling={scaling}")
                 else:
+                    print(f"[DEBUG CONTAINS] S has no representsa_ method")
                     # S is not numeric and not empty -> S cannot possibly be contained
                     res = False
                     cert = True
                     scaling = np.inf
-            except:
+            except Exception as e:
+                # Log the exception but continue with fallback
+                print(f"[ERROR] Exception in ellipsoid contains contSet branch: {e}")
+                import traceback
+                traceback.print_exc()
                 res = False
                 cert = True
                 scaling = np.inf

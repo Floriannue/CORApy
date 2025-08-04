@@ -23,7 +23,6 @@ from scipy.spatial import ConvexHull, QhullError
 from scipy.optimize import linprog
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
-from cora_python.contSet.polytope.private.priv_emptySet import priv_emptySet
 from cora_python.contSet.polytope.private.priv_compact_zeros import priv_compact_zeros
 from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
 from cora_python.contSet.polytope.private.priv_compact_toEquality import priv_compact_toEquality
@@ -196,7 +195,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
     elif set_type == 'capsule':
         # True if 1D and bounded (note: also true if polytope is a bounded line)
         # MATLAB uses isBounded(P) which might trigger computation
-        res = (n == 1 and p.bounded and not p.emptySet) # Use p.bounded property
+        res = (n == 1 and p.isBounded() and not p.isemptyobject()) # Use p.bounded property
         if 'return_set' in kwargs and kwargs['return_set']:
             if res:
                 # If it represents a capsule and return_set is true, construct and return it
@@ -259,7 +258,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
 
     elif set_type == 'ellipsoid':
         # only an ellipsoid if 1D and bounded or a single point
-        res = (n == 1 and p.bounded and not p.emptySet) or p.representsa_('point', tol) # Use p.bounded
+        res = (n == 1 and p.isBounded() and not p.isemptyobject()) or p.representsa_('point', tol) # Use p.bounded
         if 'return_set' in kwargs and kwargs['return_set'] and res:
             from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid # Placeholder
             return_obj = Ellipsoid(p) # Assumes conversion constructor
@@ -352,7 +351,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                         else:
                             # Constraint cuts through the interval, so P is not an interval
                             # Fallback to checking if P is an empty set
-                            if p.emptySet:
+                            if p.isemptyobject():
                                 res = True # Yes, it's an interval, but it's empty (consistent with MATLAB)
                                 if 'return_set' in kwargs and kwargs['return_set']:
                                      return_obj = Interval.empty(n_curr)
@@ -418,8 +417,6 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         return res, None # Ensure tuple return here
 
     # Note: 'emptySet' and 'fullspace' are handled at the beginning due to their interaction
-    # with P.emptySet and P.fullDim properties. This deviates from MATLAB's switch structure
-    # but is more efficient as these properties are computed/cached.
 
     else:
         raise CORAerror('CORA:wrongValue', 'second', f"Unknown set type '{set_type}'.")

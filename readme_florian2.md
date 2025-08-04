@@ -550,4 +550,4 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-Your task is to fix `contSet.ellipsoid`. Go from small/easy methodes to big/hard methodes. Ensure the tests are correct by comparing them against the matlab code and tests, also keep in mind that the probelm can be with polytope that still has a lot of errors.
+Your task is to fix `contSet.ellipsoid`. Go from small/easy methodes to big/hard methodes. Ensure the tests are correct by comparing them against the matlab code and tests, also keep in mind that the probelm can be with polytope that still has a lot of errors. No matter what find the root cause and fix it.

@@ -452,7 +452,7 @@ class Polytope(ContSet):
         try:
             # Call the external dim function via the attached method
             current_dim = self.dim() # Using the attached method P.dim()
-            if self.emptySet:
+            if self.isemptyobject():
                 return f"Polytope.empty({current_dim})"
             elif self.isVRep and self.V.size > 0 and self.V.shape[1] <= 12: # Check V.size > 0 to avoid empty list
                 # For small polytopes, show vertices

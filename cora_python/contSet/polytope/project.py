@@ -104,7 +104,7 @@ def project(P: 'Polytope', dims: List[int], method: str = 'default') -> 'Polytop
         method_chosen = method
 
     # Check emptiness
-    if P.emptySet:
+    if P.isemptyobject():
         return Polytope.empty(n_out)
 
     # Normalize and compact constraints BEFORE projection for accuracy

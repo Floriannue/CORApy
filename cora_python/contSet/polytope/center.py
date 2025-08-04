@@ -34,6 +34,8 @@ Python translation: 2025
 import numpy as np
 from scipy.optimize import linprog
 from typing import TYPE_CHECKING, Optional, Union
+from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
+from cora_python.contSet.polytope.private.priv_compact_alignedEq import priv_compact_alignedEq
 
 if TYPE_CHECKING:
     from .polytope import Polytope
@@ -72,7 +74,7 @@ def center(P: 'Polytope', method: str = 'chebyshev') -> np.ndarray:
     if P.representsa_('fullspace', 0):
         # Return origin; consistent with fullspace/center
         return np.zeros((n, 1))
-    elif P.emptySet: # Simplified check for emptySet property
+    elif P.isemptyobject(): # Use method interface to check if empty
         # Return empty
         return np.zeros((n, 0))
     
@@ -141,32 +143,27 @@ def _aux_center_only_equalityConstraints(P: 'Polytope', n: int) -> np.ndarray:
     """
     # Minimal halfspace representation: if two constraints are aligned and
     # cannot be fulfilled at the same time, an empty polytope is returned
-    try:
-        # Get normalized constraints
-        # Use P.Ae and P.be directly, as they are guaranteed to be NumPy arrays.
-        _, _, Ae, be = P._priv_normalizeConstraints(None, None, P.Ae, P.be, 'A')
-        Ae, be, empty = P._priv_compact_alignedEq(Ae, be, 1e-12)
-        
-        # Check if emptiness has been determined during the computation of the
-        # minimal representation
-        if empty:
-            return np.zeros((n, 0))
-        
-        # All constraints now are linearly independent, hence the relation of 
-        # system dimension and number of constraints determines the solution
-        if Ae.shape[0] < n:
-            # Underdetermined -> unbounded
-            return np.full((n, 1), np.nan)
-        elif Ae.shape[0] > n:
-            # Overdetermined -> no solution
-            return np.zeros((n, 0))
-        else:
-            # Same number of constraints as system dimension -> single point
-            return np.linalg.solve(Ae, be).reshape(-1, 1)
-            
-    except Exception:
-        # Fallback to general LP method
-        return _aux_center_LP(P, n)
+    # Get normalized constraints
+    # Use P.Ae and P.be directly, as they are guaranteed to be NumPy arrays.
+    _, _, Ae, be = priv_normalizeConstraints(None, None, P.Ae, P.be, 'A')
+    Ae, be, empty = priv_compact_alignedEq(Ae, be, 1e-12)
+    
+    # Check if emptiness has been determined during the computation of the
+    # minimal representation
+    if empty:
+        return np.zeros((n, 0))
+    
+    # All constraints now are linearly independent, hence the relation of 
+    # system dimension and number of constraints determines the solution
+    if Ae.shape[0] < n:
+        # Underdetermined -> unbounded
+        return np.full((n, 1), np.nan)
+    elif Ae.shape[0] > n:
+        # Overdetermined -> no solution
+        return np.zeros((n, 0))
+    else:
+        # Same number of constraints as system dimension -> single point
+        return np.linalg.solve(Ae, be).reshape(-1, 1)
 
 
 def _aux_center_LP(P: 'Polytope', n: int) -> np.ndarray:

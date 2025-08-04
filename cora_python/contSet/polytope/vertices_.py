@@ -9,6 +9,7 @@ from cora_python.contSet.polytope.private.priv_equalityToInequality import priv_
 from cora_python.contSet.polytope.center import center # Import center function
 from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
 from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 # Placeholder for priv_vertices_1D
 # Placeholder for priv_compact_all
@@ -69,7 +70,7 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
     # (e.g., center returns empty array or NaN values)
     if c_vec.size == 0 or np.any(np.isnan(c_vec)):
         # If it's unbounded, vertices cannot be computed
-        if P.dim() > 0 and not P.bounded: # Using P.bounded property
+        if P.dim() > 0 and not P.isBounded(): # Using P.bounded property
             raise CORAerror('CORA:notSupported',
                             'Vertex computation requires a bounded polytope.')
         else:

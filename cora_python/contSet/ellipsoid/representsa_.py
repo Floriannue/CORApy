@@ -47,8 +47,8 @@ def representsa_(E: 'Ellipsoid', type_str: str, tol: float = 1e-9, **kwargs):
     # A point ellipsoid has a zero shape matrix, regardless of its dimensions.
     isPoint = np.all(E.Q == 0) # Check if all elements are exactly zero
 
-    # Debug print for isPoint logic
-    print(f"[DEBUG] representsa_ input E.Q: {E.Q}, E.q: {E.q}, isPoint initial: {isPoint}")
+    # Debug print for isPoint logic (commented out to reduce noise)
+    # print(f"[DEBUG] representsa_ input E.Q: {E.Q}, E.q: {E.q}, isPoint initial: {isPoint}")
 
     type_lower = type_str.lower()
 
@@ -178,7 +178,7 @@ def representsa_(E: 'Ellipsoid', type_str: str, tol: float = 1e-9, **kwargs):
         res = False
     
     # Debug print before final return
-    print(f"[DEBUG] representsa_ Final result for {type_str}: res={res}, S={S}")
+    # print(f"[DEBUG] representsa_ Final result for {type_str}: res={res}, S={S}")
 
     if return_set:
         return res, S

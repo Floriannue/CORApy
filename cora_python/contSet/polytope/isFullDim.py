@@ -37,7 +37,7 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 from cora_python.contSet.polytope.private.priv_isFullDim_V import priv_isFullDim_V
 
 
-def isFullDim(P: 'Polytope', tol: float = 1e-12) -> Union[bool, Tuple[bool, Optional[np.ndarray]]]:
+def isFullDim(P: 'Polytope', tol: float = 1e-12) -> Tuple[bool, Optional[np.ndarray]]:
     """
     Checks if the dimension of the affine hull of a polytope is equal to the dimension of its ambient space.
     
@@ -54,9 +54,9 @@ def isFullDim(P: 'Polytope', tol: float = 1e-12) -> Union[bool, Tuple[bool, Opti
     if hasattr(P, '_fullDim_val') and P._fullDim_val is not None:
         res = P._fullDim_val
         # In MATLAB, if only one output is requested and value is cached, return early
-        # For two outputs, still compute subspace below...
-        # For simplicity, assume single output for now
-        return res
+        # But in Python, we always return (bool, subspace) tuple for consistency
+        # If cached, we don't have subspace info, so return None for subspace
+        return res, None
     
     # check whether V- or H-representation given
     if hasattr(P, 'isVRep') and P.isVRep:
@@ -128,7 +128,7 @@ def _aux_isFullDim_nD_Hpoly_nosubspace(P: 'Polytope', tol: float) -> bool:
     n = P.dim()
     
     # Check if polytope is empty first
-    if hasattr(P, 'emptySet') and P.emptySet:
+    if hasattr(P, 'emptySet') and P.isemptyobject():
         return False
     
     # Simple check: if there are equality constraints, check their rank

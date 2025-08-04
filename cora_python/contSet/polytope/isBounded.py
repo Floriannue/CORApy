@@ -55,11 +55,21 @@ def isBounded(P: 'Polytope') -> bool:
         if not P.isHRep:
             P.constraints()
         
-        # If no constraints (empty A), the polytope represents R^n, which is unbounded
-        if P.A.size == 0:
+        # Quick check: if any column in the inequality and equality constraints
+        # is zero everywhere, this dimension is unbounded (MATLAB line 64-65)
+        combined_constraints = np.vstack([P.A, P.Ae]) if P.A.size > 0 and P.Ae.size > 0 else \
+                              P.A if P.A.size > 0 else \
+                              P.Ae if P.Ae.size > 0 else \
+                              np.array([]).reshape(0, P.dim())
+        
+        if combined_constraints.size == 0:
+            # No constraints at all -> represents R^n, which is unbounded
+            res = False
+        elif combined_constraints.shape[0] > 0 and not np.all(np.any(combined_constraints, axis=0)):
+            # Some dimension has no constraints (all-zero column) -> unbounded
             res = False
         else:
-            # Check for unboundedness using linear programming for halfspace representation
+            # All dimensions are constrained, check using support functions
             res = _check_bounded_halfspace(P)
     
     # save the set property (only done once, namely, here!)
@@ -72,25 +82,31 @@ def _check_bounded_halfspace(P) -> bool:
     """
     Check if polytope in halfspace representation is bounded
     
-    This is done by checking if the system A*x <= b has unbounded solutions
+    This is done by checking if the system A*x <= b, Ae*x = be has unbounded solutions
     in any direction. We solve linear programs in different directions.
     """
     
-    n = P.A.shape[1]  # dimension
+    n = P.dim()  # Use P.dim() to get dimension reliably
     
     # Check if polytope is bounded by solving LP in each coordinate direction
     # If we can find an unbounded direction, the polytope is unbounded
     
+    # Prepare constraint matrices - handle both inequality and equality constraints
+    A_ub = P.A if P.A.size > 0 else None
+    b_ub = P.b.flatten() if P.b.size > 0 else None
+    A_eq = P.Ae if P.Ae.size > 0 else None
+    b_eq = P.be.flatten() if P.be.size > 0 else None
+    
     # Test positive and negative directions for each coordinate
     for i in range(n):
         for direction in [1, -1]:
-            # Objective: maximize/minimize x_i subject to A*x <= b
+            # Objective: maximize/minimize x_i subject to A*x <= b, Ae*x = be
             c = np.zeros(n)
             c[i] = direction
             
             try:
-                # Solve LP: min c^T x subject to A*x <= b
-                result = linprog(c, A_ub=P.A, b_ub=P.b.flatten(), 
+                # Solve LP: min c^T x subject to A*x <= b and Ae*x = be
+                result = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq,
                                bounds=None, method='highs')
                 
                 # If the LP is unbounded, the polytope is unbounded

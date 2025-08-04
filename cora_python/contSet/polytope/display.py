@@ -24,6 +24,7 @@ Last revision: ---
 """
 
 from typing import TYPE_CHECKING
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 if TYPE_CHECKING:
     from .polytope import Polytope
@@ -133,9 +134,18 @@ def display(P: 'Polytope', name: str = None) -> str:
     
     # Display set properties (if available)
     output_lines.append("Set properties:")
-    output_lines.append(f"Bounded?                          {aux_prop2string(P.bounded)}")
-    output_lines.append(f"Empty set?                        {aux_prop2string(P.emptySet)}") 
-    output_lines.append(f"Full-dimensional set?             {aux_prop2string(P.fullDim)}")
+    
+    # Use method interface for computed properties (like MATLAB)
+    bounded_result = P.isBounded()
+    output_lines.append(f"Bounded?                          {aux_prop2string(bounded_result)}")
+
+    empty_result = P.isemptyobject()
+    output_lines.append(f"Empty set?                        {aux_prop2string(empty_result)}")
+
+    fullDim_result = P.isFullDim()
+    output_lines.append(f"Full-dimensional set?             {aux_prop2string(fullDim_result)}")
+
+    # These are cached properties, not computed methods
     output_lines.append(f"Minimal halfspace representation? {aux_prop2string(P.minHRep)}")
     output_lines.append(f"Minimal vertex representation?    {aux_prop2string(P.minVRep)}")
     output_lines.append("")
