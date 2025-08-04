@@ -132,6 +132,7 @@ class Polytope(ContSet):
             # The dim value is copied directly in _copy_constructor
             return
         
+
         # Handle Zonotope conversion
         if len(args) == 1 and hasattr(args[0], 'c') and hasattr(args[0], 'G'):
             # This is a Zonotope object, convert it to polytope
@@ -141,6 +142,7 @@ class Polytope(ContSet):
                 # Convert zonotope to polytope using the zonotope's polytope method
                 P = Z.polytope()
                 # Copy properties from the converted polytope
+
                 self._copy_constructor(P)
                 return
         else:

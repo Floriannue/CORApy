@@ -92,6 +92,7 @@ def supportFunc(S: 'ContSet',
         if return_support_vector:
             return result[:2] if isinstance(result, (tuple, list)) else (result, np.array([]))
         return result[0] if isinstance(result, (tuple, list)) else result
+
     except Exception as ME:
         # Handle empty set case
         if S.representsa_('emptySet', 1e-15):
@@ -103,11 +104,13 @@ def supportFunc(S: 'ContSet',
                 # Return interval(-inf, +inf) - would need interval class
                 val = (float('-inf'), float('+inf'))
             
+
             # Handle return format for empty set case
             if return_all:
                 return (val, np.array([]), np.array([]))
             if return_support_vector:
                 return (val, np.array([]))
+
             return val
         else:
             raise ME 
