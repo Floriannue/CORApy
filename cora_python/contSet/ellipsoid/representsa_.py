@@ -41,106 +41,135 @@ def representsa_(E: 'Ellipsoid', type_str: str, tol: float = 1e-9, **kwargs):
     
     # Initialize second output argument
     S = None
+    res = False
     
     # Is the ellipsoid just a point?
-    isPoint = np.all(np.all(withinTol(E.Q, 0, tol)))
-    
-    if type_str == 'origin':
-        res = isPoint and E.q is not None and np.all(withinTol(E.q, 0, tol))
+    # A point ellipsoid has a zero shape matrix, regardless of its dimensions.
+    isPoint = np.all(E.Q == 0) # Check if all elements are exactly zero
+
+    # Debug print for isPoint logic
+    print(f"[DEBUG] representsa_ input E.Q: {E.Q}, E.q: {E.q}, isPoint initial: {isPoint}")
+
+    type_lower = type_str.lower()
+
+    if type_lower == 'origin':
+        # MATLAB: res = isPoint && ~isempty(E.q) && all(withinTol(E.q,0,tol));
+        # Check if it's a point ellipsoid, q is non-empty, and q is close to zero
+        res = isPoint and (E.q is not None and E.q.size > 0) and np.all(withinTol(E.q, 0, tol))
         if return_set and res:
             S = np.zeros((n, 1))
             
-    elif type_str == 'point':
+    elif type_lower == 'point':
         res = isPoint
         if return_set and res:
             S = E.q.copy()
             
-    elif type_str == 'capsule':
+    elif type_lower == 'capsule':
         # Only if ellipsoid is 1D, a point, or a ball
-        diagEQ = np.diag(E.Q)
-        res = (n == 1 or isPoint or 
-               (np.count_nonzero(E.Q) == n and np.all(withinTol(diagEQ, diagEQ[0], tol))))
+        # MATLAB: diag(E.Q) needs to be numerically checked
+        diag_Q = np.diag(E.Q)
+        # A ball means all eigenvalues of Q are equal and positive (or zero for point).
+        # So, the diagonal elements of Q should be approximately equal for a diagonal Q matrix,
+        # and for a general Q, all eigenvalues should be equal. Here we check the diagonal
+        # elements after a potential rotation to principal axes if E.Q is not diagonal.
+        # For simplicity, if Q is already diagonal (or near-diagonal) and its diagonal elements
+        # are within tolerance, we consider it a ball or a point.
+        # A more robust check would involve eigenvalues: np.all(withinTol(np.diff(np.linalg.eigvalsh(E.Q)), 0, tol))
+        is_ball = np.all(withinTol(diag_Q, diag_Q[0], tol)) if E.Q.ndim > 1 and E.Q.shape[0] > 0 else True # Handle 0D and 1D
+
+        res = (n == 1 or isPoint or (is_ball and np.all(np.diag(E.Q) > -tol))) # ensure diagonal is not negative (pos semi-definite)
+        
         if return_set and res:
-            raise NotImplementedError(f"Conversion from ellipsoid to {type_str} not supported.")
+            raise CORAerror('CORA:notSupported', f"Conversion from ellipsoid to {type_str} not supported.")
             
-    elif type_str == 'conHyperplane':
+    elif type_lower == 'conhyperplane':
         # Only a constrained hyperplane if ellipsoid is 1D or a point
         res = n == 1 or isPoint
         if return_set and res:
-            raise NotImplementedError(f"Conversion from ellipsoid to {type_str} not supported.")
+            raise CORAerror('CORA:notSupported', f"Conversion from ellipsoid to {type_str} not supported.")
             
-    elif type_str == 'conPolyZono':
-        raise NotImplementedError(f"Comparison of ellipsoid to {type_str} not supported.")
+    elif type_lower == 'conpolyzono':
+        raise CORAerror('CORA:notSupported', f"Comparison of ellipsoid to {type_str} not supported.")
             
-    elif type_str == 'conZonotope':
+    elif type_lower == 'conzonotope':
         # Only a constrained zonotope if ellipsoid is 1D or a point
         res = n == 1 or isPoint
         if return_set and res:
-            raise NotImplementedError(f"Conversion from ellipsoid to {type_str} not supported.")
+            raise CORAerror('CORA:notSupported', f"Conversion from ellipsoid to {type_str} not supported.")
             
-    elif type_str == 'ellipsoid':
+    elif type_lower == 'ellipsoid':
         res = True
         if return_set:
             S = E
             
-    elif type_str == 'halfspace':
+    elif type_lower == 'halfspace':
         # Ellipsoids cannot be unbounded
         res = False
         
-    elif type_str == 'interval':
+    elif type_lower == 'interval':
         # Only an interval if ellipsoid is 1D or a point
         res = n == 1 or isPoint
         if return_set and res:
-            from cora_python.contSet.ellipsoid.interval import interval
-            S = interval(E)
+            from cora_python.contSet.interval.interval import Interval # local import
+            S = E.interval()
                 
     elif type_str == 'levelSet':
-        raise NotImplementedError(f"Comparison of ellipsoid to {type_str} not supported.")
+        raise CORAerror('CORA:notSupported', f"Comparison of ellipsoid to {type_str} not supported.")
             
-    elif type_str == 'polytope':
+    elif type_lower == 'polytope':
         # Only a polytope if ellipsoid is 1D or a point
         res = n == 1 or isPoint
         if return_set and res:
-            raise NotImplementedError(f"Conversion from ellipsoid to {type_str} not supported.")
+            from cora_python.contSet.polytope.polytope import Polytope # local import
+            # For a point, create a 0-gen polytope. For 1D ellipsoid, it's an interval which is a polytope.
+            if isPoint:
+                S = Polytope(E.q)
+            elif n == 1:
+                I_obj = E.interval() # Use interval conversion if 1D
+                S = Polytope(np.array([[-1.0],[1.0]]), np.array([[-I_obj.inf], [I_obj.sup]]))
+            else:
+                raise CORAerror('CORA:notSupported', f"Conversion from ellipsoid to {type_str} not supported for n={n}.")
             
-    elif type_str == 'polyZonotope':
-        raise NotImplementedError(f"Comparison of ellipsoid to {type_str} not supported.")
+    elif type_lower == 'polyzonotope':
+        raise CORAerror('CORA:notSupported', f"Comparison of ellipsoid to {type_str} not supported.")
             
-    elif type_str == 'probZonotope':
+    elif type_lower == 'probzonotope':
         res = False
         
-    elif type_str == 'zonoBundle':
+    elif type_lower == 'zonobundle':
         # Only a zonotope bundle if ellipsoid is 1D or a point
         res = n == 1 or isPoint
         if return_set and res:
-            raise NotImplementedError(f"Conversion from ellipsoid to {type_str} not supported.")
+            raise CORAerror('CORA:notSupported', f"Conversion from ellipsoid to {type_str} not supported.")
             
-    elif type_str == 'zonotope':
+    elif type_lower == 'zonotope':
         # Only a zonotope if ellipsoid is 1D or a point
         res = n == 1 or isPoint
         if return_set and res:
-            from cora_python.contSet.ellipsoid.zonotope import zonotope
-            S = zonotope(E)
+            from cora_python.contSet.zonotope.zonotope import Zonotope # local import
+            S = E.zonotope()
             
-    elif type_str == 'hyperplane':
+    elif type_lower == 'hyperplane':
         # Ellipsoid cannot be unbounded (unless 1D, where hyperplane also bounded)
         res = n == 1
         if return_set and res:
-            raise NotImplementedError(f"Conversion from ellipsoid to {type_str} not supported.")
+            raise CORAerror('CORA:notSupported', f"Conversion from ellipsoid to {type_str} not supported.")
             
-    elif type_str == 'parallelotope':
-        raise NotImplementedError(f"Comparison of ellipsoid to {type_str} not supported.")
+    elif type_lower == 'parallelotope':
+        raise CORAerror('CORA:notSupported', f"Comparison of ellipsoid to {type_str} not supported.")
             
-    elif type_str == 'convexSet':
+    elif type_lower == 'convexset':
         res = True
         
-    elif type_str == 'emptySet':
-        res = (E.Q is None or E.Q.size == 0) and (E.q is None or E.q.size == 0)
+    elif type_lower == 'emptyset':
+        # An ellipsoid represents an empty set if its shape matrix Q is 0x0,
+        # its center vector q is empty, and its tolerance is empty or default.
+        res = E.isemptyobject()
         if return_set and res:
             from cora_python.contSet.emptySet import EmptySet
             S = EmptySet(n)
             
-    elif type_str == 'fullspace':
+    elif type_lower == 'fullspace':
         # Ellipsoid cannot be unbounded
         res = False
         
@@ -148,6 +177,9 @@ def representsa_(E: 'Ellipsoid', type_str: str, tol: float = 1e-9, **kwargs):
         # Unknown set type - MATLAB doesn't throw error, just returns false
         res = False
     
+    # Debug print before final return
+    print(f"[DEBUG] representsa_ Final result for {type_str}: res={res}, S={S}")
+
     if return_set:
         return res, S
     return res 

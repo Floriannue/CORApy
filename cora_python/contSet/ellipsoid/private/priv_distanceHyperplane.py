@@ -27,11 +27,11 @@ def priv_distanceHyperplane(E: Ellipsoid, P: Polytope) -> float:
     # from Kurzhanskiy, A.A. and Varaiya, P., 2006, sec 2.1, eq 2.10
     # can be <0
     # The hyperplane is defined by c'x = y
-    if P.A.shape[0] != 1:
-        raise ValueError("Polytope must represent a single hyperplane.")
+    if P.Ae.shape[0] != 1:
+        raise ValueError("Polytope must represent a single hyperplane (exactly one equality constraint).")
     
-    y = P.b[0]
-    c = P.A.T
+    y = P.be[0]
+    c = P.Ae.T # c should be a column vector, P.Ae is 1xn, so transpose it
 
     q = E.q
     Q = E.Q
@@ -53,4 +53,4 @@ def priv_distanceHyperplane(E: Ellipsoid, P: Polytope) -> float:
     
     val = numerator / denominator
 
-    return float(val) 
+    return float(val.item() if hasattr(val, 'item') else val) 

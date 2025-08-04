@@ -1,11 +1,13 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 import numpy as np
+from cora_python.contSet.polytope.polytope import Polytope # Add this import
+from typing import Union
 
 if TYPE_CHECKING:
     from .polytope import Polytope
 
-def minus(p: Polytope, q: object) -> Polytope:
+def minus(p: Polytope, q: Union[np.ndarray, list]) -> Polytope:
     """
     Overloads the '-' operator for polytopes. Only subtraction of a vector
     is supported, which corresponds to a translation of the polytope.
@@ -19,34 +21,35 @@ def minus(p: Polytope, q: object) -> Polytope:
     Returns:
         Polytope: The translated polytope.
     """
-    if isinstance(q, np.ndarray) and q.ndim <= 2 and (q.shape[0] == p.dim() or q.shape[1] == p.dim()):
-        
-        # Ensure q is a column vector
-        q_vec = q.reshape(-1, 1)
-
-        # Create a deep copy to not modify the original
-        p_new = Polytope(p)
-
-        # Translate H-representation if it exists
-        if p_new._isHRep:
-            if p_new._A is not None and p_new._b is not None:
-                p_new._b = p_new._b + p_new._A @ q_vec
-            if p_new._Ae is not None and p_new._be is not None:
-                p_new._be = p_new._be + p_new._Ae @ q_vec
-        
-        # Translate V-representation if it exists
-        if p_new._isVRep:
-            if p_new._V is not None and p_new._V.size > 0:
-                p_new._V = p_new._V - q_vec
-
-        return p_new
-
-    else:
+    # Ensure q is a numpy array and has compatible dimensions
+    if not (isinstance(q, np.ndarray) and q.ndim <= 2 and 
+            (q.shape[0] == p.dim() or (q.ndim == 1 and q.size == p.dim()))): # Added check for 1D array q
         # Minkowski difference is not supported via '-'
         raise TypeError(
             "The '-' operator for a Polytope is only defined for subtraction "
-            "of a numerical vector. For Minkowski difference, use minkDiff()."
+            "of a numerical vector with compatible dimensions. For Minkowski difference, use minkDiff()."
         )
+    
+    # Ensure q is a column vector for consistent matrix operations
+    q_vec = q.reshape(-1, 1)
+
+    # Create a deep copy to not modify the original
+    p_new = Polytope(p)
+
+    # Translate H-representation if it exists
+    if p_new.isHRep:
+        # Correct subtraction for H-representation: b_new = b - A @ q_vec
+        p_new._b = p_new.b - p_new.A @ q_vec
+        p_new._be = p_new.be - p_new.Ae @ q_vec
+        p_new._reset_lazy_flags() # Reset lazy flags after modifying H-representation
+    
+    # Translate V-representation if it exists
+    if p_new.isVRep:
+        # Correct subtraction for V-representation: V_new = V - q_vec
+        p_new._V = p_new.V - q_vec # Broadcasting should handle this correctly
+        p_new._reset_lazy_flags() # Reset lazy flags after modifying V-representation
+
+    return p_new
 
 def rminus(p: Polytope, q: object) -> Polytope:
     """

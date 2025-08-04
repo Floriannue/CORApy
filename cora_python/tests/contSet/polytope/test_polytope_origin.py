@@ -18,9 +18,16 @@ class TestOrigin:
         # Check that it's a 2D polytope
         assert P.dim() == 2
         
-        # Check that it's in H-representation initially
+        # Check that it's in both representations
         assert P._isHRep
-        assert not P._isVRep
+        assert P._isVRep  # Should also be V-rep (line 42 in MATLAB)
+        
+        # Test cache values are set correctly like MATLAB (lines 36-40)
+        assert P._emptySet_val == False      # P.emptySet.val = false;
+        assert P._fullDim_val == False       # P.fullDim.val = false;
+        assert P._bounded_val == True        # P.bounded.val = true;
+        assert P._minHRep_val == True        # P.minHRep.val = true;
+        assert P._minVRep_val == True        # P.minVRep.val = true;
         
         # Check halfspace representation
         expected_A = np.array([[1, 0], [0, 1], [-1, -1]])

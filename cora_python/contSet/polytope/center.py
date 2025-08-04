@@ -55,7 +55,8 @@ def center(P: 'Polytope', method: str = 'chebyshev') -> np.ndarray:
         c: Chebyshev center of the polytope
     """
     # Parse input
-    method = setDefaultValues({'chebyshev'}, [method])[0] if method != 'chebyshev' else 'chebyshev'
+    # The function signature already handles the default value for 'method'
+    # method = setDefaultValues(['chebyshev'], [method])[0] if method != 'chebyshev' else 'chebyshev'
     allowed_methods = ['chebyshev', 'avg']
     
     # Input validation
@@ -71,7 +72,7 @@ def center(P: 'Polytope', method: str = 'chebyshev') -> np.ndarray:
     if P.representsa_('fullspace', 0):
         # Return origin; consistent with fullspace/center
         return np.zeros((n, 1))
-    elif hasattr(P, 'emptySet') and hasattr(P.emptySet, 'val') and P.emptySet.val:
+    elif P.emptySet: # Simplified check for emptySet property
         # Return empty
         return np.zeros((n, 0))
     
@@ -91,20 +92,22 @@ def center(P: 'Polytope', method: str = 'chebyshev') -> np.ndarray:
 def _aux_center_1D(P: 'Polytope') -> np.ndarray:
     """Special method for 1D polytopes"""
     # Compute vertices
-    V = P.vertices_('lcon2vert')
-    
+    V = P.vertices_()
+
+    # For 1D, the Chebyshev center is simply the midpoint of the interval
+    # bounded by the min/max vertices. If there are no vertices, it's empty.
     if V.size == 0:
-        # Empty set
+        # Empty polytope, no center
         return np.zeros((1, 0))
-    elif V.shape[1] == 1:
-        # Only one vertex, which is also the center
-        return V
-    elif np.any(np.isinf(V)):
+
+    if np.any(np.isinf(V)):
         # Unbounded
-        return np.array([[np.nan]])
-    else:
-        # Bounded -> two vertices, take mean
-        return np.mean(V, axis=1, keepdims=True)
+        return np.array([np.nan])
+
+    if V.shape[1] == 1: # Single point
+        return V.flatten()
+    else: # Interval
+        return np.array([(np.min(V) + np.max(V)) / 2])
 
 
 def _aux_center_chebyshev(P: 'Polytope') -> np.ndarray:
@@ -114,8 +117,7 @@ def _aux_center_chebyshev(P: 'Polytope') -> np.ndarray:
     
     # Check whether there are only equalities: allows to avoid the linear
     # program from below (faster)
-    if ((not hasattr(P, 'A_') or P.A_ is None or P.A_.val is None or P.A_.val.size == 0) and 
-        (hasattr(P, 'Ae_') and P.Ae_ is not None and P.Ae_.val is not None and P.Ae_.val.size > 0)):
+    if P.A.size == 0 and P.Ae.size > 0:
         return _aux_center_only_equalityConstraints(P, n)
     
     # General method: compute Chebyshev center via linear program; to this end,
@@ -127,7 +129,7 @@ def _aux_center_chebyshev(P: 'Polytope') -> np.ndarray:
 def _aux_center_avg(P: 'Polytope') -> np.ndarray:
     """Compute average of vertices"""
     # Compute vertices
-    V = P.vertices()
+    V = P.vertices_()
     
     # Compute mean
     return np.mean(V, axis=1, keepdims=True)
@@ -141,7 +143,8 @@ def _aux_center_only_equalityConstraints(P: 'Polytope', n: int) -> np.ndarray:
     # cannot be fulfilled at the same time, an empty polytope is returned
     try:
         # Get normalized constraints
-        _, _, Ae, be = P._priv_normalizeConstraints(None, None, P.Ae_.val, P.be_.val, 'A')
+        # Use P.Ae and P.be directly, as they are guaranteed to be NumPy arrays.
+        _, _, Ae, be = P._priv_normalizeConstraints(None, None, P.Ae, P.be, 'A')
         Ae, be, empty = P._priv_compact_alignedEq(Ae, be, 1e-12)
         
         # Check if emptiness has been determined during the computation of the
@@ -169,11 +172,11 @@ def _aux_center_only_equalityConstraints(P: 'Polytope', n: int) -> np.ndarray:
 def _aux_center_LP(P: 'Polytope', n: int) -> np.ndarray:
     """Linear program for the computation of the Chebyshev center"""
     
-    # Get constraint matrices
-    A_val = P.A_.val if hasattr(P, 'A_') and P.A_ is not None and P.A_.val is not None else np.zeros((0, n))
-    b_val = P.b_.val if hasattr(P, 'b_') and P.b_ is not None and P.b_.val is not None else np.zeros((0, 1))
-    Ae_val = P.Ae_.val if hasattr(P, 'Ae_') and P.Ae_ is not None and P.Ae_.val is not None else np.zeros((0, n))
-    be_val = P.be_.val if hasattr(P, 'be_') and P.be_ is not None and P.be_.val is not None else np.zeros((0, 1))
+    # Get constraint matrices using public properties
+    A_val = P.A
+    b_val = P.b
+    Ae_val = P.Ae
+    be_val = P.be
     
     # Dimension and number of (in)equalities
     nrEq = Ae_val.shape[0]

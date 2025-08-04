@@ -54,7 +54,8 @@ def supportFunc_(S: 'ContSet',
     if (hasattr(type(S), 'supportFunc_') and 
         base_class and hasattr(base_class, 'supportFunc_') and
         type(S).supportFunc_ is not base_class.supportFunc_):
-        return type(S).supportFunc_(direction, type_, method, max_order_or_splits, tol)
+        return type(S).supportFunc_(S, direction, type_=type_, method=method, # Pass by keyword
+                                     max_order_or_splits=max_order_or_splits, tol=tol)
     else:
         # Base implementation - throw error as this method should be overridden
         raise CORAerror('CORA:noops',

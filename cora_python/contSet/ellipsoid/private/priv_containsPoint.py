@@ -49,6 +49,8 @@ def priv_containsPoint(E: 'Ellipsoid', S: np.ndarray, tol: float) -> Tuple[Union
             # to manually set scaling and res
             res[i] = True
             scaling[i] = 0.0
+        else:
+            res[i] = False
     
     # Always return arrays, even for a single point, to match MATLAB behavior and avoid unpacking errors in calling code.
     # (MATLAB always returns arrays of length N, even for N=1.)

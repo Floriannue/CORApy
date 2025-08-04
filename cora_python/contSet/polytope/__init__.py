@@ -37,6 +37,10 @@ from .get_print_set_info import get_print_set_info
 from .enclose_points import enclose_points
 from .isIntersecting_ import isIntersecting_
 from .normalizeConstraints import normalizeConstraints
+from .supportFunc_ import supportFunc_
+from .distance import distance # Import the new distance function
+from .isFullDim import isFullDim
+from .box import box
 
 # Attach methods to the class
 Polytope.zonotope = zonotope
@@ -64,6 +68,10 @@ Polytope.get_print_set_info = get_print_set_info
 Polytope.enclose_points = staticmethod(enclose_points)
 Polytope.isIntersecting_ = isIntersecting_
 Polytope.normalizeConstraints = normalizeConstraints
+Polytope.supportFunc_ = supportFunc_
+Polytope.distance = distance # Attach the distance method
+Polytope.isFullDim = isFullDim
+Polytope.box = box
 
 # Attach operator overloads
 Polytope.__contains__ = lambda self, other: contains_(self, other)
@@ -80,15 +88,34 @@ Polytope.__rmatmul__ = lambda self, other: mtimes(other, self)
 
 __all__ = [
     'Polytope',
-    'dim',
-    'empty',
-    'Inf',
-    'origin',
+    'center',
+    'contains_',
+    'constraints',
     'copy',
+    'dim',
     'display',
+    'ellipsoid',
+    'empty',
+    'enclose_points',
+    'generate_random',
+    'get_print_set_info',
+    'Inf',
+    'isBounded',
+    'isIntersecting_',
+    'isemptyobject',
+    'interval',
+    'minus',
     'mtimes',
+    'normalizeConstraints',
+    'origin',
     'plus',
     'project',
     'representsa_',
-    'constraints',
+    'rminus',
+    'supportFunc_',
+    'vertices_',
+    'zonotope',
+    'distance',
+    'isFullDim',
+    'box',
 ] 

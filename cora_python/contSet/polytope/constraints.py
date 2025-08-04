@@ -42,16 +42,16 @@ def constraints(P: 'Polytope') -> 'Polytope':
         P: Same polytope object with halfspace representation computed
     """
     # Check if halfspace representation already available
-    if P._isHRep:
+    if P.isHRep:
         return P
         
     # Check if vertex representation is available
-    if not P._isVRep or P._V is None:
+    if not P.isVRep or P.V is None:
         raise CORAerror('CORA:specialError',
                        'Cannot compute constraints: no vertex representation available.')
     
     # Read out vertices
-    V = P._V
+    V = P.V
     
     # Read out dimension and number of vertices
     if V.ndim == 1:
@@ -86,7 +86,10 @@ def constraints(P: 'Polytope') -> 'Polytope':
     P._Ae = Ae
     P._be = be
     # Halfspace representation now computed
-    P._isHRep = True
+    P.isHRep = True
+    
+    # Reset lazy computation cache values, as the underlying representation has changed
+    P._reset_lazy_flags()
     
     return P
 
@@ -145,9 +148,12 @@ def _aux_2D_degenerate(V):
     """Auxiliary function for 2D degenerate case"""
     Ae = None
     be = None
-    
+
+    if V.shape[1] == 0: # Handle empty V (no vertices)
+        return np.zeros((0, V.shape[0])), np.array([]).reshape(-1, 1), np.zeros((0, V.shape[0])), np.array([]).reshape(-1, 1)
+
     # Only one distinct point given
-    if V.shape[1] == 1 or np.allclose(V - V[:, [0]], 0):
+    if np.allclose(V - V[:, [0]], 0):
         # Use axis-aligned normal vectors for simplicity
         A = np.array([[1, 0], [0, 1], [-1, 0], [0, -1]])
         b = np.array([[V[0, 0]], [V[1, 0]], [-V[0, 0]], [-V[1, 0]]])

@@ -14,6 +14,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from cora_python.contSet.ellipsoid import Ellipsoid
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def test_ellipsoid_distance():
@@ -130,7 +131,7 @@ def test_distance_error_cases():
     E1 = Ellipsoid(np.eye(2))
     E2 = Ellipsoid(np.eye(3))
     
-    with pytest.raises(ValueError, match="Dimensions"):
+    with pytest.raises(CORAerror, match="Dimension mismatch"):
         E1.distance(E2)
 
 
@@ -178,7 +179,7 @@ def test_distance_with_tolerance():
     
     # Ellipsoid with specific tolerance
     tol = 1e-8
-    E = Ellipsoid(np.eye(2), tol=tol)
+    E = Ellipsoid(np.eye(2), Q=np.eye(2), q=np.zeros((2,1)), TOL=tol)
     
     # Point very close to boundary
     p = np.array([[1.0 + tol/2], [0]])

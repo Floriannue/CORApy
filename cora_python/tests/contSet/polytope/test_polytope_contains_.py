@@ -86,7 +86,7 @@ class TestPolytopeContains:
         A2 = np.array([[2], [3]])
         b2 = np.array([7, 2])
         P2 = Polytope(A2, b2)  # x <= 3.5 and x <= 2/3 -> unbounded
-        assert not contains_(P1, P2)
+        assert not np.all(contains_(P1, P2)[0])
     
     def test_contains_1d_degenerate_not_containing_unbounded(self):
         """Test 1D degenerate does not contain unbounded"""
@@ -96,7 +96,7 @@ class TestPolytopeContains:
         A2 = np.array([[2], [3]])
         b2 = np.array([7, 2])
         P2 = Polytope(A2, b2)
-        assert not contains_(P1, P2)
+        assert not np.all(contains_(P1, P2)[0])
     
     def test_contains_1d_degenerate_vs_degenerate(self):
         """Test 1D degenerate >= degenerate"""
@@ -106,7 +106,7 @@ class TestPolytopeContains:
         Ae = np.array([[1]])
         be = np.array([0])
         P2 = Polytope(np.zeros((0, 1)), np.zeros(0), Ae, be)  # x = 0
-        assert not contains_(P1, P2)
+        assert not np.all(contains_(P1, P2)[0])
     
     def test_contains_1d_unbounded_point_cloud(self):
         """Test 1D unbounded >= point cloud"""
@@ -115,7 +115,7 @@ class TestPolytopeContains:
         P1 = Polytope(A1, b1)  # x <= 1 and x <= 0.5 -> x <= 0.5
         S = np.array([[-4, -2, 0]])
         result = contains_(P1, S.T)
-        assert np.all(result)
+        assert np.all(result[0])
     
     def test_contains_1d_bounded_point_cloud_partial(self):
         """Test 1D bounded >= point cloud (partial containment)"""
@@ -125,7 +125,7 @@ class TestPolytopeContains:
         S = np.array([[-3, 0.5, 0]])
         result = contains_(P1, S.T)
         expected = np.array([False, True, True])
-        assert np.array_equal(result, expected)
+        assert np.array_equal(result[0], expected)
     
     def test_contains_1d_degenerate_single_point(self):
         """Test 1D degenerate >= single point"""
@@ -133,7 +133,7 @@ class TestPolytopeContains:
         be = np.array([-3])
         P1 = Polytope(np.zeros((0, 1)), np.zeros(0), Ae, be)  # x = -3
         S = np.array([[-3]])
-        assert contains_(P1, S.T)
+        assert contains_(P1, S.T)[0]
     
     def test_contains_1d_degenerate_multiple_points(self):
         """Test 1D degenerate >= multiple points"""
@@ -143,7 +143,7 @@ class TestPolytopeContains:
         S = np.array([[-3, -2]])
         result = contains_(P1, S.T)
         expected = np.array([True, False])
-        assert np.array_equal(result, expected)
+        assert np.array_equal(result[0], expected)
     
     def test_contains_2d_bounded_vs_bounded(self):
         """Test 2D bounded, non-degenerate >= bounded, non-degenerate"""
@@ -155,8 +155,8 @@ class TestPolytopeContains:
         P2 = Polytope(A2, b2)
         p1 = np.array([[0], [0]])
         p2 = np.array([[5], [5]])
-        assert not contains_(P1, P2) and contains_(P2, P1)
-        assert contains_(P1, p1) and not contains_(P2, p2)
+        assert not np.all(contains_(P1, P2)[0]) and np.all(contains_(P2, P1)[0])
+        assert np.all(contains_(P1, p1)[0]) and not np.all(contains_(P2, p2)[0])
     
     def test_contains_2d_unbounded_vs_degenerate(self):
         """Test 2D unbounded, non-degenerate >= degenerate"""
@@ -166,7 +166,7 @@ class TestPolytopeContains:
         A2 = np.array([[1, 0], [0, 1], [-1, 0], [0, -1]])
         b2 = np.array([1, 1, 1, -1])
         P2 = Polytope(A2, b2)
-        assert contains_(P1, P2)
+        assert np.all(contains_(P1, P2)[0])
     
     def test_contains_2d_degenerate_vs_degenerate(self):
         """Test 2D degenerate >= degenerate"""
@@ -176,7 +176,7 @@ class TestPolytopeContains:
         A2 = np.array([[1, 0], [0, 1], [-1, 0], [0, -1]])
         b2 = np.array([1, 1, 1, -1])
         P2 = Polytope(A2, b2)
-        assert contains_(P1, P2)
+        assert np.all(contains_(P1, P2)[0])
     
     def test_contains_2d_unbounded_vs_unbounded(self):
         """Test 2D unbounded >= unbounded"""
@@ -186,7 +186,7 @@ class TestPolytopeContains:
         A2 = np.array([[1, 0], [0, 1], [-1, 0]])
         b2 = np.array([1, 1, 1])
         P2 = Polytope(A2, b2)
-        assert contains_(P1, P2)
+        assert np.all(contains_(P1, P2)[0])
     
     def test_contains_2d_vertices_vs_vertices(self):
         """Test 2D vertex polytope containment"""
@@ -194,8 +194,8 @@ class TestPolytopeContains:
         P1 = Polytope(V1)
         V2 = np.array([[2, 0], [-2, 0], [0, 2], [0, -1]]).T
         P2 = Polytope(V2)
-        assert contains_(P2, P1)
-        assert not contains_(P1, P2)
+        assert np.all(contains_(P2, P1)[0])
+        assert not np.all(contains_(P1, P2)[0])
     
     def test_contains_2d_v_polytope_vs_h_polyhedron(self):
         """Test 2D V-polytope vs H-polyhedron"""
@@ -204,14 +204,14 @@ class TestPolytopeContains:
         A = np.array([[1, 0]])
         b = np.array([0])
         P2 = Polytope(A, b)
-        assert not contains_(P1, P2)
+        assert not np.all(contains_(P1, P2)[0])
     
     def test_contains_2d_v_polytope_point_cloud_contained(self):
         """Test 2D V-polytope >= point cloud (contained)"""
         V = np.array([[1, 0], [-1, 1], [-1, -1]]).T
         P1 = Polytope(V)
         S = np.array([[0, 0], [0.5, 0.1], [-0.8, -0.6], [-0.5, 0.5]]).T
-        assert np.all(contains_(P1, S))
+        assert np.all(contains_(P1, S)[0])
     
     def test_contains_2d_h_polyhedron_point_cloud(self):
         """Test 2D H-polyhedron >= point cloud"""
@@ -219,21 +219,21 @@ class TestPolytopeContains:
         b = np.array([1, 0])
         P1 = Polytope(A, b)
         S = np.array([[-2, -1], [0, 0], [0, -4]]).T
-        assert np.all(contains_(P1, S))
+        assert np.all(contains_(P1, S)[0])
     
     def test_contains_2d_v_polytope_point_cloud_not_contained(self):
         """Test 2D V-polytope point cloud not included"""
         V = np.array([[1, 0], [-1, 1], [-1, -1]]).T
         P1 = Polytope(V)
         S = np.array([[-2, -2], [0, 2], [0, -0.6]]).T
-        assert np.all(~contains_(P1, S))
+        assert np.all(~contains_(P1, S)[0])
     
     def test_contains_2d_degenerate_v_polytope(self):
         """Test 2D degenerate V-polytope point cloud not included"""
         V = np.array([[-2, -2], [2, 2]]).T
         P1 = Polytope(V)
         S = np.array([[0, 1]]).T
-        assert np.all(~contains_(P1, S))
+        assert np.all(~contains_(P1, S)[0])
     
     def test_contains_3d_bounded_vs_degenerate(self):
         """Test 3D bounded >= degenerate"""
@@ -246,7 +246,7 @@ class TestPolytopeContains:
         Ae = np.array([[0, 0, 1]])
         be = np.array([0])
         P2 = Polytope(A2, b2, Ae, be)
-        assert contains_(P1, P2)
+        assert contains_(P1, P2)[0]
     
     def test_contains_3d_bounded_not_containing_unbounded(self):
         """Test 3D bounded does not contain unbounded"""
@@ -256,14 +256,14 @@ class TestPolytopeContains:
                       [-1, 0, 0], [0, -1, 0], [0, 0, -1]])
         b = np.ones(6)
         # Create rotated polytope (this is a placeholder for M * polytope)
-        P1 = Polytope(M @ A, b)
+        P1 = Polytope(A @ M.T, b)
         Ae = np.array([[1, 0, 0], [0, 0, 1]])
         be = np.array([1, 2])
         P2 = Polytope(np.zeros((0, 3)), np.zeros(0), Ae, be)
         # This should generally not contain P2 (unbounded plane)
         # Note: actual result depends on random M, so we just test that it runs
         result = contains_(P1, P2)
-        assert isinstance(result, (bool, np.bool_))
+        assert isinstance(result[0], (bool, np.bool_))
     
     def test_contains_point_vs_single_point(self):
         """Test point containment with single point"""
@@ -271,10 +271,10 @@ class TestPolytopeContains:
         b = np.array([1, 1, 1, 1])
         P = Polytope(A, b)
         point = np.array([[0.5], [0.5]])
-        assert contains_(P, point)
+        assert contains_(P, point)[0]
         
         point_outside = np.array([[2], [2]])
-        assert not contains_(P, point_outside)
+        assert not contains_(P, point_outside)[0]
     
     def test_contains_error_cases(self):
         """Test error cases and edge conditions"""

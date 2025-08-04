@@ -43,20 +43,29 @@ def isBounded(P: 'Polytope') -> bool:
         bool: True if polytope is bounded, False otherwise
     """
     
+    # check if property is set (MATLAB: ~isempty(P.bounded.val))
+    if hasattr(P, '_bounded_val') and P._bounded_val is not None:
+        return P._bounded_val
+    
     # Empty polytope is considered bounded
     if P.isemptyobject():
-        return True
+        res = True
+    else:
+        # Ensure P is in H-representation if not already
+        if not P.isHRep:
+            P.constraints()
+        
+        # If no constraints (empty A), the polytope represents R^n, which is unbounded
+        if P.A.size == 0:
+            res = False
+        else:
+            # Check for unboundedness using linear programming for halfspace representation
+            res = _check_bounded_halfspace(P)
     
-    # For halfspace representation: A*x <= b
-    if P.A is not None and P.b is not None and P.A.size > 0:
-        return _check_bounded_halfspace(P)
+    # save the set property (only done once, namely, here!)
+    P._bounded_val = res
     
-    # For vertex representation: always bounded
-    if hasattr(P, 'V') and P.V is not None and P.V.size > 0:
-        return True
-    
-    # Default case - empty polytope
-    return True
+    return res
 
 
 def _check_bounded_halfspace(P) -> bool:

@@ -1,89 +1,100 @@
 import numpy as np
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .ellipsoid import Ellipsoid
+from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.contSet.contSet.contSet import ContSet # Import ContSet to check for its type
+from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check # For dimension check
 
-def mtimes(factor1, factor2) -> 'Ellipsoid':
+
+def mtimes(factor1, factor2):
     """
     mtimes - Overloaded '*' operator for the multiplication of a matrix or
-    scalar with an ellipsoid
+    scalar with an ellipsoid.
+
+    The Python implementation uses the `@` operator for matrix multiplication.
 
     Syntax:
-        E = factor1 * factor2
-        E = mtimes(factor1,factor2)
+       E = factor1 @ factor2
+       E = factor1 * factor2 (for scalar multiplication)
 
     Inputs:
-        factor1 - ellipsoid object, numeric matrix/scalar
-        factor2 - ellipsoid object, numeric scalar
+       factor1 - Ellipsoid object, numeric matrix/scalar
+       factor2 - Ellipsoid object, numeric scalar
 
     Outputs:
-        E - ellipsoid object
+       E - Ellipsoid object
 
-    Example: 
-        E = ellipsoid([2.7 -0.2;-0.2 2.4])
-        M = [1 0.5; 0.5 1]
- 
-        figure hold on
-        plot(E,[1,2],'b')
-        plot(M*E,[1,2],'r')
-
-    Other m-files required: none
-    Subfunctions: none
-    MAT-files required: none
-
-    See also: plus
-
-    Authors:       Victor Gassmann (MATLAB)
-                   Python translation by AI Assistant
+    Authors:       Victor Gassmann, Matthias Althoff (MATLAB)
+                   Automatic python translation: Florian Nüssel BA 2025
     Written:       13-March-2019 (MATLAB)
     Last update:   15-October-2019 (MATLAB)
-                   07-June-2022 (avoid construction of new ellipsoid object, MATLAB)
-                   04-July-2022 (VG, input checks, allow E to be class array, MATLAB)
-                   05-October-2024 (MW, remove class array, MATLAB)
-    Python translation: 2025
+                   07-June-2022 (MATLAB, avoid construction of new ellipsoid object)
+                   04-July-2022 (MATLAB, input checks, allow E to be class array)
+                   05-October-2024 (MATLAB, remove class array)
     """
-    from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
-    from cora_python.g.functions.matlab.validate.check.equal_dim_check import equal_dim_check as equalDimCheck
 
-    try:
-        # matrix/scalar * ellipsoid
-        if isinstance(factor1, np.ndarray) or np.isscalar(factor1):
-            # -> factor2 must be an ellipsoid object
-            E = factor2.copy()
-            # empty set: result is empty set
-            if E.representsa_('emptySet', E.TOL):
-                return E
-            # compute auxiliary value for new shape matrix
-            M = factor1 @ E.Q @ factor1.T
-            # make sure it is symmetric
-            M = 0.5 * (M + M.T)
-            
-            E.Q = M
-            E.q = factor1 @ E.q
-            return E
+    # Check for empty set (return empty set if either factor is empty)
+    # This assumes Ellipsoid has a representsa_ method
+    # if factor1.representsa_('emptySet') or factor2.representsa_('emptySet'):
+    #    return Ellipsoid.empty(factor1.dim())
+    
+    # MATLAB's mtimes handles E*scalar and Matrix*E. We will focus on Matrix*E for @ operator.
+    # For scalar * E, it will be handled by __mul__ in Ellipsoid.
+
+    if isinstance(factor1, np.ndarray) and isinstance(factor2, Ellipsoid):
+        # matrix * ellipsoid
+        E = factor2
+        if E.representsa_('emptySet', E.TOL):
+             return Ellipsoid.empty(E.dim())
+
+        # compute auxiliary value for new shape matrix
+        M = factor1 @ E.Q @ factor1.T
+        # make sure it is symmetric
+        M = 0.5 * (M + M.T)
         
-        # ellipsoid * scalar
-        if isinstance(factor2, np.ndarray) or np.isscalar(factor2):
-            # -> factor1 must be an ellipsoid object
-            E = factor1.copy()
-            # empty set: result is empty set
-            if E.representsa_('emptySet', E.TOL):
-                return E
-            # compute auxiliary value for new shape matrix
-            M = factor2**2 * E.Q
-            # make sure it is symmetric
-            M = 0.5 * (M + M.T)
-            
-            E.Q = M
-            E.q = factor2 * E.q
-            return E
+        # Create a new ellipsoid object to avoid modifying in-place for chaining operations
+        new_E = Ellipsoid(M, factor1 @ E.q, E.TOL)
+        return new_E
 
-    except Exception as ME:
-        # check whether different dimension of ambient space
+    elif isinstance(factor1, Ellipsoid) and (isinstance(factor2, (int, float)) or (isinstance(factor2, np.ndarray) and factor2.size == 1)):
+        # ellipsoid * scalar (or scalar as 1x1 array)
+        E = factor1
+        if E.representsa_('emptySet', E.TOL):
+            return Ellipsoid.empty(E.dim())
+
+        scalar = factor2 if isinstance(factor2, (int, float)) else factor2.item()
+
+        M = (scalar**2) * E.Q
+        M = 0.5 * (M + M.T)
+
+        new_E = Ellipsoid(M, scalar * E.q, E.TOL)
+        return new_E
+
+    elif (isinstance(factor1, (int, float)) or (isinstance(factor1, np.ndarray) and factor1.size == 1)) and isinstance(factor2, Ellipsoid):
+        # scalar * ellipsoid (or scalar as 1x1 array)
+        E = factor2
+        if E.representsa_('emptySet', E.TOL):
+            return Ellipsoid.empty(E.dim())
+
+        scalar = factor1 if isinstance(factor1, (int, float)) else factor1.item()
+
+        M = (scalar**2) * E.Q
+        M = 0.5 * (M + M.T)
+
+        new_E = Ellipsoid(M, scalar * E.q, E.TOL)
+        return new_E
+
+    elif isinstance(factor1, Ellipsoid) and isinstance(factor2, Ellipsoid):
+        # ellipsoid * ellipsoid (not supported by MATLAB mtimes for ellipsoids, usually implies inner product or Minkowski product)
+        # For now, raise an error or return NotImplemented
+        raise CORAerror('CORA:noops', factor1, factor2, 'Matrix multiplication between two ellipsoids is not supported by @ operator.')
+
+    else:
+        # Fallback for unsupported operations. Mimic MATLAB's error behavior if possible.
+        # Try to call equalDimCheck to get the dimension mismatch error if applicable
         try:
-            equalDimCheck(factor1, factor2)
-        except:
-            pass
-        raise ME
+            equal_dim_check(factor1, factor2)
+        except CORAerror as e:
+            raise e
 
-    raise TypeError(f"Operation '*' not supported between instances of '{type(factor1).__name__}' and '{type(factor2).__name__}'") 
+        # If not a dimension mismatch, then it's a general unsupported operation
+        raise CORAerror('CORA:noops', factor1, factor2) 

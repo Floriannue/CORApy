@@ -36,8 +36,9 @@ def set_default_values(defaults: List[Any], *args: Any) -> Tuple[List[Any], List
         - List of processed values with defaults applied
         - List of remaining arguments
     """
-    # Initialize result with defaults
-    result = defaults.copy()
+    # Ensure defaults is a list to allow item assignment
+    defaults_list = list(defaults)
+    result = defaults_list.copy()
     
     # Flatten args in case they are passed as a list/tuple
     args_list = []
@@ -48,7 +49,7 @@ def set_default_values(defaults: List[Any], *args: Any) -> Tuple[List[Any], List
             args_list.append(arg)
             
     # Override with provided arguments
-    num_defaults = len(defaults)
+    num_defaults = len(defaults_list) # Use the length of the list version
     for i in range(num_defaults):
         if i < len(args_list):
             result[i] = args_list[i]

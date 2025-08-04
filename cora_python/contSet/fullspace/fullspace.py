@@ -87,7 +87,23 @@ class Fullspace(ContSet):
         super().__init__()
         self.precedence = 10
         
+        # Set array priority to ensure our operators take precedence over numpy
+        self.__array_priority__ = 1000
+        
     def __repr__(self) -> str:
         """Official string representation for programmers"""
         return f"Fullspace({self.dimension})"
+    
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        """
+        Handle numpy ufunc operations to support matrix multiplication with @
+        """
+        if ufunc.__name__ == 'matmul' and method == '__call__':
+            # Handle matrix multiplication: M @ fs
+            if len(inputs) == 2:
+                other = inputs[1] if inputs[0] is self else inputs[0]
+                if hasattr(self, 'mtimes'):
+                    return self.mtimes(other)
+        # For other operations, let numpy handle them
+        return NotImplemented
     

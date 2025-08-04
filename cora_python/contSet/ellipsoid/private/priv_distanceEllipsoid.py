@@ -8,7 +8,7 @@ def priv_distanceEllipsoid(E1_orig: Ellipsoid, E2_orig: Ellipsoid) -> float:
     """
     Computes the distance between two ellipsoids by solving a QCQP.
     """
-    if E1_orig.dim != E2_orig.dim:
+    if E1_orig.dim() != E2_orig.dim():
         raise ValueError("Ellipsoids must have the same dimension.")
 
     if not E1_orig.isFullDim() and not E2_orig.isFullDim():
@@ -24,7 +24,7 @@ def priv_distanceEllipsoid(E1_orig: Ellipsoid, E2_orig: Ellipsoid) -> float:
     if not E1.isFullDim():
         E1, E2 = E2, E1
 
-    n = E1.dim
+    n = E1.dim()
     nt = n
     x2_rem = np.array([])
     E2_calc = E2

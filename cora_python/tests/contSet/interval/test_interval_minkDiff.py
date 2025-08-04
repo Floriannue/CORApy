@@ -33,8 +33,10 @@ class TestIntervalMinkDiff:
         for i in range(n):
             temp = np.zeros((n,1))
             temp[i] = 1
-            sup[i] = sup[i] - Z.supportFunc_(temp, 'upper')[0]
-            inf[i] = inf[i] + Z.supportFunc_(-temp, 'upper')[0]
+            val, _, _ = Z.supportFunc_(temp, 'upper')
+            sup[i] = sup[i] - val
+            val, _, _ = Z.supportFunc_(-temp, 'upper')
+            inf[i] = inf[i] + val
 
         expected = Interval(inf, sup)
 

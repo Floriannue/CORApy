@@ -58,14 +58,14 @@ def interval(P: 'Polytope') -> Interval:
     n = P.dim()
     
     # obtain bounding box
-    if P._isVRep:
+    if P.isVRep:
         # vertex representation
-        A, b, empty = priv_box_V(P._V, n)
+        A, b, empty = priv_box_V(P.V, n)
     else:
         # halfspace representation
-        Ae = getattr(P, '_Ae', np.array([]).reshape(0, n))
-        be = getattr(P, '_be', np.array([]).reshape(0, 1))
-        A, b, empty = priv_box_H(P._A, P._b, Ae, be, n)
+        Ae = P.Ae if hasattr(P, 'Ae') else np.array([]).reshape(0, n)
+        be = P.be if hasattr(P, 'be') else np.array([]).reshape(0, 1)
+        A, b, empty = priv_box_H(P.A, P.b, Ae, be, n)
     
     # exit if already empty
     if empty:
@@ -81,14 +81,14 @@ def interval(P: 'Polytope') -> Interval:
     nnz_ub = np.sum(idx_ub)
     
     # upper bounds that are non-Inf
-    idx_nonInf = np.any(A[idx_ub, :], axis=0)
+    idx_nonInf = np.any(A[idx_ub, :] != 0, axis=0) # Changed to check for non-zero
     
     # overwrite bounds using b
     if nnz_ub > 0:
         ub[idx_nonInf] = b[:nnz_ub].reshape(-1, 1)
     
     # lower bounds that are non-(-Inf)
-    idx_nonInf_lb = np.any(A[~idx_ub, :], axis=0)
+    idx_nonInf_lb = np.any(A[~idx_ub, :] != 0, axis=0) # Changed to check for non-zero
     
     # overwrite bounds using b
     if np.sum(~idx_ub) > 0:

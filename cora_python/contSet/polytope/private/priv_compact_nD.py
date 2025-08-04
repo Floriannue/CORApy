@@ -77,6 +77,12 @@ def priv_compact_nD(A, b, Ae, be, n, tol):
         H = A[idxKeep & (np.arange(nrConIneq) != i), :]
         d = b[idxKeep & (np.arange(nrConIneq) != i)]
         
+        # Ensure H and d retain 2D structure even if only one row is selected
+        if H.ndim == 1:
+            H = H.reshape(1, -1)
+        if d.ndim == 0:
+            d = d.reshape(1, 1)
+
         # Compute support function in direction of i-th constraint
         val, extreme_point = priv_supportFunc(H, d, Ae, be, A[i, :], 'upper')
         
@@ -127,12 +133,12 @@ def priv_supportFunc(A, b, Ae, be, direction, bound_type='upper'):
             c = direction.flatten()   # Minimize direction^T * x
         
         # Inequality constraints
-        A_ub = A if A is not None and A.size > 0 else None
-        b_ub = b.flatten() if b is not None and b.size > 0 else None
+        A_ub = A if A is not None and A.size > 0 else np.array([[]]).reshape(0, n) # Ensure empty 2D array
+        b_ub = b.flatten() if b is not None and b.size > 0 else np.array([[]]).reshape(0, 1).flatten() # Ensure empty 1D array
         
         # Equality constraints
-        A_eq = Ae if Ae is not None and Ae.size > 0 else None
-        b_eq = be.flatten() if be is not None and be.size > 0 else None
+        A_eq = Ae if Ae is not None and Ae.size > 0 else np.array([[]]).reshape(0, n) # Ensure empty 2D array
+        b_eq = be.flatten() if be is not None and be.size > 0 else np.array([[]]).reshape(0, 1).flatten() # Ensure empty 1D array
         
         # Set bounds to allow negative values (scipy defaults to x >= 0!)
         n = len(direction)

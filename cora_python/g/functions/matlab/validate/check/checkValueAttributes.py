@@ -1,5 +1,9 @@
 import numpy as np
 from typing import Any, Callable, List, Union
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger(__name__)
 
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
@@ -106,7 +110,21 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
             elif attribute in ['zero', 'iszero']:
                 res = aux_iszero(val)
             elif attribute == 'scalar':
-                res = np.isscalar(val)
+                if class_name.lower() in ['ellipsoid', 'interval', 'zonotope', 'polytope', 'contset']:
+                    res = not isinstance(value, (list, np.ndarray)) or (isinstance(value, np.ndarray) and value.shape == ()) # Handles 0-dim numpy arrays for objects
+                elif class_name.lower() == 'numeric':
+                    # A numeric scalar can be a Python int/float, or a NumPy array representing:
+                    # 1. A single element (value.size == 1) - this covers scalar arrays like np.array(5)
+                    # 2. A 1D array (vector) - this covers np.array([1,2,3])
+                    # 3. A 2D array that is a row or column vector (e.g., np.array([[1],[2]]) or np.array([[1,2]]))
+                    res = np.isscalar(value) or \
+                          (isinstance(value, np.ndarray) and \
+                           (value.size == 1 or \
+                            value.ndim == 1 or \
+                            (value.ndim == 2 and (value.shape[0] == 1 or value.shape[1] == 1)) \
+                           ))
+                else:
+                    res = np.isscalar(value) # Default for other types
             elif attribute == 'row':
                 res = (isinstance(val, np.ndarray) and val.ndim == 2 and val.shape[0] == 1)
             elif attribute == 'column':

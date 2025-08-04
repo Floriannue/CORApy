@@ -23,6 +23,7 @@ Last update: 22-March-2007 (MATLAB)
 Python translation: 2025
 """
 
+import numpy as np
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -38,28 +39,23 @@ def dim(P: 'Polytope') -> int:
     Returns:
         int: Dimension of the polytope
     """
-    if P._isHRep:
-        # either constraints A*x <= b  or  Ae*x == be  given
-        if P._A is not None and P._A.size > 0:
-            n = P._A.shape[1]
-        elif P._Ae is not None and P._Ae.size > 0:
-            n = P._Ae.shape[1]
-        else:
-            # constraints, such as zeros(0,n) given
-            A_cols = P._A.shape[1] if P._A is not None else 0
-            Ae_cols = P._Ae.shape[1] if P._Ae is not None else 0
-            n = max(A_cols, Ae_cols)
-    elif P._isVRep:
-        n = P._V.shape[0] if P._V is not None and P._V.size > 0 else 0
-    else:
-        # Fallback based on which attributes are populated
-        dims = []
-        if hasattr(P, '_A') and P._A is not None and P._A.size > 0:
-            dims.append(P._A.shape[1])
-        if hasattr(P, '_Ae') and P._Ae is not None and P._Ae.size > 0:
-            dims.append(P._Ae.shape[1])
-        if hasattr(P, '_V') and P._V is not None and P._V.size > 0:
-            dims.append(P._V.shape[0])
-        n = max(dims) if dims else 0
+    if P._dim_val is not None:
+        return P._dim_val
+
+    # If _dim_val is not set (should not happen for empty/fullspace due to recent fix),
+    # infer from existing properties. This is a fallback.
+    n = 0
+    if P.A.size > 0:
+        n = P.A.shape[1]
+    elif P.Ae.size > 0:
+        n = P.Ae.shape[1]
+    elif P.V.size > 0:
+        n = P.V.shape[0]
     
+    # If still 0, and the polytope is supposed to have a dimension (e.g., initialized as Polytope()),
+    # or it's a copy of a 0-dim set, then the dimension is 0.
+    # No additional logic needed here, as the constructor should have handled non-zero dimensions.
+    
+    # Cache the computed dimension (if it was 0 and now it's inferred, it's correct)
+    P._dim_val = n
     return n 

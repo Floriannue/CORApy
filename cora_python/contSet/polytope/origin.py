@@ -32,4 +32,14 @@ def origin(n: int) -> 'Polytope':
     # Create polytope from H-representation
     P = Polytope(A, b)
 
+    # Set properties like MATLAB does (lines 38-42)
+    P._emptySet_val = False       # P.emptySet.val = false;
+    P._fullDim_val = False        # P.fullDim.val = false;
+    P._bounded_val = True         # P.bounded.val = true;
+    P._minHRep_val = True         # P.minHRep.val = true;
+    P._minVRep_val = True         # P.minVRep.val = true;
+    P._V = np.zeros((n, 1))       # The origin is a single vertex at [0,...,0].
+    P.isVRep = True               # P.isVRep.val = true;
+    # P.isHRep is already True from the constructor
+
     return P 

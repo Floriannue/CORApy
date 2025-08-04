@@ -146,12 +146,12 @@ def _aux_isIntersecting_P_cZ(P: Polytope, cZ) -> bool:
     """
     
     # Get polytope constraints - exact MATLAB extraction
-    H = P.A_.val if hasattr(P, 'A_') else P.A
-    d = P.b_.val if hasattr(P, 'b_') else P.b
+    H = P.A
+    d = P.b
     nrIneq_poly = H.shape[0]
     
-    He = P.Ae_.val if hasattr(P, 'Ae_') else (P.Ae if hasattr(P, 'Ae') else np.empty((0, H.shape[1])))
-    de = P.be_.val if hasattr(P, 'be_') else (P.be if hasattr(P, 'be') else np.empty((0,)))
+    He = P.Ae if hasattr(P, 'Ae') else np.empty((0, H.shape[1]))
+    de = P.be if hasattr(P, 'be') else np.empty((0,))
     nrEq_poly = He.shape[0]
     
     # Get constrained zonotope parameters
@@ -282,8 +282,8 @@ def _aux_isIntersecting_P_zB(P: Polytope, zB) -> bool:
     """
     
     # Get polytope properties  
-    H = P.A_.val if hasattr(P, 'A_') else P.A
-    d = P.b_.val if hasattr(P, 'b_') else P.b
+    H = P.A
+    d = P.b
     
     p, n = H.shape
     
@@ -402,8 +402,8 @@ def _aux_isIntersecting_approx(P: Polytope, S, tol: float) -> bool:
     isHyp, P_hyp = P.representsa_('conHyperplane', tol)
     
     # Get polytope constraints
-    A = P.A_.val if hasattr(P, 'A_') else P.A
-    b = P.b_.val if hasattr(P, 'b_') else P.b
+    A = P.A
+    b = P.b
     
     # Special 'approx' algorithm for zonotope bundles
     if S.__class__.__name__ == 'ZonoBundle':
@@ -414,8 +414,8 @@ def _aux_isIntersecting_approx(P: Polytope, S, tol: float) -> bool:
             
             if isHyp:
                 # Check intersection with hyperplane
-                Ae = P_hyp.Ae_.val if hasattr(P_hyp, 'Ae_') else P_hyp.Ae
-                be = P_hyp.be_.val if hasattr(P_hyp, 'be_') else P_hyp.be
+                Ae = P_hyp.Ae
+                be = P_hyp.be
                 I = Z.supportFunc_(Ae[0, :].reshape(-1, 1), 'range')
                 if not I.contains_(be[0], 'exact', tol):
                     return False
@@ -432,8 +432,8 @@ def _aux_isIntersecting_approx(P: Polytope, S, tol: float) -> bool:
         # Single set case
         if isHyp:
             # Check intersection with hyperplane
-            Ae = P_hyp.Ae_.val if hasattr(P_hyp, 'Ae_') else P_hyp.Ae
-            be = P_hyp.be_.val if hasattr(P_hyp, 'be_') else P_hyp.be
+            Ae = P_hyp.Ae
+            be = P_hyp.be
             I = S.supportFunc_(Ae[0, :].reshape(-1, 1), 'range')
             if not I.contains_(be[0], 'exact', tol):
                 return False
@@ -451,35 +451,38 @@ def _aux_isIntersecting_poly_poly(P1: 'Polytope', P2: 'Polytope', tol: float) ->
     """
     Intersection check of two polytopes by constructing their intersection
     """
-    try:
-        # Construct intersection polytope
-        H1 = P1.A_.val if hasattr(P1, 'A_') else P1.A
-        d1 = P1.b_.val if hasattr(P1, 'b_') else P1.b
-        H2 = P2.A_.val if hasattr(P2, 'A_') else P2.A
-        d2 = P2.b_.val if hasattr(P2, 'b_') else P2.b
-        
-        # Combine constraints
-        H_combined = np.vstack([H1, H2])
-        d_combined = np.hstack([d1.flatten(), d2.flatten()])
-        
-        # Handle equality constraints if they exist
-        He1 = P1.Ae_.val if hasattr(P1, 'Ae_') else (P1.Ae if hasattr(P1, 'Ae') else np.empty((0, H1.shape[1])))
-        de1 = P1.be_.val if hasattr(P1, 'be_') else (P1.be if hasattr(P1, 'be') else np.empty((0,)))
-        He2 = P2.Ae_.val if hasattr(P2, 'Ae_') else (P2.Ae if hasattr(P2, 'Ae') else np.empty((0, H2.shape[1])))
-        de2 = P2.be_.val if hasattr(P2, 'be_') else (P2.be if hasattr(P2, 'be') else np.empty((0,)))
-        
-        if He1.size > 0 or He2.size > 0:
-            He_combined = np.vstack([He1, He2]) if He1.size > 0 and He2.size > 0 else (He1 if He1.size > 0 else He2)
-            de_combined = np.hstack([de1.flatten(), de2.flatten()]) if He1.size > 0 and He2.size > 0 else (de1.flatten() if He1.size > 0 else de2.flatten())
-        else:
-            He_combined = np.empty((0, H_combined.shape[1]))
-            de_combined = np.empty((0,))
-        
-        # Create intersection polytope
-        P_intersect = Polytope(H_combined, d_combined, He_combined, de_combined)
-        
-        # Check if intersection is empty
-        return not P_intersect.representsa_('emptySet', tol)
-    except:
-        # If construction fails, assume intersection exists (conservative)
-        return True 
+    # Construct intersection polytope
+    H1 = P1.A
+    d1 = P1.b
+    H2 = P2.A
+    d2 = P2.b
+    
+    # Combine constraints
+    H_combined = np.vstack([H1, H2])
+    d_combined = np.vstack([d1, d2]) # Use vstack for column vectors
+    
+    # Handle equality constraints if they exist
+    He1 = P1.Ae
+    de1 = P1.be
+    He2 = P2.Ae
+    de2 = P2.be
+    
+    # Ensure correct handling of empty matrices for vstack
+    if He1.size == 0 and He2.size == 0:
+        He_combined = np.empty((0, H_combined.shape[1])) # Ensure 2D empty array
+        de_combined = np.empty((0,1)) # Ensure column vector
+    elif He1.size == 0:
+        He_combined = He2
+        de_combined = de2
+    elif He2.size == 0:
+        He_combined = He1
+        de_combined = de1
+    else:
+        He_combined = np.vstack([He1, He2])
+        de_combined = np.vstack([de1, de2])
+
+    # Create intersection polytope
+    P_intersect = Polytope(H_combined, d_combined, He_combined, de_combined)
+    
+    # Check if intersection is empty
+    return not P_intersect.representsa_('emptySet', tol) 

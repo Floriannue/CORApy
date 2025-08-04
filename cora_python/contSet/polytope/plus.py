@@ -19,45 +19,56 @@ def _aux_plus_Hpoly_Hpoly(P1: 'Polytope', P2: 'Polytope', n: int) -> 'Polytope':
     A1, b1, Ae1, be1 = P1.A, P1.b, P1.Ae, P1.be
     A2, b2, Ae2, be2 = P2.A, P2.b, P2.Ae, P2.be
 
-    Z_A = np.zeros((A1.shape[0], A2.shape[1]))
+    # Handle empty A1/A2 or Ae1/Ae2 to ensure correct shapes for np.block
+    # For A, it's (rows, n)
+    # For b, it's (rows, 1)
 
-    A = np.block([[A2, -A2], [Z_A, A1]])
-    b = np.vstack([b2, b1])
-    
-    # Handle equality constraints (may be None)
-    if Ae1 is not None and Ae2 is not None:
-        Z_Ae = np.zeros((Ae1.shape[0], Ae2.shape[1]))
+    # Construct the main A block for inequalities
+    if A1.size > 0 and A2.size > 0:
+        Z_A = np.zeros((A1.shape[0], A2.shape[1])) # Shape of A1 rows x A2 cols
+        A = np.block([[A2, -A2], [Z_A, A1]])
+        b = np.vstack([b2, b1])
+    elif A1.size > 0: # Only P1 has inequality constraints
+        A = np.block([np.zeros((A1.shape[0], n)), A1]) # Zero matrix for A2 part
+        b = b1
+    elif A2.size > 0: # Only P2 has inequality constraints
+        A = np.block([A2, np.zeros((A2.shape[0], n))]) # Zero matrix for A1 part
+        b = b2
+    else: # Both A1 and A2 are empty
+        A = np.zeros((0, 2 * n)) # Resulting A is empty, with 2n columns
+        b = np.zeros((0, 1))
+
+    Ae = np.zeros((0, 2 * n)) # Default empty Ae for combined equalities
+    be = np.zeros((0, 1))    # Default empty be for combined equalities
+
+    # Construct the Ae block for equalities
+    if Ae1.size > 0 and Ae2.size > 0:
+        Z_Ae = np.zeros((Ae1.shape[0], Ae2.shape[1])) # Shape of Ae1 rows x Ae2 cols
         Ae = np.block([[Ae2, -Ae2], [Z_Ae, Ae1]])
         be = np.vstack([be2, be1])
-        P_highdim = Polytope(A, b, Ae, be)
-    elif Ae1 is not None:
-        # Only P1 has equality constraints
-        Z_Ae = np.zeros((Ae1.shape[0], n))
-        Ae = np.block([[Z_Ae, Ae1]])
-        P_highdim = Polytope(A, b, Ae, be1)
-    elif Ae2 is not None:
-        # Only P2 has equality constraints
-        Z_Ae = np.zeros((Ae2.shape[0], n))
-        Ae = np.block([[Ae2, Z_Ae]])
-        P_highdim = Polytope(A, b, Ae, be2)
-    else:
-        # No equality constraints
-        P_highdim = Polytope(A, b)
+    elif Ae1.size > 0: # Only P1 has equality constraints
+        Ae = np.block([np.zeros((Ae1.shape[0], n)), Ae1])
+        be = be1
+    elif Ae2.size > 0: # Only P2 has equality constraints
+        Ae = np.block([Ae2, np.zeros((Ae2.shape[0], n))])
+        be = be2
+    # If both Ae1 and Ae2 are empty, Ae and be remain the default empty arrays
+
+    P_highdim = Polytope(A, b, Ae, be)
 
     return project(P_highdim, list(range(1, n + 1)))
 
 def _aux_plus_Vpoly_Vpoly(P1: 'Polytope', P2: 'Polytope', n: int) -> 'Polytope':
     from cora_python.contSet.polytope.polytope import Polytope
     V1, V2 = P1.V, P2.V
-    num_v1, num_v2 = V1.shape[1], V2.shape[1]
-    
-    # Create all combinations of vertices from V1 and V2
-    V = np.zeros((n, num_v1 * num_v2))
-    idx = 0
-    for i in range(num_v2):
-        for j in range(num_v1):
-            V[:, idx] = V1[:, j] + V2[:, i]
-            idx += 1
+
+    # Vectorized computation of Minkowski sum of vertices (equivalent to MATLAB's bsxfun)
+    # V1 is (n x num_v1), V2 is (n x num_v2)
+    # We want V = (n x (num_v1 * num_v2))
+    # V[:, j + i*num_v1] = V1[:, j] + V2[:, i]
+    # np.newaxis expands dimensions to allow broadcasting
+    V = V1[:, :, np.newaxis] + V2[:, np.newaxis, :]
+    V = V.reshape(n, -1) # Reshape to (n x total_num_vertices)
         
     return Polytope(V)
 
@@ -71,27 +82,46 @@ def _aux_plus_poly_point(P: 'Polytope', S: np.ndarray) -> 'Polytope':
                         'Minkowski addition with scalar is not supported unless the set is 1-dimensional.')
     
     # Use H-representation if available, otherwise convert
-    if P._isHRep:
-        A, b, Ae, be = priv_plus_minus_vector(P._A, P._b, P._Ae, P._be, S)
+    if P.isHRep:
+        A, b, Ae, be = priv_plus_minus_vector(P.A, P.b, P.Ae, P.be, S)
         P_out = Polytope(A, b, Ae, be)
-    elif P._isVRep:
+    elif P.isVRep:
         # For vertex representation, just add the vector to all vertices
-        V_new = P._V + S # Broadcasting should handle this
+        V_new = P.V + S # Broadcasting should handle this
         P_out = Polytope(V_new)
     else:
         # This case should not be reached with the new constructor
         # Force computation of H-rep and use that
         from .constraints import constraints
         P_H = constraints(P)
-        A, b, Ae, be = priv_plus_minus_vector(P_H._A, P_H._b, P_H._Ae, P_H._be, S)
+        A, b, Ae, be = priv_plus_minus_vector(P_H.A, P_H.b, P_H.Ae, P_H.be, S)
         P_out = Polytope(A, b, Ae, be)
         
     return P_out
 
-def _aux_setproperties(P_out: 'Polytope', P: 'Polytope', S: Union['Polytope', np.ndarray]) -> 'Polytope':
-    # In the function-based approach, we don't set properties directly.
-    # Properties like boundedness and full-dimensionality will be computed 
-    # on-demand when functions like isBounded() or isFullDim() are called.
+def _aux_setproperties(P_out: 'Polytope', P_in1: 'Polytope', P_in2: 'Polytope') -> 'Polytope':
+    """
+    Infers and sets set properties (bounded, fullDim) for the output polytope.
+    Matches MATLAB's aux_setproperties.m.
+    """
+    # If both input polytopes are bounded, then the sum is also bounded
+    # MATLAB: if both P.bounded.val and S.bounded.val are true
+    if hasattr(P_in1, '_bounded_val') and P_in1._bounded_val and \
+       hasattr(P_in2, '_bounded_val') and P_in2._bounded_val:
+        P_out._bounded_val = True  # P_out.bounded.val = true;
+    
+    # If one of the input polytopes is unbounded, then the sum is also unbounded  
+    # MATLAB: if P.bounded.val is false OR S.bounded.val is false
+    elif (hasattr(P_in1, '_bounded_val') and P_in1._bounded_val == False) or \
+         (hasattr(P_in2, '_bounded_val') and P_in2._bounded_val == False):
+        P_out._bounded_val = False  # P_out.bounded.val = false;
+    
+    # If one of the input polytopes is full-dimensional, the sum is, too
+    # MATLAB: if P.fullDim.val is true OR S.fullDim.val is true  
+    if (hasattr(P_in1, '_fullDim_val') and P_in1._fullDim_val) or \
+       (hasattr(P_in2, '_fullDim_val') and P_in2._fullDim_val):
+        P_out._fullDim_val = True   # P_out.fullDim.val = true;
+
     return P_out
 
 def plus(p1: Union['Polytope', np.ndarray], p2: Union['Polytope', np.ndarray]) -> 'Polytope':
@@ -110,10 +140,10 @@ def plus(p1: Union['Polytope', np.ndarray], p2: Union['Polytope', np.ndarray]) -
     
     if isinstance(p2, Polytope):
         # Check representation flags BEFORE representsa calls that might change them
-        has_v1_orig = p1._isVRep
-        has_v2_orig = p2._isVRep
-        has_h1_orig = p1._isHRep
-        has_h2_orig = p2._isHRep
+        has_v1_orig = p1.isVRep
+        has_v2_orig = p2.isVRep
+        has_h1_orig = p1.isHRep
+        has_h2_orig = p2.isHRep
         
         # Special case checks
         if p1.representsa('fullspace', tol) or p2.representsa('fullspace', tol):
@@ -138,7 +168,8 @@ def plus(p1: Union['Polytope', np.ndarray], p2: Union['Polytope', np.ndarray]) -
             p2_H = constraints(p2)
             s_out = _aux_plus_Hpoly_Hpoly(p1_H, p2_H, n)
             
-        return _aux_setproperties(s_out, p1, p2)
+        s_out = _aux_setproperties(s_out, p1, p2) # Call new helper to infer properties
+        return s_out
     
     # Check fullspace for non-polytope p2
     if p1.representsa('fullspace', tol) or (hasattr(p2, 'representsa') and p2.representsa('fullspace', tol)):
@@ -146,7 +177,7 @@ def plus(p1: Union['Polytope', np.ndarray], p2: Union['Polytope', np.ndarray]) -
     
     if isinstance(p2, np.ndarray) and p2.ndim == 2 and p2.shape[1] == 1:
         s_out = _aux_plus_poly_point(p1, p2)
-        return _aux_setproperties(s_out, p1, p2)
+        return s_out
         
     # Other set types
     if type(p2).__name__ in ['Zonotope', 'Interval', 'ConZonotope', 'ZonoBundle']:

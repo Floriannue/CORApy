@@ -105,9 +105,14 @@ def priv_representsa_emptySet(A: np.ndarray, b: np.ndarray,
                 # same time
                 
                 # Check for aligned vectors
-                aligned_constraints = np.all(
-                    withinTol(Ae_norm[i, :] - dotprod_norm[:, i] * Ae_norm[i, :],
-                             np.zeros(n)), axis=1)
+                comparison_array = withinTol(Ae_norm[i, :] - dotprod_norm[:, i] * Ae_norm[i, :],
+                                             np.zeros(n))
+                
+                # Ensure the array is at least 2D before applying axis=1
+                if comparison_array.ndim == 1:
+                    aligned_constraints = np.all(comparison_array)
+                else:
+                    aligned_constraints = np.all(comparison_array, axis=1)
                 
                 if np.sum(aligned_constraints) > 1:
                     # At least two constraints are aligned

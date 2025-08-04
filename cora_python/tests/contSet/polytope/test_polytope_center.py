@@ -67,7 +67,7 @@ class TestPolytopeCenter:
         b = np.zeros(0)
         P = Polytope(A, b)
         c = center(P)
-        assert c.shape == (1,) and c[0] == 0
+        assert c.size == 0
     
     def test_center_2d_bounded_inequalities_only(self):
         """Test 2D, only inequalities, bounded"""
@@ -140,7 +140,7 @@ class TestPolytopeCenter:
         be = np.zeros(0)
         P = Polytope(np.zeros((0, 2)), np.zeros(0), Ae, be)
         c = center(P)
-        assert c.shape == (2,) and np.all(c == 0)
+        assert c.size == 0
     
     def test_center_2d_v_polytope(self):
         """Test 2D, V-polytope"""

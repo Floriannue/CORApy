@@ -41,7 +41,7 @@ def vertices(S: 'ContSet', method: Optional[str] = None, *args, **kwargs) -> np.
     
     try:
         # Call subclass method
-        res = S.vertices_(method, *addargs)
+        res = S.vertices_(*addargs) # Removed 'method' from arguments
     except Exception as ME:
         # Catch empty set case
         if S.representsa_('emptySet', 1e-15):

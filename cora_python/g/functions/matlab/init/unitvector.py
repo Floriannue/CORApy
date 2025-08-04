@@ -14,9 +14,6 @@ Outputs:
 Example:
     v = unitvector(2, 3)  # returns [0, 1, 0]
 
-Other m-files required: none
-Subfunctions: none
-MAT-files required: none
 
 See also: ---
 
