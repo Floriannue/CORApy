@@ -24,7 +24,7 @@ Authors: Matthias Althoff, Niklas Kochdumper, Amr Alanwar (MATLAB)
          Python translation by AI Assistant
 Written: 29-June-2009 (MATLAB)
 Last update: 02-September-2019 (MATLAB), 28-September-2024 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -69,7 +69,8 @@ def and_(Z: Zonotope, S: Any, method: Optional[str] = None, *args) -> Zonotope:
         Z_interval = Interval(Z)
         S_interval = Interval(S) 
         result_interval = Z_interval.and_(S_interval, 'exact')
-        return Zonotope(result_interval)
+        # Convert result interval back to zonotope using the proper method
+        return result_interval.zonotope()
     
     if method == 'conZonotope':
         # Convert sets to constrained zonotopes, enclose the resulting
@@ -78,11 +79,25 @@ def and_(Z: Zonotope, S: Any, method: Optional[str] = None, *args) -> Zonotope:
         Z_con = ConZonotope(Z)
         S_con = ConZonotope(S)
         result_con = Z_con.and_(S_con, 'exact')
-        return Zonotope(result_con)
+        
+        # Check if the result represents an empty set
+        if result_con.representsa_('emptySet'):
+            return Zonotope.empty(Z.dim())
+        
+        # Convert result constrained zonotope to zonotope using the zonotope() method
+        result_zono = result_con.zonotope()
+        
+        return result_zono
     
     if method == 'averaging':
         from .private.priv_andAveraging import priv_andAveraging
-        return priv_andAveraging([Z, S], *args)
+        result = priv_andAveraging([Z, S], *args)
+        
+        # Check if the result represents an empty set
+        if result.representsa_('emptySet'):
+            return Zonotope.empty(Z.dim())
+        
+        return result
     
     # Throw error for unsupported operations
-    raise CORAerror('CORA:noops', Z, S) 
+    raise CORAerror('CORA:noops', str(Z), str(S)) 

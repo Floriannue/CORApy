@@ -16,7 +16,7 @@ Authors: Matthias Althoff (MATLAB)
          Python translation by AI Assistant
 Written: 30-September-2006 (MATLAB)
 Last update: 22-March-2007 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

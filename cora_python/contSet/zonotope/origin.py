@@ -10,8 +10,8 @@ Inputs:
 Outputs:
     Z - zonotope representing the origin
 
-Example:
-    Z = zonotope.origin(2)
+Example: 
+    Z = origin(2)
 
 Other m-files required: none
 Subfunctions: none
@@ -22,11 +22,12 @@ See also: none
 Authors:       Mark Wetzlinger (MATLAB)
                Python translation by AI Assistant
 Written:       21-September-2024 (MATLAB)
-Python translation: 2025
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
 from .zonotope import Zonotope
 
 def origin(n):
@@ -40,13 +41,7 @@ def origin(n):
         zonotope: zonotope representing the origin
     """
     
-    # Input validation
-    if not isinstance(n, (int, np.integer)) or n < 0:
-        raise CORAerror('CORA:wrongInputInConstructor',
-                       'Dimension must be a non-negative integer')
+    # Input validation (matching MATLAB)
+    inputArgsCheck([[n, 'att', 'numeric', ['scalar', 'positive', 'integer']]])
     
-    # Handle 0-dimensional case (no disturbances/inputs)
-    if n == 0:
-        return Zonotope.empty(0)
-    
-    return Zonotope(np.zeros((n, 1)), np.zeros((n, 0)))
+    return Zonotope(np.zeros((n, 1)))

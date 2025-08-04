@@ -10,8 +10,8 @@ Inputs:
 Outputs:
     Z - empty zonotope
 
-Example:
-    Z = zonotope.empty(2)
+Example: 
+    Z = empty(2)
 
 Other m-files required: none
 Subfunctions: none
@@ -23,7 +23,7 @@ Authors:       Mark Wetzlinger (MATLAB)
                Python translation by AI Assistant
 Written:       09-January-2024 (MATLAB)
 Last update:   15-January-2024 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -47,10 +47,14 @@ def empty(n=0):
         raise CORAerror('CORA:wrongInputInConstructor',
                       'Dimension must be a non-negative integer')
     
-    # Create a zonotope with empty center to represent empty set
+    # Create a zonotope with empty center and generators to represent empty set
     # This matches MATLAB: zonotope(zeros(n,0))
-    empty_zono = object.__new__(Zonotope)
-    empty_zono.precedence = 110
-    empty_zono.c = np.zeros((n, 0))
-    empty_zono.G = np.zeros((n, 0))
+    if n == 0:
+        empty_zono = Zonotope(np.array([]), np.array([]))
+    else:
+        # Create empty center (n x 0 matrix) and empty generators (n x 0 matrix)
+        # This matches MATLAB: zonotope(zeros(n,0))
+        # The MATLAB constructor receives zeros(n,0) as input
+        # and sets c = zeros(n,0) and G = zeros(n,0)
+        empty_zono = Zonotope(np.zeros((n, 0)), np.zeros((n, 0)))
     return empty_zono 

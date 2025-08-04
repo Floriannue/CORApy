@@ -10,11 +10,17 @@ Inputs:
 Outputs:
     res - true/false
 
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
 Authors: Mark Wetzlinger (MATLAB)
          Python translation by AI Assistant
 Written: 24-July-2023 (MATLAB)
-Last update: ---
-Python translation: 2025
+Last update: --- (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 from typing import TYPE_CHECKING
 

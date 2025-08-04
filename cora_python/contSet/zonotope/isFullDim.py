@@ -1,5 +1,42 @@
 """
-isFullDim method for zonotope class
+isFullDim - checks if the dimension of the affine hull of a zonotope is
+    equal to the dimension of its ambient space
+
+Syntax:
+    res = isFullDim(Z)
+    res = isFullDim(Z, tol)
+    [res, subspace] = isFullDim(_)
+
+Inputs:
+    Z - zonotope object
+    tol - numeric, tolerance
+
+Outputs:
+    res - true/false
+    subspace - (optional) Returns a set of orthogonal unit vectors
+               x_1,...,x_k such that Z is strictly contained in
+               center(Z)+span(x_1,...,x_k)
+               (here, 'strictly' means that k is minimal).
+               Note that if Z is just a point, subspace=[].
+
+Example: 
+    Z1 = Zonotope(np.array([[1, 2, 1], [3, 1, 2]]))
+    Z2 = Zonotope(np.array([[1, 2, 1], [3, 4, 2]]))
+
+    isFullDim(Z1)
+    isFullDim(Z2)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: isempty
+
+Authors:       Niklas Kochdumper, Mark Wetzlinger, Adrian Kulmburg (MATLAB)
+               Python translation by AI Assistant
+Written:       02-January-2020 (MATLAB)
+Last update:   17-May-2024 (TL, added tol) (MATLAB)
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np

@@ -11,8 +11,8 @@ Inputs:
 Outputs:
     ---
 
-Example:
-    Z = zonotope([1, 0], [[1, 2, -1], [0, -1, 1]])
+Example: 
+    Z = Zonotope(np.array([[1], [0]]), np.array([[1, 2, -1], [0, -1, 1]]))
     display(Z)
 
 Other m-files required: none
@@ -25,10 +25,11 @@ Authors:       Matthias Althoff (MATLAB)
                Python translation by AI Assistant
 Written:       14-September-2006 (MATLAB)
 Last update:   09-June-2020 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
+from cora_python.contSet.contSet.representsa import representsa
 
 
 def display(Z):
@@ -43,9 +44,12 @@ def display(Z):
     """
     lines = []
     
-    # Check for special cases
-    if Z.isemptyobject():
+    # Check for special cases using global representsa
+    if representsa(Z, 'emptySet'):
         result = f"Empty zonotope in R^{Z.dim()}"
+        return result
+    if representsa(Z, 'fullspace'):
+        result = f"Fullspace zonotope in R^{Z.dim()}"
         return result
     
     # Display basic information

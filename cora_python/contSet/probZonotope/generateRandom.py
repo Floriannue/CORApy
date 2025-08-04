@@ -73,7 +73,7 @@ def generateRandom(**kwargs) -> ProbZonotope:
     ])
     
     # Generate random zonotope
-    Z = Zonotope.generateRandom(Dimension=n, NrGenerators=nrGens)
+    Z = Zonotope.generateRandom('Dimension', n, 'NrGenerators', nrGens)
     
     # Generate random probabilistic generators
     g = -1 + 2 * np.random.rand(n, nrProbGens)

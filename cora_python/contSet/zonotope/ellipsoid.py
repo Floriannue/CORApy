@@ -1,3 +1,48 @@
+"""
+ellipsoid - converts a zonotope to an ellipsoid
+
+Syntax:
+    E = ellipsoid(Z)
+    E = ellipsoid(Z,mode)
+
+Inputs:
+    Z - zonotope object
+    mode - (optional) specifies whether function uses a bound on the 
+               respective zonotope norm or the exact value:
+               - 'outer:exact':    Uses priv_MVEE(Z)
+               - 'outer:norm':     Uses priv_encEllipsoid with exact norm
+                                   value
+               - 'outer:norm_bnd': Uses priv_encEllipsoid(E) with upper
+                                   bound for norm value (default)
+               - 'inner:exact':    Uses priv_MVIE(Z)
+               - 'inner:norm'      Uses priv_inscEllipsoid(E,'exact') with
+                                   exact norm value
+               - 'inner:norm_bnd': Not implemented yet, throws error
+
+Outputs:
+    E - ellipsoid object
+
+Example: 
+    Z = Zonotope(np.array([[1], [-1]]), np.array([[2, -4, 3, 2, 1], [3, 2, -4, -2, 1]]))
+    E = ellipsoid(Z)
+
+References:
+    [1] V. Gaßmann, M. Althoff. "Scalable Zonotope-Ellipsoid Conversions
+        using the Euclidean Zonotope Norm", 2020
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
+Authors: Victor Gassmann, Matthias Althoff (MATLAB)
+         Python translation by AI Assistant
+Written: 11-October-2019 (MATLAB)
+Last update: 05-June-2021 (MA, include degenerate case) (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+"""
+
 import numpy as np
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from .private.priv_MVEE import priv_MVEE
@@ -6,30 +51,6 @@ from .private.priv_encEllipsoid import priv_encEllipsoid
 from .private.priv_inscEllipsoid import priv_inscEllipsoid
 
 def ellipsoid(Z, mode='outer:norm_bnd'):
-    """
-    Converts a zonotope to an ellipsoid.
-    
-    Syntax:
-        E = ellipsoid(Z)
-        E = ellipsoid(Z,mode)
-    
-    Inputs:
-        Z - zonotope object
-        mode - (optional) specifies whether function uses a bound on the 
-               respective zonotope norm or the exact value:
-               - 'outer:exact':    Uses MVEE(Z)
-               - 'outer:norm':     Uses encEllipsoid with exact norm value
-               - 'outer:norm_bnd': Uses encEllipsoid with upper bound for norm value (default)
-               - 'inner:exact':    Uses MVIE(Z)
-               - 'inner:norm'      Uses inscEllipsoid with exact norm value
-    
-    Outputs:
-        E - ellipsoid object
-    
-    Example:
-        Z = zonotope([1;-1],[2 -4 3 2 1; 3 2 -4 -2 1]);
-        E = ellipsoid(Z);
-    """
     valid_modes = ['outer:exact', 'outer:norm', 'outer:norm_bnd', 'inner:exact', 'inner:norm']
     if mode not in valid_modes:
         raise CORAerror('CORA:wrongValue', 'second',

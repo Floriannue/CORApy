@@ -1,38 +1,63 @@
+"""
+supportFunc_ method for interval class
+"""
+
 import numpy as np
+from typing import Union, Tuple
 from .interval import Interval
 
-def supportFunc_(I, dir, type, *varargin):
+def supportFunc_(I: Interval,
+                 direction: np.ndarray,
+                 type_: str = 'upper',
+                 *args) -> Union[float, Tuple[float, np.ndarray]]:
     """
-    Calculate the upper or lower bound of an interval along a
+    supportFunc_ - calculates the upper or lower bound of an interval along a
     certain direction
+
+    Syntax:
+        val = supportFunc_(I,dir)
+        [val,x] = supportFunc_(I,dir,type)
+
+    Inputs:
+        I - interval object
+        direction - direction for which the bounds are calculated (vector)
+        type_ - upper bound, lower bound, or both ('upper','lower','range')
+
+    Outputs:
+        val - bound of the interval in the specified direction
+        x - support vector
+
+    Other m-files required: none
+    Subfunctions: none
+    MAT-files required: none
+
+    See also: contSet/supportFunc
+
+    Authors:       Mark Wetzlinger
+    Written:       27-March-2023
+    Last update:   ---
+    Last revision: ---
+    Automatic python translation: Florian Nüssel BA 2025
     """
-
-    # special handling for empty set
-    if I.is_empty():
-        x = []
-        if type == 'upper':
-            val = -np.inf
-        elif type == 'lower':
-            val = np.inf
-        elif type == 'range':
-            val = Interval(-np.inf, np.inf)
-        return val, x
-
-    # take infimum/supremum depending on sign of direction; for entries with 0,
-    # it does not matter
-    idx = np.sign(dir) == -1
-    if type == 'upper':
-        x = I.sup.copy()
-        x[idx] = I.inf[idx]
-        val = dir.T @ x
-    elif type == 'lower':
-        x = I.inf.copy()
-        x[idx] = I.sup[idx]
-        val = dir.T @ x
-    elif type == 'range':
-        x = np.array([I.inf, I.sup]).T
-        x[idx, 0] = I.sup[idx]
-        x[idx, 1] = I.inf[idx]
-        val = Interval(dir.T @ x[:, 0], dir.T @ x[:, 1])
-        
+    
+    # Ensure direction is a column vector
+    direction = np.asarray(direction)
+    if direction.ndim == 1:
+        direction = direction.reshape(-1, 1)
+    
+    # Calculate bounds
+    if type_ == 'upper':
+        val = float(np.sum(direction * I.sup))  # Convert to scalar
+        x = I.sup
+    elif type_ == 'lower':
+        val = float(np.sum(direction * I.inf))  # Convert to scalar
+        x = I.inf
+    elif type_ == 'range':
+        lower_val = float(np.sum(direction * I.inf))  # Convert to scalar
+        upper_val = float(np.sum(direction * I.sup))  # Convert to scalar
+        val = Interval(lower_val, upper_val)
+        x = np.column_stack([I.inf, I.sup])
+    else:
+        raise ValueError(f"Invalid type '{type_}'. Use 'lower', 'upper', or 'range'.")
+    
     return val, x 

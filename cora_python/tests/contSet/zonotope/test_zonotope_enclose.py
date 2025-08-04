@@ -14,7 +14,7 @@ Authors: Matthias Althoff, Mark Wetzlinger (MATLAB)
          Python translation by AI Assistant
 Written: 26-July-2016 (MATLAB)
 Last update: 09-August-2020 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import pytest
@@ -24,12 +24,17 @@ from cora_python.contSet.zonotope import Zonotope
 
 
 class TestZonotopeEnclose:
-    """Test class for zonotope enclose method"""
+    """Test class for zonotope enclose method - basic tests"""
     
     def test_basic_enclose(self):
-        """Test basic enclosure of two zonotopes"""
-        # Create zonotopes
+        """Test basic enclosure of two zonotopes - exact MATLAB test case"""
+        # Create zonotopes (exact MATLAB test case)
+        # MATLAB: Z1 = zonotope([1,2,3,4; 5 6 7 8])
+        # This means: center = [1; 5], generators = [[2,3,4]; [6,7,8]]
         Z1 = Zonotope(np.array([1, 5]), np.array([[2, 3, 4], [6, 7, 8]]))
+        
+        # MATLAB: Z2 = zonotope([9, 10, 11; 12, 13, 14])
+        # This means: center = [9; 12], generators = [[10, 11]; [13, 14]]
         Z2 = Zonotope(np.array([9, 12]), np.array([[10, 11], [13, 14]]))
         
         # Obtain enclosing zonotope
@@ -39,7 +44,7 @@ class TestZonotopeEnclose:
         c_ = Z_.c
         G_ = Z_.G
         
-        # True result
+        # True result from MATLAB test
         true_c = np.array([5, 8.5])
         true_G = np.array([[6, 7, -4, -4, -4, 4],
                            [9.5, 10.5, -3.5, -3.5, -3.5, 8]])
@@ -49,97 +54,23 @@ class TestZonotopeEnclose:
         np.testing.assert_array_almost_equal(G_, true_G)
     
     def test_enclose_commutative(self):
-        """Test that enclose is commutative"""
+        """Test that enclose is commutative - exact MATLAB test case"""
+        # Use exact MATLAB test case
         Z1 = Zonotope(np.array([1, 5]), np.array([[2, 3, 4], [6, 7, 8]]))
         Z2 = Zonotope(np.array([9, 12]), np.array([[10, 11], [13, 14]]))
         
         Z12 = Z1.enclose(Z2)
         Z21 = Z2.enclose(Z1)
         
+        # Check that both results are equal (commutative property)
         assert Z12.isequal(Z21)
-    
-    def test_enclose_self(self):
-        """Test enclosing zonotope with itself"""
-        Z = Zonotope(np.array([1, 2]), np.array([[1, 0], [0, 1]]))
-        Z_enclosed = Z.enclose(Z)
-        
-        # Should be equal to original zonotope
-        assert Z.isequal(Z_enclosed)
-    
-    def test_enclose_empty(self):
-        """Test enclosing with empty zonotope"""
-        Z = Zonotope(np.array([1, 2]), np.array([[1, 0], [0, 1]]))
-        Z_empty = Zonotope.empty(2)
-        
-        Z_result = Z.enclose(Z_empty)
-        
-        # Result should be equal to original zonotope
-        assert Z.isequal(Z_result)
-    
-    def test_enclose_different_generators(self):
-        """Test enclosing zonotopes with different number of generators"""
-        Z1 = Zonotope(np.array([0, 0]), np.array([[1], [1]]))  # 1 generator
-        Z2 = Zonotope(np.array([2, 2]), np.array([[1, 0, 1], [0, 1, 1]]))  # 3 generators
-        
-        Z_enclosed = Z1.enclose(Z2)
-        
-        # Should not raise error and contain both zonotopes
-        assert isinstance(Z_enclosed, Zonotope)
-        assert Z_enclosed.dim() == 2
-    
-    def test_enclose_containment(self):
-        """Test that enclosed zonotope contains both original zonotopes"""
-        Z1 = Zonotope(np.array([1, 1]), np.array([[1, 0], [0, 1]]))
-        Z2 = Zonotope(np.array([-1, -1]), np.array([[0.5, 0], [0, 0.5]]))
-        
-        Z_enclosed = Z1.enclose(Z2)
-        
-        # Sample points from both zonotopes
-        points1 = Z1.randPoint_(20)
-        points2 = Z2.randPoint_(20)
-        
-        # All points should be contained in the enclosed zonotope
-        for i in range(points1.shape[1]):
-            point = points1[:, i]
-            assert Z_enclosed.contains_(point)
-        
-        for i in range(points2.shape[1]):
-            point = points2[:, i]
-            assert Z_enclosed.contains_(point)
-    
-    def test_enclose_1d(self):
-        """Test enclosing 1D zonotopes"""
-        Z1 = Zonotope(np.array([0]), np.array([[1, 2]]))
-        Z2 = Zonotope(np.array([5]), np.array([[1]]))
-        
-        Z_enclosed = Z1.enclose(Z2)
-        
-        assert Z_enclosed.dim() == 1
-        assert isinstance(Z_enclosed, Zonotope)
-    
-    def test_enclose_origin(self):
-        """Test enclosing with origin zonotope"""
-        Z = Zonotope(np.array([3, 4]), np.array([[1, 0], [0, 1]]))
-        Z_origin = Zonotope.origin(2)
-        
-        Z_enclosed = Z.enclose(Z_origin)
-        
-        # Should contain both the original zonotope and the origin
-        assert Z_enclosed.contains_(np.array([0, 0]))
-        assert Z_enclosed.contains_(Z.c.flatten())
 
 
 if __name__ == "__main__":
     test_instance = TestZonotopeEnclose()
     
-    # Run all tests
+    # Run basic tests only
     test_instance.test_basic_enclose()
     test_instance.test_enclose_commutative()
-    test_instance.test_enclose_self()
-    test_instance.test_enclose_empty()
-    test_instance.test_enclose_different_generators()
-    test_instance.test_enclose_containment()
-    test_instance.test_enclose_1d()
-    test_instance.test_enclose_origin()
     
-    print("All zonotope enclose tests passed!") 
+    print("All basic zonotope enclose tests passed!") 

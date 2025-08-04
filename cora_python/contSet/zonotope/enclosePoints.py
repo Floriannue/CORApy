@@ -1,13 +1,9 @@
 """
 enclosePoints - enclose a point cloud with a zonotope
 
-This method implements two algorithms to enclose a point cloud with a zonotope:
-- 'stursberg': Method from Stursberg et al. using SVD and oriented bounding box
-- 'maiga': Method from Maiga et al. using iterative optimization
-
 Syntax:
-    Z = Zonotope.enclosePoints(points)
-    Z = Zonotope.enclosePoints(points, method)
+    Z = zonotope.enclosePoints(points)
+    Z = zonotope.enclosePoints(points, method)
 
 Inputs:
     points - matrix storing point cloud (dimension: [n,p] for p points)
@@ -16,18 +12,13 @@ Inputs:
                - 'stursberg'
 
 Outputs:
-    Z - Zonotope object
+    Z - zonotope object
 
 Example: 
-    points = -1 + 2*np.random.rand(2,10)
+    points = -1 + 2 * np.random.rand(2, 10)
 
-    Z1 = Zonotope.enclosePoints(points)
-    Z2 = Zonotope.enclosePoints(points,'maiga')
-    
-    # figure; hold on
-    # plt.plot(points[0,:],points[1,:],'k.')
-    # Z1.plot([1,2],'r')
-    # Z2.plot([1,2],'b')
+    Z1 = enclosePoints(points)
+    Z2 = enclosePoints(points, 'maiga')
 
 References:
     [1] O. Stursberg et al. "Efficient representation and computation of 
@@ -35,8 +26,17 @@ References:
     [2] M. Maiga et al. "A Comprehensive Method for Reachability Analysis
         of Uncertain Nonlinear Hybrid Systems", TAC 2017
 
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: ---
+
 Authors: Niklas Kochdumper (MATLAB)
          Python translation by AI Assistant
+Written: 05-May-2020 (MATLAB)
+Last update: --- (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -80,14 +80,14 @@ def enclosePoints(points: np.ndarray, method: str = 'maiga') -> Zonotope:
     
     # Compute enclosing zonotope with the selected method
     if method == 'stursberg':
-        return _enclose_points_stursberg(points)
+        return aux_enclosePointsStursberg(points)
     elif method == 'maiga':
-        return _enclose_points_maiga(points)
+        return aux_enclosePointsMaiga(points)
     else:
         raise ValueError(f"Unknown method: {method}")
 
 
-def _enclose_points_stursberg(points: np.ndarray) -> Zonotope:
+def aux_enclosePointsStursberg(points: np.ndarray) -> Zonotope:
     """
     Computes an enclosing zonotope using the method from [1]
     
@@ -98,14 +98,15 @@ def _enclose_points_stursberg(points: np.ndarray) -> Zonotope:
         Zonotope object
     """
     
-    # Compute the arithmetic mean of the points
-    mean = np.mean(points, axis=1, keepdims=True)
+    # compute the arithmetic mean of the points
+    mean = np.sum(points, axis=1, keepdims=True) / points.shape[1]
     
-    # Obtain sampling matrix
-    sample_matrix = points - mean
+    # obtain sampling matrix
+    translation = mean * np.ones((1, points.shape[1]))
+    sampleMatrix = points - translation
     
-    # Compute the covariance matrix
-    C = np.cov(sample_matrix.T, rowvar=False)
+    # compute the covariance matrix
+    C = np.cov(sampleMatrix.T, rowvar=False)
     
     # Handle 1D case
     if C.ndim == 0:
@@ -113,33 +114,26 @@ def _enclose_points_stursberg(points: np.ndarray) -> Zonotope:
     elif C.ndim == 1:
         C = np.diag(C)
     
-    # Singular value decomposition
+    # singular value decomposition
     U, _, _ = np.linalg.svd(C)
     
-    # Auxiliary computations
-    oriented_matrix = U.T @ sample_matrix
-    m1 = np.max(oriented_matrix, axis=1)
-    m2 = np.min(oriented_matrix, axis=1)
+    # auxiliary computations
+    orientedMatrix = U.T @ sampleMatrix
+    m1 = np.max(orientedMatrix, axis=1)
+    m2 = np.min(orientedMatrix, axis=1)
     
-    # Determine the center
+    # determine the center
     c = mean.flatten() + U @ ((m1 + m2) / 2)
     
-    # Determine the generators
+    # determine the generators
     G = np.zeros((len(c), len(m1)))
     for i in range(len(m1)):
         G[:, i] = (m1[i] - m2[i]) * 0.5 * U[:, i]
     
-    # Remove zero generators
-    nonzero_cols = np.any(G != 0, axis=0)
-    if np.any(nonzero_cols):
-        G = G[:, nonzero_cols]
-    else:
-        G = np.zeros((len(c), 0))
-    
     return Zonotope(np.column_stack([c, G]))
 
 
-def _enclose_points_maiga(points: np.ndarray) -> Zonotope:
+def aux_enclosePointsMaiga(points: np.ndarray) -> Zonotope:
     """
     Computes an enclosing zonotope using the method from [2]
     
@@ -150,32 +144,32 @@ def _enclose_points_maiga(points: np.ndarray) -> Zonotope:
         Zonotope object
     """
     
-    # Initialization
-    min_vol = np.inf
-    Z_opt = None
+    # initialization
+    minVol = np.inf
+    Zopt = None
     N = 100
     
-    # Loop over all sampling points
+    # loop over all sampling points
     for i in range(1, N + 1):
-        # Compute current ratio
+        # compute current ratio
         r = i / N
         
-        # Compute enclosing zonotope
-        Z = _cloud2zonotope(points, r, points.shape[0])
+        # compute enclosing zonotope
+        Z = aux_cloud2zonotope(points, r, points.shape[0])
         
-        # Estimate the volume of the zonotope using the trace
+        # estimate the volume of the zonotope using the trace
         G = Z.G
         tr = np.trace(G.T @ G)
         
-        # Update the minimum value
-        if tr < min_vol:
-            Z_opt = Z
-            min_vol = tr
+        # update the minimum value
+        if tr < minVol:
+            Zopt = Z
+            minVol = tr
     
-    return Z_opt
+    return Zopt
 
 
-def _cloud2zonotope(X: np.ndarray, ratio: float, s1: int) -> Zonotope:
+def aux_cloud2zonotope(X: np.ndarray, ratio: float, s1: int) -> Zonotope:
     """
     Implementation of the cloud2zonotope function in [2]
     
@@ -192,48 +186,35 @@ def _cloud2zonotope(X: np.ndarray, ratio: float, s1: int) -> Zonotope:
     c = np.zeros(n)
     iter_count = 0
     R = np.zeros((n, 0))
+    w = np.zeros(X.shape[0])
+    r = np.zeros(X.shape[0])
     
     while iter_count < s1:
         iter_count += 1
-        
-        # Enclose points with interval
         I = Interval.enclosePoints(X)
         mid = I.center()
         r = I.rad()
-        
         X = X - mid.reshape(-1, 1)
-        
-        # SVD decomposition
+        if iter_count == 1:
+            w = r
         U, _, _ = np.linalg.svd(X, full_matrices=False)
-        if U.size > 0:
-            u = U[:, 0]
-        else:
-            u = np.zeros(n)
-        
-        # Compute generator
+        u = U[:, 0]
         g = ratio * abs(np.dot(u, r)) * u
-        
-        # Compress point cloud
-        X = _compress(X, g)
-        
-        # Update center and generators
+        X = aux_compress(X, g)
         c = c + mid
-        if g.size > 0:
-            R = np.column_stack([R, g])
+        R = np.column_stack([R, g])
     
     # Final interval enclosure
     I = Interval.enclosePoints(X)
     mid = I.center()
     r = I.rad()
     c = c + mid
-    
-    # Add final generators as diagonal matrix
     R = np.column_stack([R, np.diag(r)])
     
     return Zonotope(np.column_stack([c, R]))
 
 
-def _compress(X: np.ndarray, g: np.ndarray) -> np.ndarray:
+def aux_compress(X: np.ndarray, g: np.ndarray) -> np.ndarray:
     """
     Implementation of the compress function in [2]
     
@@ -244,9 +225,6 @@ def _compress(X: np.ndarray, g: np.ndarray) -> np.ndarray:
     Returns:
         Compressed point cloud
     """
-    if np.linalg.norm(g) == 0:
-        return X
-    
     u = g / np.linalg.norm(g)
     
     for i in range(X.shape[1]):

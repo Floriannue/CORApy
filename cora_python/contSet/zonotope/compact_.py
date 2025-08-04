@@ -21,11 +21,8 @@ Outputs:
    Z - zonotope object
 
 Example:
-   Z1 = zonotope([0;0],[1 0 -2 0 3 4; 0 0 1 0 -2 1]);
-   Z2 = compact(Z1);
-   
-   plot(Z1); hold on;
-   plot(Z2,[1,2],'r');
+   Z1 = Zonotope(np.array([[0], [0]]), np.array([[1, 0, -2, 0, 3, 4], [0, 0, 1, 0, -2, 1]]))
+   Z2 = compact_(Z1)
 
 Other m-files required: none
 Subfunctions: none
@@ -36,17 +33,16 @@ See also: contSet/compact, zonotope/reduce
 Authors: Mark Wetzlinger, Matthias Althoff (MATLAB)
          Python translation by AI Assistant
 Written: 15-January-2009 (MATLAB)
-Last update: 27-August-2019
-             05-October-2024 (MW, remove superfluous 'aligned', rewrite deleteAligned)
-Last revision: 29-July-2023 (MW, merged from deleteZeros/deleteAligned)
-Python translation: 2025
+Last update: 27-May-2025 (TL, bug fix, outputs are now consistent for 'all') (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
-from typing import Union
+from typing import Union, Optional
 from .zonotope import Zonotope
+from cora_python.g.functions.helper.sets.contSet.zonotope import nonzeroFilter
 
-def compact_(Z, method: str = 'zeros', tol: float = None) -> Zonotope:
+def compact_(Z, method: str = 'zeros', tol: Optional[float] = None) -> Zonotope:
     """
     Returns equal zonotope in minimal representation
     
@@ -60,7 +56,7 @@ def compact_(Z, method: str = 'zeros', tol: float = None) -> Zonotope:
     """
     if tol is None:
         if method == 'zeros':
-            tol = np.finfo(float).eps
+            tol = float(np.finfo(float).eps)
         else:  # method == 'all'
             tol = 1e-3
     
@@ -84,7 +80,7 @@ def _aux_deleteZeros(Z, tol: float) -> Zonotope:
         zonotope object with zero generators removed
     """
     # Filter zero generators using nonzeroFilter
-    G_filtered = _nonzeroFilter(Z.G, tol)
+    G_filtered = nonzeroFilter(Z.G, tol)
     
     # Create new zonotope with filtered generators
     return Zonotope(Z.c, G_filtered)
@@ -102,7 +98,7 @@ def _aux_deleteAligned(Z, tol: float) -> Zonotope:
         zonotope object with aligned generators combined
     """
     # Delete zero-generators first
-    G = _nonzeroFilter(Z.G, tol)
+    G = nonzeroFilter(Z.G, tol)
     
     # Quick exit for 1D case
     if Z.dim() == 1:
@@ -158,26 +154,4 @@ def _aux_deleteAligned(Z, tol: float) -> Zonotope:
     # need to remove all subsumed generators
     G_final = G[:, idxKeep]
     
-    return Zonotope(Z.c, G_final)
-
-
-def _nonzeroFilter(G: np.ndarray, tol: float = None) -> np.ndarray:
-    """
-    Filters out generators of length 0
-    
-    Args:
-        G: matrix of generators
-        tol: tolerance (optional)
-        
-    Returns:
-        reduced matrix of generators
-    """
-    # Delete zero-generators (any non-zero entry in a column)
-    G_filtered = G[:, np.any(G != 0, axis=0)]
-    
-    if tol is not None:
-        # Also remove generators with norm below tolerance
-        G_norms = np.linalg.norm(G_filtered, axis=0)
-        G_filtered = G_filtered[:, G_norms > tol]
-    
-    return G_filtered 
+    return Zonotope(Z.c, G_final) 

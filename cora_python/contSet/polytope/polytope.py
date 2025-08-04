@@ -130,6 +130,19 @@ class Polytope(ContSet):
             # Copy constructor
             self._copy_constructor(args[0])
             # The dim value is copied directly in _copy_constructor
+            return
+        
+        # Handle Zonotope conversion
+        if len(args) == 1 and hasattr(args[0], 'c') and hasattr(args[0], 'G'):
+            # This is a Zonotope object, convert it to polytope
+            Z = args[0]
+            from ..zonotope import Zonotope
+            if isinstance(Z, Zonotope):
+                # Convert zonotope to polytope using the zonotope's polytope method
+                P = Z.polytope()
+                # Copy properties from the converted polytope
+                self._copy_constructor(P)
+                return
         else:
             # Handle general constructors
             self._general_constructor(*args, **kwargs)
@@ -143,6 +156,26 @@ class Polytope(ContSet):
         #     # We use `_` to discard the direct return of `dim_func` as it also updates `self._dim_val`.
         #     _ = self.dim() # Call the attached method, which uses the external function
 
+    def _aux_checkInputArgs(self, A, b, Ae, be, V, n_in):
+        """Check correctness of input arguments"""
+        # Only check if macro set to true (simplified for Python)
+        CHECKS_ENABLED = True
+        
+        if CHECKS_ENABLED and n_in > 0:
+            # Check numeric type of V
+            if V.size > 0:
+                # Check if V contains numeric data (not objects like Zonotope)
+                if hasattr(V, 'dtype') and np.issubdtype(V.dtype, np.number):
+                    if np.any(np.isnan(V)):
+                        raise CORAerror('CORA:wrongInputInConstructor',
+                                      'Vertices have to be non-nan.')
+                    elif V.shape[0] > 1 and np.any(np.isinf(V)):
+                        raise CORAerror('CORA:wrongInputInConstructor',
+                                      'nD vertices for n > 1 have to be finite.')
+                else:
+                    # V contains non-numeric objects (like Zonotope)
+                    # This will be handled by the conversion logic
+                    pass
 
     def _copy_constructor(self, other: 'Polytope'):
         """Internal helper for copy constructor."""

@@ -1,13 +1,12 @@
 import numpy as np
 from typing import Union, Tuple
-
-# Make sure to create this interval class if it does not exist.
 from cora_python.contSet.interval.interval import Interval
 from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
 
 def supportFunc_(E: Ellipsoid,
-                 dir: np.ndarray,
-                 type: str) -> Union[float, Interval, Tuple[Union[float, Interval], np.ndarray]]:
+                 direction: np.ndarray, 
+                 type_: str = 'upper',
+                 *args) -> Union[float, Interval, Tuple[Union[float, Interval], np.ndarray]]:
     """
     supportFunc_ - Calculate the upper or lower bound of an ellipsoid along a
     certain direction (see Def. 2.1.2 in [1])
@@ -18,49 +17,71 @@ def supportFunc_(E: Ellipsoid,
 
     Inputs:
         E - ellipsoid object
-        dir - direction for which the bounds are calculated (vector of size
-              (n,1) )
-        type - upper or lower bound ('lower',upper','range')
+        direction - direction for which the bounds are calculated (vector of size
+                  (n,1) )
+        type_ - upper or lower bound ('lower',upper','range')
 
     Outputs:
         val - bound of the ellipsoid in the specified direction
         x - point for which holds: dir'*x=val
 
-    References:
-        [1] A. Kurzhanski et al. "Ellipsoidal Toolbox Manual", 2006
-            https://www2.eecs.berkeley.edu/Pubs/TechRpts/2006/EECS-2006-46.pdf
+    Example: 
+        E = ellipsoid([5 7;7 13],[1;2]);
+        dir = [1;1];
+
+        [val,x] = supportFunc(E,dir);
+      
+        figure; hold on; box on;
+        plot(E,[1,2],'b');
+        plot(polytope([],[],dir',val),[1,2],'g');
+        plot(x(1),x(2),'.r','MarkerSize',20);
+
+    References: 
+      [1] A. Kurzhanski et al. "Ellipsoidal Toolbox Manual", 2006
+          https://www2.eecs.berkeley.edu/Pubs/TechRpts/2006/EECS-2006-46.pdf
+
+    Other m-files required: none
+    Subfunctions: none
+    MAT-files required: none
+
+    See also: contSet/supportFunc, zonotope/supportFunc_
+
+    Authors:       Victor Gassmann
+    Written:       20-November-2019
+    Last update:   12-March-2021
+                    27-July-2021 (fixed degenerate case)
+                    04-July-2022 (VG, class array case)
+                    29-March-2023 (VG, changed to explicit comp of x vector)
+    Last revision: 27-March-2023 (MW, rename supportFunc_)
+    Automatic python translation: Florian Nüssel BA 2025
     """
-
-    if E.representsa_('point', E.TOL):
-        val = dir.T @ E.q
-        return val[0, 0], E.q
-
-    # Pre-calculate common term
-    dir_q_dir = dir.T @ E.Q @ dir
     
-    # Handle case where direction has no extent in the ellipsoid space
-    if dir_q_dir <= E.TOL:
-        val = dir.T @ E.q
-        return val[0, 0], E.q
-
-    sqrt_val = np.sqrt(dir_q_dir)
+    # Ensure direction is a column vector
+    direction = np.asarray(direction)
+    if direction.ndim == 1:
+        direction = direction.reshape(-1, 1)
     
-    if type == 'upper':
-        val = dir.T @ E.q + sqrt_val
-        x = E.q + (E.Q @ dir) / sqrt_val
-        return val[0, 0], x
-    elif type == 'lower':
-        val = dir.T @ E.q - sqrt_val
-        x = E.q - (E.Q @ dir) / sqrt_val
-        return val[0, 0], x
-    elif type == 'range':
-        lower_bound = dir.T @ E.q - sqrt_val
-        upper_bound = dir.T @ E.q + sqrt_val
-        val = Interval(lower_bound[0, 0], upper_bound[0, 0])
-        
-        x_lower = E.q - (E.Q @ dir) / sqrt_val
-        x_upper = E.q + (E.Q @ dir) / sqrt_val
-        x = np.hstack((x_lower, x_upper))
+    # Check if ellipsoid represents a point
+    if E.representsa_('point', np.finfo(float).eps):
+        val = float(direction.T @ E.q)  # Convert to scalar
+        x = E.q
         return val, x
+    
+    if type_ == 'upper':
+        val = float(direction.T @ E.q + np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
+        x = E.q + E.Q @ direction / np.sqrt(direction.T @ E.Q @ direction)
+    elif type_ == 'lower':
+        val = float(direction.T @ E.q - np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
+        x = E.q - E.Q @ direction / np.sqrt(direction.T @ E.Q @ direction)
+    elif type_ == 'range':
+        lower_val = float(direction.T @ E.q - np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
+        upper_val = float(direction.T @ E.q + np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
+        val = Interval(lower_val, upper_val)
+        x = np.column_stack([
+            E.q - E.Q @ direction / np.sqrt(direction.T @ E.Q @ direction),
+            E.q + E.Q @ direction / np.sqrt(direction.T @ E.Q @ direction)
+        ])
     else:
-        raise ValueError(f"Unknown type '{type}'") 
+        raise ValueError(f"Invalid type '{type_}'. Use 'lower', 'upper', or 'range'.")
+    
+    return val, x 

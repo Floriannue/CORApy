@@ -5,7 +5,7 @@ Authors: Matthias Althoff, Tobias Ladner (MATLAB)
          Python translation by AI Assistant
 Written: 26-July-2016 (MATLAB)
 Last update: 01-June-2023 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import pytest

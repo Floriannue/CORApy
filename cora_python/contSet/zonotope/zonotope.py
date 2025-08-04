@@ -32,7 +32,7 @@ Authors:       Matthias Althoff, Niklas Kochdumper, Tobias Ladner (MATLAB)
                Python translation by AI Assistant
 Written:       14-September-2006 (MATLAB)
 Last update:   05-October-2024 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -104,6 +104,13 @@ class Zonotope(ContSet):
         """Parse input arguments from user and assign to variables"""
         
         if len(args) == 1:
+            # Check if it's an Interval object
+            if hasattr(args[0], '__class__') and args[0].__class__.__name__ == 'Interval':
+                # Convert interval to zonotope using interval's zonotope method
+                from cora_python.contSet.interval.zonotope import zonotope
+                Z_from_interval = zonotope(args[0])
+                return Z_from_interval.c, Z_from_interval.G
+            
             Z = np.asarray(args[0])
             if Z.ndim <= 1:
                 # Input is a vector (point)
@@ -111,8 +118,13 @@ class Zonotope(ContSet):
                 G = np.array([])
             else:
                 # Input is a matrix [c, G]
-                c = Z[:, 0]
-                G = Z[:, 1:]
+                if Z.shape[1] == 0:
+                    # Empty matrix case: create empty center and generators
+                    c = np.zeros((Z.shape[0], 0))
+                    G = np.zeros((Z.shape[0], 0))
+                else:
+                    c = Z[:, 0]
+                    G = Z[:, 1:]
         elif len(args) == 2:
             c, G = args
         else:
@@ -146,24 +158,41 @@ class Zonotope(ContSet):
             elif c.size > 0 and c.ndim > 1 and min(c.shape) > 1:
                 raise CORAerror('CORA:wrongInputInConstructor',
                               'Center is not a vector')
-            elif G.size > 0 and c.size > 0 and len(c) != G.shape[0]:
-                raise CORAerror('CORA:wrongInputInConstructor',
-                              'Dimension mismatch between center and generator matrix')
+            elif G.size > 0 and c.size > 0:
+                c1d = np.atleast_1d(c)
+                if len(c1d) != G.shape[0]:
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'Dimension mismatch between center and generator matrix')
     
     def _compute_properties(self, c, G):
         """Compute and fix properties to ensure correct dimensions"""
         
-        # Ensure c is a column vector
-        if c.size > 0:
-            c = c.reshape(-1, 1)
-        
-        # If G is empty, set correct dimension
-        if G.size == 0 and c.size > 0:
-            G = np.zeros((len(c), 0))
-        elif G.size > 0:
-            # Ensure G is 2D
-            if G.ndim == 1:
-                G = G.reshape(-1, 1)
+        # Handle empty zonotope case (both c and G are empty but have correct dimensions)
+        if c.size == 0 and G.size == 0:
+            # Both are empty, but we need to preserve the dimension information
+            # This happens when we create an empty zonotope with Zonotope.empty(n)
+            # The dimension is encoded in the shape of the empty arrays
+            if c.shape[0] > 0:
+                # c has the correct number of rows, keep it as is
+                pass
+            elif G.shape[0] > 0:
+                # G has the correct number of rows, set c to match
+                c = np.zeros((G.shape[0], 0))
+            else:
+                # Both are completely empty, this is an error
+                raise CORAerror('CORA:wrongInputInConstructor', 'Cannot create zonotope with zero dimension')
+        else:
+            # Ensure c is a column vector
+            if c.size > 0:
+                c = c.reshape(-1, 1)
+            
+            # If G is empty, set correct dimension
+            if G.size == 0 and c.size > 0:
+                G = np.zeros((len(c), 0))
+            elif G.size > 0:
+                # Ensure G is 2D
+                if G.ndim == 1:
+                    G = G.reshape(-1, 1)
         
         return c, G
     
@@ -272,3 +301,39 @@ class Zonotope(ContSet):
         
         # For other ufuncs, return NotImplemented to let numpy handle it
         return NotImplemented 
+
+    def contains_(self, S, method='exact', tol=1e-12, maxEval=200, certToggle=True, scalingToggle=True, *args, **kwargs):
+        """
+        Instance method for containment check, matching MATLAB usage.
+        Calls the module-level contains_ function.
+        """
+        from .contains_ import contains_ as zonotope_contains_
+        return zonotope_contains_(self, S, method, tol, maxEval, certToggle, scalingToggle, *args) 
+
+    def cubMap(self, *args):
+        """
+        Instance method for cubic multiplication (cubMap), matching MATLAB usage.
+        Calls the module-level cubMap function.
+        """
+        from .cubMap import cubMap as zonotope_cubMap
+        return zonotope_cubMap(self, *args)
+
+    def randPoint_(self, N=1, type_='standard'):
+        """
+        Instance method for random point generation, matching MATLAB usage.
+        Calls the module-level randPoint_ function.
+        """
+        from .randPoint_ import randPoint_ as zonotope_randPoint_
+        return zonotope_randPoint_(self, N, type_)
+
+    @staticmethod
+    def empty(dim):
+        """Return an empty zonotope of given dimension (no generators, center at 0)"""
+        c = np.zeros((dim, 1))
+        G = np.zeros((dim, 0))
+        return Zonotope(c, G) 
+
+    # Attach MATLAB-like isequal as a method
+    def isequal(self, S, tol=None):
+        from cora_python.contSet.zonotope.isequal import isequal as isequal_func
+        return isequal_func(self, S, tol) 

@@ -1,20 +1,52 @@
 """
 randPoint_ - generates random points within a zonotope
 
-This function generates random points within a zonotope using various
-sampling methods including standard, extreme, uniform, and specialized algorithms.
+Syntax:
+    p = randPoint_(Z)
+    p = randPoint_(Z, N)
+    p = randPoint_(Z, N, type)
+    p = randPoint_(Z, 'all', 'extreme')
 
-Authors: Matthias Althoff, Mark Wetzlinger, Adrian Kulmburg, Severin Prenitzer (MATLAB)
-         Python translation by AI Assistant
-Written: 23-September-2008 (MATLAB)
-Last update: 05-October-2024 (MATLAB)
-Python translation: 2025
+Inputs:
+    Z - zonotope object
+    N - number of random points
+    type - type of the random point ('standard', 'extreme', 'uniform' or
+           'uniform:hitAndRun', 'uniform:billiardWalk',
+           'uniform:ballWalk')
+
+Outputs:
+    p - random point (cloud) in R^n
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, randPoint_
+    import numpy as np
+    Z = Zonotope(np.array([[1], [0]]), np.array([[1, 0, 1], [-1, 2, 1]]))
+    p = randPoint_(Z)
+
+References:
+    [1] Robert L. Smith: Efficient Monte Carlo Procedures for Generating
+        Points Uniformly Distributed Over Bounded Regions, Operations
+        Research, 1984.
+    [2] Boris T. Polyak, E. N. Gryazina: Billiard Walk - a New Sampling
+        Algorithm for Control and Optimization, IFAC, 2014
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: contSet/randPoint, interval/randPoint_
+
+Authors:       Matthias Althoff, Mark Wetzlinger, Adrian Kulmburg, Severin Prenitzer (MATLAB)
+               Python translation by AI Assistant
+Written:       23-September-2008 (MATLAB)
+Last update:   05-October-2024 (MW, refactor) (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
-from typing import Union, TYPE_CHECKING
 import numpy as np
 from scipy.linalg import svd
 import warnings
+from typing import TYPE_CHECKING, Union
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
 from cora_python.g.functions.helper.sets.contSet.zonotope.ndimCross import ndimCross
@@ -25,38 +57,8 @@ if TYPE_CHECKING:
 
 def randPoint_(Z: 'Zonotope', N: Union[int, str] = 1, type_: str = 'standard') -> np.ndarray:
     """
-    Generates random points within a zonotope
-    
-    Args:
-        Z: Zonotope object
-        N: Number of random points or 'all' for extreme points
-        type_: Type of random point generation:
-               - 'standard': Standard random sampling
-               - 'extreme': Extreme points (vertices)
-               - 'uniform': Uniform sampling (billiard walk)
-               - 'uniform:hitAndRun': Hit-and-run uniform sampling
-               - 'uniform:ballWalk': Ball walk uniform sampling
-               - 'uniform:billiardWalk': Billiard walk uniform sampling
-               - 'radius': Radius-based sampling
-               - 'boundary': Boundary sampling
-               - 'gaussian': Gaussian sampling
-        
-    Returns:
-        np.ndarray: Random points (each column is a point)
-        
-    Raises:
-        CORAerror: If algorithm not supported for zonotope type
-        
-    Example:
-        >>> Z = Zonotope([1, 0], [[1, 0, 1], [-1, 2, 1]])
-        >>> p = randPoint_(Z, 100, 'standard')
+    Generates random points within a zonotope.
     """
-    # Handle empty zonotope - check dimensions properly
-    if Z.c.shape[1] == 0:  # Empty zonotope has center shape (n, 0)
-        n = Z.c.shape[0]  # Get dimension from center shape
-        # For empty sets, always return 0 points regardless of N
-        return np.zeros((n, 0))
-    
     # Zonotope is just a point -> replicate center N times
     if Z.representsa_('point', 1e-15):
         if isinstance(N, str):
@@ -99,6 +101,11 @@ def _aux_randPoint_standard(Z: 'Zonotope', N: int) -> np.ndarray:
     """Standard random point generation"""
     if isinstance(N, str):
         N = 1
+    
+    # Handle empty zonotope case (no generators)
+    if Z.G.shape[1] == 0:
+        # For empty zonotope, return empty matrix with correct dimensions
+        return np.zeros((Z.c.shape[0], 0))
     
     # Take random values for factors
     factors = -1 + 2 * np.random.rand(Z.G.shape[1], N)

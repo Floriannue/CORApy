@@ -1,0 +1,16 @@
+You are assisting me in converting a MATLAB toolbox to Python.
+**Root Path for matlab toolbox:**
+D:\Software\MATLAB\R2018b\toolbox\CORA-master\CORA-master
+**Root Path for python toolbox:**
+D:\Software\MATLAB\R2018b\toolbox\CORA-master\Translate_Cora\cora_python
+
+## Current Task: 
+Correct the test_{contSet_name}_{method_name}.py according to the following notes:
+- The file name test_{contSet_name}_{method_name} means to test the {method_name} of the {contSet_name}
+- When translating or modifying a method, always first check how it is organized in the original MATLAB codebase.
+In particular, consider whether it is defined in a separate file, as part of a class, or in a specific module.
+The translated Python implementation should reflect this structure as much as possible, to preserve consistency and modularity across the toolbox.
+- Compare the method and test file with the original MATLAB source file and check if the structure, logic, and parameters are consistent. Ensure that the core functionality is correctly translated. The method of the class can be found in
+D:\Software\MATLAB\R2018b\toolbox\CORA-master\Translate_Cora\cora_python\tests\contSet
+
+If you finished the test for current method, move to next one.

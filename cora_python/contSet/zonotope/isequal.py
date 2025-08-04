@@ -1,73 +1,75 @@
 """
-isequal - checks if two zonotope objects are equal
+isequal - checks if a zonotope is equal to another set or point
 
 Syntax:
-    res = isequal(Z1, Z2)
-    res = isequal(Z1, Z2, tol)
+   res = isequal(Z, S)
+   res = isequal(Z, S, tol)
 
 Inputs:
-    Z1 - zonotope object
-    Z2 - zonotope object
-    tol - tolerance (optional, default: 1e-12)
+   Z - zonotope object
+   S - contSet object, numeric
+   tol - (optional) tolerance
 
 Outputs:
-    res - true/false
+   res - true/false
 
-Authors: Matthias Althoff (MATLAB)
-         Python translation by AI Assistant
-Written: 30-September-2006 (MATLAB)
-Last update: 22-March-2007 (MATLAB)
-Python translation: 2025
+Authors:       Mark Wetzlinger (MATLAB)
+               Python translation by AI Assistant
+Written:       16-September-2019 (MATLAB)
+Last update:   09-June-2020 (MATLAB)
+                13-November-2022 (MW, integrate modular check)
+                05-October-2024 (MW, fix 1D case)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
 from typing import Any, Optional
-
 from .zonotope import Zonotope
+from cora_python.contSet.interval.interval import Interval
+from cora_python.contSet.zonotope.compact_ import compact_
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.g.functions.matlab.validate.check.compareMatrices import compareMatrices
 
-
-def isequal(Z1: Zonotope, Z2: Any, tol: Optional[float] = None) -> bool:
+def isequal(Z, S, tol: Optional[float] = None):
     """
-    Checks if two zonotope objects are equal
-    
-    Args:
-        Z1: First zonotope object
-        Z2: Second object to compare with
-        tol: Tolerance for comparison (default: 1e-12)
-        
-    Returns:
-        bool: True if zonotopes are equal, False otherwise
+    Checks if a zonotope is equal to another set or point (order/sign/zero generators ignored)
     """
-    
-    # Set default tolerance
     if tol is None:
-        tol = 1e-12
-    
-    # Check if Z2 is also a zonotope
-    if not isinstance(Z2, Zonotope):
+        tol = np.finfo(float).eps
+
+    # Convert intervals and numeric to Zonotope
+    if isinstance(S, Interval):
+        S = Zonotope(S)
+    elif isinstance(S, (int, float, np.ndarray, list, tuple)):
+        S = Zonotope(np.asarray(S))
+    if not isinstance(S, Zonotope):
         return False
-    
-    # Check if both are empty
-    if Z1.is_empty() and Z2.is_empty():
-        return Z1.dim() == Z2.dim()
-    
-    # Check if one is empty and the other is not
-    if Z1.is_empty() or Z2.is_empty():
+
+    # Lower precedence call (not implemented for other contSet types in Python, skip)
+    # if hasattr(S, 'precedence') and hasattr(Z, 'precedence') and S.precedence < Z.precedence:
+    #     return isequal(S, Z, tol)
+
+    # Dimension check
+    if Z.dim() != S.dim():
         return False
-    
-    # Check dimensions
-    if Z1.dim() != Z2.dim():
+
+    return aux_isequal_zonotope(Z, S, tol)
+
+def aux_isequal_zonotope(Z, S, tol):
+    # Both empty: check dimension
+    if Z.is_empty() and S.is_empty():
+        return Z.dim() == S.dim()
+    # One empty, one not
+    if Z.is_empty() or S.is_empty():
         return False
-    
-    # Check centers
-    if not np.allclose(Z1.c, Z2.c, atol=tol, rtol=tol):
+    # Compare centers
+    if not np.all(withinTol(Z.c, S.c, tol)):
         return False
-    
-    # Check generator matrices
-    if Z1.G.shape != Z2.G.shape:
+    # Obtain minimal representation
+    G1 = compact_(Z, 'all', tol).G
+    G2 = compact_(S, 'all', tol).G
+    # Compare number of generators
+    if G1.shape[1] != G2.shape[1]:
         return False
-    
-    if not np.allclose(Z1.G, Z2.G, atol=tol, rtol=tol):
-        return False
-    
-    return True 
+    # Compare generator matrices: must match with no remainder, order is irrelevant, sign may be inverted
+    return compareMatrices(G1, G2, tol, flag='equal', ordered=False, signed=True) 

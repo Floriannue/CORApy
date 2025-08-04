@@ -87,8 +87,24 @@ def isIntersecting_(P: Polytope,
                 # Convert interval to zonotope representation first
                 c = S.center()
                 G = np.diag(S.rad())
-                # Create constrained zonotope with no constraints (empty A and b)
-                cZ = ConZonotope(c, G, np.empty((0, G.shape[1])), np.empty((0,)))
+                # Ensure G is 2D (np.diag returns 1D for scalar input)
+                if G.ndim == 1:
+                    G = G.reshape(-1, 1)
+                # Ensure c is 1D and has the same dimension as G
+                c = c.flatten() if c.ndim > 1 else c
+                # Ensure c and G have matching dimensions
+                if c.size != G.shape[0]:
+                    # Pad c or G to match dimensions
+                    if c.size < G.shape[0]:
+                        c = np.pad(c, (0, G.shape[0] - c.size), 'constant')
+                    elif c.size > G.shape[0]:
+                        G = np.pad(G, ((0, c.size - G.shape[0]), (0, 0)), 'constant')
+                # Handle case where G might be empty
+                if G.size > 0:
+                    cZ = ConZonotope(c, G, np.empty((0, G.shape[1])), np.empty((0,)))
+                else:
+                    G = np.zeros((len(c), 0))
+                    cZ = ConZonotope(c, G, np.empty((0, 0)), np.empty((0,)))
                 return _aux_isIntersecting_P_cZ(P, cZ)
             elif type_ == 'approx':
                 return _aux_isIntersecting_approx(P, S, tol)

@@ -5,7 +5,7 @@ minnorm - computes the point whose norm is minimal with respect to the
     respect to the dimension
 
 Syntax:
-    val, x = minnorm(Z)
+    [val,x] = minnorm(Z)
 
 Inputs:
     Z - zonotope object
@@ -32,7 +32,7 @@ See also: norm
 Authors:       Victor Gassmann (MATLAB)
                Python translation by AI Assistant
 Written:       18-September-2019 (MATLAB)
-Python translation: 2025
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -54,25 +54,15 @@ def minnorm(Z: 'Zonotope') -> Tuple[float, np.ndarray]:
         x: point on boundary attaining minimum norm
     """
     # Import here to avoid circular import
-    from cora_python.contSet.polytope.polytope import Polytope
-    from cora_python.contSet.polytope.constraints import constraints
+    from .polytope import polytope
     
     # Get halfspace representation
     # P = polytope(Z - Z.c)
     Z_centered = Z - Z.c
-    P = Z_centered.polytope()
-    
-    # Compute halfspace representation if not available
-    P = constraints(P)
+    P = polytope(Z_centered)
     
     A = P.A
     b = P.b
-    
-    # Handle edge case: empty polytope (point zonotope)
-    if A.size == 0 or b.size == 0:
-        # Point zonotope - return center and distance from origin to center
-        val = float(np.linalg.norm(Z.c))
-        return val, Z.c
     
     # Compute min norm (obtained by rewriting OP in [1], Sec. 8.4.2, using
     # ||a_i||_2 = 1 and argmin -log(det(scalarVar))=argmax scalarVar
@@ -81,6 +71,8 @@ def minnorm(Z: 'Zonotope') -> Tuple[float, np.ndarray]:
     val_squared = b_squared[ind]
     
     # Compute the point on the boundary
+    # MATLAB: x = A(ind,:)'*b(ind) + Z.c
+    # This is matrix-vector multiplication: A[ind, :].T @ b[ind] + Z.c
     x = A[ind, :].reshape(-1, 1) * b[ind] + Z.c
     val = float(np.sqrt(val_squared))
     

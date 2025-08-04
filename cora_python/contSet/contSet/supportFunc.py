@@ -85,10 +85,12 @@ def supportFunc(S: 'ContSet',
     try:
         # Call subclass method
         result = S.supportFunc_(direction, type_, method, max_order_or_splits, tol)
+        
+        # Handle different return types based on requested output
         if return_all:
             return result
         if return_support_vector:
-            return result[:2]
+            return result[:2] if isinstance(result, (tuple, list)) else (result, np.array([]))
         return result[0] if isinstance(result, (tuple, list)) else result
     except Exception as ME:
         # Handle empty set case
@@ -100,6 +102,8 @@ def supportFunc(S: 'ContSet',
             elif type_ == 'range':
                 # Return interval(-inf, +inf) - would need interval class
                 val = (float('-inf'), float('+inf'))
+            
+            # Handle return format for empty set case
             if return_all:
                 return (val, np.array([]), np.array([]))
             if return_support_vector:

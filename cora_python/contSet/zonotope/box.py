@@ -1,50 +1,55 @@
-import numpy as np
+"""
+box - computes an enclosing axis-aligned box; the result is equivalent to a conversion to intervals but yields a zonotope representation
 
+Syntax:
+    Z = box(Z)
+
+Inputs:
+    Z - zonotope object
+
+Outputs:
+    Z - zonotope object
+
+Example:
+    from cora_python.contSet.zonotope import Zonotope, box
+    import numpy as np
+    Z = Zonotope(np.array([[1], [-1]]), np.array([[-3, 2, 1], [-1, 0, 3]]))
+    B = box(Z)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
+Authors:       Matthias Althoff (MATLAB)
+               Python translation by AI Assistant
+Written:       09-March-2009 (MATLAB)
+Last update:   27-August-2019 (MATLAB)
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+"""
+import numpy as np
 from .zonotope import Zonotope
+from .empty import empty
 
 def box(Z):
     """
-    Computes an enclosing axis-aligned box in generator representation.
-    
-    According to CORA manual Appendix A.1, this method returns a zonotope that 
-    represents the smallest axis-aligned box (interval) that encloses the given zonotope.
-    
-    Args:
-        Z: Zonotope object
-        
-    Returns:
-        Zonotope: Axis-aligned box zonotope
-        
-    Examples:
-        >>> c = np.array([[1], [0]])
-        >>> G = np.array([[2, -1], [4, 1]])
-        >>> Z = Zonotope(c, G)
-        >>> Z_box = box(Z)
-        >>> # Z_box has axis-aligned generators only
+    Computes an enclosing axis-aligned box.
     """
     
     # Handle empty zonotope
     if Z.isemptyobject():
-        return Zonotope.empty(Z.dim())
+        return empty(Z.dim())
     
-    # Compute bounds directly from zonotope as in MATLAB version
-    # delta = sum(abs(Z.G),2) - sum absolute values of generators per dimension
-    c = Z.c
-    delta = np.sum(np.abs(Z.G), axis=1, keepdims=True)
+    # MATLAB implementation: Z.G = diag(sum(abs(Z.G),2))
+    # Sum absolute values of generators along each dimension
+    delta = np.sum(np.abs(Z.G), axis=1)
     
-    # Create axis-aligned box zonotope
-    c_box = c
+    # Create diagonal generator matrix from the sums
+    G_box = np.diag(delta)
     
-    # Create diagonal generator matrix from radii (half of delta)
-    n = Z.dim()
-    radii = delta
-    G_box = np.diag(radii.flatten())
+    # If all radii are zero (no generators), return empty generator matrix
+    if np.all(delta == 0):
+        G_box = np.zeros((Z.dim(), 0))
     
-    # Remove zero generators (dimensions with zero radius)
-    non_zero_mask = radii.flatten() > np.finfo(float).eps
-    if np.any(non_zero_mask):
-        G_box = G_box[:, non_zero_mask]
-    else:
-        G_box = np.zeros((n, 0))
-    
-    return Zonotope(c_box, G_box) 
+    return Zonotope(Z.c, G_box) 

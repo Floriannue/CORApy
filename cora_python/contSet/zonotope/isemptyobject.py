@@ -11,9 +11,9 @@ Inputs:
 Outputs:
     res - true/false
 
-Example:
-    Z = zonotope([2, 1])
-    isemptyobject(Z)  # False
+Example: 
+    Z = Zonotope(np.array([[2], [1]]))
+    isemptyobject(Z)  # false
 
 Other m-files required: none
 Subfunctions: none
@@ -24,7 +24,7 @@ See also: none
 Authors:       Mark Wetzlinger (MATLAB)
                Python translation by AI Assistant
 Written:       24-July-2023 (MATLAB)
-Python translation: 2025
+                2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 from typing import TYPE_CHECKING
@@ -42,5 +42,9 @@ def isemptyobject(Z: 'Zonotope') -> bool:
     Returns:
         bool: True if zonotope is empty, False otherwise
     """
-    # A zonotope is empty if it has no center or the center is empty
-    return Z.c is None or Z.c.size == 0 
+    # A zonotope is empty if BOTH center and generators are empty
+    # This matches MATLAB: isnumeric(Z.c) && isempty(Z.c) && isnumeric(Z.G) && isempty(Z.G)
+    center_empty = Z.c is None or Z.c.size == 0
+    generators_empty = Z.G is None or Z.G.size == 0
+    
+    return center_empty and generators_empty 

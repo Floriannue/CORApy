@@ -3,7 +3,7 @@ enclose - encloses a zonotope and its affine transformation
 
 Description:
     Computes the set
-    { a x1 + (1 - a) * x2 | x1 ∈ Z, x2 ∈ Z2, a ∈ [0,1] }
+    { a x1 + (1 - a) * x2 | x1 \in Z, x2 \in Z2, a \in [0,1] }
     where Z2 = M*Z + Zplus
 
 Syntax:
@@ -13,16 +13,29 @@ Syntax:
 Inputs:
     Z - zonotope object
     Z2 - zonotope object
-    M - matrix for the linear transformation (optional)
-    Zplus - zonotope object added to the linear transformation (optional)
+    M - matrix for the linear transformation
+    Zplus - zonotope object added to the linear transformation
 
 Outputs:
     Z - zonotope object
 
+Example: 
+    Z1 = Zonotope(np.array([[1.5, 1, 0], [1.5, 0, 1]]))
+    M = np.array([[-1, 0], [0, -1]])
+    Z2 = M @ Z1 + np.array([[0.5], [0.5]])
+    Z = enclose(Z1, Z2)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: conZonotope/enclose
+
 Authors: Matthias Althoff (MATLAB)
          Python translation by AI Assistant
 Written: 30-September-2006 (MATLAB)
-Python translation: 2025
+Last update: 22-March-2007 (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -74,22 +87,17 @@ def enclose(Z: Zonotope, Z2_or_M=None, Zplus: Optional[Zonotope] = None) -> Zono
         Gequal = Z.G
     
     # Compute enclosing zonotope
-    new_c = (Z.c + Z2.c) / 2
+    Z.c = (Z.c + Z2.c) / 2
     
-    # Construct the new generator matrix
+    # Construct the new generator matrix 
     G_parts = [(Gcut + Gequal) / 2, cG, (Gcut - Gequal) / 2]
     if Gadd.size > 0:
         G_parts.append(Gadd)
     
-    # Filter out zero-width parts
-    G_parts_filtered = []
-    for part in G_parts:
-        if part.size > 0:
-            G_parts_filtered.append(part)
-    
-    if G_parts_filtered:
-        new_G = np.hstack(G_parts_filtered)
+    # Concatenate all parts
+    if len(G_parts) > 0:
+        Z.G = np.hstack(G_parts)
     else:
-        new_G = np.array([]).reshape(new_c.shape[0], 0)
+        Z.G = np.array([]).reshape(Z.c.shape[0], 0)
     
-    return Zonotope(new_c, new_G) 
+    return Z 

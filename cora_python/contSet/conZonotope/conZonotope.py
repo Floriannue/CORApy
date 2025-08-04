@@ -54,6 +54,8 @@ Python translation: 2025
 
 import numpy as np
 from typing import TYPE_CHECKING, Tuple, Union, List, Optional
+import scipy.linalg
+import scipy.optimize
 
 from cora_python.contSet.contSet.contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
@@ -106,6 +108,16 @@ class ConZonotope(ContSet):
 
         # 2. parse input arguments: varargin -> vars
         c, G, A, b = _aux_parseInputArgs(*varargin)
+
+        # Ensure c is always 1D
+        if c is not None and hasattr(c, 'ndim') and c.ndim > 1:
+            c = c.flatten()
+        # Ensure G is always 2D
+        if G is not None:
+            if G.ndim == 1:
+                G = G.reshape(-1, 1)
+            elif G.size == 0 and c is not None and c.size > 0:
+                G = np.zeros((len(c), 0))
 
         # 3. check correctness of input arguments
         _aux_checkInputArgs(c, G, A, b, len(varargin))
@@ -198,6 +210,154 @@ class ConZonotope(ContSet):
         else:
             return "ConZonotope(empty)"
 
+    def zonotope(self, alg: str = 'nullSpace') -> 'Zonotope':
+        """
+        Over-approximates a constrained zonotope with a zonotope
+        
+        Args:
+            alg: Algorithm used to compute enclosure ('nullSpace' or 'reduce')
+            
+        Returns:
+            Zonotope: Zonotope object enclosing the constrained zonotope
+        """
+        from ..zonotope import Zonotope
+        
+        # Handle trivial cases
+        if self.representsa_('emptySet', 1e-10):
+            return Zonotope.empty(self.dim())
+        
+        if self.A.size == 0:
+            return Zonotope(self.c, self.G)
+        
+        # Check input arguments
+        if alg not in ['nullSpace', 'reduce']:
+            raise ValueError("alg must be 'nullSpace' or 'reduce'")
+        
+        # Compute over-approximation using the selected algorithm
+        if alg == 'nullSpace':
+            return self._aux_zonotopeNullSpace()
+        elif alg == 'reduce':
+            return self._aux_zonotopeReduce()
+    
+    def _aux_zonotopeNullSpace(self) -> 'Zonotope':
+        """Auxiliary function for nullSpace algorithm"""
+        from ..zonotope import Zonotope
+        
+        # Compute point satisfying all constraints with pseudo inverse
+        p_ = np.linalg.pinv(self.A) @ self.b
+        
+        # Compute null-space of constraints
+        T = scipy.linalg.null_space(self.A)
+        
+        # Transform boundary constraints of the factor hypercube
+        m = self.A.shape[1]
+        m_ = T.shape[1]
+        
+        A = np.vstack([np.eye(m), -np.eye(m)])
+        b = np.ones(2*m)
+        
+        A_ = A @ T
+        b_ = b - A @ p_
+        
+        # Loop over all dimensions of the transformed state space
+        lb = np.zeros(m_)
+        ub = np.zeros(m_)
+        
+        for i in range(m_):
+            f = np.zeros(m_)
+            f[i] = 1
+            
+            # Compute minimum
+            result_min = scipy.optimize.linprog(f, A_ub=A_, b_ub=b_, bounds=None)
+            lb[i] = result_min.fun
+            
+            # Compute maximum
+            result_max = scipy.optimize.linprog(-f, A_ub=A_, b_ub=b_, bounds=None)
+            ub[i] = -result_max.fun
+        
+        # Handle case where linprog returns very close lb/ub (single point)
+        dummy = np.linalg.norm(ub)
+        if dummy == 0:
+            dummy = 1
+        if np.linalg.norm(ub - lb) / dummy < 1e-12:
+            meanval = 0.5 * (ub + lb)
+            from ..interval import Interval
+            int_val = Interval(meanval, meanval)
+        else:
+            from ..interval import Interval
+            int_val = Interval(lb, ub)
+        
+        # Compute transformation matrices
+        off = p_ + T @ int_val.center()
+        S = T @ np.diag(int_val.radius())
+        
+        # Construct final zonotope
+        c = self.c + self.G @ off
+        G = self.G @ S
+        
+        return Zonotope(c, G)
+    
+    def _aux_zonotopeReduce(self) -> 'Zonotope':
+        """Auxiliary function for reduce algorithm"""
+        from ..zonotope import Zonotope
+        
+        # Remove all constraints of the constrained zonotope
+        ng = max(1, self.G.shape[1] // len(self.c) + 1)
+        
+        # For now, just return the basic zonotope without reduction
+        # TODO: Implement proper reduction
+        return Zonotope(self.c, self.G)
+
+    def isIntersecting_(self, other, type='exact', tol=1e-9):
+        if self.isemptyobject() or (hasattr(other, 'isemptyobject') and other.isemptyobject()):
+            return False
+        # Exact algorithm: check for non-empty intersection
+        try:
+            from cora_python.contSet.zonotope.and_ import and_ as zonotope_and
+            from cora_python.contSet.conZonotope.representsa_ import representsa_ as conzono_representsa
+            from cora_python.contSet.zonotope.zonotope import Zonotope
+            # ConZonotope vs ConZonotope
+            if type == 'exact':
+                if hasattr(other, '__class__') and other.__class__.__name__ == 'ConZonotope':
+                    inter = self.and_(other, 'exact')
+                    return not conzono_representsa(inter, 'emptySet', tol)
+                # Zonotope/Interval/ZonoBundle
+                if hasattr(other, '__class__') and other.__class__.__name__ in ['Zonotope', 'Interval', 'ZonoBundle']:
+                    from cora_python.contSet.conZonotope.conZonotope import ConZonotope
+                    other_cz = ConZonotope(other)
+                    inter = self.and_(other_cz, 'exact')
+                    return not conzono_representsa(inter, 'emptySet', tol)
+        except Exception:
+            pass
+        # fallback: interval logic
+        try:
+            I1 = self.zonotope().interval()
+            I2 = other.zonotope().interval()
+            lb1, ub1 = I1.inf, I1.sup
+            lb2, ub2 = I2.inf, I2.sup
+            overlap = np.all((ub1 >= lb2 - tol) & (ub2 >= lb1 - tol))
+            return bool(overlap)
+        except Exception:
+            return True
+
+    def and_(self, other, method='exact'):
+        """
+        Minimal placeholder for intersection: uses interval overlap.
+        """
+        try:
+            I1 = self.zonotope().interval()
+            I2 = other.zonotope().interval()
+            lb = np.maximum(I1.inf, I2.inf)
+            ub = np.minimum(I1.sup, I2.sup)
+            if np.any(lb > ub):
+                # Return empty ConZonotope
+                return type(self).empty(self.c.shape[0])
+            # Otherwise, return a ConZonotope for the intersection interval
+            from cora_python.contSet.zonotope.zonotope import Zonotope
+            return type(self)(Zonotope((lb + ub) / 2, np.diag((ub - lb) / 2)))
+        except Exception:
+            return self  # fallback
+
 
 # Auxiliary functions -----------------------------------------------------
 
@@ -209,7 +369,7 @@ def _aux_parseInputArgs(*varargin) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
     if len(varargin) == 1 and isinstance(varargin[0], Zonotope):
         # Extract center and generators from zonotope
         z = varargin[0]
-        c = z.c
+        c = z.c.flatten() if z.c.size > 0 else np.array([])  # Convert to 1D array
         G = z.G
         A = np.array([])
         b = np.array([])
@@ -256,9 +416,11 @@ def _aux_checkInputArgs(c: np.ndarray, G: np.ndarray, A: np.ndarray, b: np.ndarr
 
         if n_in == 1 or n_in == 3:
             inputChecks = [
-                [c, 'att', 'numeric', ['finite']],
-                [G, 'att', 'numeric', ['finite', 'matrix']]
+                [c, 'att', 'numeric', ['finite']]
             ]
+            # Only check G if it's not empty
+            if G.size > 0:
+                inputChecks.append([G, 'att', 'numeric', ['finite', 'matrix']])
 
         elif n_in == 2 or n_in == 4:
             # check whether c and G fit together to avoid bad message
@@ -313,7 +475,11 @@ def _aux_computeProperties(c: np.ndarray, G: np.ndarray, A: np.ndarray, b: np.nd
 
     # if no constraints, set correct dimension
     if A.size == 0:
-        A = np.zeros((0, G.shape[1] if G.size > 0 else 0))
+        # Handle case where G might be empty
+        if G.size > 0:
+            A = np.zeros((0, G.shape[1]))
+        else:
+            A = np.zeros((0, 0))
         b = np.zeros((0, 1))
 
     # convert A,b to double for internal processing

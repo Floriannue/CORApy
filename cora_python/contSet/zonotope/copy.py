@@ -1,20 +1,30 @@
 """
-copy - creates a copy of a zonotope object
+copy - copies the zonotope object (used for dynamic dispatch)
 
 Syntax:
-    Z_copy = copy(Z)
-    Z_copy = Z.copy()
+    Z_out = copy(Z)
 
 Inputs:
     Z - zonotope object
 
 Outputs:
-    Z_copy - copy of the zonotope object
+    Z_out - copied zonotope object
+
+Example: 
+    Z = Zonotope(np.array([[1], [0]]), np.array([[1, 0, -1], [0, 1, 1]]))
+    Z_out = copy(Z)
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
 
 Authors: Mark Wetzlinger (MATLAB)
          Python translation by AI Assistant
 Written: 30-September-2024 (MATLAB)
-Python translation: 2025
+Last update: --- (MATLAB)
+         2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -36,4 +46,4 @@ def copy(Z: Zonotope) -> Zonotope:
     """
     
     # Create a new zonotope with copied data
-    return Zonotope(Z.c.copy(), Z.G.copy()) 
+    return Zonotope(Z)

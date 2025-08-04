@@ -13,7 +13,7 @@ Outputs:
 Authors: Tobias Ladner (MATLAB)
          Python translation by AI Assistant
 Written: 06-April-2023 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import pytest

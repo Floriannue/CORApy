@@ -7,21 +7,12 @@ def test_zonotope_box():
     """
     Test box method for zonotope - computes an enclosing axis-aligned box 
     in generator representation according to manual Appendix A.1.
+    
+    该测试严格对应MATLAB的test_zonotope_box.m。
     """
     
-    # Test empty zonotope
-    Z_empty = Zonotope.empty(2)
-    Z_box = Z_empty.box()
-    assert Z_box.representsa_('emptySet')
-    assert Z_box.dim() == 2
-    
-    # Test 1D zonotope
-    Z = Zonotope(np.array([[2]]), np.array([[1, 0.5]]))
-    Z_box = Z.box()
-    expected_c = np.array([[2]])
-    expected_G = np.array([[1.5]])  # sum of absolute values of generators
-    assert np.allclose(Z_box.c, expected_c)
-    assert np.allclose(Z_box.G, expected_G)
+    # Set tolerance (same as MATLAB)
+    tol = 1e-9
     
     # Test 2D zonotope - example from MATLAB test
     c = np.array([[1], [0]]) 
@@ -29,78 +20,54 @@ def test_zonotope_box():
     Z = Zonotope(c, G)
     Z_box = Z.box()
     
-    # Expected: interval bounds are [1-3, 1+3] x [0-5, 0+5] = [-2,4] x [-5,5]
-    # Center: [1, 0], radii: [3, 5]
+    # Expected result from MATLAB test
+    # MATLAB: Ztrue = zonotope([1;0],[3 0; 0 5]);
     expected_c = np.array([[1], [0]])
     expected_G = np.array([[3, 0], [0, 5]])
-    assert np.allclose(Z_box.c, expected_c)
-    assert np.allclose(Z_box.G, expected_G)
     
-    # Test that result is axis-aligned
+    # Check if axis-aligned box same as expected
+    assert np.allclose(Z_box.c, expected_c, atol=tol)
+    assert np.allclose(Z_box.G, expected_G, atol=tol)
+    
+    # Test that result is axis-aligned (diagonal matrix)
     assert Z_box.representsa_('interval')
+
+
+def test_zonotope_box_long():
+    """
+    Long test for box method - matches MATLAB testLong_zonotope_box.m logic.
     
-    # Test 2D zonotope that's already axis-aligned
-    c = np.array([[0], [1]])
-    G = np.array([[2, 0], [0, 3]])
-    Z = Zonotope(c, G)
-    Z_box = Z.box()
+    Box has to be the same as conversion to interval.
+    """
     
-    # Should remain unchanged (up to generator ordering)
-    expected_c = np.array([[0], [1]])
-    expected_radii = np.array([2, 3])  # radii should match
-    computed_radii = np.sort(np.abs(Z_box.G).sum(axis=1))
-    expected_radii_sorted = np.sort(expected_radii)
-    assert np.allclose(computed_radii, expected_radii_sorted)
-    assert np.allclose(Z_box.c, expected_c)
+    # Number of tests (same as MATLAB)
+    nr_tests = 100
     
-    # Test 3D zonotope
-    c = np.array([[1], [2], [-1]])
-    G = np.array([[1, 0, 2], [0, 1, -1], [2, 1, 0]])
-    Z = Zonotope(c, G)
-    Z_box = Z.box()
-    
-    # Box should contain original zonotope
-    assert Z_box.dim() == 3
-    assert Z_box.representsa_('interval')
-    
-    # Check containment by sampling points from original zonotope
-    np.random.seed(42)
-    for _ in range(10):
-        p = Z.randPoint()
-        # Convert both to intervals for containment check
-        from cora_python.contSet.interval import Interval
-        I_box = Interval(Z_box)
-        assert I_box.contains_(p), "Box should contain all points from original zonotope"
-    
-    # Test zonotope with only center (no generators)
-    c = np.array([[5], [-2]])
-    Z = Zonotope(c)
-    Z_box = Z.box()
-    
-    # Should be just the point
-    assert np.allclose(Z_box.c, c)
-    assert Z_box.G.shape[1] == 0
-    
-    # Test properties preservation
-    Z = Zonotope(np.array([[0], [0]]), np.array([[1, 2], [3, -1]]))
-    Z_box = Z.box()
-    
-    # Dimension should be preserved
-    assert Z_box.dim() == Z.dim()
-    
-    # Box should be axis-aligned
-    assert Z_box.representsa_('interval')
-    
-    # Box should contain original zonotope (approximate check)
-    from cora_python.contSet.interval import Interval
-    I_orig = Interval(Z)
-    I_box = Interval(Z_box)
-    
-    # All bounds of box should be >= bounds of original
-    assert np.all(I_box.infimum() <= I_orig.infimum() + 1e-10)
-    assert np.all(I_box.supremum() >= I_orig.supremum() - 1e-10)
+    for i in range(nr_tests):
+        # Random dimension (1 to 20, same as MATLAB)
+        n = np.random.randint(1, 21)
+        
+        # Create a random zonotope (同MATLAB: zonotope(-1+2*rand(n,nrOfGens+1)))
+        nr_of_gens = 5 * n
+        random_matrix = -1 + 2 * np.random.rand(n, nr_of_gens + 1)
+        Z = Zonotope(random_matrix)
+        
+        # Compute axis-aligned box
+        Z_box = Z.box()
+        c_box = Z_box.center()
+        G_box = Z_box.generators()
+        
+        # Convert to interval and back to zonotope
+        Z_int = Zonotope(Z.interval())
+        c_int = Z_int.center()
+        G_int = Z_int.generators()
+        
+        # Check if axis-aligned box same as interval (same tolerance as MATLAB)
+        assert np.allclose(c_box, c_int, atol=1e-14), f"Test {i} failed: centers don't match"
+        assert np.allclose(G_box, G_int, atol=1e-14), f"Test {i} failed: generators don't match"
 
 
 if __name__ == "__main__":
     test_zonotope_box()
+    test_zonotope_box_long()
     print("All zonotope box tests passed!") 

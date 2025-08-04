@@ -119,10 +119,10 @@ def compareMatrices(M1, M2, tol=None, flag='equal', ordered=False, signed=True):
         for j in range(jmin, M2.shape[1]):
             if not M2logical[j]:
                 # Check if columns match (with or without sign)
-                col_match = withinTol(M1[:, i], M2[:, j], tol).all()
-                if not signed:
-                    col_match = col_match or withinTol(M1[:, i], -M2[:, j], tol).all()
-                
+                if signed:
+                    col_match = withinTol(M1[:, i], M2[:, j], tol).all() or withinTol(M1[:, i], -M2[:, j], tol).all()
+                else:
+                    col_match = withinTol(M1[:, i], M2[:, j], tol).all()
                 if col_match:
                     found = True
                     M2logical[j] = True

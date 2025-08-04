@@ -10,8 +10,8 @@ Inputs:
 Outputs:
     n - dimension of the ambient space
 
-Example:
-    Z = zonotope([-1, 1, 2], [[2, 4, -3], [2, 1, 0], [0, 2, -1]])
+Example: 
+    Z = Zonotope(np.array([[-1], [1], [2]]), np.array([[2, 4, -3], [2, 1, 0], [0, 2, -1]]))
     n = dim(Z)
 
 Other m-files required: zonotope/center
@@ -24,7 +24,7 @@ Authors:       Mark Wetzlinger (MATLAB)
                Python translation by AI Assistant
 Written:       15-September-2019 (MATLAB)
 Last update:   10-January-2023 (MATLAB)
-Python translation: 2025
+               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
 """
 
 import numpy as np
@@ -32,14 +32,12 @@ import numpy as np
 
 def dim(Z):
     """
-    Returns the dimension of the ambient space of a zonotope
-    
+    Returns the dimension of the ambient space of a zonotope.
+    This matches MATLAB: n = size(Z.c,1);
+    Always returns a Python int.
     Args:
         Z: zonotope object
-        
     Returns:
         int: dimension of the ambient space
     """
-    # Simply return the number of rows in the center vector
-    # This matches MATLAB: n = size(Z.c,1);
-    return Z.c.shape[0] 
+    return int(Z.c.shape[0]) 
