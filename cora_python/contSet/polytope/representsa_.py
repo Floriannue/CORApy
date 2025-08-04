@@ -31,7 +31,6 @@ from typing import TYPE_CHECKING, Tuple, Union, Optional
 
 if TYPE_CHECKING:
     from .polytope import Polytope
-    from cora_python.contSet.interval.interval import Interval
 
 
 def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> Union[bool, Tuple[bool, np.ndarray]]:
@@ -50,8 +49,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
     
     def _return_result(res_val, obj_val=None):
         """Helper to handle return logic based on return_set parameter"""
-        return_set = kwargs.get('return_set', False)
-        if return_set:
+        if 'return_set' in kwargs and kwargs['return_set']:
             return res_val, obj_val
         return res_val
     
@@ -66,21 +64,27 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
     if p.be is None:
         p.be = np.array([[]]).reshape(0, 1)
 
-    # Check for empty object case (this handles emptySet and fullspace based on their properties)
-    # These properties update the internal _emptySet_val, _bounded_val, _fullDim_val
-    if p.emptySet:
+    # Check for empty object case using isemptyobject like MATLAB
+    empty_obj = p.isemptyobject()
+    if empty_obj:
         if set_type == 'emptySet':
             res = True
+            # MATLAB: P.emptySet.val = res; (already known to be true)
+            # save properties, now that P is known to be the empty set
+            if res:
+                p._bounded_val = True      # MATLAB: P.bounded.val = true;
+                p._fullDim_val = False     # MATLAB: P.fullDim.val = false;
+                # Note: MATLAB also sets P.V_.val = zeros(n,0), P.isVRep.val = true, P.minVRep.val = true
+                # But we handle representation flags differently in Python
             if 'return_set' in kwargs and kwargs['return_set']:
-                from cora_python.contSet.emptySet.emptySet import emptySet as emptySet_func
-                return_obj = emptySet_func(n) # Return an actual emptySet object
-            # Ensure the correct return type based on MATLAB behavior
-            if 'return_set' in kwargs and kwargs['return_set']:
-                return _return_result(res, return_obj)
-            else:
-                return _return_result(res, return_obj)
+                from cora_python.contSet.emptySet.emptySet import EmptySet
+                return_obj = EmptySet(n)
+            return _return_result(res, return_obj)
         elif set_type == 'fullspace':
             # If the polytope is empty, it cannot be a fullspace
+            return _return_result(False, None)
+        else:
+            # Empty polytope cannot represent other types
             return _return_result(False, None)
     elif set_type == 'emptySet': 
         return _return_result(False, None)
@@ -130,12 +134,9 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         
         # fullspaces are always unbounded, non-empty and full-dimensional
         if res:
-            p._bounded_val = False
-            p._bounded_is_computed = True
-            p._emptySet_val = False
-            p._emptySet_is_computed = True
-            p._fullDim_val = True
-            p._fullDim_is_computed = True
+            p._bounded_val = False     # MATLAB: P.bounded.val = false;
+            p._emptySet_val = False    # MATLAB: P.emptySet.val = false;
+            p._fullDim_val = True      # MATLAB: P.fullDim.val = true;
         
         if res and 'return_set' in kwargs and kwargs['return_set']:
             from cora_python.contSet.fullspace.fullspace import fullspace as fullspace_func
@@ -148,87 +149,49 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
     
     # Logic for other types
     if set_type == 'origin':
-        from cora_python.contSet.polytope.center import center
-        from cora_python.contSet.polytope.interval import interval # For interval norm
 
         # Quick check: is origin contained?
         # Use P.contains_ for a robust check
         if p.contains_(np.zeros((n, 1)), 'exact', tol, certToggle=False, scalingToggle=False)[0]:
             # Definitely not empty if the origin is contained
-            p._emptySet_val = False
-            p._emptySet_is_computed = True
+    
+            
 
             # Check if only origin contained by checking the norm of its interval hull
             # MATLAB: norm_(interval(P),2) <= tol
-            # Need to ensure interval(P) is implemented and norm is available.
-            # For now, approximate with checking against a small interval around origin
-            try:
-                P_interval = interval(p)
-                # Assuming interval(P) returns an Interval object with .inf and .sup
-                # And Interval has a .norm() or we can calculate it.
-                # Simple check: max absolute value of interval bounds is near zero.
-                if np.all(np.abs(P_interval.inf) <= tol) and np.all(np.abs(P_interval.sup) <= tol):
-                     res = True
-                     # Set is degenerate if it's only the origin
-                     p._fullDim_val = False
-                     p._fullDim_is_computed = True
-                     if 'return_set' in kwargs and kwargs['return_set']:
-                         return_obj = np.zeros((n, 1)) # Return as numpy array for origin point
-                     else:
-                         return_obj = None # Explicitly set to None if return_set is false
-            except Exception: # Fallback if interval() or its norm fails
-                pass
+            P_interval = p.interval()
+            # Simple check: max absolute value of interval bounds is near zero.
+            if np.all(np.abs(P_interval.inf) <= tol) and np.all(np.abs(P_interval.sup) <= tol):
+                 res = True
+                 # Set is degenerate if it's only the origin
+         
+                 
+                 if 'return_set' in kwargs and kwargs['return_set']:
+                     return_obj = np.zeros((n, 1)) # Return as numpy array for origin point
         return _return_result(res, return_obj)
 
     elif set_type == 'point':
-        from cora_python.contSet.polytope.center import center # For getting point coordinates
-        from cora_python.contSet.polytope.vertices_ import vertices_ # For 1D case
-
         if n == 1:
-            V = vertices_(p)
+            V = p.vertices_()
             res = V.shape[1] == 1 # True if only one vertex
         else:
-            # MATLAB uses isFullDim and isempty(subspace)
-            # Check if not full-dimensional and subspace is empty (which means it's a point)
-            if not p.fullDim: # If not full-dimensional
-                # For nD polytopes, if not fullDim and bounded and not empty, it could be a point
-                # We need to check if the subspace is empty (which indicates a single point)
-                # Since we don't have subspace computation yet, we'll use a different approach
-                # Check if the polytope is bounded and not empty, then try to get a center
-                if p.dim() > 0 and p.isBounded and not p.emptySet:
-                    try:
-                        # Try to get the center - if it's a point, center should work
-                        center_vec = center(p)
-                        if center_vec.size > 0:
-                            # Check if the polytope is very small (indicating a point)
-                            # This is a heuristic - in MATLAB they use subspace computation
-                            # For now, we'll assume if it's not fullDim and bounded, it's a point
-                            res = True
-                        else:
-                            res = False
-                    except:
-                        res = False
-                else:
-                    res = False
-            else:
-                res = False # Full-dimensional cannot be a point
+            # MATLAB: [fulldim,subspace] = isFullDim(P); res = ~fulldim && isempty(subspace);
+            fulldim, subspace = p.isFullDim()
+            res = not fulldim and (subspace is None or subspace.size == 0)
         
         # Set is degenerate if it's only a single point
         if res:
-            p._fullDim_val = False
-            p._fullDim_is_computed = True
-            # Always get the point coordinates if it's a point
-            point_coords = center(p)[0] # center returns (center_vec, radius)
-            if point_coords.size > 0:
-                # Ensure column vector
-                return_obj = point_coords.reshape(-1, 1)
-            else:
-                # If center returns an empty array, it's not a point, it's an empty set.
-                res = False # Re-evaluate res to False
-                return_obj = None 
+            p._fullDim_val = False     # MATLAB: P.fullDim.val = false;
         
-            # Regardless of return_set, if it's a point, return the point coordinates
-            return _return_result(res, return_obj)
+        # Only compute center if return_set is requested AND res is True (like MATLAB nargout == 2 && res)
+        if 'return_set' in kwargs and kwargs['return_set'] and res:
+            # MATLAB: if P.isVRep.val, S = center(P, 'avg'); else S = center(P); end
+            if hasattr(p, 'isVRep') and p.isVRep:
+                return_obj = p.center('avg')
+            else:
+                return_obj = p.center()
+        
+        return _return_result(res, return_obj)
 
     elif set_type == 'capsule':
         # True if 1D and bounded (note: also true if polytope is a bounded line)
@@ -267,13 +230,13 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
 
         if res: # If it's a constrained hyperplane
             # hyperplanes are unbounded and non-empty
-            p._bounded_val = False
-            p._bounded_is_computed = True
-            p._emptySet_val = False
-            p._emptySet_is_computed = True
+    
+            
+    
+            
             # Full dimensional in its subspace (n-1 dim), but not n-dim
-            p._fullDim_val = False # It's not full dimensional in n-space
-            p._fullDim_is_computed = True
+    
+            
             # Note: MATLAB returns converted conHyperplane object, but since we don't have 
             # conHyperplane implemented yet, we return None for now
             # TODO: Implement conHyperplane conversion when the class is available
@@ -323,15 +286,6 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                 else:
                     res = False # No constraints -> fullspace, not halfspace
 
-        if res:
-            # Halfspaces are always unbounded and non-empty
-            p._bounded_val = False
-            p._bounded_is_computed = True
-            p._emptySet_val = False
-            p._emptySet_is_computed = True
-            p._fullDim_val = True # Halfspace is full dimensional
-            p._fullDim_is_computed = True
-        
         # Note: MATLAB doesn't convert to halfspace object, just returns boolean
         return _return_result(res, return_obj)
 
@@ -434,9 +388,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
 
     elif set_type == 'probZonotope':
         res = False # Not supported / always false in MATLAB
-        if 'return_set' in kwargs and kwargs['return_set']: # If return_set is true, return None
-            return res, None
-        return res, None # Ensure tuple return here
+        return _return_result(res, None)
 
     elif set_type == 'zonoBundle':
         res = p.bounded
@@ -453,15 +405,6 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         # Hyperplane: no inequality constraints, exactly one equality constraint
         # Use p.A and p.Ae directly
         res = p.A.size == 0 and p.Ae.shape[0] == 1
-        if res:
-            # Hyperplanes are unbounded and non-empty
-            p._bounded_val = False
-            p._bounded_is_computed = True
-            p._emptySet_val = False
-            p._emptySet_is_computed = True
-            # Note: hyperplanes are not full-dimensional in the ambient space
-            p._fullDim_val = False
-            p._fullDim_is_computed = True
         return _return_result(res, return_obj)
 
     elif set_type == 'parallelotope':

@@ -95,16 +95,37 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                 S_is_point, q = S.representsa_('point', tol, return_set=True)
                 if S_is_point:
                     # q might be a numpy array or a set object
-                    if isinstance(q, np.ndarray):
-                        # Direct comparison with numpy array
+                    if isinstance(q, np.ndarray) and q.shape == p.shape and not np.any(np.isnan(q)):
+                        # Direct comparison with numpy array (only if shapes match and no nan)
                         res = np.allclose(q, p, atol=tol)
                     else:
-                        # q is a set object, use priv_containsPoint to check
-                        point_res, point_cert, point_scaling = priv_containsPoint(E, q, tol)
-                        if isinstance(point_res, np.ndarray):
-                            res = np.all(point_res)
-                        else:
-                            res = point_res
+                        # q is invalid (wrong shape, contains nan, etc.) -> fall back to vertex check
+                        # This handles buggy polytope representsa_ implementations
+                        try:
+                            vertices = S.vertices_()
+                            if vertices.size > 0:
+                                point_res, point_cert, point_scaling = priv_containsPoint(E, vertices, tol)
+                                if isinstance(point_res, np.ndarray):
+                                    res = np.all(point_res)
+                                else:
+                                    res = point_res
+                            else:
+                                # vertices_() failed, try to extract point from equality constraints
+                                # If polytope has Ae*x = be with Ae = I, then x = be
+                                if hasattr(S, 'Ae') and hasattr(S, 'be') and S.Ae is not None and S.be is not None:
+                                    if np.allclose(S.Ae, np.eye(S.Ae.shape[0]), atol=1e-12):
+                                        point_candidate = S.be
+                                        point_res, point_cert, point_scaling = priv_containsPoint(E, point_candidate, tol)
+                                        if isinstance(point_res, np.ndarray):
+                                            res = np.all(point_res)
+                                        else:
+                                            res = point_res
+                                    else:
+                                        res = False
+                                else:
+                                    res = False
+                        except:
+                            res = False
                     
                     cert = True
                     if res:

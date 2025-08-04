@@ -21,14 +21,37 @@ class TestPolytopeIsBounded:
         A = np.array([[1]])
         b = np.array([1])
         P = Polytope(A, b)
-        assert not isBounded(P)
+        
+        # Verify cache is not set initially
+        assert P._bounded_val is None
+        
+        # Call isBounded and verify result
+        result = isBounded(P)
+        assert result == False
+        
+        # Verify cache is now set correctly
+        assert P._bounded_val == False
     
     def test_isBounded_1d_bounded(self):
         """Test 1D, bounded"""
         A = np.array([[1], [-1]])
         b = np.array([1, 1])
         P = Polytope(A, b)
-        assert isBounded(P)
+        
+        # Verify cache is not set initially
+        assert P._bounded_val is None
+        
+        # Call isBounded and verify result
+        result = isBounded(P)
+        assert result == True
+        
+        # Verify cache is now set correctly like MATLAB (P.bounded.val = res)
+        assert P._bounded_val == True
+        
+        # Call again to verify cached value is used
+        result2 = isBounded(P)
+        assert result2 == True
+        assert P._bounded_val == True
     
     def test_isBounded_1d_single_point(self):
         """Test 1D, single point"""

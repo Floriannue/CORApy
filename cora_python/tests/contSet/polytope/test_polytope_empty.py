@@ -26,6 +26,30 @@ def test_empty_constructor():
     assert not p10.contains(np.zeros((10, 1)))
 
 
+def test_empty_cache_values():
+    """Tests that empty polytopes have correct cache values set like MATLAB."""
+    p = empty(3)
+    
+    # Test cache values are set correctly (comparing to MATLAB lines 40-46)
+    assert p._emptySet_val == True        # P_out.emptySet.val = true;
+    assert p._bounded_val == True         # P_out.bounded.val = true;
+    assert p._fullDim_val == False        # P_out.fullDim.val = false;
+    assert p._minHRep_val == True         # P_out.minHRep.val = true;
+    assert p._minVRep_val == True         # P_out.minVRep.val = true;
+    
+    # Test representation flags
+    assert p.isVRep == True               # P_out.isVRep.val = true;
+    assert p.isHRep == True               # Should be true from constructor
+    
+    # Test V matrix
+    assert p._V.shape == (3, 0)           # P_out.V_.val = zeros(n,0);
+    
+    # Test that property access works
+    assert p.minVRep == True
+    assert p.minHRep == True
+    assert p.isemptyobject() == True
+
+
 def test_empty_invalid_input():
     """Tests that the empty function handles invalid input correctly."""
     # Test invalid input (non-integer dimension)

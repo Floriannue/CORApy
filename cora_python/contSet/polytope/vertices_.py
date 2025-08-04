@@ -34,14 +34,17 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
     n = P.dim()
 
     # Check if polytope is known to be empty
-    if P.emptySet: # Leverage the emptySet property
-        P._V = np.zeros((n, 0))
+    if P.isemptyobject(): # Use isemptyobject method like MATLAB
+        # MATLAB lines 96-102: polytope is empty
+        V = np.zeros((n, 0))
+        P._V = V
         P._isVRep = True
-        # Reset relevant lazy flags only, not all
-        P._emptySet_is_computed = True
-        P._emptySet_val = True # Explicitly set val when computed
-        P._minVRep_is_computed = True # V-rep is minimal for empty set
-        return P.V
+        # Set cache values like MATLAB
+        P._minVRep_val = True      # P.minVRep.val = true;
+        P._emptySet_val = True     # P.emptySet.val = true;
+        P._bounded_val = True      # P.bounded.val = true;
+        P._fullDim_val = False     # P.fullDim.val = false;
+        return V
 
     # 1D case quick
     if n == 1:
@@ -53,11 +56,9 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
         P._V = V
         P._isVRep = True
         P._isHRep = False # V-rep is now primary
-        P._emptySet_is_computed = False # Recompute if needed
-        P._fullDim_is_computed = False
-        P._bounded_is_computed = False
-        P._minHRep_is_computed = False
-        P._minVRep_is_computed = True # 1D vertices are always minimal
+        # Reset cache values as representation has changed
+        P._reset_lazy_flags()
+        P._minVRep_val = True # 1D vertices are always minimal
         return P.V
 
     # Compute Chebyshev center to detect unbounded/empty cases for nD
@@ -75,9 +76,8 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
             # Empty set or other degenerate case where center is not meaningful
             P._V = np.zeros((n, 0))
             P._isVRep = True
-            P._emptySet_is_computed = True
             P._emptySet_val = True
-            P._minVRep_is_computed = True
+            P._minVRep_val = True
             return P.V
 
     # If the center calculation returns a valid center and radius (from chebyshev method)
@@ -109,22 +109,17 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
     P._isVRep = True
     P._isHRep = False # V-rep is now primary; H-rep might not be minimal
 
-    # Update lazy evaluation flags based on computed V
-    P._emptySet_is_computed = True # Emptiness is determined by existence of V
-    P._emptySet_val = V.size == 0
-    P._bounded_is_computed = True # Boundedness should be consistent with center check
-    P._bounded_val = not np.any(np.isinf(V)) # If any vertex is inf, it's unbounded
+    # Update cache values based on computed V
+    P._emptySet_val = V.size == 0  # Emptiness is determined by existence of V  
+    P._bounded_val = not np.any(np.isinf(V))  # If any vertex is inf, it's unbounded
 
-    # Determine full-dimensionality: if num_vertices <= dimension, it's not full-dimensional
-    # or if the rank of V is less than dimension.
-    if V.shape[1] <= n or (V.size > 0 and np.linalg.matrix_rank(V - np.mean(V, axis=0)) < n): # Check rank of centered vertices
-        P._fullDim_is_computed = True
+    # Determine full-dimensionality: if rank of V is less than dimension, it's not full-dimensional
+    if V.size > 0 and np.linalg.matrix_rank(V - np.mean(V, axis=1, keepdims=True)) < n:
         P._fullDim_val = False
-    else:
-        P._fullDim_is_computed = False # Need to re-evaluate via priv_isFullDim
+    # Don't set _fullDim_val = True here - let isFullDim() compute it properly when needed
 
-    P._minHRep_is_computed = False # H-rep needs re-computation to be minimal
-    P._minVRep_is_computed = True # V-rep is now minimal by construction (after duplicate removal)
+    # Don't set _minHRep_val - let it be computed when H-rep is computed
+    P._minVRep_val = True  # V-rep is now minimal by construction (after duplicate removal)
 
     return P.V
 
@@ -240,7 +235,11 @@ def _aux_vertices_comb(P: 'Polytope') -> np.ndarray:
 
     # Minimal H-representation (via compact_all)
     # The MATLAB version passes dim(P) as an argument. Use P.dim().
-    A, b, _, _, empty, _ = priv_compact_all(A, b, np.array([]).reshape(0,0), np.array([]).reshape(0,1), P.dim(), tol)
+    A, b, _, _, empty, minHRep = priv_compact_all(A, b, np.array([]).reshape(0,0), np.array([]).reshape(0,1), P.dim(), tol)
+    
+    # Set cache value if minimal representation was obtained
+    if minHRep:
+        P._minHRep_val = True
 
     if empty:
         return np.zeros((P.dim(), 0))
@@ -325,5 +324,19 @@ def _aux_vertices_comb(P: 'Polytope') -> np.ndarray:
 
     # Remove vertices with Inf/NaN values
     V = V[:, np.all(np.isfinite(V), axis=0)]
+
+    # Set cache values based on result (like MATLAB)
+    P._V = V
+    P._isVRep = True
+    
+    # Check if it's a single point like MATLAB (lines 191-197)
+    if V.shape[1] == 1:
+        P._minVRep_val = True      # P.minVRep.val = true;
+        P._emptySet_val = False    # P.emptySet.val = false;
+        P._fullDim_val = False     # P.fullDim.val = false; (no zero-dimensional sets)
+        P._bounded_val = True      # P.bounded.val = true;
+    elif V.shape[1] > 1:
+        # Multiple vertices - set minimal V-rep based on MATLAB logic
+        P._minVRep_val = V.shape[1] <= 1 or n == 1  # MATLAB: size(V,2) <= 1 || n == 1
 
     return V 

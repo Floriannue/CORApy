@@ -23,6 +23,11 @@ class TestPolytopeVertices:
         P = Polytope(A, b)
         V = vertices_(P)
         assert V.size == 0  # Empty
+        
+        # Test cache values are set correctly like MATLAB
+        assert P._emptySet_val == True
+        assert P._bounded_val == True  # Empty sets are bounded
+        assert P._minVRep_val == True  # Empty V-rep is minimal
     
     def test_vertices_1d_empty_mixed_constraints(self):
         """Test 1D, empty, inequalities and equalities"""
@@ -309,3 +314,24 @@ class TestPolytopeVertices:
                 return False
         
         return np.all(matched)
+
+    def test_vertices_cache_values_single_point(self):
+        """Test that vertices_() sets cache values correctly for single point like MATLAB"""
+        # Create a polytope that represents a single point
+        A = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]])
+        b = np.array([[1], [1], [1], [1]])  # This defines the point (1, 1)
+        Ae = np.array([[1, 0], [0, 1]])
+        be = np.array([[1], [1]])
+        P = Polytope(A, b, Ae, be)
+        
+        V = vertices_(P)
+        
+        # Should be a single point
+        assert V.shape[1] == 1
+        assert np.allclose(V, [[1], [1]])
+        
+        # Test cache values are set correctly like MATLAB (lines 193-196)
+        assert P._minVRep_val == True        # P.minVRep.val = true;
+        assert P._emptySet_val == False      # P.emptySet.val = false;
+        assert P._fullDim_val == False       # P.fullDim.val = false; (no zero-dimensional sets)
+        assert P._bounded_val == True        # P.bounded.val = true;

@@ -105,18 +105,22 @@ def _aux_setproperties(P_out: 'Polytope', P_in1: 'Polytope', P_in2: 'Polytope') 
     Matches MATLAB's aux_setproperties.m.
     """
     # If both input polytopes are bounded, then the sum is also bounded
-    if P_in1.bounded and P_in2.bounded:
-        P_out._bounded_val = True
-        P_out._bounded_is_computed = True
-    # If one of the input polytopes is unbounded, then the sum is also unbounded
-    elif not P_in1.bounded or not P_in2.bounded: # Assuming 'bounded' property returns actual boolean or triggers computation
-        P_out._bounded_val = False
-        P_out._bounded_is_computed = True
+    # MATLAB: if both P.bounded.val and S.bounded.val are true
+    if hasattr(P_in1, '_bounded_val') and P_in1._bounded_val and \
+       hasattr(P_in2, '_bounded_val') and P_in2._bounded_val:
+        P_out._bounded_val = True  # P_out.bounded.val = true;
+    
+    # If one of the input polytopes is unbounded, then the sum is also unbounded  
+    # MATLAB: if P.bounded.val is false OR S.bounded.val is false
+    elif (hasattr(P_in1, '_bounded_val') and P_in1._bounded_val == False) or \
+         (hasattr(P_in2, '_bounded_val') and P_in2._bounded_val == False):
+        P_out._bounded_val = False  # P_out.bounded.val = false;
     
     # If one of the input polytopes is full-dimensional, the sum is, too
-    if P_in1.fullDim or P_in2.fullDim:
-        P_out._fullDim_val = True
-        P_out._fullDim_is_computed = True
+    # MATLAB: if P.fullDim.val is true OR S.fullDim.val is true  
+    if (hasattr(P_in1, '_fullDim_val') and P_in1._fullDim_val) or \
+       (hasattr(P_in2, '_fullDim_val') and P_in2._fullDim_val):
+        P_out._fullDim_val = True   # P_out.fullDim.val = true;
 
     return P_out
 

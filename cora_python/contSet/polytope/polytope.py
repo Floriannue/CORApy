@@ -54,11 +54,7 @@ from typing import Union, List, Tuple, TYPE_CHECKING, Optional
 from cora_python.contSet.contSet.contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
-from cora_python.contSet.polytope.private.priv_emptySet import priv_emptySet
-from cora_python.contSet.polytope.private.priv_isFullDim import priv_isFullDim
-from cora_python.contSet.polytope.private.priv_isBounded import priv_isBounded
-from cora_python.contSet.polytope.private.priv_isMinHRep import priv_isMinHRep
-from cora_python.contSet.polytope.private.priv_isMinVRep import priv_isMinVRep
+
 
 
 class Polytope(ContSet):
@@ -83,11 +79,8 @@ class Polytope(ContSet):
 
     # Private cached properties for lazy evaluation
     _emptySet_val: Optional[bool]
-    _emptySet_is_computed: bool
     _fullDim_val: Optional[bool]
-    _fullDim_is_computed: bool
     _bounded_val: Optional[bool]
-    _bounded_is_computed: bool
 
     # Public flags (initially set directly in constructor)
     _isHRep: bool
@@ -96,9 +89,7 @@ class Polytope(ContSet):
     # minHRep and minVRep will be computed lazily if needed, but for now
     # they are not, so we define them as simple attributes.
     _minHRep_val: Optional[bool]
-    _minHRep_is_computed: bool
     _minVRep_val: Optional[bool]
-    _minVRep_is_computed: bool
     _dim_val: Optional[int] # Stores ambient dimension, initialized to None
 
     def __init__(self, *args, **kwargs):
@@ -116,15 +107,10 @@ class Polytope(ContSet):
 
         # Initialize cached properties flags
         self._emptySet_val = None
-        self._emptySet_is_computed = False
         self._fullDim_val = None
-        self._fullDim_is_computed = False
         self._bounded_val = None
-        self._bounded_is_computed = False
         self._minHRep_val = None
-        self._minHRep_is_computed = False
         self._minVRep_val = None
-        self._minVRep_is_computed = False
         self._dim_val = None # Initialize _dim_val
 
         # Initialize core properties as empty NumPy arrays (standardized)
@@ -173,15 +159,10 @@ class Polytope(ContSet):
 
         # Copy lazy evaluation flags and values
         self._emptySet_val = other._emptySet_val
-        self._emptySet_is_computed = other._emptySet_is_computed
         self._fullDim_val = other._fullDim_val
-        self._fullDim_is_computed = other._fullDim_is_computed
         self._bounded_val = other._bounded_val
-        self._bounded_is_computed = other._bounded_is_computed
         self._minHRep_val = other._minHRep_val
-        self._minHRep_is_computed = other._minHRep_is_computed
         self._minVRep_val = other._minVRep_val
-        self._minVRep_is_computed = other._minVRep_is_computed
         self._dim_val = other._dim_val # Copy the cached dimension
 
 
@@ -256,11 +237,14 @@ class Polytope(ContSet):
 
         # Store the determined dimension
         self._dim_val = n
+        
+        # Compute minimal representation properties (like MATLAB's aux_computeHiddenProperties)
+        self._compute_min_representation_properties(n)
 
     @property
     def A(self) -> np.ndarray:
         """Get the A matrix of the halfspace representation."""
-        if not self._isHRep and not self._minHRep_is_computed:
+        if not self._isHRep:
             self.constraints()
         return self._A
 
@@ -274,7 +258,7 @@ class Polytope(ContSet):
     @property
     def b(self) -> np.ndarray:
         """Get the b vector of the halfspace representation."""
-        if not self._isHRep and not self._minHRep_is_computed:
+        if not self._isHRep:
             self.constraints()
         return self._b
 
@@ -288,7 +272,7 @@ class Polytope(ContSet):
     @property
     def Ae(self) -> np.ndarray:
         """Get the Ae matrix of the halfspace representation (equality constraints)."""
-        if not self._isHRep and not self._minHRep_is_computed:
+        if not self._isHRep:
             self.constraints()
         return self._Ae
 
@@ -302,7 +286,7 @@ class Polytope(ContSet):
     @property
     def be(self) -> np.ndarray:
         """Get the be vector of the halfspace representation (equality constraints)."""
-        if not self._isHRep and not self._minHRep_is_computed:
+        if not self._isHRep:
             self.constraints()
         return self._be
 
@@ -316,7 +300,7 @@ class Polytope(ContSet):
     @property
     def V(self) -> np.ndarray:
         """Get the V matrix (vertices) of the vertex representation."""
-        if not self._isVRep and not self._minVRep_is_computed:
+        if not self._isVRep:
             self.vertices_()
         return self._V
 
@@ -356,59 +340,71 @@ class Polytope(ContSet):
             self._isHRep = False
 
     @property
-    def emptySet(self) -> bool:
+    def minHRep(self) -> Optional[bool]:
         """
-        Determines if the polytope is empty.
-
-        This property uses lazy evaluation and caching. The computation is performed
-        only once and the result is stored.
+        Check if halfspace representation is minimal.
+        Returns the cached value directly (MATLAB pattern: P.minHRep.val).
+        Use interface methods or constraints() to compute if needed.
         """
-        if not self._emptySet_is_computed:
-            # Call the external priv_emptySet
-            self._emptySet_val = priv_emptySet(self, tol=1e-10) # Pass default tolerance
-            self._emptySet_is_computed = True
-        return self._emptySet_val
-    
-    @property
-    def fullDim(self) -> bool:
-        """Check if polytope is full-dimensional."""
-        if not self._fullDim_is_computed:
-            self._fullDim_val = priv_isFullDim(self)
-            self._fullDim_is_computed = True
-        return self._fullDim_val
-
-    @property
-    def bounded(self) -> bool:
-        """Check if polytope is bounded."""
-        if not self._bounded_is_computed:
-            self._bounded_val = priv_isBounded(self)
-            self._bounded_is_computed = True
-        return self._bounded_val
-
-    @property
-    def minHRep(self) -> bool:
-        """Check if halfspace representation is minimal."""
-        if not self._minHRep_is_computed:
-            self._minHRep_val = priv_isMinHRep(self)
-            self._minHRep_is_computed = True
         return self._minHRep_val
 
+    @minHRep.setter
+    def minHRep(self, val: Optional[bool]):
+        """Set the minHRep cache value."""
+        self._minHRep_val = val
+
     @property
-    def minVRep(self) -> bool:
-        """Check if vertex representation is minimal."""
-        if not self._minVRep_is_computed:
-            self._minVRep_val = priv_isMinVRep(self)
-            self._minVRep_is_computed = True
+    def minVRep(self) -> Optional[bool]:
+        """
+        Check if vertex representation is minimal.
+        Returns the cached value directly (MATLAB pattern: P.minVRep.val).
+        Use interface methods or vertices_() to compute if needed.
+        """
         return self._minVRep_val
 
+    @minVRep.setter
+    def minVRep(self, val: Optional[bool]):
+        """Set the minVRep cache value."""
+        self._minVRep_val = val
+
+    def _compute_min_representation_properties(self, n: int):
+        """
+        Compute minimal representation properties during construction.
+        Mirrors MATLAB's aux_computeHiddenProperties logic.
+        """
+        # note: representations for 1D polytopes always minimal (MATLAB comment)
+        
+        if self._isVRep:
+            # MATLAB: minVRep = size(V,2) <= 1 || n == 1;
+            # max. 1 vertex -> minimal V-representation
+            self._minVRep_val = self._V.shape[1] <= 1 or n == 1
+            
+        elif self._isHRep:
+            if self._A.size == 0 and self._Ae.size == 0:
+                # MATLAB: no constraints -> minHRep = true
+                self._minHRep_val = True
+            else:
+                # Check for empty polytope cases
+                # MATLAB: equality constraint with -Inf or Inf in offset OR 
+                # inequality constraint with -Inf in offset -> empty polytope
+                be_has_inf = np.any(np.isinf(self._be)) if self._be.size > 0 else False
+                b_has_neg_inf = (np.any(np.isinf(self._b) & (self._b < 0)) 
+                               if self._b.size > 0 else False)
+                
+                if be_has_inf or b_has_neg_inf:
+                    # MATLAB: only a single infeasible constraint required to represent an empty set
+                    # minHRep = length(be) + length(b) == 1;
+                    total_constraints = (self._be.shape[0] if self._be.size > 0 else 0) + \
+                                      (self._b.shape[0] if self._b.size > 0 else 0)
+                    self._minHRep_val = total_constraints == 1
 
     def _reset_lazy_flags(self):
-        """Resets all lazy evaluation flags when the polytope's definition changes."""
-        self._emptySet_is_computed = False
-        self._fullDim_is_computed = False
-        self._bounded_is_computed = False
-        self._minHRep_is_computed = False
-        self._minVRep_is_computed = False
+        """Resets all lazy evaluation cache values when the polytope's definition changes."""
+        self._emptySet_val = None
+        self._fullDim_val = None  
+        self._bounded_val = None
+        self._minHRep_val = None
+        self._minVRep_val = None
         # Do NOT reset _dim_val here; the ambient dimension doesn't change with representation.
         # It's a fundamental property of the space the polytope lives in.
 

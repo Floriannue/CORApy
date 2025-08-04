@@ -39,6 +39,8 @@ from .isIntersecting_ import isIntersecting_
 from .normalizeConstraints import normalizeConstraints
 from .supportFunc_ import supportFunc_
 from .distance import distance # Import the new distance function
+from .isFullDim import isFullDim
+from .box import box
 
 # Attach methods to the class
 Polytope.zonotope = zonotope
@@ -68,6 +70,8 @@ Polytope.isIntersecting_ = isIntersecting_
 Polytope.normalizeConstraints = normalizeConstraints
 Polytope.supportFunc_ = supportFunc_
 Polytope.distance = distance # Attach the distance method
+Polytope.isFullDim = isFullDim
+Polytope.box = box
 
 # Attach operator overloads
 Polytope.__contains__ = lambda self, other: contains_(self, other)
@@ -112,4 +116,6 @@ __all__ = [
     'vertices_',
     'zonotope',
     'distance',
+    'isFullDim',
+    'box',
 ] 

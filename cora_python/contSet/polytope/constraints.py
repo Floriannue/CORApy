@@ -81,12 +81,8 @@ def constraints(P: 'Polytope') -> 'Polytope':
     # Halfspace representation now computed
     P.isHRep = True
     
-    # Reset lazy computation flags, as the underlying representation has changed
-    P._emptySet_is_computed = False
-    P._fullDim_is_computed = False
-    P._bounded_is_computed = False
-    P._minHRep_is_computed = False
-    P._minVRep_is_computed = False
+    # Reset lazy computation cache values, as the underlying representation has changed
+    P._reset_lazy_flags()
     
     return P
 
