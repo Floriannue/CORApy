@@ -61,6 +61,9 @@ from cora_python.g.functions.helper.sets.contSet.ellipsoid.vecalign import vecal
 
 def priv_andHyperplane(E: Ellipsoid, P: Polytope) -> Ellipsoid:
     n = E.dim()
+    
+    # Store original ellipsoid for potential early return
+    E_original = E.copy()
 
     # Check if the intersection between the ellipsoid and the hyperplane is empty using distance
     # Assuming E.distance(P) is implemented and accurate.
@@ -135,33 +138,54 @@ def priv_andHyperplane(E: Ellipsoid, P: Polytope) -> Ellipsoid:
         Ae_val = np.squeeze(P_.Ae)
         be_val = np.squeeze(P_.be)
         
+
+        
+        # Handle empty array case
+        if Ae_val.size == 0 or be_val.size == 0:
+            # If either Ae or be is empty, this means the hyperplane constraint 
+            # became trivial after projection - the ellipsoid is entirely in the hyperplane
+            # Return the original ellipsoid since it's entirely contained in the hyperplane
+            return E_original
+        
+        # Convert to scalars if they are size-1 arrays
+        if hasattr(Ae_val, 'item') and Ae_val.size == 1:
+            Ae_scalar = Ae_val.item()
+        else:
+            Ae_scalar = Ae_val
+        
+        if hasattr(be_val, 'item') and be_val.size == 1:
+            be_scalar = be_val.item()
+        else:
+            be_scalar = be_val
+        
         # Check for division by zero
-        Ae_scalar = Ae_val.item() if hasattr(Ae_val, 'item') and Ae_val.size == 1 else Ae_val
         if np.abs(Ae_scalar) < np.finfo(float).eps:
             # If Ae is zero, the hyperplane equation is 0*x = be
-            if np.abs(be_val) < np.finfo(float).eps:
+            if np.abs(be_scalar) < np.finfo(float).eps:
                 # 0*x = 0, hyperplane is the whole space, intersection is the ellipsoid itself
-                return E
+                # Return the original ellipsoid since it's entirely contained in the hyperplane
+                return E_original
             else:
                 # 0*x = be (be != 0), hyperplane is empty, intersection is empty
                 return Ellipsoid.empty(n)
-        
-        xH = be_val / Ae_val
+        else:
+            # Normal case: Ae is not zero, compute intersection
+            xH = be_scalar / Ae_scalar
 
-        # MATLAB: r_xH = max(abs(xH)) * E.TOL;
-        # Handle cases where xH might be inf or NaN (shouldn't happen now with the check above)
-        xH_scalar = xH.item() if hasattr(xH, 'item') else xH
-        if np.isinf(xH_scalar) or np.isnan(xH_scalar):
-            return Ellipsoid.empty(n_nd)  # If xH is infinite/NaN, intersection is empty
+            # MATLAB: r_xH = max(abs(xH)) * E.TOL;
+            # Handle cases where xH might be inf or NaN (shouldn't happen now with the check above)
+            xH_scalar = xH
+            if np.isinf(xH_scalar) or np.isnan(xH_scalar):
+                return Ellipsoid.empty(n_nd)  # If xH is infinite/NaN, intersection is empty
 
-        r_xH = np.abs(xH) * E.TOL
+            r_xH = np.abs(xH) * E.TOL
 
-        IntE_TOL = IntE + Interval(-r_xH, r_xH)
+            IntE_TOL = IntE + Interval(-r_xH, r_xH)
 
-        if not IntE_TOL.contains(xH):
-            return Ellipsoid.empty(n)
+            if not IntE_TOL.contains(xH):
+                return Ellipsoid.empty(n)
 
-        E_t = Ellipsoid(np.zeros((n_nd, n_nd)), np.array([[xH]]))
+            E_t = Ellipsoid(np.zeros((n_nd, n_nd)), np.array([[xH]]))
 
     else:
         # Higher dimension non-degenerate case
@@ -247,18 +271,17 @@ def priv_andHyperplane(E: Ellipsoid, P: Polytope) -> Ellipsoid:
         # and q is concatenated with x_rem.
         # E.Q is already in transformed space and diagonal, so just need to ensure diagonal elements.
         # What if E.Q is a scalar (1D case after projection)? It should be a 1x1 matrix.
-        if E_t.Q.size == 0 and E_t.q.size == 0: # Check if Ew was an empty ellipsoid
-            new_Q = np.zeros((n,n))
-            new_q = np.zeros((n,1))
-        elif E_t.Q.ndim == 0: # Handle scalar case for 1D, where Ew might be a point ellipsoid
-            Q_concat = np.array([[E_t.Q]])
-        else:
-            # Ensure it's a diagonal matrix in the subspace if it's not already empty
-            Q_concat = np.diag(np.diag(E_t.Q)) if E_t.Q.size > 0 else np.zeros((n_nd, n_nd))
-
-        # Construct the combined Q matrix
-        if E_t.Q.size == 0 and E_t.q.size == 0: # If it's an empty set, just return empty
+        # Check if empty ellipsoid
+        if E_t.Q.size == 0 and E_t.q.size == 0:
             return Ellipsoid.empty(n)
+
+        # Handle the Q_concat properly based on E_t.Q dimensions
+        if E_t.Q.ndim == 0: # Scalar case
+            Q_concat = np.array([[E_t.Q]])
+        elif E_t.Q.size > 0:
+            Q_concat = E_t.Q
+        else:
+            Q_concat = np.zeros((n_nd, n_nd))
 
         Q_top = np.hstack((Q_concat, np.zeros((n_nd, n_rem))))
         Q_bottom = np.hstack((np.zeros((n_rem, n_nd)), np.zeros((n_rem, n_rem))))

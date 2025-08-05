@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .ellipsoid import Ellipsoid
 
+from .ellipsoid import Ellipsoid
+
 def project(E: 'Ellipsoid', dims: np.ndarray) -> 'Ellipsoid':
     """
     project - projects an ellipsoid onto the specified dimensions
@@ -38,6 +40,18 @@ def project(E: 'Ellipsoid', dims: np.ndarray) -> 'Ellipsoid':
     # Convert dims to numpy array if it's not already
     dims = np.asarray(dims)
     
+    # Check input arguments first (like MATLAB)
+    inputArgsCheck([
+        [E, 'att', 'ellipsoid'],
+        [dims, 'att', ['numeric', 'logical'], [['nonnan', 'vector', 'integer', 'nonnegative'], ['vector']]]
+    ])
+    
+    # Additional bounds checking (like MATLAB's @(dims) dims <= dim(E))
+    n = E.dim()
+    if np.any(dims >= n) or np.any(dims < 0):
+        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+        raise CORAerror('CORA:wrongValue', '2nd', f"Projection dimensions must be in range [0, {n-1}]")
+    
     # Handle different input types
     if dims.dtype == bool:
         # Logical indexing - convert to indices
@@ -47,23 +61,25 @@ def project(E: 'Ellipsoid', dims: np.ndarray) -> 'Ellipsoid':
         dims = np.asarray(dims, dtype=int)
         
         # Handle range syntax [start, end] vs individual indices [dim1, dim2, dim3, ...]
+        # MATLAB supports both: [1,3] means range 1:3, [1,3,5] means individual indices
+        # Only treat as range if it's exactly 2 elements and the second is larger AND within bounds
         if len(dims) == 2 and dims[1] > dims[0]:
-            # Range syntax: [start, end] -> range(start, end+1) (inclusive)
-            start_idx = dims[0]
-            end_idx = dims[1] + 1  # Make end inclusive
-            dims = np.arange(start_idx, end_idx)
+            # Check if this could be a valid range (end index within bounds)
+            n = E.dim()
+            if dims[1] < n:
+                # Range syntax: [start, end] -> range(start, end+1) (inclusive)
+                start_idx = dims[0]
+                end_idx = dims[1] + 1  # Make end inclusive
+                dims = np.arange(start_idx, end_idx)
+            # else: treat as individual indices even if second element is larger
         # else: individual indices - use as-is
     
-    # Check input arguments - all indices should be 0-based
-    inputArgsCheck([
-        [E, 'att', 'ellipsoid'],
-        [dims, 'att', ['numeric', 'logical'], [['nonnan', 'vector', 'integer', 'nonnegative'], ['vector']]]
-    ])
+
     
-    # Validate dimensions are within bounds
-    n = E.dim()
-    if np.any(dims >= n) or np.any(dims < 0):
-        raise ValueError(f"Projection dimensions must be in range [0, {n-1}]")
+    # Handle empty ellipsoid case
+    if E.isemptyobject():
+        # Return empty ellipsoid with projected dimension
+        return Ellipsoid.empty(len(dims))
     
     # Project set using identity matrix approach (matching MATLAB)
     I = np.eye(n)

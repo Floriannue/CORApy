@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 from cora_python.contSet.ellipsoid import Ellipsoid
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def test_ellipsoid_project():
@@ -165,8 +166,8 @@ def test_project_degenerate_ellipsoid():
     assert np.allclose(E_proj.Q, E.Q), "Full projection should be identity"
     assert np.allclose(E_proj.q, E.q), "Full projection center should be unchanged"
     
-    # Project to degenerate dimension
-    E_proj_deg = E.project([2])  # Middle dimension (index 1)
+    # Project to degenerate dimension (middle dimension, index 1)
+    E_proj_deg = E.project([1])  # Middle dimension (index 1)
     expected_Q = np.array([[0]])
     expected_q = np.array([[2]])
     
@@ -182,19 +183,19 @@ def test_project_error_cases():
     E = Ellipsoid(np.eye(3))
     
     # Invalid dimension index (too large)
-    with pytest.raises(ValueError):
+    with pytest.raises(CORAerror):
         E.project([0, 5])  # Index 5 doesn't exist in 3D ellipsoid
     
     # Invalid dimension index (negative)
-    with pytest.raises(ValueError):
+    with pytest.raises(CORAerror):
         E.project([-1])  # Negative index should be invalid
     
     # Empty projection dimensions
-    with pytest.raises(ValueError):
+    with pytest.raises(CORAerror):
         E.project([])
     
     # Invalid logical indexing (wrong length)
-    with pytest.raises(ValueError):
+    with pytest.raises(CORAerror):
         E.project([True, False])  # Should have 3 elements for 3D ellipsoid
 
 
@@ -216,9 +217,9 @@ def test_project_preserves_properties():
         "Projected shape matrix should remain positive semidefinite"
 
 
-@pytest.mark.parametrize("start_dim,end_dim", [(1, 2), (1, 3), (2, 3), (2, 4)])
+@pytest.mark.parametrize("start_dim,end_dim", [(0, 1), (0, 2), (1, 2), (1, 3)])
 def test_project_various_ranges(start_dim, end_dim):
-    """Test projection with various dimension ranges"""
+    """Test projection with various dimension ranges (0-based indexing)"""
     
     Q = np.eye(4) + 0.1 * np.random.randn(4, 4)
     Q = Q @ Q.T  # Make PSD
