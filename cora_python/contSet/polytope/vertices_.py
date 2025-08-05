@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from cora_python.g.functions.matlab.validate.check import withinTol
 from cora_python.contSet.polytope.private.priv_equalityToInequality import priv_equalityToInequality
-from cora_python.contSet.polytope.center import center # Import center function
 from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
 from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
@@ -64,7 +63,7 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
 
     # Compute Chebyshev center to detect unbounded/empty cases for nD
     # Note: Python's center returns center_vector (numpy array)
-    c_vec = center(P) # center() now returns a single numpy array
+    c_vec = P.center() # center() now returns a single numpy array
 
     # If center calculation indicates an empty set or unbounded set
     # (e.g., center returns empty array or NaN values)

@@ -65,7 +65,6 @@ def priv_andHyperplane(E: Ellipsoid, P: Polytope) -> Ellipsoid:
     # Check if the intersection between the ellipsoid and the hyperplane is empty using distance
     # Assuming E.distance(P) is implemented and accurate.
     dist_val = E.distance(P)
-    print(f"[DEBUG] priv_andHyperplane: dist_val = {dist_val}, E.TOL = {E.TOL}")
     if np.isinf(dist_val) or np.isnan(dist_val) or dist_val > E.TOL:
         return Ellipsoid.empty(n)
 
@@ -137,7 +136,8 @@ def priv_andHyperplane(E: Ellipsoid, P: Polytope) -> Ellipsoid:
         be_val = np.squeeze(P_.be)
         
         # Check for division by zero
-        if np.abs(Ae_val) < np.finfo(float).eps:
+        Ae_scalar = Ae_val.item() if hasattr(Ae_val, 'item') and Ae_val.size == 1 else Ae_val
+        if np.abs(Ae_scalar) < np.finfo(float).eps:
             # If Ae is zero, the hyperplane equation is 0*x = be
             if np.abs(be_val) < np.finfo(float).eps:
                 # 0*x = 0, hyperplane is the whole space, intersection is the ellipsoid itself
@@ -150,7 +150,8 @@ def priv_andHyperplane(E: Ellipsoid, P: Polytope) -> Ellipsoid:
 
         # MATLAB: r_xH = max(abs(xH)) * E.TOL;
         # Handle cases where xH might be inf or NaN (shouldn't happen now with the check above)
-        if np.isinf(xH) or np.isnan(xH):
+        xH_scalar = xH.item() if hasattr(xH, 'item') else xH
+        if np.isinf(xH_scalar) or np.isnan(xH_scalar):
             return Ellipsoid.empty(n_nd)  # If xH is infinite/NaN, intersection is empty
 
         r_xH = np.abs(xH) * E.TOL
@@ -173,13 +174,13 @@ def priv_andHyperplane(E: Ellipsoid, P: Polytope) -> Ellipsoid:
         # MATLAB: S = vecalign(unitvector_1,P_.Ae');
         S = vecalign(unitvector_1, P_.Ae.T) # P_.Ae.T because it's a normal vector
 
-        # Apply rotation to ellipsoid E
-        E_rotated = S @ E # This is E_rotated in MATLAB
-
         # MATLAB: E = -unitvector_1*P_.be + S*E;
-        # The MATLAB line combines rotation and translation on E.
-        # We will perform the rotation, then calculate intermediate values,
-        # and apply the translation to the center later.
+        # This line combines rotation (S*E) and translation (-unitvector_1*P_.be)
+        # Apply rotation first, then translation
+        E_rotated = S @ E
+        # Apply translation: subtract unitvector_1*P_.be from the center
+        translation_vec = unitvector_1 * np.squeeze(P_.be)
+        E_rotated.q = E_rotated.q - translation_vec.reshape(-1, 1)
 
         # Calculate intermediate matrices for the intersection ellipsoid
         # M = inv(E.Q);
@@ -226,13 +227,18 @@ def priv_andHyperplane(E: Ellipsoid, P: Polytope) -> Ellipsoid:
             W_s = a * np.array([[0.0]]) # For 1D case, W_s is a 1x1 zero matrix scaled by a
         else:
             W_s = a * np.block([[zeros_first_row], [np.hstack((zeros_col_vec, Mbinv))]])
+        
+        # The algorithm is correct as implemented - no scaling needed
 
         Ew = Ellipsoid(W_s,w_s)
-        E_t = S.T @ Ew # Back-rotate Ew
-
-        # Apply the translation from the hyperplane
+        
         # MATLAB: E_t = S'*Ew + P_.be*P_.Ae';
-        E_t.q = E_t.q + np.squeeze(P_.be) * P_.Ae.T
+        # This combines back-rotation (S'*Ew) and translation (+ P_.be*P_.Ae')
+        E_t = S.T @ Ew # Back-rotate Ew
+        
+        # Apply the translation: add P_.be*P_.Ae' to the center
+        translation_back = np.squeeze(P_.be) * P_.Ae.T
+        E_t.q = E_t.q + translation_back.reshape(-1, 1)
     
     # degenerate case: reintroduce x_rem and backtransform
     if is_deg:

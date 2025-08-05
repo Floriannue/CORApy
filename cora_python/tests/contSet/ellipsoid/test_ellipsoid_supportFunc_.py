@@ -78,7 +78,7 @@ def aux_checkSuppFunc(E):
     """
     n = E.dim()
     T, S, _ = np.linalg.svd(E.Q)
-    s = np.sqrt(np.diag(S))
+    s = np.sqrt(S)  # S is already a 1D array of singular values
     
     # Loop over all directions
     for i in range(n):

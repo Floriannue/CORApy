@@ -64,7 +64,13 @@ def constraints(P: 'Polytope') -> 'Polytope':
         n, nrVert = V.shape
     
     # Special cases
-    if nrVert == 1:
+    if nrVert == 0:
+        # Empty polytope: no vertices, no constraints
+        A = np.zeros((0, n))
+        b = np.array([]).reshape(-1, 1)
+        Ae = np.zeros((0, n))
+        be = np.array([]).reshape(-1, 1)
+    elif nrVert == 1:
         # Simple method for a single vertex: { x | I * x = V }
         A = np.zeros((0, n))
         b = np.array([]).reshape(-1, 1)
@@ -96,6 +102,15 @@ def constraints(P: 'Polytope') -> 'Polytope':
 
 def _aux_1D(V):
     """Auxiliary function for 1D case"""
+    # Handle empty vertices case
+    if V.size == 0:
+        # Empty polytope: no constraints needed, but this case should be handled upstream
+        A = np.zeros((0, 1))
+        b = np.array([]).reshape(-1, 1)
+        Ae = np.zeros((0, 1))
+        be = np.array([]).reshape(-1, 1)
+        return A, b, Ae, be
+    
     # Find minimum and maximum value
     maxV = np.max(V)
     minV = np.min(V)

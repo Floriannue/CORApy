@@ -90,17 +90,17 @@ def cubMap(*args):
 def _aux_cubMapSingle(Z: Zonotope, T: List, ind: List) -> Zonotope:
     """Calculates the set: { z = (x' T x) * x | x in Z }"""
     n = len(ind)
-    N = Z.generators.shape[1] + 1
+    N = Z.generators().shape[1] + 1
     Zcub = np.zeros((n, N**3))
     for i in range(n):
         listQuad = [np.zeros((N, N)) for _ in range(N)]
         for k in range(len(ind[i])):
-            Z_full = np.hstack([Z.center, Z.generators])
+            Z_full = np.hstack([Z.center(), Z.generators()])
             quadMat = Z_full.T @ T[i][ind[i][k] - 1] @ Z_full
             temp = np.tril(quadMat, -1)
             quadMat = quadMat - temp + temp.T
             for j in range(N):
-                Zj = np.hstack([Z.center, Z.generators])
+                Zj = np.hstack([Z.center(), Z.generators()])
                 listQuad[j] += quadMat * Zj[ind[i][k] - 1, j]
         for k in range(1, N):
             for j in range(k):
@@ -125,19 +125,19 @@ def _aux_cubMapSingle(Z: Zonotope, T: List, ind: List) -> Zonotope:
 def _aux_cubMapMixed(Z1: Zonotope, Z2: Zonotope, Z3: Zonotope, T: List, ind: List) -> Zonotope:
     """Calculates the set: { z = (x1' T x2) * x3 | x1 in Z1, x2 in Z2, x3 in Z3 }"""
     n = len(ind)
-    N1 = Z1.generators.shape[1] + 1
-    N2 = Z2.generators.shape[1] + 1
-    N3 = Z3.generators.shape[1] + 1
+    N1 = Z1.generators().shape[1] + 1
+    N2 = Z2.generators().shape[1] + 1
+    N3 = Z3.generators().shape[1] + 1
     Nq = N1 * N2
     Zcub = np.zeros((n, N1 * N2 * N3))
     for i in range(n):
         for k in range(len(ind[i])):
-            Z1_full = np.hstack([Z1.center, Z1.generators])
-            Z2_full = np.hstack([Z2.center, Z2.generators])
+            Z1_full = np.hstack([Z1.center(), Z1.generators()])
+            Z2_full = np.hstack([Z2.center(), Z2.generators()])
             quadMat = Z1_full.T @ T[i][ind[i][k] - 1] @ Z2_full
             quadVec = quadMat.flatten()
             for j in range(N3):
-                Z3j = np.hstack([Z3.center, Z3.generators])
+                Z3j = np.hstack([Z3.center, Z3.generators()])
                 Zcub[i, (j)*Nq:(j+1)*Nq] += quadVec * Z3j[ind[i][k] - 1, j]
     # The output should be the full matrix as in MATLAB: Zonotope(Zcub)
     return Zonotope(Zcub) 

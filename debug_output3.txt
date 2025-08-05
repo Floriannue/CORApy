@@ -1,0 +1,40 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.11.7, pytest-8.4.0, pluggy-1.6.0 -- C:\Users\flori\AppData\Local\Programs\Python\Python311\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Bachelorarbeit\Translate_Cora
+configfile: pytest.ini
+plugins: anyio-4.9.0, mock-3.14.1
+collecting ... collected 1 item
+
+cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_full_intersection_non_degenerate_2d [DEBUG] priv_andHyperplane: dist_val = -1.0, E.TOL = 1e-06
+[DEBUG] E_rotated.q[0,0] = 0.0
+[DEBUG] m11 = 1.0000000000000002
+[DEBUG] mb = [[-1.00875766e-16]]
+[DEBUG] Mbinv = [[1.]]
+[DEBUG] mb.T @ Mbinv @ mb = [[1.01759202e-32]]
+[DEBUG] m11 - mb.T @ Mbinv @ mb = [[1.]]
+[DEBUG] computed a = 1.0
+[DEBUG] Before scaling W_s = [[0. 0.]
+ [0. 1.]]
+[DEBUG] After scaling W_s = [[0.  0. ]
+ [0.  0.5]]
+[DEBUG] W_s = [[0.  0. ]
+ [0.  0.5]]
+[DEBUG] w_s = [[0.]
+ [0.]]
+[DEBUG] a = 1.0
+[DEBUG] Ew.Q = [[0.  0. ]
+ [0.  0.5]]
+[DEBUG] Ew.q = [[0.]
+ [0.]]
+[DEBUG] After back-rotation E_t.Q = [[ 0.25 -0.25]
+ [-0.25  0.25]]
+[DEBUG] After back-rotation E_t.q = [[0.]
+ [0.]]
+[DEBUG] Final E_t.Q = [[ 0.25 -0.25]
+ [-0.25  0.25]]
+[DEBUG] Final E_t.q = [[0.]
+ [0.]]
+PASSED
+
+============================== 1 passed in 5.05s ==============================

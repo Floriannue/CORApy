@@ -1,0 +1,159 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.11.7, pytest-8.4.0, pluggy-1.6.0 -- C:\Users\flori\AppData\Local\Programs\Python\Python311\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Bachelorarbeit\Translate_Cora
+configfile: pytest.ini
+plugins: anyio-4.9.0, mock-3.14.1
+collecting ... collected 8 items
+
+cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_empty_intersection PASSED [ 12%]
+cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_full_intersection_non_degenerate_2d PASSED [ 25%]
+cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_intersection_0d_ellipsoid_on_hyperplane PASSED [ 37%]
+cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_intersection_0d_ellipsoid_off_hyperplane PASSED [ 50%]
+cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_1d_case FAILED [ 62%]
+cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_degenerate_ellipsoid_intersection PASSED [ 75%]
+cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_degenerate_ellipsoid_intersection_on_plane FAILED [ 87%]
+cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_error_case_a_negative PASSED [100%]
+
+================================== FAILURES ===================================
+_____________________ TestPrivAndHyperplane.test_1d_case ______________________
+
+self = <test_priv_andHyperplane.TestPrivAndHyperplane object at 0x000001FCCD2AE190>
+
+    def test_1d_case(self):
+        # 1D ellipsoid: [0.5, 0.5], Q = [[0.25]] (radius 0.5)
+        E = Ellipsoid(np.array([[0.25]]), np.array([[0.5]]))
+        # 1D hyperplane: x = 0.5
+        P = Polytope(np.array([[]]).reshape(0,1), np.array([[]]).reshape(0,1), np.array([[1]]), np.array([[0.5]]))
+    
+>       result_E = priv_andHyperplane(E, P)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+cora_python\tests\contSet\ellipsoid\private\test_priv_andHyperplane.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+cora_python\contSet\ellipsoid\private\priv_andHyperplane.py:118: in priv_andHyperplane
+    P_ = P.normalizeConstraints('A') # For hyperplane, A is Aeq
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cora_python\contSet\polytope\normalizeConstraints.py:55: in normalizeConstraints
+    P_out = Polytope(P)
+            ^^^^^^^^^^^
+cora_python\contSet\polytope\polytope.py:131: in __init__
+    self._copy_constructor(args[0])
+cora_python\contSet\polytope\polytope.py:190: in _copy_constructor
+    self._V = other.V.copy() if other.V is not None and other.V.size > 0 else np.array([]).reshape(0,0)
+                                ^^^^^^^
+cora_python\contSet\polytope\polytope.py:339: in V
+    self.vertices_()
+cora_python\contSet\polytope\vertices_.py:55: in vertices_
+    V = _priv_vertices_1D(P.A, P.b, P.Ae, P.be, tol)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cora_python\contSet\polytope\vertices_.py:154: in _priv_vertices_1D
+    if not withinTol(Ae[i, 0], 0, tol): # If coefficient is not zero
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+a = 1, b = 0, tol = 1e-09
+
+    def withinTol(a: Union[float, int, np.ndarray], b: Union[float, int, np.ndarray], tol: float = 1e-8) -> Union[bool, np.ndarray]:
+        """
+        withinTol - checks whether two numeric values (scalars, vectors, arrays)
+        are within a given tolerance
+    
+        Syntax:
+            res = withinTol(a,b)
+            res = withinTol(a,b,tol)
+    
+        Inputs:
+            a,b - double (scalar, vector, matrix, n-d arrays)
+            tol - (optional) tolerance
+    
+        Outputs:
+            res - true/false for each comparison
+    
+        Example:
+            res = withinTol(1,1+1e-12)
+    
+        Authors:       Victor Gassmann
+        Written:       19-July-2021
+        Last update:   03-December-2023 (MW, handling of Inf values)
+                       22-April-2024 (LK, isnumeric check)
+                       18-October-2024 (TL, allow n-d arrays)
+        Last revision: 20-July-2023 (TL, speed up input parsing)
+                       Automatic python translation: Florian N³ssel BA 2025
+        """
+        from ..postprocessing.CORAerror import CORAerror
+        is_scalar_input = np.isscalar(a) and np.isscalar(b)
+    
+        # direct check for speed reasons
+        if not (isinstance(a, (int, float)) or (isinstance(a, np.ndarray) and np.issubdtype(a.dtype, np.number))):
+>           raise CORAerror('CORA:wrongValue', 'first', 'double')
+E           cora_python.g.functions.matlab.validate.postprocessing.CORAerror.CORAerror: Wrong value for the first input argument.
+E             The right value: double
+E             Type 'help withinTol' for more information.
+
+cora_python\g\functions\matlab\validate\check\withinTol.py:70: CORAerror
+____ TestPrivAndHyperplane.test_degenerate_ellipsoid_intersection_on_plane ____
+
+self = <test_priv_andHyperplane.TestPrivAndHyperplane object at 0x000001FCCD2AEF10>
+
+    def test_degenerate_ellipsoid_intersection_on_plane(self):
+        # Degenerate ellipsoid: a line segment along x-axis from (-1,0) to (1,0)
+        # Q = [[1, 0], [0, 0]], q = [[0],[0]]
+        E = Ellipsoid(np.array([[1, 0], [0, 0]]), np.array([[0], [0]]), 1e-6)
+        # Hyperplane: y = 0 (same plane as ellipsoid)
+        P = Polytope(np.array([[]]).reshape(0,2), np.array([[]]).reshape(0,1), np.array([[0, 1]]), np.array([[0]]))
+    
+>       result_E = priv_andHyperplane(E, P)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+cora_python\tests\contSet\ellipsoid\private\test_priv_andHyperplane.py:104: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+cora_python\contSet\ellipsoid\private\priv_andHyperplane.py:118: in priv_andHyperplane
+    P_ = P.normalizeConstraints('A') # For hyperplane, A is Aeq
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cora_python\contSet\polytope\normalizeConstraints.py:59: in normalizeConstraints
+    P.A, P.b, P.Ae, P.be, type_)
+    ^^^
+cora_python\contSet\polytope\polytope.py:283: in A
+    self.constraints()
+cora_python\contSet\polytope\constraints.py:75: in constraints
+    A, b, Ae, be = _aux_1D(V)
+                   ^^^^^^^^^^
+cora_python\contSet\polytope\constraints.py:100: in _aux_1D
+    maxV = np.max(V)
+           ^^^^^^^^^
+C:\Users\flori\AppData\Local\Programs\Python\Python311\Lib\site-packages\numpy\core\fromnumeric.py:2810: in max
+    return _wrapreduction(a, np.maximum, 'max', axis, None, out,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+obj = array([], shape=(1, 0), dtype=float64), ufunc = <ufunc 'maximum'>
+method = 'max', axis = None, dtype = None, out = None
+kwargs = {'initial': <no value>, 'keepdims': <no value>, 'where': <no value>}
+passkwargs = {}
+
+    def _wrapreduction(obj, ufunc, method, axis, dtype, out, **kwargs):
+        passkwargs = {k: v for k, v in kwargs.items()
+                      if v is not np._NoValue}
+    
+        if type(obj) is not mu.ndarray:
+            try:
+                reduction = getattr(obj, method)
+            except AttributeError:
+                pass
+            else:
+                # This branch is needed for reductions like any which don't
+                # support a dtype.
+                if dtype is not None:
+                    return reduction(axis=axis, dtype=dtype, out=out, **passkwargs)
+                else:
+                    return reduction(axis=axis, out=out, **passkwargs)
+    
+>       return ufunc.reduce(obj, axis, dtype, out, **passkwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: zero-size array to reduction operation maximum which has no identity
+
+C:\Users\flori\AppData\Local\Programs\Python\Python311\Lib\site-packages\numpy\core\fromnumeric.py:88: ValueError
+=========================== short test summary info ===========================
+FAILED cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_1d_case
+FAILED cora_python/tests/contSet/ellipsoid/private/test_priv_andHyperplane.py::TestPrivAndHyperplane::test_degenerate_ellipsoid_intersection_on_plane
+========================= 2 failed, 6 passed in 6.77s =========================

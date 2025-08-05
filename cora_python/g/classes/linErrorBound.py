@@ -680,8 +680,8 @@ class LinErrorBound:
             return np.linalg.norm(np.sum(np.abs(S.G), axis=1) + np.abs(S.c.flatten()))
         elif hasattr(S, 'generators') and hasattr(S, 'center'):
             # zonotope-like with methods
-            G = S.generators
-            c = S.center
+            G = S.generators()
+            c = S.center()  
             return np.linalg.norm(np.sum(np.abs(G), axis=1) + np.abs(c.flatten()))
         elif hasattr(S, 'infimum') and hasattr(S, 'supremum'):
             # interval-like

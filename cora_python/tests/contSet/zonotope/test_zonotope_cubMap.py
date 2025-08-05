@@ -24,7 +24,7 @@ class TestZonotopeCubMap:
         Z_gt = np.vstack([temp_gt, temp_gt])
 
         # Compare
-        assert compare_matrices(np.hstack([Zres.center, Zres.generators]), Z_gt)
+        assert compare_matrices(np.hstack([Zres.center(), Zres.generators()]), Z_gt)
 
     def test_cubic_multiplication(self):
         # Define zonotope
@@ -43,4 +43,4 @@ class TestZonotopeCubMap:
         Z_gt = np.vstack([temp_gt, temp_gt])
 
         # Compare
-        assert compare_matrices(np.hstack([Zres.center, Zres.generators]), Z_gt) 
+        assert compare_matrices(np.hstack([Zres.center(), Zres.generators()]), Z_gt) 

@@ -65,10 +65,14 @@ def withinTol(a: Union[float, int, np.ndarray], b: Union[float, int, np.ndarray]
     from ..postprocessing.CORAerror import CORAerror
     is_scalar_input = np.isscalar(a) and np.isscalar(b)
 
-    # direct check for speed reasons
-    if not (isinstance(a, (int, float)) or (isinstance(a, np.ndarray) and np.issubdtype(a.dtype, np.number))):
+    # direct check for speed reasons - handle numpy scalars and arrays
+    def is_numeric(x):
+        return (isinstance(x, (int, float, np.integer, np.floating)) or 
+                (isinstance(x, np.ndarray) and np.issubdtype(x.dtype, np.number)))
+    
+    if not is_numeric(a):
         raise CORAerror('CORA:wrongValue', 'first', 'double')
-    elif not (isinstance(b, (int, float)) or (isinstance(b, np.ndarray) and np.issubdtype(b.dtype, np.number))):
+    elif not is_numeric(b):
         raise CORAerror('CORA:wrongValue', 'second', 'double')
     elif not np.isscalar(tol) or tol < 0:
         raise CORAerror('CORA:wrongValue', 'third', 'nonnegative scalar')

@@ -69,7 +69,7 @@ def radius(E, *args):
     
     # Quick check for empty set
     if E.representsa_('emptySet', E.TOL):
-        return np.zeros((E.dim, 0))
+        return np.zeros((E.dim(), 0))
     
     # Compute eigenvalues
     # Since we use Q^{-1} as a shape matrix, we need the largest eigenvalues

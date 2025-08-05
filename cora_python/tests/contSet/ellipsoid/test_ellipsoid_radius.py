@@ -39,7 +39,7 @@ def test_radius_basic():
     E0 = Ellipsoid(np.array([[0.0, 0.0], [0.0, 0.0]]), 
                    np.array([[1.0986933635979599], [-1.9884387759871638]]))
     
-    n = E1.dim
+    n = E1.dim()
     
     # For degenerate ellipsoid (point), radius should be close to 0
     r0 = E0.radius()
@@ -47,7 +47,7 @@ def test_radius_basic():
     
     # Test single radius selection
     r1 = E1.radius(1)
-    assert r1.size == 1
+    assert r1.size == 1, f"Single radius should be array with size 1, got size {r1.size}"
     
     # Test for degenerate ellipsoid: norm of ellipsoid should equal radius
     Ed1_norm = Ed1.ellipsoidNorm(np.zeros((n, 1)))  # Norm at origin

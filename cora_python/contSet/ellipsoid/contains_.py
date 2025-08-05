@@ -366,6 +366,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
         raise CORAerror('CORA:noSpecificAlg', f'No algorithm for method {method}')
 
 
+
 def aux_symmetricGrothendieck(E: 'Ellipsoid', Z, tol: float, cert_toggle: bool) -> Tuple[bool, bool, float]:
     """
     Symmetric Grothendieck method for zonotope containment in ellipsoid.

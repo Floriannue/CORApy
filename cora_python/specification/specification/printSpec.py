@@ -103,9 +103,9 @@ def _print_set(set_obj, accuracy: str, do_compact: bool, clear_line: bool):
             # Format numbers in the string if possible
             if hasattr(set_obj, 'center') and hasattr(set_obj, 'generators'):
                 # For sets with center and generators
-                center = set_obj.center
+                center = set_obj.center()
                 if hasattr(set_obj, 'generators'):
-                    gens = set_obj.generators
+                    gens = set_obj.generators()
                     print(f"{set_obj.__class__.__name__}(", end='')
                     _print_matrix(center, accuracy, True, False)
                     print(', ', end='')

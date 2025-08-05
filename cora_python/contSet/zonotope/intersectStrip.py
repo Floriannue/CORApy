@@ -176,7 +176,7 @@ def _aux_methodSvd(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray, m
     def fun(lambda_vec_param):
         """Embedded function to be minimized for optimal lambda"""
         lambda_mat = lambda_vec_param.reshape(dim, -1)
-        part1 = np.eye(len(Z.center))
+        part1 = np.eye(len(Z.center()))
         part2 = np.zeros((dim, len(phi)))
         
         for i in range(len(phi)):
@@ -189,7 +189,7 @@ def _aux_methodSvd(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray, m
         if method == 'svd':
             return np.sum(np.linalg.svd(G_new, compute_uv=False))
         elif method == 'radius':
-            return Zonotope(np.zeros((len(Z.center), 1)), G_new).radius()
+            return Zonotope(np.zeros((len(Z.center()), 1)), G_new).radius()
     
     # Minimize using scipy
     result = minimize(fun, lambda0.flatten(), method='BFGS', options={'disp': False})
@@ -359,7 +359,7 @@ def _aux_methodBravo(Z: Zonotope, C: np.ndarray, phi: np.ndarray, y: np.ndarray)
     
     # Property 1 in [5]
     # Obtain center of zonotope
-    p = Z.center
+    p = Z.center()
     G = Z.G
     dim, nrGens = G.shape
     
@@ -429,11 +429,11 @@ def _aux_zonotopeFromLambda(Z: Zonotope, phi: np.ndarray, C: np.ndarray, y: np.n
     # Zonotope: Z = c+G[-1,1]^o
     
     # New center
-    c_new = Z.center + Lambda @ (y - C @ Z.center)
+    c_new = Z.center() + Lambda @ (y - C @ Z.center())
     
     # New generators
     I = np.eye(len(c_new))
-    G_new = np.hstack([(I - Lambda @ C) @ Z.G, Lambda @ np.diag(phi.flatten())])
+    G_new = np.hstack([(I - Lambda @ C) @ Z.generators(), Lambda @ np.diag(phi.flatten())])
     
     # Resulting zonotope
     return Zonotope(c_new, G_new)

@@ -299,7 +299,7 @@ def test_zonotope_minkDiff_non_full_dimensional():
         diff_comp_proj = minuend_proj.minkDiff(subtrahend_proj, 'exact')
         
         # Compute SVD projection matrix
-        U, S, _ = np.linalg.svd(minuend_proj.generators)
+        U, S, _ = np.linalg.svd(minuend_proj.generators())
         newDim = np.sum(S > 1e-10)  # Number of non-zero singular values
         P_minuend = U[:newDim, :]  # Projection matrix
         
@@ -349,7 +349,7 @@ def test_zonotope_minkDiff_point_subtrahend():
     Z2 = Zonotope(np.array([[0.5], [0.3]]))  # Point zonotope (no generators)
     
     Z_diff = Z1.minkDiff(Z2)
-    Z_expected = Z1 - Z2.center
+    Z_expected = Z1 - Z2.center()
     
     assert np.allclose(Z_diff.c, Z_expected.c)
     assert np.allclose(Z_diff.G, Z_expected.G)

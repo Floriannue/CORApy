@@ -190,7 +190,7 @@ def contains_(Z, S, method='exact', tol=1e-12, maxEval=200, certToggle=True, sca
         # Robustly determine dimension
         if hasattr(Z, 'G') and isinstance(Z.G, np.ndarray):
             d = Z.G.shape[0]
-        elif hasattr(Z, 'generators') and callable(Z.generators):
+        elif hasattr(Z, 'generators') and callable(Z.generators()):
             gens = Z.generators()
             if gens is not None and isinstance(gens, np.ndarray):
                 d = gens.shape[0]

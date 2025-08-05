@@ -55,8 +55,8 @@ def exactPlus(Z: Zonotope, Z2: Zonotope, nrOfGens: Optional[int] = None) -> Zono
     """
     
     # Number of generators
-    nrOfgens1 = Z.generators.shape[1]
-    nrOfgems2 = Z2.generators.shape[1]
+    nrOfgens1 = Z.generators().shape[1]
+    nrOfgems2 = Z2.generators().shape[1]
     
     if nrOfGens is None:
         nrOfGens = min(nrOfgens1, nrOfgems2)
@@ -64,12 +64,12 @@ def exactPlus(Z: Zonotope, Z2: Zonotope, nrOfGens: Optional[int] = None) -> Zono
         nrOfGens = min(nrOfgens1, nrOfgems2, int(nrOfGens))
     
     # Resulting zonotope
-    c_new = Z.center + Z2.center
+    c_new = Z.center() + Z2.center()
     
     # Combine generators
-    G_common = Z.generators[:, :nrOfGens] + Z2.generators[:, :nrOfGens]
-    G_remaining1 = Z.generators[:, nrOfGens:] if nrOfGens < nrOfgens1 else np.zeros((Z.center.shape[0], 0))
-    G_remaining2 = Z2.generators[:, nrOfGens:] if nrOfGens < nrOfgems2 else np.zeros((Z2.center.shape[0], 0))
+    G_common = Z.generators()[:, :nrOfGens] + Z2.generators()[:, :nrOfGens]
+    G_remaining1 = Z.generators()[:, nrOfGens:] if nrOfGens < nrOfgens1 else np.zeros((Z.center().shape[0], 0))
+    G_remaining2 = Z2.generators()[:, nrOfGens:] if nrOfGens < nrOfgems2 else np.zeros((Z2.center().shape[0], 0))
     
     G_new = np.hstack([G_common, G_remaining1, G_remaining2])
     

@@ -103,12 +103,12 @@ def validateReach(self, configs, check_contain=False, plot_settings=None):
              y = self.y[p:,:,:]
         
         if plot_settings.get('plot_Yp', False):
-            p_GO = config['sys'].computeGO(params['R0'].center, params['U'].center + self.u.T, n_k)
+            p_GO = config['sys'].computeGO(params['R0'].center(), params['U'].center() + self.u.T, n_k)
             Y_p = [None] * n_k
             for k in range(n_k):
-                Y_p[k] = p_GO.y[:,k] + p_GO.C[k] @ (config['params']['R0'] - config['params']['R0'].center)
+                Y_p[k] = p_GO.y[:,k] + p_GO.C[k] @ (config['params']['R0'] - config['params']['R0'].center())
                 for j in range(k + 1):
-                    Y_p[k] = Y_p[k] + p_GO.D[k,j] @ (config['params']['U'] - config['params']['U'].center)
+                    Y_p[k] = Y_p[k] + p_GO.D[k,j] @ (config['params']['U'] - config['params']['U'].center())
             R_p[i] = Y_p
 
     if not plot_settings or not plot_settings.get('k_plot'):

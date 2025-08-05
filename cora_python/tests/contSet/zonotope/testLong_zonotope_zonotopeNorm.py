@@ -51,7 +51,7 @@ def testLong_zonotope_zonotopeNorm():
             
             for i_p in range(P.shape[1]):
                 # Compute zonotope norm relative to center
-                p_relative = P[:, i_p] - Z.center.flatten()
+                p_relative = P[:, i_p] - Z.center().flatten()
                 # Ensure p_relative is a column vector
                 p_relative = p_relative.reshape(-1, 1)
                 zN = zonotopeNorm(Z, p_relative)[0]
@@ -75,7 +75,7 @@ def testLong_zonotope_zonotopeNorm():
             
             # Lift Z to a space with one more dimension
             # This ensures points cannot be contained if chosen correctly
-            Z_lift_center = np.append(Z.center.flatten(), 0)
+            Z_lift_center = np.append(Z.center().flatten(), 0)
             Z_lift_generators = np.vstack([Z.generators(), np.zeros((1, Z.generators().shape[1]))])
             Z_lift = Zonotope(Z_lift_center, Z_lift_generators)
             
@@ -88,7 +88,7 @@ def testLong_zonotope_zonotopeNorm():
             
             for i_p in range(P_lift.shape[1]):
                 # Compute zonotope norm relative to center
-                p_relative = P_lift[:, i_p] - Z_lift.center.flatten()
+                p_relative = P_lift[:, i_p] - Z_lift.center().flatten()
                 # Ensure p_relative is a column vector
                 p_relative = p_relative.reshape(-1, 1)
                 zN = zonotopeNorm(Z_lift, p_relative)[0]

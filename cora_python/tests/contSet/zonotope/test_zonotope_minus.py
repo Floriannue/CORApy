@@ -129,8 +129,8 @@ class TestZonotopeMinusOp:
         Z_sum = Z2 + Z3
         Z_result2 = Z1 - Z_sum
         
-        # Both should contain the point Z1.center - Z2.center - Z3.center
-        target_point = Z1.c.flatten() - Z2.c.flatten() - Z3.c.flatten()
+        # Both should contain the point Z1.center() - Z2.center() - Z3.center()
+        target_point = Z1.center().flatten() - Z2.center().flatten() - Z3.center().flatten()
         assert Z_result1.contains_(target_point)
         assert Z_result2.contains_(target_point)
     

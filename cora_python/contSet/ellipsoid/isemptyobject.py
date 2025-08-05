@@ -55,7 +55,7 @@ def isemptyobject(self: Ellipsoid) -> bool:
     # For now, we assume 'self' is a single Ellipsoid object.
     
     res_Q_empty = isinstance(self.Q, np.ndarray) and self.Q.size == 0
-    res_q_empty = isinstance(self.q, np.ndarray) and self.q.shape[1] == 0 # Check for n x 0 matrix
+    res_q_empty = isinstance(self.q, np.ndarray) and self.q.size == 0 # Check for empty q (either 0 rows or 0 columns)
     
     res_tol = False
     # MATLAB: (isscalar(E.TOL) && E.TOL == 1e-6) || isempty(E.TOL)

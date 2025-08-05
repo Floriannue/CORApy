@@ -27,15 +27,14 @@ def test_ellipsoid_project():
     # Generate ellipsoid
     E = Ellipsoid(Q)
     
-    # Project ellipsoid using range [2, 3] (MATLAB 1-based indexing)
-    projDim = [2, 3]  # This means indices 1, 2 in 0-based Python
+    # Project ellipsoid using range [1, 2] (0-based indexing)
+    projDim = [1, 2]  # This means indices 1, 2 in 0-based Python (dimensions 2, 3)
     E_proj1 = E.project(projDim)
     
     # True solution (extract submatrix)
-    # MATLAB: Q(projDim(1):projDim(2), projDim(1):projDim(2))
-    # Python: Q[1:3, 1:3] for 0-based indexing
-    start_idx = projDim[0] - 1  # Convert to 0-based
-    end_idx = projDim[1]        # End is inclusive in MATLAB
+    # Python: Q[1:3, 1:3] for 0-based indexing (range [1, 2] inclusive)
+    start_idx = projDim[0]
+    end_idx = projDim[1] + 1  # Make end inclusive
     Q_proj = Q[start_idx:end_idx, start_idx:end_idx]
     E_true = Ellipsoid(Q_proj)
     
@@ -62,7 +61,7 @@ def test_project_with_center():
     E = Ellipsoid(Q, q)
     
     # Project to first two dimensions
-    E_proj = E.project([1, 2])  # MATLAB-style 1-based indexing
+    E_proj = E.project([0, 1])  # 0-based indexing for first two dimensions
     
     # Expected: Q[0:2, 0:2] and q[0:2]
     expected_Q = Q[0:2, 0:2]
@@ -103,8 +102,8 @@ def test_project_single_dimension():
     q = np.array([[5], [-2], [1]])
     E = Ellipsoid(Q, q)
     
-    # Project to second dimension only (MATLAB index 2)
-    E_proj = E.project([2])
+    # Project to second dimension only (0-based index 1)
+    E_proj = E.project([1])
     
     # Expected 1D result
     expected_Q = np.array([[Q[1, 1]]])
@@ -125,10 +124,10 @@ def test_project_consecutive_dimensions():
     q = np.random.randn(5, 1)
     E = Ellipsoid(Q, q)
     
-    # Project to dimensions 2-4 (MATLAB 1-based)
-    E_proj = E.project([2, 4])
+    # Project to dimensions 1-3 (0-based indexing, range syntax)
+    E_proj = E.project([1, 3])
     
-    # Expected: dimensions 1-3 in 0-based indexing
+    # Expected: dimensions 1-3 in 0-based indexing (inclusive)
     expected_Q = Q[1:4, 1:4]
     expected_q = q[1:4, :]
     
@@ -143,7 +142,7 @@ def test_project_empty_ellipsoid():
     """Test projection of empty ellipsoid"""
     
     E_empty = Ellipsoid.empty(4)
-    E_proj = E_empty.project([1, 2])
+    E_proj = E_empty.project([0, 1])
     
     # Projection of empty ellipsoid should remain empty
     assert E_proj.representsa_('emptySet', E_proj.TOL), \
@@ -160,7 +159,7 @@ def test_project_degenerate_ellipsoid():
     E = Ellipsoid(Q, q)
     
     # Project to all dimensions
-    E_proj = E.project([1, 2, 3])
+    E_proj = E.project([0, 1, 2])
     
     # Should be the same as original
     assert np.allclose(E_proj.Q, E.Q), "Full projection should be identity"
@@ -184,11 +183,11 @@ def test_project_error_cases():
     
     # Invalid dimension index (too large)
     with pytest.raises(ValueError):
-        E.project([1, 5])  # Index 5 doesn't exist
+        E.project([0, 5])  # Index 5 doesn't exist in 3D ellipsoid
     
-    # Invalid dimension index (too small)
+    # Invalid dimension index (negative)
     with pytest.raises(ValueError):
-        E.project([0])  # MATLAB-style 1-based indexing
+        E.project([-1])  # Negative index should be invalid
     
     # Empty projection dimensions
     with pytest.raises(ValueError):

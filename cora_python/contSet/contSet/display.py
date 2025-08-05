@@ -69,7 +69,7 @@ def display(S: 'ContSet') -> str:
             result += f"  supremum: {S.sup()}\n"
     elif class_name == 'zonotope':
         if hasattr(S, 'generators'):
-            result += f"  generators: {S.generators.shape[1]} columns\n"
+            result += f"  generators: {S.generators().shape[1]} columns\n"
     elif class_name == 'polytope':
         if hasattr(S, 'V') and S.V is not None:
             result += f"  vertices: {S.V.shape[1]} columns\n"

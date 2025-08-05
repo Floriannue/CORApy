@@ -37,11 +37,24 @@ def project(E: 'Ellipsoid', dims: np.ndarray) -> 'Ellipsoid':
     
     # Convert dims to numpy array if it's not already
     dims = np.asarray(dims)
-
-    # Check input arguments - convert dims to 0-based indexing for checking
-    # Note: MATLAB uses 1-based indexing, Python uses 0-based
-    # The dims input should already be 0-based in Python context
     
+    # Handle different input types
+    if dims.dtype == bool:
+        # Logical indexing - convert to indices
+        dims = np.where(dims)[0]
+    else:
+        # Numeric indexing - ensure integer type
+        dims = np.asarray(dims, dtype=int)
+        
+        # Handle range syntax [start, end] vs individual indices [dim1, dim2, dim3, ...]
+        if len(dims) == 2 and dims[1] > dims[0]:
+            # Range syntax: [start, end] -> range(start, end+1) (inclusive)
+            start_idx = dims[0]
+            end_idx = dims[1] + 1  # Make end inclusive
+            dims = np.arange(start_idx, end_idx)
+        # else: individual indices - use as-is
+    
+    # Check input arguments - all indices should be 0-based
     inputArgsCheck([
         [E, 'att', 'ellipsoid'],
         [dims, 'att', ['numeric', 'logical'], [['nonnan', 'vector', 'integer', 'nonnegative'], ['vector']]]

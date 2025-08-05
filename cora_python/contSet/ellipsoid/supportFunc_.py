@@ -61,6 +61,16 @@ def supportFunc_(E: Ellipsoid,
     if direction.ndim == 1:
         direction = direction.reshape(-1, 1)
     
+    # Check if ellipsoid represents an empty set
+    if E.representsa_('emptySet', E.TOL):
+        if type_ == 'upper':
+            return -np.inf, np.full((E.dim(), 1), np.nan)
+        elif type_ == 'lower':
+            return np.inf, np.full((E.dim(), 1), np.nan)
+        elif type_ == 'range':
+            from cora_python.contSet.interval.interval import Interval
+            return Interval(-np.inf, np.inf), np.full((E.dim(), 2), np.nan)
+    
     # Check if ellipsoid represents a point
     if E.representsa_('point', np.finfo(float).eps):
         val = float(direction.T @ E.q)  # Convert to scalar
@@ -74,6 +84,7 @@ def supportFunc_(E: Ellipsoid,
         val = float(direction.T @ E.q - np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
         x = E.q - E.Q @ direction / np.sqrt(direction.T @ E.Q @ direction)
     elif type_ == 'range':
+        from cora_python.contSet.interval.interval import Interval
         lower_val = float(direction.T @ E.q - np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
         upper_val = float(direction.T @ E.q + np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
         val = Interval(lower_val, upper_val)

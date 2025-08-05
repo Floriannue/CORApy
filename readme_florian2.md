@@ -87,6 +87,7 @@ All of them apply always
 - **ALWAYS** read MATLAB source files before translating
 - **ALWAYS** search manual for function specifications
 - **ALWAYS** run tests after implementation
+- **ALWAYS** verify the mathematical correctness of both the implementation AND the tests, verify not just the algorithm implementation, but also the test expectations and mathematical assumptions.
 - **ALWAYS** after translating a file **report** back with a comparison against the MATLAB source
 
 #### Prohibited Actions:
@@ -135,6 +136,7 @@ python test_coverage.py "cora_python/contSet/interval" "cora_python/tests/contSe
 - Examples must not have tests
 
 ### Code structure
+- Use zero based indexing -> translate matlab 1 based indexing to 0 based indexing
 - Classes start with capital letter: `zonotope` → `Zonotope`
 - Ensure keyword arguments and positional arguments are supported
 - Test files naming: `test_class_method` → test for class.method, `test_class` → class (constructor) test, `test_function` → standalone function test

@@ -153,7 +153,7 @@ def _aux_unionTedrake(Zcell: List[Zonotope], order: Optional[int]) -> Zonotope:
     
     # Construct generator matrix of the final zonotope
     Z_ = _aux_unionIterative(Zcell, order)
-    G = Z_.generators
+    G = Z_.generators()
     
     Y = G @ np.diag(1/np.sqrt(np.sum(G**2, axis=0)))
     n, ny = Y.shape
@@ -167,8 +167,8 @@ def _aux_unionTedrake(Zcell: List[Zonotope], order: Optional[int]) -> Zonotope:
     
     for i in range(len(Zcell)):
         # Obtain generator matrix and center from the current zonotope
-        X = Zcell[i].generators
-        x = Zcell[i].center
+        X = Zcell[i].generators()
+        x = Zcell[i].center()
         nx = X.shape[1]
         Hx = np.vstack([np.eye(nx), -np.eye(nx)])
         hx = np.ones((2*nx, 1))
@@ -266,7 +266,7 @@ def _aux_unionTedrake(Zcell: List[Zonotope], order: Optional[int]) -> Zonotope:
     lb = -val[ny:2*ny]
     int_val = Interval(lb, ub)
     
-    c = Y @ int_val.center
+    c = Y @ int_val.center()
     G = Y @ np.diag(int_val.rad().flatten())
     
     return Zonotope(c, G)
@@ -288,7 +288,7 @@ def _aux_unionLinprog(Zcell: List[Zonotope], order: Optional[int]) -> Zonotope:
     
     # Compute the directions of the boundary halfspaces
     n, nrGen = G.shape
-    P = Polytope(Z_ - Z_.center)
+    P = Polytope(Z_ - Z_.center())
     nrIneq = len(P.b)
     
     val = np.zeros((nrIneq, nrZ))
@@ -298,7 +298,7 @@ def _aux_unionLinprog(Zcell: List[Zonotope], order: Optional[int]) -> Zonotope:
             # Compute bound for the current zonotope (note: this is a
             # direct implementation of zonotope/supportFunc_ ...)
             Z_proj = P.A[i:i+1, :] @ Zcell[j]
-            val[i, j] = Z_proj.center[0, 0] + np.sum(np.abs(Z_proj.generators()))
+            val[i, j] = Z_proj.center()[0, 0] + np.sum(np.abs(Z_proj.generators()))
     
     d = np.max(val, axis=1)
     
@@ -387,7 +387,7 @@ def _aux_unionAlthoff(Z1: Zonotope, Zcell: List[Zonotope], order: Optional[int])
     # Obtain Zcut
     Zcut = [Z1.generators()[:, :minNrOfGens]]
     for iSet in range(len(Zcell)):
-        Zcut.append(np.hstack([Zcell[iSet].center, Zcell[iSet].generators()[:, :minNrOfGens]]))
+        Zcut.append(np.hstack([Zcell[iSet].center(), Zcell[iSet].generators()[:, :minNrOfGens]]))
     
     # Obtain Zadd
     Zadd = [Z1.generators()[:, minNrOfGens:]]
@@ -416,7 +416,7 @@ def _aux_unionAlthoff(Z1: Zonotope, Zcell: List[Zonotope], order: Optional[int])
         Z_encl = Zonotope.enclosePoints(V)
         
         # Concatenate enclosing zonotopes
-        Zmat = np.hstack([Zmat, np.hstack([Z_encl.center, Z_encl.generators()])])
+        Zmat = np.hstack([Zmat, np.hstack([Z_encl.center(), Z_encl.generators()])])
     
     # Add Zadd to the resulting generator matrix
     for i in range(len(Zadd)):
@@ -439,7 +439,7 @@ def _aux_unionParallelotope(Zcell: List[Zonotope]) -> Zonotope:
     n = Zcell[0].dim()
     V = np.zeros((n, 0))
     for i in range(len(Zcell)):
-        G = Zcell[i].generators
+        G = Zcell[i].generators()
         V = np.hstack([V, G, -G])
     
     # Compute the arithmetic mean of the vertices

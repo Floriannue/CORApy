@@ -231,13 +231,15 @@ class TestEllipsoidNorm:
         p_inside = np.array([0.5, 0.5])
         norm = ellipsoidNorm(E, p_inside)
         assert norm < 1.0
-        assert E.contains_(p_inside)
+        res_inside, _, _ = E.contains_(p_inside)
+        assert res_inside
         
         # Points with norm > 1 should not be contained
         p_outside = np.array([2.0, 2.0])
         norm = ellipsoidNorm(E, p_outside)
         assert norm > 1.0
-        assert not E.contains_(p_outside)
+        res_outside, _, _ = E.contains_(p_outside)
+        assert not res_outside
         
         # Points with norm ≈ 1 should be on boundary
         p_boundary = np.array([1.0, 0.0])

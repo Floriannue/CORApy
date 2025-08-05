@@ -49,8 +49,6 @@ from typing import Optional
 from .zonotope import Zonotope
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check import inputArgsCheck
-from .dim import dim
-from .generators import generators
 from .interval import interval
 
 
@@ -71,7 +69,7 @@ def dH2box(Z: Zonotope, method: Optional[str] = None) -> float:
         dH = dH2box(Z, 'naive')
     """
     # Input arguments
-    if dim(Z) <= 3:
+    if Z.dim() <= 3:
         dV = 'exact'
     else:
         dV = 'naive'
@@ -106,11 +104,11 @@ def _aux_dH2box_exact(Z: Zonotope) -> float:
     Computes near-exact dH according to [1]
     """
     # Generator matrices
-    G = generators(Z)
+    G = Z.generators()
     Gbox = np.diag(np.sum(np.abs(G), axis=1))
     
     # Generate lambda vectors
-    n = dim(Z)
+    n = Z.dim()
     numDirs = 10000
     sections = int(np.power(numDirs, 1/(n-1))) if n > 1 else numDirs
     lambda_vectors = _randEqdistDirections(n, sections)
@@ -142,7 +140,7 @@ def _aux_dH2box_ell(Z: Zonotope) -> float:
     Computes distance from box under-approximations to box over-approximations
     """
     # Generator matrix
-    G = generators(Z)
+    G = Z.generators()
     n, gamma = G.shape
     
     # Number of parallelotopes
@@ -198,7 +196,7 @@ def _aux_dH2box_wgreedy(Z: Zonotope) -> float:
     Computes length of sum of generators with largest absolute element set to 0
     """
     # Generator matrices
-    G = generators(Z)
+    G = Z.generators()
     Gabs = np.abs(G)
     _, gamma = G.shape
     
@@ -219,7 +217,7 @@ def _aux_dH2box_wopt(Z: Zonotope) -> float:
     Computes optimal scaling of generator lengths
     """
     # Generator matrices
-    G = generators(Z)
+    G = Z.generators()
     Gabs = np.abs(G)
     
     # Dimensions

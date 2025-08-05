@@ -37,12 +37,13 @@ class TestPrivAndHyperplane:
         assert np.allclose(result_E.q, np.zeros((2,1)), atol=1e-9)
 
         # Check if the primary axis matches [1/sqrt(2), -1/sqrt(2)] direction
-        # And the radius in that direction is sqrt(0.5)
-        # E.Q should have one non-zero eigenvalue corresponding to this axis.
+        # The intersection line segment goes from (-sqrt(0.5), sqrt(0.5)) to (sqrt(0.5), -sqrt(0.5))
+        # For the degenerate ellipsoid equation (x-q)^T Q^+ (x-q) <= 1 to be satisfied by boundary points,
+        # the eigenvalue should be 1.0 (verified by mathematical analysis)
         evals, evecs = np.linalg.eigh(result_E.Q)
         # Find the non-zero eigenvalue and its eigenvector
         non_zero_eval_idx = np.argmax(np.abs(evals))
-        assert np.isclose(evals[non_zero_eval_idx], 0.5, atol=1e-9) # (radius)^2
+        assert np.isclose(evals[non_zero_eval_idx], 1.0, atol=1e-9) # Correct eigenvalue for degenerate ellipsoid
         # The eigenvector should be parallel to [1, -1] or [-1, 1]
         expected_dir = np.array([[1/np.sqrt(2)], [-1/np.sqrt(2)]])
         actual_dir = evecs[:, non_zero_eval_idx].reshape(-1,1)

@@ -114,7 +114,7 @@ def minkDiff(minuend: Zonotope, subtrahend: Union[Zonotope, np.ndarray],
 
     # Check if subtrahend is point
     if subtrahend.G.size == 0:
-        return minuend - subtrahend.center
+        return minuend - subtrahend.center()
 
     # Check whether minuend is full dimensional
     if minuend.isFullDim():
@@ -126,8 +126,8 @@ def minkDiff(minuend: Zonotope, subtrahend: Union[Zonotope, np.ndarray],
         if method == 'exact':
             if aux_areAligned(minuend, subtrahend):
                 # Exact solution for aligned sets according to [1,Prop.5]
-                return Zonotope(minuend.c - subtrahend.c,
-                              minuend.G - subtrahend.G)
+                return Zonotope(minuend.center() - subtrahend.center(),
+                              minuend.generators() - subtrahend.generators())
             elif n == 2:
                 # Same method as 'inner' [1,Prop.6]
                 return aux_minkDiffZono(minuend, subtrahend, method)
@@ -208,19 +208,19 @@ def aux_minkDiffZono(minuend: Zonotope, subtrahend: Zonotope, method: str) -> Zo
     subtrahend_gens = subtrahend.G.shape[1]
     
     # Intersect polytopes according to Theorem 3 of [1]
-    delta_K = H_orig_twice @ subtrahend.c
+    delta_K = H_orig_twice @ subtrahend.center()
     for i in range(subtrahend_gens):
-        delta_K = delta_K + np.abs(H_orig_twice @ subtrahend.G[:, i:i+1])
+        delta_K = delta_K + np.abs(H_orig_twice @ subtrahend.generators()[:, i:i+1])
     K_orig_new = K_orig_twice - delta_K
     
     C = H_orig
     d = K_orig_new[:K_orig_new.shape[0]//2, :]
     
     # Compute center
-    c = minuend.c - subtrahend.c
+    c = minuend.center() - subtrahend.center()
     
     # Obtain minuend generators
-    G = minuend.G
+    G = minuend.generators()
     
     # Reverse computation from halfspace generation
     n = minuend.dim()
@@ -257,11 +257,11 @@ def aux_minkDiffZono(minuend: Zonotope, subtrahend: Zonotope, method: str) -> Zo
             return Zonotope.empty(n)
         else:
             # Vector of cost function
-            f = np.linalg.norm(minuend.G, 2, axis=0)
+            f = np.linalg.norm(minuend.generators(), 2, axis=0)
             # Obtain unrestricted A_abs and delta_d
             C = H_orig
             d = d_shortened[:d_shortened.shape[0]//2, :]
-            delta_d = d - C @ minuend.c + C @ subtrahend.c
+            delta_d = d - C @ minuend.center() + C @ subtrahend.center()
             A_abs = np.abs(C @ G)
             dims = A_abs.shape[1]
             # A_abs x >= delta_d && x >= 0
@@ -277,7 +277,7 @@ def aux_minkDiffZono(minuend: Zonotope, subtrahend: Zonotope, method: str) -> Zo
             alpha, _, exitflag = CORAlinprog(problem)[:3]
     
     elif method == 'approx':
-        delta_d = d - C @ minuend.c + C @ subtrahend.c
+        delta_d = d - C @ minuend.center() + C @ subtrahend.center()
         A_abs = np.abs(C @ G)
         # Use pseudoinverse to compute an approximation
         alpha = np.linalg.pinv(A_abs) @ delta_d  # solve linear set of equations using the pseudoinverse
@@ -287,7 +287,7 @@ def aux_minkDiffZono(minuend: Zonotope, subtrahend: Zonotope, method: str) -> Zo
         raise CORAerror('CORA:specialError', f"Unknown method: '{method}'")
     
     # Instantiate Z
-    G_new = minuend.G @ np.diag(alpha.flatten())
+    G_new = minuend.generators() @ np.diag(alpha.flatten())
     # Remove all zero columns
     G_new = G_new[:, ~np.all(G_new == 0, axis=0)]
     return Zonotope(c, G_new)
@@ -312,8 +312,8 @@ def aux_minkDiffConZono(Z1: Zonotope, Z2: Zonotope) -> Zonotope:
     cZ = Z1.conZonotope()
     
     # Compute Minkowski difference according to Theorem 1 in [1]
-    c = Z2.c
-    G = Z2.G
+    c = Z2.center()
+    G = Z2.generators()
     
     cZ = cZ + (-c)
     
@@ -370,12 +370,12 @@ def aux_innerApprox(cZ):
     int_val = Interval(c - r, c + r)
     
     # Compute transformation matrices
-    off = p_ + T @ int_val.center
+    off = p_ + T @ int_val.center()
     S = T @ np.diag(int_val.rad().flatten())
     
     # Construct final zonotope
-    c = cZ.c + cZ.G @ off
-    G = cZ.G @ S
+    c = cZ.center() + cZ.generators() @ off
+    G = cZ.generators() @ S
     
     return Zonotope(c, G)
 
@@ -383,10 +383,10 @@ def aux_innerApprox(cZ):
 def aux_RaghuramanKoeln(Z_m: Zonotope, Z_s: Zonotope) -> Zonotope:
     """Solves the Minkowski difference using the method described in [2, Theorem 7]"""
     # Extract data
-    c_m = Z_m.c
-    c_s = Z_s.c
-    G_m = Z_m.G
-    G_s = Z_s.G
+    c_m = Z_m.center()
+    c_s = Z_s.center()
+    G_m = Z_m.generators()
+    G_s = Z_s.generators()
     M = np.hstack([G_m, G_s])
     
     # Dimension and nr of generators
@@ -471,8 +471,8 @@ def aux_RaghuramanKoeln(Z_m: Zonotope, Z_s: Zonotope) -> Zonotope:
 def aux_areAligned(minuend: Zonotope, subtrahend: Zonotope) -> bool:
     """Check if generators are aligned"""
     # Extract generators
-    G_min = minuend.G
-    G_sub = subtrahend.G
+    G_min = minuend.generators()
+    G_sub = subtrahend.generators()
     
     # Check dimensions
     if G_min.shape == G_sub.shape:
