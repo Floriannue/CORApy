@@ -1,6 +1,0 @@
-﻿============================= test session starts =============================
-platform win32 -- Python 3.11.7, pytest-8.4.0, pluggy-1.6.0 -- C:\Users\flori\AppData\Local\Programs\Python\Python311\python.exe
-cachedir: .pytest_cache
-rootdir: C:\Bachelorarbeit\Translate_Cora
-configfile: pytest.ini
-plugins: anyio-4.9.0, mock-3.14.1

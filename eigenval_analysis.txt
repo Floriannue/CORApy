@@ -1,6 +1,0 @@
-﻿Q eigenvalues: [0. 1.]
-Q eigenvectors: [[-0.70710678 -0.70710678]
- [-0.70710678  0.70710678]]
-Expected Q for eigenvalue 0.5: [[ 0.25 -0.25]
- [-0.25  0.25]]
-Expected Q eigenvalues: [0.  0.5]

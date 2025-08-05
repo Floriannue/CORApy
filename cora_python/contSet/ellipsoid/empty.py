@@ -30,7 +30,7 @@ import numpy as np
 from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
 
 
-def empty(n: int) -> 'Ellipsoid':
+def empty(n: int = 0) -> 'Ellipsoid':
     """
     empty - instantiates an empty ellipsoid
 
@@ -61,8 +61,8 @@ def empty(n: int) -> 'Ellipsoid':
     Automatic python translation: Florian Nüssel BA 2025
     """
     # Parse input - handle default case
-    if n is None:
-        n = 0
+    # if n is None: # This line is no longer needed if n has a default argument
+    #    n = 0
     
     # Validate input arguments (following MATLAB exactly)
     from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck

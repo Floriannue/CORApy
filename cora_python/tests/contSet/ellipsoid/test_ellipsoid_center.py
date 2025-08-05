@@ -46,6 +46,14 @@ class TestEllipsoidCenter:
         expected = np.array([[-1.5]])
         np.testing.assert_array_equal(center, expected)
 
+    def test_center_empty(self):
+        """Test center of an empty ellipsoid"""
+        n = 2
+        E_empty = Ellipsoid.empty(n)
+        c = E_empty.center()
+        assert c.shape == (n, 0)
+        assert c.dtype == np.float64 # Ensure it's a numeric empty array
+
 
 if __name__ == '__main__':
     pytest.main([__file__]) 

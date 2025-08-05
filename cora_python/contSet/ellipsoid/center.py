@@ -2,17 +2,17 @@
 center - returns the center of an ellipsoid object
 
 Syntax:
-    c = center(E)
+   c = center(E)
 
 Inputs:
-    E - ellipsoid object
+   E - ellipsoid object
 
 Outputs:
-    c - center of ellipsoid
+   c - center of ellipsoid
 
-Example: 
-    E = Ellipsoid([[1, 0], [0, 1]])
-    c = center(E)
+Example:
+   E = ellipsoid([1 0; 0 1]);
+   c = center(E);
 
 Other m-files required: none
 Subfunctions: none
@@ -20,11 +20,11 @@ MAT-files required: none
 
 See also: -
 
-Authors:       Victor Gassmann (MATLAB)
-               Python translation by AI Assistant
-Written:       13-March-2019 (MATLAB)
-Last update:   04-July-2022 (VG, avoid class array problems, MATLAB)
-Python translation: 2025
+Authors:       Victor Gassmann
+Written:       13-March-2019
+Last update:   04-July-2022 (VG, avoid class array problems)
+Last revision: ---
+               Automatic python translation: Florian Nüssel BA 2025
 """
 
 import numpy as np
