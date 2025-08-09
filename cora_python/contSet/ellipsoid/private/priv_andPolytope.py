@@ -46,8 +46,19 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
         if E.representsa_('emptySet', E.TOL):
             return E
 
-        # compute distance to corresponding hyperplane using general distance unless MATLAB deviates
-        dist = E.distance(Polytope(A=P_halfspace.A, b=P_halfspace.b))
+        # Fast analytic distance to a single half-space to avoid QP
+        a = P_halfspace.A.reshape(1, -1)
+        b = P_halfspace.b.reshape(-1, 1)
+        a_norm = np.linalg.norm(a)
+        if a_norm == 0:
+            dist = 0.0
+        else:
+            a_n = a / a_norm
+            center_proj = float(a_n @ E.q)
+            rad = float(np.sqrt(a_n @ E.Q @ a_n.T)) if E.Q.size > 0 else 0.0
+            plane_offset = float(b / a_norm)
+            # Positive => outside; 0 => touching; negative => intersecting/inside
+            dist = (center_proj - rad) - plane_offset
         n = E.dim()
 
         # touching, completely inside or outside
@@ -79,7 +90,12 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
             if nt == 0:
                 # check if E is contained in the polytope
                 if E.contains_(P_halfspace, method='exact', tol=E.TOL, max_eval=0, cert_toggle=False, scaling_toggle=False):
-                    E = Ellipsoid(np.zeros((n, n)), E.q)
+                    # Ensure valid point center exists
+                    if isinstance(E.q, np.ndarray) and E.q.ndim == 2 and E.q.shape[1] == 1:
+                        E = Ellipsoid(np.zeros((n, n)), E.q)
+                    else:
+                        # No valid center (e.g., empty q) -> empty intersection
+                        E = Ellipsoid.empty(n)
                 else:
                     E = Ellipsoid.empty(n)
                 return E
@@ -130,8 +146,8 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
             _, Q_nd, q_nd = priv_rootfnc(p, W1, q1, W2, q2)
         else: # mode == 'inner'
             # that is "ellipsoidal toolbox original" (not sure why this works)
-            # Assuming 'and_' from Ellipsoid class is available
-            E_hyp = E.and_op(P_halfspace, 'outer') # Assuming and_ is correctly translated and accessible
+            # Use class and_ to mirror MATLAB flow now that it's implemented
+            E_hyp = E.and_(P_halfspace, 'outer')
             q2 = E_hyp.q - 2 * np.sqrt(np.max(np.linalg.eigvals(E.Q)).real) * unit_vector_1
             W2 = (unit_vector_1 @ unit_vector_1.T) * 1 / (4 * np.max(np.linalg.eigvals(E.Q)).real)
             
@@ -142,18 +158,20 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
             _, xb = E.supportFunc_(-unit_vector_1, 'upper')
             b2 = (q2 - xb).T @ W2 @ (q2 - xb)
 
-            b1 = min(1, b1)
-            b2 = min(1, b2)
-            if b2 >= 1: # assert(b2<1)
-                raise CORAerror('CORA:assertion', 'b2 cannot be >= 1 for inner approximation.')
-            
-            t1 = (1 - b2) / (1 - b1 * b2)
-            t2 = (1 - b1) / (1 - b1 * b2)
-            
-            # (t1*W1+t2*W2)\(t1*W1*q1+t2*W2*q2);
-            q_nd = np.linalg.solve((t1 * W1 + t2 * W2), (t1 * W1 @ q1 + t2 * W2 @ q2))
+            # Ensure scalar floats and clamp to [0,1] upper bound only (as MATLAB)
+            b1 = float(np.asarray(b1).squeeze())
+            b2 = float(np.asarray(b2).squeeze())
+            b1 = min(1.0, b1)
+            b2 = min(1.0, b2)
+            # Handle numerical boundary: if b2 == 1 within tolerance, nudge inside
+            if withinTol(b2, 1.0, E.TOL):
+                b2 = 1.0 - E.TOL
+            assert b2 < 1.0, "Cannot be =1, since then W is not invertible"
+            t1 = (1.0 - b2) / (1.0 - b1 * b2)
+            t2 = (1.0 - b1) / (1.0 - b1 * b2)
             W = t1 * W1 + t2 * W2
-            Q_nd = (1 - t1 * q1.T @ W1 @ q1 - t2 * q2.T @ W2 @ q2 + q_nd.T @ W @ q_nd) * np.linalg.inv(W)
+            q_nd = np.linalg.solve(W, (t1 * W1 @ q1 + t2 * W2 @ q2))
+            Q_nd = (1.0 - t1 * (q1.T @ W1 @ q1) - t2 * (q2.T @ W2 @ q2) + q_nd.T @ W @ q_nd) * np.linalg.inv(W)
 
         E_nd = Ellipsoid(Q_nd, q_nd)
         # revert S transform + shift

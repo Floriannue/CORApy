@@ -21,6 +21,15 @@ def test_priv_andPolytope_basic_outer_approximation():
     # Check if the center is shifted towards the half-space
     assert result_E.q[0] <= E.q[0] + E.TOL
 
+def test_priv_andPolytope_outer_multiple_constraints_general_path():
+    # General path (multiple inequalities) to hit QP if needed
+    E = Ellipsoid(np.eye(2), np.array([0, 0]))
+    # Box constraints combine to multiple half-spaces
+    P = Polytope(A=np.array([[1, 0], [-1, 0], [0, 1], [0, -1]]), b=np.array([1, 1, 1, 1]))
+    result_E = priv_andPolytope(E, P, 'outer')
+    assert isinstance(result_E, Ellipsoid)
+    assert result_E.dim() == 2
+
 def test_priv_andPolytope_basic_inner_approximation():
     # Basic test for inner approximation
     E = Ellipsoid(np.eye(2), np.array([0, 0]))  # Unit ellipsoid at origin
@@ -34,6 +43,14 @@ def test_priv_andPolytope_basic_inner_approximation():
     assert result_E.dim() == 2
     # Check if the center is shifted towards the half-space
     assert result_E.q[0] >= E.q[0] - E.TOL
+
+def test_priv_andPolytope_inner_multiple_constraints_general_path():
+    # General path for inner mode
+    E = Ellipsoid(np.eye(2), np.array([0, 0]))
+    P = Polytope(A=np.array([[1, 1], [-1, 0], [0, -1]]), b=np.array([1.5, 1, 1]))
+    result_E = priv_andPolytope(E, P, 'inner')
+    assert isinstance(result_E, Ellipsoid)
+    assert result_E.dim() == 2
 
 def test_priv_andPolytope_ellipsoid_outside_halfspace():
     # Test case where ellipsoid is completely outside the half-space

@@ -218,11 +218,11 @@ class TestLinearSysReachAdaptive:
         
         # Check that F is an interval matrix
         assert hasattr(F, 'infimum') and hasattr(F, 'supremum')
-        assert F.infimum.shape == A.shape
-        assert F.supremum.shape == A.shape
+        assert F.infimum().shape == A.shape
+        assert F.supremum().shape == A.shape
         
         # Check that interval bounds are consistent
-        assert np.all(F.infimum <= F.supremum)
+        assert np.all(F.infimum() <= F.supremum())
 
     def test_correction_matrix_input(self):
         """Test input correction matrix computation"""
@@ -240,11 +240,11 @@ class TestLinearSysReachAdaptive:
         
         # Check that G is an interval matrix
         assert hasattr(G, 'infimum') and hasattr(G, 'supremum')
-        assert G.infimum.shape == A.shape
-        assert G.supremum.shape == A.shape
+        assert G.infimum().shape == A.shape
+        assert G.supremum().shape == A.shape
         
         # Check that interval bounds are consistent
-        assert np.all(G.infimum <= G.supremum)
+        assert np.all(G.infimum() <= G.supremum())
 
     def test_expm_remainder(self):
         """Test exponential matrix remainder computation"""
@@ -262,11 +262,11 @@ class TestLinearSysReachAdaptive:
         
         # Check that E is an interval matrix
         assert hasattr(E, 'infimum') and hasattr(E, 'supremum')
-        assert E.infimum.shape == A.shape
-        assert E.supremum.shape == A.shape
+        assert E.infimum().shape == A.shape
+        assert E.supremum().shape == A.shape
         
         # Check that remainder is symmetric around zero
-        assert np.allclose(E.infimum, -E.supremum, atol=1e-10)
+        assert np.allclose(E.infimum(), -E.supremum(), atol=1e-10)
 
     def test_compute_eps_linComb(self):
         """Test linear combination error computation"""
@@ -444,8 +444,8 @@ class TestLinearSysReachAdaptive:
         F2 = priv_correctionMatrixState(linsys, timeStep, truncationOrder)
         
         # Check that cached result is returned
-        assert np.allclose(F1.infimum, F2.infimum)
-        assert np.allclose(F1.supremum, F2.supremum)
+        assert np.allclose(F1.infimum(), F2.infimum())
+        assert np.allclose(F1.supremum(), F2.supremum())
         
         # Check that cache exists
         assert hasattr(linsys.taylor, '_F_cache')

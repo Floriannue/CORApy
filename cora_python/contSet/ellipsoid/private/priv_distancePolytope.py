@@ -45,6 +45,19 @@ def priv_distancePolytope(E: Ellipsoid, P: Polytope) -> float:
     P.constraints()
     A = P.A
     b = P.b
+
+    # Fast path: P represents a single half-space (one inequality, no equalities)
+    if A is not None and b is not None and A.shape[0] == 1 and (not hasattr(P, 'Ae') or P.Ae is None or P.Ae.size == 0):
+        a = A.reshape(1, -1)
+        a_norm = np.linalg.norm(a)
+        if a_norm == 0:
+            return 0.0
+        a_n = a / a_norm
+        plane_offset = float(b.reshape(-1, 1) / a_norm)
+        center_proj = float(a_n @ E.q)
+        rad = float(np.sqrt(a_n @ E.Q @ a_n.T)) if E.Q.size > 0 else 0.0
+        # If outside: positive distance (signed), else <= 0
+        return (center_proj - rad) - plane_offset
     
     # Normalize halfspace representation
     fac = 1. / np.sqrt(np.sum(A**2, axis=1))

@@ -37,6 +37,7 @@ from .isBadDir import isBadDir
 from .isequal import isequal
 from .reduce import reduce
 from .transform import transform
+from .and_ import and_
 
 # Attach methods to the Ellipsoid class
 Ellipsoid.center = center
@@ -79,6 +80,7 @@ Ellipsoid.isBadDir = isBadDir
 Ellipsoid.isequal = isequal
 Ellipsoid.reduce = reduce
 Ellipsoid.transform = transform
+Ellipsoid.and_ = and_
 
 
 __all__ = [

@@ -23,11 +23,13 @@ def test_priv_distancePolytope_simple():
     dist = priv_distancePolytope(E, P)
     assert dist > 0
 
-def test_priv_distancePolytope_degenerate_error():
-    # Degenerate ellipsoid
+def test_priv_distancePolytope_degenerate_supported():
+    # Degenerate ellipsoid (rank-deficient)
     Q_degen = np.array([[1., 0.], [0., 0.]])
     E_degen = Ellipsoid(Q_degen)
     P = Polytope(np.array([[1., 0.]]), np.array([2.]))
 
-    with pytest.raises(NotImplementedError):
-        priv_distancePolytope(E_degen, P) 
+    # Function should return a finite numeric value for low-rank ellipsoids
+    val = priv_distancePolytope(E_degen, P)
+    assert isinstance(val, (float, np.floating))
+    assert np.isfinite(val)
