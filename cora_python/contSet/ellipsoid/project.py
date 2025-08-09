@@ -1,8 +1,7 @@
 import numpy as np
 from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .ellipsoid import Ellipsoid
-
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
 from .ellipsoid import Ellipsoid
 
 def project(E: 'Ellipsoid', dims: np.ndarray) -> 'Ellipsoid':
@@ -35,7 +34,6 @@ def project(E: 'Ellipsoid', dims: np.ndarray) -> 'Ellipsoid':
     Last update:   04-July-2022 (VG, input checks, MATLAB)
     Python translation: 2025
     """
-    from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
     
     # Convert dims to numpy array if it's not already
     dims = np.asarray(dims)
@@ -48,13 +46,16 @@ def project(E: 'Ellipsoid', dims: np.ndarray) -> 'Ellipsoid':
     
     # Additional bounds checking (like MATLAB's @(dims) dims <= dim(E))
     n = E.dim()
+    if dims.size == 0:
+        raise CORAerror('CORA:wrongValue', '2nd', 'Projection dimensions cannot be empty')
     if np.any(dims >= n) or np.any(dims < 0):
-        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
         raise CORAerror('CORA:wrongValue', '2nd', f"Projection dimensions must be in range [0, {n-1}]")
     
     # Handle different input types
     if dims.dtype == bool:
         # Logical indexing - convert to indices
+        if dims.size != n:
+            raise CORAerror('CORA:wrongValue', '2nd', f"Logical projection mask must have length {n}")
         dims = np.where(dims)[0]
     else:
         # Numeric indexing - ensure integer type

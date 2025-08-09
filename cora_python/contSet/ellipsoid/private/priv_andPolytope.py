@@ -46,7 +46,7 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
         if E.representsa_('emptySet', E.TOL):
             return E
 
-        # compute distance to corresponding hyperplane
+        # compute distance to corresponding hyperplane using general distance unless MATLAB deviates
         dist = E.distance(Polytope(A=P_halfspace.A, b=P_halfspace.b))
         n = E.dim()
 
@@ -110,7 +110,9 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
         unit_vector_1 = unitvector(1, n_nd)
         S_align = vecalign(unit_vector_1, A_norm) # S is vecalign output
         P_halfspace = Polytope(A=unit_vector_1.T, b=np.array([0]).reshape(-1,1))
-        E = -b_norm * unit_vector_1 + E.transform(S_align) # E = -b*unit_vector_1 + S*E;
+        # Apply transform then shift center explicitly (avoid ndarray + Ellipsoid)
+        E = E.transform(S_align)
+        E.q = E.q - b_norm * unit_vector_1
 
 
         if mode == 'outer':
@@ -130,8 +132,8 @@ def priv_andPolytope(E: Ellipsoid, P: Polytope, mode: str) -> Ellipsoid:
             # that is "ellipsoidal toolbox original" (not sure why this works)
             # Assuming 'and_' from Ellipsoid class is available
             E_hyp = E.and_op(P_halfspace, 'outer') # Assuming and_ is correctly translated and accessible
-            q2 = E_hyp.q - 2 * np.sqrt(np.max(np.linalg.eigvals(E.Q))) * unit_vector_1
-            W2 = (unit_vector_1 @ unit_vector_1.T) * 1 / (4 * np.max(np.linalg.eigvals(E.Q)))
+            q2 = E_hyp.q - 2 * np.sqrt(np.max(np.linalg.eigvals(E.Q)).real) * unit_vector_1
+            W2 = (unit_vector_1 @ unit_vector_1.T) * 1 / (4 * np.max(np.linalg.eigvals(E.Q)).real)
             
             W1 = np.linalg.inv(E.Q)
             q1 = E.q

@@ -61,8 +61,8 @@ def test_ellipsoid_supportFunc():
     
     # Check interval result
     expected_interval = Interval(val_lower, val_upper)
-    assert np.isclose(val_int.infimum, expected_interval.infimum) and \
-           np.isclose(val_int.supremum, expected_interval.supremum), \
+    assert np.isclose(val_int.infimum(), expected_interval.infimum()) and \
+           np.isclose(val_int.supremum(), expected_interval.supremum()), \
            f"Range result should match interval({val_lower}, {val_upper})"
     
     # Check support vectors
@@ -126,7 +126,8 @@ def test_supportFunc_various_directions():
         np.array([[0], [-1]]),  # -y direction
     ]
     
-    expected_vals = [1, -1, 1, -1]  # For unit ellipsoid
+    # For support function h_E(l) = sup_{x in E} l^T x. For unit ellipsoid at origin, this equals 1 for any unit l.
+    expected_vals = [1, 1, 1, 1]
     
     for i, direction in enumerate(directions):
         val, x = E.supportFunc_(direction, 'upper')

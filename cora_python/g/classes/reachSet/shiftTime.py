@@ -60,13 +60,13 @@ def shiftTime(R: 'ReachSet', delta: Union[int, float]) -> 'ReachSet':
                     # Interval object with infimum/supremum
                     try:
                         new_time_intervals.append(Interval(
-                            time_interval.infimum + delta,
-                            time_interval.supremum + delta
+                            time_interval.infimum() + delta,
+                            time_interval.supremum() + delta
                         ))
                     except ImportError:
                         new_time_intervals.append((
-                            time_interval.infimum + delta,
-                            time_interval.supremum + delta
+                            time_interval.infimum() + delta,
+                            time_interval.supremum() + delta
                         ))
                 elif isinstance(time_interval, (list, tuple)) and len(time_interval) == 2:
                     # Tuple/list representation

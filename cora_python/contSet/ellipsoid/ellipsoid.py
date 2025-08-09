@@ -96,6 +96,9 @@ class Ellipsoid(ContSet):
 
         # 2. parse input arguments: varargin -> vars
         Q, q, TOL = self._aux_parseInputArgs(*args, **kwargs)
+        # Allow empty TOL ([]) and default it as in MATLAB behavior
+        if isinstance(TOL, np.ndarray) and TOL.size == 0:
+            TOL = 1e-6
         
         # Call input argument check
         self._aux_checkInputArgs(Q, q, TOL)

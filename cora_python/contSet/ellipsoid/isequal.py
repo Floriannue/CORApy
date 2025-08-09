@@ -73,7 +73,10 @@ def isequal(E: 'Ellipsoid', S: Union['ContSet', np.ndarray, float, int], tol: Op
 
     # ambient dimensions must match
     if not equal_dim_check(E, S, True):
-        log.debug(f"isequal: Dimensions do not match. E.dim()={E.dim()}, S.dim()={getattr(S, 'dim', lambda: S.size if isinstance(S, np.ndarray) and S.ndim == 0 else S.shape[0])()}") # Handle numeric S for dim
+        # For numeric S with mismatching dimension, MATLAB throws CORA:wrongValue
+        if isinstance(S, (int, float, np.ndarray)):
+            raise CORAerror('CORA:wrongValue', 'second', 'Dimension mismatch for numeric comparison')
+        log.debug(f"isequal: Dimensions do not match. E.dim()={E.dim()}, S.dim()={getattr(S, 'dim', lambda: S.size if isinstance(S, np.ndarray) and S.ndim == 0 else S.shape[0])()}")
         return False
     
     # ellipsoid-ellipsoid case

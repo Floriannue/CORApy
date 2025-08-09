@@ -117,7 +117,7 @@ def _fast_unify_possible(R: List) -> bool:
                     
                     # Handle different time interval formats
                     if hasattr(curr_int, 'supremum') and hasattr(next_int, 'infimum'):
-                        if curr_int.supremum != next_int.infimum:
+                        if curr_int.supremum() != next_int.infimum():
                             return False
                     elif isinstance(curr_int, (list, tuple)) and isinstance(next_int, (list, tuple)):
                         if curr_int[1] != next_int[0]:

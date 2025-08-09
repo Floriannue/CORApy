@@ -117,18 +117,10 @@ def representsa_(E: 'Ellipsoid', type_str: str, tol: float = 1e-9, **kwargs):
         raise CORAerror('CORA:notSupported', f"Comparison of ellipsoid to {type_str} not supported.")
             
     elif type_lower == 'polytope':
-        # Only a polytope if ellipsoid is 1D or a point
+        # Only a polytope if ellipsoid is 1D or a point; conversion not supported -> raise when requested
         res = n == 1 or isPoint
         if return_set and res:
-            from cora_python.contSet.polytope.polytope import Polytope # local import
-            # For a point, create a 0-gen polytope. For 1D ellipsoid, it's an interval which is a polytope.
-            if isPoint:
-                S = Polytope(E.q)
-            elif n == 1:
-                I_obj = E.interval() # Use interval conversion if 1D
-                S = Polytope(np.array([[-1.0],[1.0]]), np.array([[-I_obj.inf], [I_obj.sup]]))
-            else:
-                raise CORAerror('CORA:notSupported', f"Conversion from ellipsoid to {type_str} not supported for n={n}.")
+            raise CORAerror('CORA:notSupported', f"Conversion from ellipsoid to {type_str} not supported.")
             
     elif type_lower == 'polyzonotope':
         raise CORAerror('CORA:notSupported', f"Comparison of ellipsoid to {type_str} not supported.")

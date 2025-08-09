@@ -71,20 +71,22 @@ def radius(E, *args):
     if E.representsa_('emptySet', E.TOL):
         return np.zeros((E.dim(), 0))
     
-    # Compute eigenvalues
-    # Since we use Q^{-1} as a shape matrix, we need the largest eigenvalues
-    if i == 1:
-        # For single eigenvalue, use eigs with largest eigenvalue
-        d = eigs(E.Q, k=1, which='LM', return_eigenvectors=False)
-    else:
-        # For multiple eigenvalues
-        d = eigs(E.Q, k=min(i, E.Q.shape[0]), which='LM', return_eigenvectors=False)
+    # Compute eigenvalues of Q (PSD). Radii are sqrt of eigenvalues along principal axes.
+    # Use dense eig for small matrices to avoid scipy eigs corner issues.
+    vals = np.linalg.eigvalsh(E.Q)
+    # sort descending
+    vals_sorted = np.sort(vals)[::-1]
+    take = min(i, vals_sorted.size)
+    d = vals_sorted[:take]
     
-    # Handle case where eigs returns complex numbers due to numerical issues
+    # Ensure real
     if np.iscomplexobj(d):
         d = np.real(d)
     
     # Compute radius
-    r = np.sqrt(d)  # since we use Q^{-1} as a shape matrix
+    r = np.sqrt(d)
+    # Ensure shape: for i==1 return scalar (numpy scalar) to match tests expecting size==1
+    if take == 1:
+        return np.array([r.item()])
     
-    return r 
+    return r

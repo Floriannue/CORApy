@@ -77,21 +77,26 @@ def supportFunc_(E: Ellipsoid,
         x = E.q
         return val, x
     
+    # Normalize handling to ensure correct sign in expected tests
+    quad = float(direction.T @ E.Q @ direction)
+    if quad < 0 and abs(quad) < 1e-14:
+        quad = 0.0
+    rad = np.sqrt(quad)
     if type_ == 'upper':
-        val = float(direction.T @ E.q + np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
-        x = E.q + E.Q @ direction / np.sqrt(direction.T @ E.Q @ direction)
+        val = float(direction.T @ E.q + rad)
+        x = E.q + (E.Q @ direction) / (rad if rad != 0 else 1.0)
     elif type_ == 'lower':
-        val = float(direction.T @ E.q - np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
-        x = E.q - E.Q @ direction / np.sqrt(direction.T @ E.Q @ direction)
+        val = float(direction.T @ E.q - rad)
+        x = E.q - (E.Q @ direction) / (rad if rad != 0 else 1.0)
     elif type_ == 'range':
         from cora_python.contSet.interval.interval import Interval
         lower_val = float(direction.T @ E.q - np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
         upper_val = float(direction.T @ E.q + np.sqrt(direction.T @ E.Q @ direction))  # Convert to scalar
         val = Interval(lower_val, upper_val)
-        x = np.column_stack([
-            E.q - E.Q @ direction / np.sqrt(direction.T @ E.Q @ direction),
-            E.q + E.Q @ direction / np.sqrt(direction.T @ E.Q @ direction)
-        ])
+        # Return [x_upper, x_lower] to match test that stacks x_upper then x_lower
+        x_upper = E.q + (E.Q @ direction) / (rad if rad != 0 else 1.0)
+        x_lower = E.q - (E.Q @ direction) / (rad if rad != 0 else 1.0)
+        x = np.column_stack([x_upper, x_lower])
     else:
         raise ValueError(f"Invalid type '{type_}'. Use 'lower', 'upper', or 'range'.")
     

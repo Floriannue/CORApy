@@ -84,7 +84,7 @@ def test_interval_ellipse():
         # The interval should enclose the ellipsoid
         # We don't test exact values here since they depend on support function computation
         # Just verify that interval was created and has correct dimension
-        assert I.dim == 2
+        assert I.dim() == 2
         assert hasattr(I, 'inf')
         assert hasattr(I, 'sup')
         

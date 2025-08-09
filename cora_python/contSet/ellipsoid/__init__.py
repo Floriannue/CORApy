@@ -36,6 +36,7 @@ from .getPrintSetInfo import getPrintSetInfo
 from .isBadDir import isBadDir
 from .isequal import isequal
 from .reduce import reduce
+from .transform import transform
 
 # Attach methods to the Ellipsoid class
 Ellipsoid.center = center
@@ -77,6 +78,7 @@ Ellipsoid.getPrintSetInfo = getPrintSetInfo
 Ellipsoid.isBadDir = isBadDir
 Ellipsoid.isequal = isequal
 Ellipsoid.reduce = reduce
+Ellipsoid.transform = transform
 
 
 __all__ = [
@@ -113,5 +115,6 @@ __all__ = [
     'getPrintSetInfo',
     'isBadDir',
     'isequal',
-    'reduce'
+    'reduce',
+    'transform'
 ] 

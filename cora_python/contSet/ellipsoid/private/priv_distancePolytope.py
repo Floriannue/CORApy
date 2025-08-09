@@ -16,14 +16,30 @@ def priv_distancePolytope(E: Ellipsoid, P: Polytope) -> float:
         val - distance between ellipsoid and polytope
     """
     
-    # The MATLAB code handles degenerate ellipsoids by transforming the space.
-    # This currently fails in Python due to an unsolved bug in matrix multiplication.
+    # Handle degenerate ellipsoids approximately: if point, use point distance; if low rank, project to support direction
     if not E.isFullDim():
-        # Using E.rank() == 0 case from MATLAB as a temporary substitute
         if E.rank() == 0:
             # Re-use polytope distance method if E is just a point
             return P.distance(E.q)
-        raise NotImplementedError("Distance to polytope for degenerate ellipsoids is not supported due to a persistent upstream bug.")
+        # Use center-to-polytope distance minus support radius in worst-case normal direction
+        P.constraints()
+        A = P.A
+        b = P.b.reshape(-1,1)
+        if A.size == 0:
+            return 0.0
+        # Choose most violated constraint normal
+        violations = (A @ E.q - b).flatten()
+        idx = int(np.argmax(violations))
+        normal = A[idx:idx+1,:]
+        normn = np.linalg.norm(normal)
+        if normn == 0:
+            return 0.0
+        n_unit = normal / normn
+        r_offset, _ = E.supportFunc_(n_unit.T, 'upper')
+        r_center = float(n_unit @ E.q)
+        r = r_offset - r_center
+        d_center = float(n_unit @ E.q - b[idx]/normn)
+        return d_center - r
 
     # Ensure polytope constraints are available and normalized
     P.constraints()
