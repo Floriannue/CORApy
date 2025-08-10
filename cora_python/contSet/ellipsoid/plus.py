@@ -110,8 +110,8 @@ def plus(factor1, factor2, *args):
         return Ellipsoid(E.Q, E.q + S_vec)
     
     if hasattr(S, '__class__') and S.__class__.__name__ == 'Ellipsoid':
-        # For now, return NotImplementedError until we translate private functions
-        raise NotImplementedError("Ellipsoid-ellipsoid addition requires priv_plusEllipsoid which is not yet translated")
+        from cora_python.contSet.ellipsoid.private.priv_plusEllipsoid import priv_plusEllipsoid
+        return priv_plusEllipsoid([E, S], L, mode)
     
     if hasattr(S, '__class__') and S.__class__.__name__ == 'Interval':
         # Convert to ellipsoid
@@ -126,7 +126,8 @@ def plus(factor1, factor2, *args):
     
     # Cell array case
     if isinstance(S, list):
-        raise NotImplementedError("Cell array addition requires priv_plusEllipsoid which is not yet translated")
+        from cora_python.contSet.ellipsoid.private.priv_plusEllipsoid import priv_plusEllipsoid
+        return priv_plusEllipsoid([E] + S, L, mode)
     
     # Throw error for all other combinations
     raise TypeError(f"Operation 'plus' not supported between instances of '{type(E).__name__}' and '{type(S).__name__}'") 

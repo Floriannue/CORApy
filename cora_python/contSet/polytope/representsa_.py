@@ -26,6 +26,7 @@ from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 from cora_python.contSet.polytope.private.priv_compact_zeros import priv_compact_zeros
 from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
 from cora_python.contSet.polytope.private.priv_compact_toEquality import priv_compact_toEquality
+from cora_python.contSet.polytope.private.priv_compact_alignedIneq import priv_compact_alignedIneq
 from typing import TYPE_CHECKING, Tuple, Union, Optional
 
 if TYPE_CHECKING:
@@ -275,15 +276,11 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
             if empty:
                 res = False # Empty set is not a halfspace
             else:
-                # MATLAB: A,b,Ae,be = priv_normalizeConstraints(A,b,[],[],'A');
-                A, b, _, _ = priv_normalizeConstraints(A, b, np.array([[]]).reshape(0,n), np.array([[]]).reshape(0,1), 'A') # Normalize
-                # Check if all inequality constraints are aligned (dot product of A with A.T is identity)
-                if A.shape[0] > 0 and A.shape[1] > 0:
-                    dot_product = A @ A.T
-                    # A halfspace has only one distinct constraint, so A.shape[0] should be 1 (after reduction)
-                    res = dot_product.shape == (1,1) and withinTol(dot_product[0,0], 1, tol)
-                else:
-                    res = False # No constraints -> fullspace, not halfspace
+                # Normalize and compact aligned inequalities to a single representative
+                A, b, _, _ = priv_normalizeConstraints(A, b, np.array([[]]).reshape(0,n), np.array([[]]).reshape(0,1), 'A')
+                A, b = priv_compact_alignedIneq(A, b, tol)
+                # After compaction, exactly one inequality and no equalities -> halfspace
+                res = (A.shape[0] == 1 and A.shape[1] == n)
 
         # Note: MATLAB doesn't convert to halfspace object, just returns boolean
         return _return_result(res, return_obj)

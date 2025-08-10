@@ -38,6 +38,21 @@ from .isequal import isequal
 from .reduce import reduce
 from .transform import transform
 from .and_ import and_
+from .cartProd_ import cartProd_
+from .isBigger import isBigger
+from .convHull_ import convHull_
+from .levelSet import levelSet
+from .isIntersecting_ import isIntersecting_
+from .lift_ import lift_
+from .plot3D import plot3D
+from .minkDiff import minkDiff
+from .polyZonotope import polyZonotope
+from .polygon import polygon
+from .intersectStrip import intersectStrip
+from .conPolyZono import conPolyZono
+from .spectraShadow import spectraShadow
+from .generateRandom import generateRandom
+from .enclose import enclose
 
 # Attach methods to the Ellipsoid class
 Ellipsoid.center = center
@@ -81,6 +96,21 @@ Ellipsoid.isequal = isequal
 Ellipsoid.reduce = reduce
 Ellipsoid.transform = transform
 Ellipsoid.and_ = and_
+Ellipsoid.cartProd_ = cartProd_
+Ellipsoid.isBigger = isBigger
+Ellipsoid.convHull_ = convHull_
+Ellipsoid.levelSet = levelSet
+Ellipsoid.isIntersecting_ = isIntersecting_
+Ellipsoid.lift_ = lift_
+Ellipsoid.plot3D = plot3D
+Ellipsoid.minkDiff = minkDiff
+Ellipsoid.polyZonotope = polyZonotope
+Ellipsoid.polygon = polygon
+Ellipsoid.intersectStrip = intersectStrip
+Ellipsoid.conPolyZono = conPolyZono
+Ellipsoid.spectraShadow = spectraShadow
+Ellipsoid.generateRandom = staticmethod(generateRandom)
+Ellipsoid.enclose = enclose
 
 
 __all__ = [

@@ -1,6 +1,7 @@
 import numpy as np
 from itertools import combinations
 from scipy.optimize import linprog
+from scipy.spatial import HalfspaceIntersection
 import warnings
 from typing import TYPE_CHECKING, Optional, Tuple
 
@@ -183,18 +184,72 @@ def _priv_vertices_1D(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarr
 
 def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray) -> np.ndarray:
     """
-    Placeholder for lcon2vert method. This is a complex method in MATLAB
-    that uses a different algorithm than simple combinations.
-    For now, it will raise NotImplementedError.
+    Efficient vertex enumeration using halfspace intersection (performance-oriented).
+    Falls back to 'comb' on failure. Requires a feasible interior point c.
     """
-    # MATLAB's lcon2vert function internally checks for degeneracy and calls
-    # a recursive version or handles single points. It's a robust vertex enumeration.
-    # Python equivalent would be libraries like pycddlib or qhull bindings.
-    # For simplicity, we will raise an error, or fallback to 'comb' method.
+    # Require bounded polytope for vertex enumeration
+    try:
+        if not P.isBounded():
+            raise CORAerror('CORA:notSupported', 'Vertex computation requires a bounded polytope.')
+    except Exception:
+        # If boundedness check fails, continue and let the method attempt enumeration
+        pass
 
-    # Fallback to 'comb' for now if 'lcon2vert' is explicitly requested
-    warnings.warn("lcon2vert method is not fully implemented. Falling back to 'comb' method.")
-    return _aux_vertices_comb(P)
+    # Build halfspaces in the form n^T x + offset <= 0 expected by SciPy
+    A = P.A if P.A is not None else np.zeros((0, n))
+    b = P.b.flatten() if (P.b is not None and P.b.size > 0) else np.zeros(0)
+    Ae = P.Ae if P.Ae is not None else np.zeros((0, n))
+    be = P.be.flatten() if (P.be is not None and P.be.size > 0) else np.zeros(0)
+
+    halfspaces = []
+    for i in range(A.shape[0]):
+        halfspaces.append(np.hstack([A[i, :], -b[i]]))  # A_i x <= b_i -> A_i x - b_i <= 0
+    # Encode equalities as double inequalities for numeric handling
+    for i in range(Ae.shape[0]):
+        halfspaces.append(np.hstack([Ae[i, :], -be[i]]))
+        halfspaces.append(np.hstack([-Ae[i, :], be[i]]))
+
+    halfspaces = np.array(halfspaces, dtype=float)
+
+    # If no constraints, return empty
+    if halfspaces.shape[0] == 0:
+        return np.zeros((n, 0))
+
+    # Ensure interior point c has correct shape
+    c_pt = c.flatten()
+    if c_pt.size != n:
+        c_pt = np.zeros(n)
+
+    try:
+        hs = HalfspaceIntersection(halfspaces, interior_point=c_pt)
+        V_pts = hs.intersections  # shape (k, n)
+        # Filter out points violating constraints slightly (tolerance)
+        if V_pts.size == 0:
+            return np.zeros((n, 0))
+        tol_local = 1e-10
+        keep = np.ones(V_pts.shape[0], dtype=bool)
+        if A.shape[0] > 0:
+            keep &= np.all((A @ V_pts.T) <= b[np.newaxis, :] + tol_local, axis=1)
+        if Ae.shape[0] > 0:
+            keep &= np.all(np.abs(Ae @ V_pts.T - be[np.newaxis, :]) <= 1e-8, axis=1)
+        V_pts = V_pts[keep, :]
+
+        # Deduplicate vertices within tolerance
+        if V_pts.shape[0] == 0:
+            return np.zeros((n, 0))
+        # Round for stable uniqueness
+        V_round = np.round(V_pts / tol_local) * tol_local
+        _, unique_idx = np.unique(V_round, axis=0, return_index=True)
+        V_pts = V_pts[np.sort(unique_idx), :]
+
+        # Sort deterministically (descending lexicographic) for stable tests
+        sort_keys = np.argsort((-V_pts).tolist(), axis=0)  # not directly usable
+        # Use lexsort on reversed columns for descending order
+        V_sorted = V_pts[np.lexsort(tuple((-V_pts[:, j] for j in range(V_pts.shape[1]-1, -1, -1)))), :]
+        return V_sorted.T
+    except Exception:
+        # Fallback to combination method
+        return _aux_vertices_comb(P)
 
     # A more complete implementation might use scipy.spatial.ConvexHull in reverse
     # (from vertices to halfspaces, which is already done in constraints.py)

@@ -107,7 +107,8 @@ def distance(P_in, S_in):
             # P.Ae is P.Aeq, P.be is P.beq for a hyperplane
             # For a hyperplane A*x=b, distance from point S is |A*S - b| / ||A||_2
             # Aeq is (1,n), beq is (1,1)
-            val = np.abs(P.Aeq @ S - P.beq) / np.linalg.norm(P.Aeq) # Assuming Aeq is vector
+            # Use Ae/be as in Polytope API
+            val = np.abs(P.Ae @ S - P.be) / np.linalg.norm(P.Ae)
             return val[0,0] # Return scalar value
         else:
             return aux_distancePointCloud(P, S)

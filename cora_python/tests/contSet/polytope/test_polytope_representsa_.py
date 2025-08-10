@@ -273,6 +273,22 @@ class TestPolytopeRepresentsa:
         be = np.array([1, 1])
         P = Polytope(np.zeros((0, 2)), np.zeros(0), Ae, be)
         assert not representsa_(P, 'hyperplane')
+
+    def test_representsa_hyperplane_detection_normalization(self):
+        # Ae rows scaled/duplicate should still be hyperplane
+        A = np.zeros((0, 2))
+        b = np.zeros(0)
+        Ae = np.array([[2.0, 0.0], [1.0, 0.0]])
+        be = np.array([2.0, 1.0])
+        P = Polytope(A, b, Ae, be)
+        assert representsa_(P, 'hyperplane')
+
+    def test_representsa_halfspace_normalization(self):
+        # Multiple aligned inequalities normalize to a single halfspace
+        A = np.array([[2.0, 0.0], [1.0, 0.0], [-2.0, -0.0]])
+        b = np.array([2.0, 1.0, -2.0])
+        P = Polytope(A, b)
+        assert representsa_(P, 'halfspace')
     
     def test_representsa_invalid_type(self):
         """Test invalid representation type"""

@@ -104,20 +104,17 @@ def priv_representsa_emptySet(A: np.ndarray, b: np.ndarray,
                 # no point that can satisfy two parallel Ae*x = be at the
                 # same time
                 
-                # Check for aligned vectors
-                comparison_array = withinTol(Ae_norm[i, :] - dotprod_norm[:, i] * Ae_norm[i, :],
-                                             np.zeros(n))
-                
-                # Ensure the array is at least 2D before applying axis=1
-                if comparison_array.ndim == 1:
-                    aligned_constraints = np.all(comparison_array)
-                else:
-                    aligned_constraints = np.all(comparison_array, axis=1)
-                
-                if np.sum(aligned_constraints) > 1:
-                    # At least two constraints are aligned
-                    if not np.all(withinTol(be_norm[aligned_constraints], be_norm[i])):
-                        # Polytope is the empty set
+                # Check for aligned vectors: rows j where Ae_norm[j,:] ≈ dot(Ae_j,Ae_i)*Ae_i
+                # Build differences for all rows at once using outer product
+                diffs = Ae_norm - np.outer(dotprod_norm[:, i], Ae_norm[i, :])
+                comparison_array = withinTol(diffs, 0, tol)
+                aligned_constraints = np.all(comparison_array, axis=1)
+                # Ignore self-row i
+                if aligned_constraints.shape[0] > i:
+                    aligned_constraints[i] = False
+                if np.sum(aligned_constraints) > 0:
+                    # All aligned equalities must have identical be values
+                    if not np.all(withinTol(be_norm[aligned_constraints], be_norm[i], tol)):
                         return True
         
         # Rewrite equality constraints as inequality constraints

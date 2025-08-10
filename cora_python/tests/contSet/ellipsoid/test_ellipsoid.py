@@ -76,7 +76,6 @@ class TestEllipsoid:
             Ellipsoid(Q, q, eps_val, q) # 4 arguments, max is 3
         assert excinfo.value.identifier == "CORA:numInputArgsConstructor"
 
-    @pytest.mark.long
     @pytest.mark.parametrize("i", range(100))
     def test_long_random_ellipsoid_init(self, i):
         """Long running test for random ellipsoid initializations"""

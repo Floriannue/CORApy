@@ -26,26 +26,16 @@ def compare_files(dir1, dir2):
 
     missing_files = []
     for matlab_file in files1:
-        matlab_file = matlab_file.replace(".m", "")
+        matlab_file = matlab_file.lower().replace(".m", "").replace("_", "")
         translated = False
         for python_file in files2:
-            python_file = python_file.replace(".py", "")
+            python_file = python_file.lower().replace(".py", "").replace("_", "")
             if matlab_file == python_file:
                 translated = True
                 break
-            elif matlab_file+"_op" == python_file:
+            elif matlab_file+"op" == python_file:
                 translated = True
                 break
-            elif any(char.isupper() for char in matlab_file):
-                #find upper char and replace it with _char since python - matlab naming convention
-                for char in matlab_file:
-                    if char.isupper():
-                        mfile1 = matlab_file.replace(char, "_"+char)
-                        mfile2 = matlab_file.replace(char, "_"+char.lower())
-                        break
-                if mfile1 == python_file or mfile2 == python_file:
-                    translated = True
-                    break
         if not translated:
             missing_files.append(matlab_file)
     return missing_files
