@@ -19,6 +19,10 @@ def priv_andEllipsoidIA(E_list: List[Ellipsoid]) -> Ellipsoid:
     if sum([not Ei.isFullDim() for Ei in E_list]) > 1:
         raise CORAerror('CORA:degenerateSet', 'At most one ellipsoid can be degenerate!')
 
+    # Trivial equality shortcut
+    if all(E_list[0].isequal(Ei, max(E_list[0].TOL, Ei.TOL)) for Ei in E_list[1:]):
+        return E_list[0].copy()
+
     # Move degenerate to end
     E_nd = [Ei for Ei in E_list if Ei.isFullDim()]
     E_deg = [Ei for Ei in E_list if not Ei.isFullDim()]
@@ -63,20 +67,19 @@ def priv_andEllipsoidIA(E_list: List[Ellipsoid]) -> Ellipsoid:
     d = cp.Variable((n, 1))
     l = [cp.Variable(nonneg=True) for _ in E_cell]
 
-    constraints = [B >> 0]
+    eps = 1e-9
+    constraints = [B >> eps * np.eye(n)]
+    I_n = cp.Constant(np.eye(n))
+    Z1n = cp.Constant(np.zeros((1, n)))
+    Zn1 = cp.Constant(np.zeros((n, 1)))
     for Ei, li in zip(E_cell, l):
-        W = np.linalg.inv(Ei.Q)
-        q = Ei.q
-        M11 = -li * (W)
-        M12 = q
-        M13 = B
-        M21 = q.T
-        M22 = -1
-        M23 = d.T
-        M31 = B
-        M32 = d
-        M33 = np.eye(n)
-        lmi = cp.bmat([[M11, M12, M13], [M21, M22, M23], [M31, M32, M33]])
+        q = cp.Constant(Ei.q)
+        Q = cp.Constant(Ei.Q)
+        # Build symmetric block matrix
+        top = cp.hstack([cp.reshape(1 - li, (1, 1)), Z1n, (d - q).T])
+        mid = cp.hstack([Zn1, li * I_n, B])
+        bot = cp.hstack([(d - q), B, Q])
+        lmi = cp.vstack([top, mid, bot])
         constraints.append(lmi >> 0)
 
     prob = cp.Problem(cp.Maximize(cp.log_det(B)), constraints)

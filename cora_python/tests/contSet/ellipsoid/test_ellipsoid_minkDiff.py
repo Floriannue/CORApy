@@ -50,3 +50,19 @@ def test_minkDiff_list_of_ellipsoids_outer():
     assert isinstance(out, Ellipsoid)
     assert out.Q.shape == (2, 2)
 
+
+def test_minkDiff_inner_with_L_and_degenerate():
+    # E1 full, E2 degenerate
+    E1 = Ellipsoid(np.array([[2.0, 0.0], [0.0, 1.0]]), np.zeros((2, 1)))
+    E2 = Ellipsoid(np.array([[1.0, 0.0], [0.0, 0.0]]), np.zeros((2, 1)))
+    # Provide directions including a "bad" one (aligned with nullspace) and a good one
+    L = np.array([[1.0, 0.0], [0.0, 1.0]]).T  # shape (2,2) columns are e1, e2
+    # inner mode should filter bad dirs and still return an Ellipsoid
+    out = E1.minkDiff(E2, 'inner', L)
+    assert isinstance(out, Ellipsoid)
+    # 1D case
+    E1_1d = Ellipsoid(np.array([[4.0]]), np.array([[0.5]]))
+    E2_1d = Ellipsoid(np.array([[1.0]]), np.array([[0.1]]))
+    out1d = E1_1d.minkDiff(E2_1d, 'outer', np.zeros((1, 0)))
+    assert isinstance(out1d, Ellipsoid)
+

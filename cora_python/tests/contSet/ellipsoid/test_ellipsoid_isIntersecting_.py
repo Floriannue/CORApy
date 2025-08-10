@@ -1,7 +1,7 @@
 import numpy as np
-
+from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.ellipsoid import Ellipsoid
-
+from cora_python.contSet.interval import Interval
 
 def test_isIntersecting_point_inside():
     Q = np.array([[1.0, 0.0], [0.0, 1.0]])
@@ -10,3 +10,23 @@ def test_isIntersecting_point_inside():
     p = np.array([[0.1], [0.1]])
     assert E.isIntersecting_(p, 'exact', 1e-9)
 
+def test_isIntersecting_with_set_that_supports_quadMap():
+    # Directly exercise quadMap path via Zonotope
+    Q = np.array([[2.0, 0.0], [0.0, 1.0]])
+    q = np.array([[0.0], [0.0]])
+    E = Ellipsoid(Q, q)
+    c = np.array([[0.0], [0.0]])
+    G = np.array([[0.2, 0.0], [0.0, 0.2]])
+    Z = Zonotope(c, G)
+    res = E.isIntersecting_(Z, 'approx', 1e-6)
+    assert isinstance(res, (bool, np.bool_))
+
+
+def test_isIntersecting_with_interval_quadMap():
+    # Exercise mixed fallback via quadMap on Interval
+    Q = np.array([[1.5, 0.2], [0.2, 1.2]])
+    q = np.zeros((2, 1))
+    E = Ellipsoid(Q, q)
+    I = Interval(np.array([[-0.2], [-0.2]]), np.array([[0.2], [0.2]]))
+    res = E.isIntersecting_(I, 'approx', 1e-6)
+    assert isinstance(res, (bool, np.bool_))

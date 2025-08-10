@@ -10,4 +10,8 @@ def test_conPolyZono_basic():
     E = Ellipsoid(Q, q)
     cPZ = E.conPolyZono()
     assert isinstance(cPZ, ConPolyZono)
+    # structural properties
+    assert cPZ.c.shape[0] == 2
+    assert cPZ.G.shape[0] == 2
+    assert cPZ.A.shape[0] >= 0 and cPZ.b.shape[0] == cPZ.A.shape[0]
 

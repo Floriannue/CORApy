@@ -38,8 +38,11 @@ def priv_minkDiffEllipsoid(E1: Ellipsoid, E2: Ellipsoid, L: np.ndarray, mode: st
     if L.size == 0:
         N = 2 * n
         if n == 1:
-            L = np.array([[-1.0], [1.0]]).reshape(1, 2)
-            L = L[:, ~is_bad_dir(L)]
+            L = np.array([[-1.0, 1.0]]).reshape(1, 2)
+            mask = ~is_bad_dir(L)
+            if isinstance(mask, np.ndarray):
+                mask = mask.astype(bool).ravel()
+            L = L[:, mask]
         else:
             dirs = []
             counter = 0
@@ -55,6 +58,9 @@ def priv_minkDiffEllipsoid(E1: Ellipsoid, E2: Ellipsoid, L: np.ndarray, mode: st
             L = np.concatenate(dirs, axis=1)[:, :N]
     else:
         mask = ~is_bad_dir(L)
+        # Ensure 1D boolean mask for column selection
+        if isinstance(mask, np.ndarray):
+            mask = mask.astype(bool).ravel()
         L = L[:, mask]
         if L.size == 0:
             raise CORAerror('CORA:emptySet')
