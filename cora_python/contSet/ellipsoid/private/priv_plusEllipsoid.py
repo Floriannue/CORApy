@@ -46,7 +46,15 @@ def priv_plusEllipsoid(E_cell: List[Ellipsoid], L: np.ndarray, mode: str) -> Ell
     if mode == 'outer':
         return priv_plusEllipsoidOA(E_cell)
     elif mode == 'outer:halder':
-        return priv_plusEllipsoidOA(E_cell)
+        # Use directional outer with default directions if none provided
+        L_default = np.zeros((n, 0))
+        # Trigger generation inside minkDiff-like flow by calling priv_lplus with empty L
+        # Here, choose orthonormal basis directions as a simple default
+        basis = np.eye(n)
+        L_basis = np.concatenate([basis, -basis], axis=1)
+        E_L = priv_lplus(E_cell, L_basis, 'outer')
+        from cora_python.contSet.ellipsoid.and_ import and_ as ellipsoid_and
+        return ellipsoid_and(E_L[0], E_L[1:], 'outer')
     elif mode == 'inner':
         raise NotImplementedError('Inner exact SDP for Minkowski sum not implemented yet')
     else:
