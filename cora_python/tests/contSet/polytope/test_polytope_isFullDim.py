@@ -107,7 +107,7 @@ class TestPolytopeIsFullDim:
         P = Polytope(V)
         
         # MATLAB: [res_,X] = isFullDim(P); assert(~res_ && isempty(X));
-        result, X = isFullDim(P)
+        result, X = isFullDim(P, return_subspace=True)
         assert result == False and X.size == 0
     
     def test_isFullDim_2d_empty(self):

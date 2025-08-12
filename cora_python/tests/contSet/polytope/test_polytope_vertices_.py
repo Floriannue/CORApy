@@ -237,6 +237,13 @@ class TestPolytopeVertices:
         P_rotated = Polytope(A_rotated, b)
         with pytest.raises(Exception):
             vertices_(P_rotated)
+
+        # Additional explicit halfspace case
+        A = np.array([[1, 0]])
+        b = np.array([1])
+        P = Polytope(A, b)
+        with pytest.raises(Exception):
+            vertices_(P)
         
         # 2D, unbounded (more complex)
         A = np.array([[1, 0], [-1, 0], [0, -1]])

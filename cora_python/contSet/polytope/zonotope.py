@@ -119,18 +119,18 @@ def zonotope(Z, method: str = 'outer'):
     # 2) Transform polytope Mt: x = Q_r y + c_e ⇒ A(Q_r y + c_e) <= b
     Mt = Polytope(P)  # copy
     A = P.A; b = P.b; Ae = P.Ae; be = P.be
-    if A.size > 0:
-        Mt.A = A @ Q_r
-        Mt.b = (b - A @ c_e).reshape(-1, 1)
-    else:
+    if A is None or A.size == 0:
         Mt.A = np.zeros((0, n))
         Mt.b = np.zeros((0, 1))
-    if Ae.size > 0:
-        Mt.Ae = Ae @ Q_r
-        Mt.be = (be - Ae @ c_e).reshape(-1, 1)
     else:
+        Mt.A = A @ Q_r
+        Mt.b = (b - A @ c_e).reshape(-1, 1)
+    if Ae is None or Ae.size == 0:
         Mt.Ae = np.zeros((0, n))
         Mt.be = np.zeros((0, 1))
+    else:
+        Mt.Ae = Ae @ Q_r
+        Mt.be = (be - Ae @ c_e).reshape(-1, 1)
     if P.isVRep and P.V.size > 0:
         try:
             Mt.V = np.linalg.pinv(Q_r) @ (P.V - c_e)
@@ -187,13 +187,12 @@ def _support_linear_program(P: 'Polytope', direction: np.ndarray, bound_type: st
     n = P.dim()
     d = direction.flatten()
     c = -d if bound_type == 'upper' else d
-    A_ub = P.A if P.A.size > 0 else None
-    b_ub = P.b.flatten() if P.b.size > 0 else None
-    A_eq = P.Ae if P.Ae.size > 0 else None
-    b_eq = P.be.flatten() if P.be.size > 0 else None
+    A_ub = P.A if (P.A is not None and P.A.size > 0) else None
+    b_ub = P.b.flatten() if (P.b is not None and P.b.size > 0) else None
+    A_eq = P.Ae if (P.Ae is not None and P.Ae.size > 0) else None
+    b_eq = P.be.flatten() if (P.be is not None and P.be.size > 0) else None
     res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, method='highs')
     if not res.success:
-        # For outer approximation we expect feasibility; if infeasible, return +/-inf appropriately
         return np.inf if bound_type == 'upper' else -np.inf
     return (-res.fun) if bound_type == 'upper' else res.fun
 

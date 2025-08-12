@@ -2,46 +2,26 @@ import numpy as np
 from typing import Any, Callable, List, Union
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger(__name__)
+# Do not set global logging config here
+# logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
-def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str, Callable]]) -> bool:
+def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
+    logger.debug("checkValueAttributes: value=%s, check_type=%s, attributes=%s", value, check_type, attributes)
+
     """
     checkValueAttributes - checks if the given value is of the correct class
     and has the correct attributes
-
-    Syntax:
-       res = checkValueAttributes(value,class,attributes)
-
-    Inputs:
-       value - value to be tested
-       class_name - string, class of the value
-       attributes - list of attributes (should evaluate to logical),
-                  either
-                  - function_handle - takes value as input and returns logical
-                  - string, such that it can be evaluated
-                              via feval or custom auxiliary function
-
-    Outputs:
-       res - logical
-
-    Example:
-       # value = 1;
-       # res = checkValueAttributes(value, 'numeric', ['integer','nonnan', lambda v: v >= 1])
-
-    Other m-files required: none
-    Subfunctions: none
-    MAT-files required: none
-
-    See also: inputArgsCheck, readNameValuePair
-
-    Authors:       Tobias Ladner
-    Written:       03-March-2025
-    Last update:   ---
-    Last revision: ---
     """
+
+    # Normalize inputs
+    class_name = check_type if isinstance(check_type, str) else ''
+    if attributes is None:
+        attributes = []
+    if not isinstance(attributes, (list, tuple)):
+        attributes = [attributes]
 
     # Auxiliary functions (nested to encapsulate logic, or could be separate private functions)
     def aux_isnd(val: Any, n: int) -> bool:
@@ -111,12 +91,8 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
                 res = aux_iszero(val)
             elif attribute == 'scalar':
                 if class_name.lower() in ['ellipsoid', 'interval', 'zonotope', 'polytope', 'contset']:
-                    res = not isinstance(value, (list, np.ndarray)) or (isinstance(value, np.ndarray) and value.shape == ()) # Handles 0-dim numpy arrays for objects
+                    res = not isinstance(value, (list, np.ndarray)) or (isinstance(value, np.ndarray) and value.shape == ())
                 elif class_name.lower() == 'numeric':
-                    # A numeric scalar can be a Python int/float, or a NumPy array representing:
-                    # 1. A single element (value.size == 1) - this covers scalar arrays like np.array(5)
-                    # 2. A 1D array (vector) - this covers np.array([1,2,3])
-                    # 3. A 2D array that is a row or column vector (e.g., np.array([[1],[2]]) or np.array([[1,2]]))
                     res = np.isscalar(value) or \
                           (isinstance(value, np.ndarray) and \
                            (value.size == 1 or \
@@ -124,7 +100,7 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
                             (value.ndim == 2 and (value.shape[0] == 1 or value.shape[1] == 1)) \
                            ))
                 else:
-                    res = np.isscalar(value) # Default for other types
+                    res = np.isscalar(value)
             elif attribute == 'row':
                 res = (isinstance(val, np.ndarray) and val.ndim == 2 and val.shape[0] == 1)
             elif attribute == 'column':
@@ -144,18 +120,18 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
             elif attribute == 'empty':
                 if val is None:
                     res = True
-                elif hasattr(val, 'size'): # For numpy arrays
+                elif hasattr(val, 'size'):
                     res = val.size == 0
-                elif hasattr(val, '__len__'): # For lists, tuples, etc.
+                elif hasattr(val, '__len__'):
                     res = len(val) == 0
                 else:
                     res = False
             elif attribute == 'nonempty':
                 if val is None:
                     res = False
-                elif hasattr(val, 'size'): # For numpy arrays
+                elif hasattr(val, 'size'):
                     res = val.size > 0
-                elif hasattr(val, '__len__'): # For lists, tuples, etc.
+                elif hasattr(val, '__len__'):
                     res = len(val) > 0
                 else:
                     res = True
@@ -168,8 +144,7 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
             elif attribute == 'full':
                 res = np.all(np.isfinite(val))
             elif attribute == 'sparse':
-                # This would typically involve checking the type or properties of a sparse matrix object
-                res = False # Placeholder, needs actual sparse matrix check
+                res = False
             elif attribute == 'logical':
                 res = np.issubdtype(val.dtype, np.bool_) if isinstance(val, np.ndarray) else isinstance(val, bool)
             elif attribute == 'sym':
@@ -187,17 +162,14 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
             elif attribute == 'matrix':
                 res = (isinstance(val, np.ndarray) and val.ndim == 2)
             else:
-                # Attempt to evaluate as a built-in function or class check (e.g., 'isinstance')
                 try:
                     if attribute.startswith('is'):
                         func_name = attribute
                     else:
                         func_name = 'is' + attribute[0].upper() + attribute[1:]
-                    
-                    # Special handling for `isnumeric` for numpy arrays
                     if func_name == 'isnumeric':
                         res = np.issubdtype(val.dtype, np.number) if isinstance(val, np.ndarray) else isinstance(val, (int, float, complex))
-                    elif func_name == 'isequal': # assuming this is comparison to another value
+                    elif func_name == 'isequal':
                         res = np.array_equal(val, kwargs.get('other_val', None))
                     elif func_name == 'islogical':
                         res = np.issubdtype(val.dtype, np.bool_) if isinstance(val, np.ndarray) else isinstance(val, bool)
@@ -205,10 +177,9 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
                         res = isinstance(val, str)
                     elif func_name == 'iscell':
                         res = isinstance(val, list)
-                    elif func_name == 'istable': # No direct Python equivalent, often implies pandas DataFrame
-                        res = False # Placeholder
+                    elif func_name == 'istable':
+                        res = False
                     else:
-                        # Try to find a global function or a method on value
                         if hasattr(np, func_name):
                             res = getattr(np, func_name)(val)
                         elif hasattr(val, func_name):
@@ -219,13 +190,10 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
                     raise CORAerror('CORA:wrongValue', 'third', f"Unable to check attribute {attribute} for {val}: {e}")
 
         elif isinstance(attribute, Callable):
-            # evaluate function handle
             res = attribute(val)
         else:
-            # unable to check attribute; unknown type
             raise CORAerror('CORA:wrongValue', 'third', f"Unable to check attribute {attribute} for {val}")
 
-        # apply reduction method
         if reduction == 'all':
             if isinstance(res, np.ndarray):
                 res = np.all(res)
@@ -233,7 +201,7 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
             if isinstance(res, np.ndarray):
                 res = np.any(res)
         elif reduction == 'none':
-            pass  # res = res;
+            pass
         else:
             raise CORAerror('CORA:wrongValue', 'fourth', "{'all','any','none'}")
         
@@ -243,7 +211,6 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
     resvec = [False] * (len(attributes) + 1)
 
     # check class
-    # For Python, `isinstance` is used. Class names like 'numeric' need mapping.
     class_check_passed = False
     if not class_name:
         class_check_passed = True
@@ -265,9 +232,6 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
         class_check_passed = isinstance(value, np.ndarray)
     else:
         try:
-            # Check class hierarchy. MATLAB class names are often lowercase,
-            # while Python classes are capitalized (e.g., 'zonotope' vs. 'Zonotope').
-            # We compare lowercased names to handle this.
             mro = type(value).mro()
             class_check_passed = any(c.__name__.lower() == class_name.lower() for c in mro)
         except Exception:
@@ -277,10 +241,9 @@ def checkValueAttributes(value: Any, class_name: str, attributes: List[Union[str
 
     # check attributes
     for i in range(len(attributes)):
-        if not resvec[i]: # If previous check failed, no need to continue
+        if not resvec[i]:
             break
         resvec[i+1] = aux_checkAttribute(value, class_name, attributes[i], 'all')
     
-    # gather results
     res = all(resvec)
     return res 

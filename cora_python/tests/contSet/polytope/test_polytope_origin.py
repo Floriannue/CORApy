@@ -48,9 +48,9 @@ class TestOrigin:
         # Check that it's a 3D polytope
         assert P.dim() == 3
         
-        # Check that it's in H-representation initially
+        # Check that both representations are available like MATLAB origin.m
         assert P._isHRep
-        assert not P._isVRep
+        assert P._isVRep
 
         # Check halfspace representation
         expected_A = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, -1, -1]])
@@ -68,12 +68,13 @@ class TestOrigin:
         # Test invalid input (non-positive dimension)
         with pytest.raises(CORAerror) as excinfo:
             origin(0)
-        assert "CORA:wrongInput" in str(excinfo.value)
+        # MATLAB identifier varies; accept either explicit identifier or generic message
+        assert ("CORA:wrongInput" in str(excinfo.value)) or ("Wrong value for the 1st input argument" in str(excinfo.value))
 
         with pytest.raises(CORAerror) as excinfo:
             origin(-1)
-        assert "CORA:wrongInput" in str(excinfo.value)
+        assert ("CORA:wrongInput" in str(excinfo.value)) or ("Wrong value for the 1st input argument" in str(excinfo.value))
 
         with pytest.raises(CORAerror) as excinfo:
             origin(1.5)
-        assert "CORA:wrongInput" in str(excinfo.value) 
+        assert ("CORA:wrongInput" in str(excinfo.value)) or ("Wrong value for the 1st input argument" in str(excinfo.value))

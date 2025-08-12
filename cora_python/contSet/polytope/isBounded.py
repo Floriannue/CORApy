@@ -24,12 +24,17 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from scipy.optimize import linprog
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .polytope import Polytope
+
+
+def _ensure_array(mat, cols: int) -> np.ndarray:
+    if mat is None:
+        return np.zeros((0, cols))
+    return mat
 
 
 def isBounded(P: 'Polytope') -> bool:
@@ -46,39 +51,92 @@ def isBounded(P: 'Polytope') -> bool:
     # check if property is set (MATLAB: ~isempty(P.bounded.val))
     if hasattr(P, '_bounded_val') and P._bounded_val is not None:
         return P._bounded_val
-    
-    # Empty polytope is considered bounded
+
+    # Empty object (no stored constraints/vertices) represents fullspace -> unbounded
     if P.isemptyobject():
-        res = True
+        res = False
+    elif P.isVRep:
+        # V-representation: bounded in nD; in 1D check for Inf vertices
+        res = P.dim() > 1 or not np.any(np.isinf(P.V))
     else:
-        # Ensure P is in H-representation if not already
-        if not P.isHRep:
-            P.constraints()
-        
-        # Quick check: if any column in the inequality and equality constraints
-        # is zero everywhere, this dimension is unbounded (MATLAB line 64-65)
-        combined_constraints = np.vstack([P.A, P.Ae]) if P.A.size > 0 and P.Ae.size > 0 else \
-                              P.A if P.A.size > 0 else \
-                              P.Ae if P.Ae.size > 0 else \
-                              np.array([]).reshape(0, P.dim())
-        
-        if combined_constraints.size == 0:
-            # No constraints at all -> represents R^n, which is unbounded
-            res = False
-        elif combined_constraints.shape[0] > 0 and not np.all(np.any(combined_constraints, axis=0)):
-            # Some dimension has no constraints (all-zero column) -> unbounded
-            res = False
+        # H-representation path
+        n = P.dim()
+        if n == 1:
+            # 1D H-rep boundedness can be determined without enumerating vertices
+            if not P.isHRep:
+                P.constraints()
+            A = P.A
+            b = P.b
+            Ae = P.Ae
+            be = P.be
+
+            # Empty set via contradictory equalities (0*x = nonzero) or inequalities (0 <= negative)
+            if Ae.size > 0 and np.allclose(Ae, 0) and be.size > 0 and not np.allclose(be, 0):
+                res = True
+            elif A.size > 0 and np.any((np.isclose(A, 0) & (b < -1e-12))):
+                res = True
+            else:
+                # Determine lower/upper bounds from inequalities and equalities
+                upper = np.inf
+                lower = -np.inf
+                if A.size > 0:
+                    for i in range(A.shape[0]):
+                        a = float(A[i, 0])
+                        bi = float(b[i, 0])
+                        if a > 1e-12:
+                            upper = min(upper, bi / a)
+                        elif a < -1e-12:
+                            lower = max(lower, bi / a)
+                        else:
+                            # 0*x <= b: if b < 0 then empty handled above; otherwise no effect
+                            pass
+                if Ae.size > 0:
+                    for i in range(Ae.shape[0]):
+                        ae = float(Ae[i, 0])
+                        be_i = float(be[i, 0])
+                        if abs(ae) > 1e-12:
+                            val = be_i / ae
+                            upper = min(upper, val)
+                            lower = max(lower, val)
+                        else:
+                            # 0*x = be: if be != 0, empty handled above
+                            pass
+                # Bounded iff both lower and upper are finite and lower <= upper
+                res = (np.isfinite(lower) and np.isfinite(upper) and (lower <= upper + 1e-12))
+
         else:
-            # All dimensions are constrained, check using support functions
-            res = _check_bounded_halfspace(P)
-    
-    # save the set property (only done once, namely, here!)
+            # Quick column zero check: any un-constrained dimension -> unbounded
+            if not P.isHRep:
+                P.constraints()
+            A = P.A
+            Ae = P.Ae
+            if (A.size + Ae.size) == 0:
+                # No constraints -> fullspace -> unbounded (but not empty)
+                res = False
+            elif not np.all(np.any(np.vstack([A, Ae]), axis=0)):
+                res = False
+            else:
+                # Evaluate support function in simplex directions
+                unbounded = False
+                for i in range(n):
+                    d = np.zeros((n, 1)); d[i, 0] = 1.0
+                    val = P.supportFunc_(d, 'upper')
+                    vnum = val[0] if isinstance(val, tuple) else val
+                    if vnum == np.inf:
+                        unbounded = True; break
+                if not unbounded:
+                    d = -np.ones((n, 1))
+                    val = P.supportFunc_(d, 'upper')
+                    vnum = val[0] if isinstance(val, tuple) else val
+                    unbounded = (vnum == np.inf)
+                res = not unbounded
+
+    # cache result
     P._bounded_val = res
-    
     return res
 
 
-def _check_bounded_halfspace(P) -> bool:
+def _check_bounded_halfspace(P: 'Polytope') -> bool:
     """
     Check if polytope in halfspace representation is bounded
     
@@ -92,10 +150,10 @@ def _check_bounded_halfspace(P) -> bool:
     # If we can find an unbounded direction, the polytope is unbounded
     
     # Prepare constraint matrices - handle both inequality and equality constraints
-    A_ub = P.A if P.A.size > 0 else None
-    b_ub = P.b.flatten() if P.b.size > 0 else None
-    A_eq = P.Ae if P.Ae.size > 0 else None
-    b_eq = P.be.flatten() if P.be.size > 0 else None
+    A_ub = P.A if (P.A is not None and P.A.size > 0) else None
+    b_ub = P.b.flatten() if (P.b is not None and P.b.size > 0) else None
+    A_eq = P.Ae if (P.Ae is not None and P.Ae.size > 0) else None
+    b_eq = P.be.flatten() if (P.be is not None and P.be.size > 0) else None
     
     # Test positive and negative directions for each coordinate
     for i in range(n):
@@ -110,7 +168,7 @@ def _check_bounded_halfspace(P) -> bool:
                                bounds=None, method='highs')
                 
                 # If the LP is unbounded, the polytope is unbounded
-                if not result.success and 'unbounded' in str(result.message).lower():
+                if not result.success and result.status == 3:
                     return False
                     
                 # Also check if objective value is extremely large
@@ -136,7 +194,8 @@ def _check_bounded_halfspace(P) -> bool:
         # gives a direction where all constraints are satisfied
         
         # If all constraint normals point "outward", polytope is likely bounded
-        rank_A = np.linalg.matrix_rank(P.A)
+        A = P.A if (P.A is not None and P.A.size > 0) else np.zeros((0, n))
+        rank_A = np.linalg.matrix_rank(A)
         if rank_A == n:
             # Full rank constraint matrix often indicates boundedness
             return True
@@ -144,5 +203,25 @@ def _check_bounded_halfspace(P) -> bool:
     except Exception:
         pass
     
-    # Conservative default: assume bounded
-    return True 
+    # Determine boundedness via recession cone LP: exists d != 0 with A d <= 0, Ae d = 0?
+    A = P.A if P.A.size > 0 else None
+    Ae = P.Ae if P.Ae.size > 0 else None
+    if A is None and Ae is None:
+        return False
+
+    # max 1^T t subject to A d + t <= 0, -A d + t <= 0, Ae d = 0, ||d||_inf <= 1, t >= 0
+    # Heuristic: check standard basis directions and their negatives
+    cand = []
+    for i in range(n):
+        e = np.zeros((n,))
+        e[i] = 1.0
+        cand.append(e); cand.append(-e)
+    for d in cand:
+        ok_ineq = True
+        if A is not None and A.size > 0:
+            ok_ineq = np.all(A @ d <= 1e-12)
+        ok_eq = True
+        if Ae is not None and Ae.size > 0:
+            ok_eq = np.allclose(Ae @ d, 0.0, atol=1e-12)
+        if ok_ineq and ok_eq and np.linalg.norm(d, np.inf) > 0:
+            return False

@@ -16,6 +16,7 @@ Written:       25-July-2023 (MATLAB)
 Python translation: 2025
 """
 
+import numpy as np
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -23,26 +24,21 @@ if TYPE_CHECKING:
 
 def isemptyobject(P: 'Polytope') -> bool:
     """
-    Checks if a polytope object is empty (contains no points).
-    This mirrors the MATLAB implementation exactly.
-    
-    Args:
-        P: polytope object
-        
-    Returns:
-        res: true if polytope is empty, false otherwise
+    Checks if a polytope object is empty (contains no points) using MATLAB semantics.
+
+    Notes:
+    - Fullspace (no constraints) is NOT empty.
+    - Constructor guarantees proper array initialization; no None checks needed.
+    - Avoid triggering conversions: use internal storages where possible.
     """
-    
-    # MATLAB: res_H = ~P.isHRep.val || (isempty(P.b_.val) && isempty(P.be_.val));
-    # no inequality or equality constraints
-    res_H = not P.isHRep or (P.b.size == 0 and P.be.size == 0)
-    
-    # MATLAB: res_V = ~P.isVRep.val || (isempty(P.V_.val));
-    # no vertices  
-    res_V = not P.isVRep or (P.V.size == 0)
-    
-    # MATLAB: res = res_H && res_V;
-    # combine information
-    res = res_H and res_V
-    
-    return res 
+    # If cached from constructor (e.g., Polytope.empty), respect it
+    if hasattr(P, '_emptySet_val') and P._emptySet_val is not None:
+        return bool(P._emptySet_val)
+
+    # MATLAB semantics: object is empty if both H-rep and V-rep storages are empty
+    # H-rep considered empty if both b and be are empty
+    res_H = (not P.isHRep) or (P.b.size == 0 and P.be.size == 0)
+    # V-rep considered empty if V is empty
+    # Use internal storage to avoid triggering vertices_()
+    res_V = (not P.isVRep) or (P._V.size == 0)
+    return bool(res_H and res_V)

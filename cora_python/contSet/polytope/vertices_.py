@@ -5,46 +5,38 @@ from scipy.spatial import HalfspaceIntersection
 import warnings
 from typing import TYPE_CHECKING, Optional, Tuple
 
-from cora_python.g.functions.matlab.validate.check import withinTol
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 from cora_python.contSet.polytope.private.priv_equalityToInequality import priv_equalityToInequality
 from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
 from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
-# Placeholder for priv_vertices_1D
-# Placeholder for priv_compact_all
-# Placeholder for priv_normalizeConstraints
-
 if TYPE_CHECKING:
     from cora_python.contSet.polytope.polytope import Polytope
+
 
 def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
     """
     Computes the vertices of a polytope.
-    This is a Python translation of the 'lcon2vert' and 'comb' methods
-    from the MATLAB CORA library.
+    This is a Python translation of the MATLAB CORA implementation.
     """
-    tol = 1e-9 # Default tolerance, consistent with MATLAB in some places
+    tol = 1e-12
 
-    # If polytope has V-representation, return it (after ensuring minimality if needed)
+    # If polytope has V-representation, return it (assume minimal)
     if P.isVRep:
-        # MATLAB's vertices.m calls compact_(P, 'V', tol) here.
-        # For now, we'll return P.V directly, assuming compact_ is handled by higher level call if needed.
         return P.V
 
     n = P.dim()
 
     # Check if polytope is known to be empty
-    if P.isemptyobject(): # Use isemptyobject method like MATLAB
-        # MATLAB lines 96-102: polytope is empty
+    if P.isemptyobject():
         V = np.zeros((n, 0))
         P._V = V
         P._isVRep = True
-        # Set cache values like MATLAB
-        P._minVRep_val = True      # P.minVRep.val = true;
-        P._emptySet_val = True     # P.emptySet.val = true;
-        P._bounded_val = True      # P.bounded.val = true;
-        P._fullDim_val = False     # P.fullDim.val = false;
+        P._minVRep_val = True
+        P._emptySet_val = True
+        P._bounded_val = True
+        P._fullDim_val = False
         return V
 
     # 1D case quick
@@ -53,76 +45,79 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
         if not P.isHRep:
             P.constraints()
         V = _priv_vertices_1D(P.A, P.b, P.Ae, P.be, tol)
-        # Set properties after computation
+        # Unbounded signalled by +/-Inf among candidates
+        if V.size > 0 and np.any(np.isinf(V)):
+            P._emptySet_val = False
+            P._bounded_val = False
+            raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
+        # Empty set
+        if V.size == 0:
+            V_out = np.zeros((1, 0))
+            P._V = V_out
+            P._isVRep = True
+            P._minVRep_val = True
+            P._emptySet_val = True
+            P._bounded_val = True
+            P._fullDim_val = False
+            return V_out
+        # Bounded 1D
         P._V = V
         P._isVRep = True
-        P._isHRep = False # V-rep is now primary
-        # Reset cache values as representation has changed
-        P._reset_lazy_flags()
-        P._minVRep_val = True # 1D vertices are always minimal
+        P._emptySet_val = False
+        P._bounded_val = True
+        P._fullDim_val = V.shape[1] > 1
         return P.V
 
-    # Compute Chebyshev center to detect unbounded/empty cases for nD
-    # Note: Python's center returns center_vector (numpy array)
-    c_vec = P.center() # center() now returns a single numpy array
+    # Detect unboundedness early
+    if not P.isemptyobject() and not P.isBounded():
+        P._emptySet_val = False
+        P._bounded_val = False
+        raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
 
-    # If center calculation indicates an empty set or unbounded set
-    # (e.g., center returns empty array or NaN values)
-    if c_vec.size == 0 or np.any(np.isnan(c_vec)):
-        # If it's unbounded, vertices cannot be computed
-        if P.dim() > 0 and not P.isBounded(): # Using P.bounded property
-            raise CORAerror('CORA:notSupported',
-                            'Vertex computation requires a bounded polytope.')
-        else:
-            # Empty set or other degenerate case where center is not meaningful
-            P._V = np.zeros((n, 0))
-            P._isVRep = True
-            P._emptySet_val = True
-            P._minVRep_val = True
-            return P.V
+    # Compute Chebyshev center to detect empty cases
+    c = P.center()
+    if np.any(np.isnan(c)):
+        # Treat NaN in center as unbounded/invalid
+        P._emptySet_val = False
+        P._bounded_val = False
+        raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
+    elif (isinstance(c, np.ndarray) and c.size == 0) or (isinstance(c, float) and np.isnan(c)):
+        # Empty
+        V = np.zeros((n, 0))
+        P._V = V
+        P._isVRep = True
+        P._minVRep_val = True
+        P._emptySet_val = True
+        P._bounded_val = True
+        P._fullDim_val = False
+        return V
 
-    # If the center calculation returns a valid center and radius (from chebyshev method)
-    # and if the radius is very small, it means it's a point or empty
-    if method == 'chebyshev': # Only if chebyshev was used
-        # We need to re-call center with the certToggle to get the radius, or infer
-        # this from the chebyshev computation.
-        # For now, we will assume if the center is valid, it's not empty/unbounded by center.
-        pass
-
-    # Ensure H-representation is available for 'lcon2vert' and 'comb' methods
+    # Ensure H-representation is available for methods
     if not P.isHRep:
         P.constraints()
 
-    # Choose method
     if method == 'lcon2vert':
-        V = _aux_vertices_lcon2vert(P, n, c_vec)
+        V = _aux_vertices_lcon2vert(P, n, c)
     elif method == 'comb':
         V = _aux_vertices_comb(P)
-    # elif method == 'cdd':
-    #     # Placeholder for cdd method
-    #     # V = aux_vertices_cdd(P, c_vec)
-    #     raise NotImplementedError("CDD method for vertex enumeration not implemented.")
     else:
-        raise ValueError(f'Invalid method \'{method}\'. Allowed: \'lcon2vert\', \'comb\'.')
+        raise ValueError(f"Invalid method '{method}'. Allowed: 'lcon2vert', 'comb'.")
 
     # Set properties after computation
     P._V = V
     P._isVRep = True
-    P._isHRep = False # V-rep is now primary; H-rep might not be minimal
-
-    # Update cache values based on computed V
-    P._emptySet_val = V.size == 0  # Emptiness is determined by existence of V  
-    P._bounded_val = not np.any(np.isinf(V))  # If any vertex is inf, it's unbounded
-
-    # Determine full-dimensionality: if rank of V is less than dimension, it's not full-dimensional
-    if V.size > 0 and np.linalg.matrix_rank(V - np.mean(V, axis=1, keepdims=True)) < n:
+    P._minVRep_val = True
+    P._emptySet_val = False
+    P._bounded_val = True
+    # Determine degeneracy via SVD
+    if V.shape[1] <= V.shape[0]:
         P._fullDim_val = False
-    # Don't set _fullDim_val = True here - let isFullDim() compute it properly when needed
+    else:
+        Vc = V - np.mean(V, axis=1, keepdims=True)
+        _, S, _ = np.linalg.svd(Vc)
+        P._fullDim_val = n == np.count_nonzero(~withinTol(S, 0, 1e-12))
 
-    # Don't set _minHRep_val - let it be computed when H-rep is computed
-    P._minVRep_val = True  # V-rep is now minimal by construction (after duplicate removal)
-
-    return P.V
+    return V
 
 
 def _priv_vertices_1D(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray, tol: float) -> np.ndarray:
@@ -144,139 +139,147 @@ def _priv_vertices_1D(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarr
                 upper_bounds.append(b[i, 0] / A[i, 0])
             elif A[i, 0] < -tol: # Check for negative coefficient
                 lower_bounds.append(b[i, 0] / A[i, 0])
-            # If A[i,0] is zero, it's a trivial constraint (0 <= b), ignored unless b is negative (empty set)
-            elif withinTol(A[i,0], 0, tol) and b[i,0] < -tol: # 0*x <= negative -> empty
-                return np.zeros((1, 0)) # Return empty for infeasible 0*x <= b
+            elif withinTol(A[i, 0], 0, tol) and b[i, 0] < -tol: # 0*x <= negative -> empty set
+                return np.zeros((1, 0))
 
     # From equalities: Ae*x == be
     if Ae.size > 0:
         for i in range(Ae.shape[0]):
-            if not withinTol(Ae[i, 0], 0, tol): # If coefficient is not zero
+            if not withinTol(Ae[i, 0], 0, tol):
                 val = be[i, 0] / Ae[i, 0]
-                # For equality, this point is both an upper and lower bound
                 upper_bounds.append(val)
                 lower_bounds.append(val)
-            elif withinTol(Ae[i,0], 0, tol) and not withinTol(be[i,0], 0, tol): # 0*x == non-zero -> empty
-                 return np.zeros((1, 0)) # Return empty for infeasible 0*x == b
+            elif withinTol(Ae[i, 0], 0, tol) and not withinTol(be[i, 0], 0, tol):
+                return np.zeros((1, 0))
 
-    # Determine the actual min and max, considering open/unbounded intervals
-    min_val = -np.inf if not lower_bounds else np.max(lower_bounds) # Max of lower bounds is the true lower bound
-    max_val = np.inf if not upper_bounds else np.min(upper_bounds) # Min of upper bounds is the true upper bound
+    min_val = -np.inf if not lower_bounds else np.max(lower_bounds)
+    max_val = np.inf if not upper_bounds else np.min(upper_bounds)
 
-    # Check for empty set (min > max)
-    if min_val > max_val + tol: # Add tolerance for numerical stability
-        return np.zeros((1, 0)) # Return empty array if the set is empty
-    
-    # If the set is a single point (min and max are very close)
+    if min_val > max_val + tol:
+        return np.zeros((1, 0))
+
     if withinTol(min_val, max_val, tol):
-        return np.array([[min_val]]) # Return as single vertex
+        return np.array([[min_val]])
 
-    # If the set is an interval, return its bounds as vertices
     if not np.isinf(min_val) and not np.isinf(max_val):
         return np.array([[min_val, max_val]])
-    elif not np.isinf(min_val): # Only lower bound
-        return np.array([[min_val]])
-    elif not np.isinf(max_val): # Only upper bound
-        return np.array([[max_val]])
-    else: # Full space (unbounded in both directions)
-        return np.array([[]]) # Return empty 1D array as a representation of R^1
+    elif not np.isinf(min_val) and np.isinf(max_val):
+        # Unbounded above -> return finite and +Inf to signal unboundedness
+        return np.array([[min_val, np.inf]])
+    elif np.isinf(min_val) and not np.isinf(max_val):
+        # Unbounded below -> return -Inf and finite
+        return np.array([[-np.inf, max_val]])
+    else:
+        # Fully unbounded in 1D -> return empty to allow upstream to treat as unbounded
+        return np.zeros((1, 0))
+
+
+def _compute_affine_subspace_from_active_set(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray, c: np.ndarray, tol: float = 1e-10) -> np.ndarray:
+    """Compute an orthonormal basis S of the affine hull of the polytope at center c.
+    Uses active constraints at c (inequalities at equality within tol and all equalities).
+    Returns S with shape (n, k). If k==0, polytope is a single point.
+    """
+    n = c.shape[0]
+    rows = []
+    if A.size > 0:
+        # Active inequalities where A_i c ~= b_i
+        act = np.where(np.abs(A @ c - b) <= tol)[0]
+        if act.size > 0:
+            rows.append(A[act, :])
+    if Ae.size > 0:
+        rows.append(Ae)
+    if len(rows) == 0:
+        # No active constraints -> full space
+        return np.eye(n)
+    M = np.vstack(rows)
+    # S is null space of M
+    # Compute nullspace via SVD
+    U, s, Vt = np.linalg.svd(M)
+    rank = np.sum(s > 1e-12)
+    S = Vt.T[:, rank:]
+    return S
 
 
 def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray) -> np.ndarray:
     """
-    Efficient vertex enumeration using halfspace intersection (performance-oriented).
-    Falls back to 'comb' on failure. Requires a feasible interior point c.
+    Vertex enumeration using a duality-like approach with degeneracy handling based on
+    affine subspace computed from active constraints at the center.
     """
-    # Require bounded polytope for vertex enumeration
-    try:
-        if not P.isBounded():
-            raise CORAerror('CORA:notSupported', 'Vertex computation requires a bounded polytope.')
-    except Exception:
-        # If boundedness check fails, continue and let the method attempt enumeration
-        pass
-
-    # Build halfspaces in the form n^T x + offset <= 0 expected by SciPy
-    A = P.A if P.A is not None else np.zeros((0, n))
-    b = P.b.flatten() if (P.b is not None and P.b.size > 0) else np.zeros(0)
-    Ae = P.Ae if P.Ae is not None else np.zeros((0, n))
-    be = P.be.flatten() if (P.be is not None and P.be.size > 0) else np.zeros(0)
+    A = P.A
+    b = P.b.flatten()
+    Ae = P.Ae
+    be = P.be.flatten()
 
     halfspaces = []
     for i in range(A.shape[0]):
-        halfspaces.append(np.hstack([A[i, :], -b[i]]))  # A_i x <= b_i -> A_i x - b_i <= 0
-    # Encode equalities as double inequalities for numeric handling
+        halfspaces.append(np.hstack([A[i, :], -b[i]]))
     for i in range(Ae.shape[0]):
         halfspaces.append(np.hstack([Ae[i, :], -be[i]]))
         halfspaces.append(np.hstack([-Ae[i, :], be[i]]))
-
     halfspaces = np.array(halfspaces, dtype=float)
 
-    # If no constraints, return empty
-    if halfspaces.shape[0] == 0:
-        return np.zeros((n, 0))
+    def _handle_degeneracy() -> np.ndarray:
+        # Compute affine subspace basis S from active constraints
+        S = _compute_affine_subspace_from_active_set(A, b.reshape(-1, 1), Ae, be.reshape(-1, 1), c)
+        k = S.shape[1]
+        if k == 0:
+            return c.reshape(-1, 1)
+        if 0 < k < n:
+            A_sub = A @ S
+            b_sub = b.reshape(-1, 1) - (A @ c).reshape(-1, 1) if A.size > 0 else b.reshape(-1, 1)
+            Ae_sub = Ae @ S if Ae.size > 0 else np.zeros((0, k))
+            be_sub = be.reshape(-1, 1) - (Ae @ c).reshape(-1, 1) if Ae.size > 0 else np.zeros((0, 1))
+            from cora_python.contSet.polytope.polytope import Polytope
+            P_sub = Polytope(A_sub, b_sub, Ae_sub, be_sub)
+            V_sub = vertices_(P_sub, 'lcon2vert')
+            return S @ V_sub + c
+        # k == n but we are here -> likely numeric issue or unbounded; guard boundedness
+        if not P.isBounded():
+            raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
+        # Fallback
+        return _aux_vertices_comb(P)
 
-    # Ensure interior point c has correct shape
+    if halfspaces.shape[0] == 0:
+        return _handle_degeneracy()
+
     c_pt = c.flatten()
     if c_pt.size != n:
         c_pt = np.zeros(n)
 
     try:
         hs = HalfspaceIntersection(halfspaces, interior_point=c_pt)
-        V_pts = hs.intersections  # shape (k, n)
-        # Filter out points violating constraints slightly (tolerance)
+        V_pts = hs.intersections
         if V_pts.size == 0:
-            return np.zeros((n, 0))
+            return _handle_degeneracy()
         tol_local = 1e-10
         keep = np.ones(V_pts.shape[0], dtype=bool)
         if A.shape[0] > 0:
-            keep &= np.all((A @ V_pts.T) <= b[np.newaxis, :] + tol_local, axis=1)
+            # Compare each candidate against all A rows; broadcast b correctly per candidate
+            AV = A @ V_pts.T  # shape (m, k)
+            keep &= np.all(AV.T <= (b.reshape(-1, 1) + tol_local).T, axis=1)
         if Ae.shape[0] > 0:
-            keep &= np.all(np.abs(Ae @ V_pts.T - be[np.newaxis, :]) <= 1e-8, axis=1)
+            AVe = Ae @ V_pts.T
+            keep &= np.all(np.abs(AVe.T - be.reshape(1, -1)) <= 1e-8, axis=1)
         V_pts = V_pts[keep, :]
-
-        # Deduplicate vertices within tolerance
         if V_pts.shape[0] == 0:
-            return np.zeros((n, 0))
-        # Round for stable uniqueness
+            return _handle_degeneracy()
         V_round = np.round(V_pts / tol_local) * tol_local
         _, unique_idx = np.unique(V_round, axis=0, return_index=True)
         V_pts = V_pts[np.sort(unique_idx), :]
-
-        # Sort deterministically (descending lexicographic) for stable tests
-        sort_keys = np.argsort((-V_pts).tolist(), axis=0)  # not directly usable
-        # Use lexsort on reversed columns for descending order
         V_sorted = V_pts[np.lexsort(tuple((-V_pts[:, j] for j in range(V_pts.shape[1]-1, -1, -1)))), :]
         return V_sorted.T
     except Exception:
-        # Fallback to combination method
-        return _aux_vertices_comb(P)
-
-    # A more complete implementation might use scipy.spatial.ConvexHull in reverse
-    # (from vertices to halfspaces, which is already done in constraints.py)
-    # or a dedicated vertex enumeration library like pycddlib.
-    # raise NotImplementedError("lcon2vert method for vertex enumeration not implemented.")
+        # If center is not strictly interior (common for unbounded), fall back
+        return _handle_degeneracy()
 
 
 def _aux_vertices_comb(P: 'Polytope') -> np.ndarray:
     """
-    Simple vertex enumeration algorithm: this function returns a set of
-    vertices that contains the true vertices; however, the minimal vertices
-    are not the convex hull of the computed vertices.
-    Matches MATLAB's aux_vertices_comb.
+    Simple vertex enumeration algorithm: returns a superset containing the true vertices.
+    Mirrors MATLAB's aux_vertices_comb; may return extra points.
     """
     tol = 1e-12
-    n = P.dim() # Define n here
-
-    # Check if polytope is unbounded (already handled by main vertices_ function)
-    # if not P.bounded: # Leverage P.bounded property
-    #     raise CORAerror('CORA:notSupported',
-    #                     'Vertex computation requires a bounded polytope.')
-
-    # Rewrite as inequality constraints and normalize
-    # These functions need to be imported or handled appropriately.
-    # For now, we will use the P.A, P.b, P.Ae, P.be directly assuming they are up-to-date
-    # after P.constraints() call in main vertices_.
-    # Need to call priv_equalityToInequality and priv_normalizeConstraints and priv_compact_all
+    n = P.dim()
 
     A_orig = P.A
     b_orig = P.b
@@ -284,114 +287,49 @@ def _aux_vertices_comb(P: 'Polytope') -> np.ndarray:
     be_orig = P.be
 
     A, b = priv_equalityToInequality(A_orig, b_orig, Ae_orig, be_orig)
+    A, b, _, _ = priv_normalizeConstraints(A, b, np.array([[]]).reshape(0, n), np.array([[]]).reshape(0, 1), 'A')
 
-    # Normalize rows
-    A, b, _, _ = priv_normalizeConstraints(A, b, np.array([]).reshape(0,n), np.array([]).reshape(0,1), 'A')
-
-    # Minimal H-representation (via compact_all)
-    # The MATLAB version passes dim(P) as an argument. Use P.dim().
-    A, b, _, _, empty, minHRep = priv_compact_all(A, b, np.array([]).reshape(0,0), np.array([]).reshape(0,1), P.dim(), tol)
-    
-    # Set cache value if minimal representation was obtained
-    if minHRep:
-        P._minHRep_val = True
-
+    A, b, _, _, empty, minHRep = priv_compact_all(A, b, np.array([[]]).reshape(0, 0), np.array([[]]).reshape(0, 1), P.dim(), tol)
     if empty:
         return np.zeros((P.dim(), 0))
 
-    # Number of constraints and dimension
     nrCon, n = A.shape
-
-    # Combinator does not work if n > nrCon, i.e., degenerate cases
-    # If it's a degenerate case (n > nrCon), the 'comb' method cannot compute vertices.
-    # We raise an error here because 'comb' is explicitly chosen or is the fallback.
     if n > nrCon:
-        raise ValueError(f"Method 'comb' does not support cases where ambient dimension ({n}) is greater than the number of constraints ({nrCon}).")
+        raise CORAerror('CORA:notSupported', "Method 'comb' does not support degenerate cases.")
 
-    # All possible combinations of n constraints
-    # Use combinator function to match MATLAB behavior (1-indexed)
     from cora_python.g.functions.matlab.validate.check.auxiliary import combinator
     comb = combinator(nrCon, n, 'c')
     nrComb = comb.shape[0]
-
-    # Throw error if computational effort too high
     if nrComb > 10000:
-        raise ValueError('Too many combinations.')
+        raise CORAerror('CORA:specialError', 'Too many combinations.')
 
-    # Init vertices
     V = np.zeros((n, nrComb))
-    # Some combinations don't produce a vertex or the vertex is outside the
-    # polytope... use logical indexing at the end to avoid resizing the matrix
-    # that contains all vertices
     idxKeep = np.ones(nrComb, dtype=bool)
 
-    # Toggle warning, since some intersection points will be -/+Inf
     with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=RuntimeWarning) # Ignore warnings like divide by zero
+        warnings.filterwarnings('ignore', category=RuntimeWarning)
         warnings.filterwarnings('ignore', message='A_eq does not appear to be of full row rank.')
-        
-        # Loop over all combinations
         for i in range(nrComb):
-            indices = comb[i, :] - 1  # Convert 1-indexed to 0-indexed
+            indices = comb[i, :] - 1
             A_sub = A[list(indices), :]
             b_sub = b[list(indices)]
-
-            # If full-rank, then we have exactly one intersection point
-            # MATLAB uses rank(A_,1e-8) < n for rank check
             if np.linalg.matrix_rank(A_sub, tol=1e-8) < n:
                 idxKeep[i] = False
                 continue
-
-            # Compute intersection point of n halfspaces taken from A
             try:
-                v = np.linalg.solve(A_sub, b_sub)
-            except np.linalg.LinAlgError:
-                # If singular, use pseudo-inverse (as MATLAB's \ operator does this sometimes)
-                try:
-                    v = np.linalg.pinv(A_sub) @ b_sub
-                except np.linalg.LinAlgError:
-                    idxKeep[i] = False # This combination of constraints is truly problematic
-                    continue
-            
-            # Ensure v is column vector for multiplication
-            v = v.reshape(-1, 1)
-            V[:, i] = v.flatten()
-
-            # Check if vertex is contained in polytope
-            val = A @ v
-            if not np.all( (val < b + 1e-8) | withinTol(val, b, 1e-8) ): # Check all constraints with MATLAB tolerance
+                V[:, i] = np.linalg.solve(A_sub, b_sub).flatten()
+            except Exception:
                 idxKeep[i] = False
                 continue
-            
-            # Check if vertex is a duplicate (only if not first vertex)
-            if i > 0:
-                # vecnorm(V(:,1:i-1) - V(:,i)) equivalent
-                # Compare current vertex to previously kept vertices
-                existing_vertices = V[:, :i][:, idxKeep[:i]]
-                if existing_vertices.shape[1] > 0: # Ensure there are existing vertices to compare against
-                    distances = np.linalg.norm(existing_vertices - v, axis=0)
-                    if np.any(withinTol(distances, 0, 1e-14)):
-                        idxKeep[i] = False
 
-    # Remove vertices at indices where there was no computation, or the
-    # computed vertex is outside of the polytope
     V = V[:, idxKeep]
 
-    # Remove vertices with Inf/NaN values
-    V = V[:, np.all(np.isfinite(V), axis=0)]
+    V_round = np.round(V / tol) * tol
+    _, unique_idx = np.unique(V_round, axis=1, return_index=True)
+    V = V[:, np.sort(unique_idx)]
 
-    # Set cache values based on result (like MATLAB)
-    P._V = V
-    P._isVRep = True
-    
-    # Check if it's a single point like MATLAB (lines 191-197)
-    if V.shape[1] == 1:
-        P._minVRep_val = True      # P.minVRep.val = true;
-        P._emptySet_val = False    # P.emptySet.val = false;
-        P._fullDim_val = False     # P.fullDim.val = false; (no zero-dimensional sets)
-        P._bounded_val = True      # P.bounded.val = true;
-    elif V.shape[1] > 1:
-        # Multiple vertices - set minimal V-rep based on MATLAB logic
-        P._minVRep_val = V.shape[1] <= 1 or n == 1  # MATLAB: size(V,2) <= 1 || n == 1
-
-    return V 
+    keep2 = np.ones(V.shape[1], dtype=bool)
+    if A.shape[0] > 0:
+        keep2 &= np.all(A @ V <= b + 1e-10, axis=0)
+    # Equalities were converted to inequalities above; no separate Ae/be filtering needed here
+    return V[:, keep2] 

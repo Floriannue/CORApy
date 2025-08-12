@@ -147,7 +147,11 @@ class Polytope(ContSet):
                 return
         else:
             # Handle general constructors
-            self._general_constructor(*args, **kwargs)
+            # Only ignore 'dim' kwarg if positional args clearly specify a representation (numpy arrays)
+            kkwargs = dict(kwargs)
+            if 'dim' in kkwargs and any(hasattr(a, 'dtype') for a in args):
+                kkwargs.pop('dim')
+            self._general_constructor(*args, **kkwargs)
 
         # Ensure _dim_val is set after construction,
         # in case it was not explicitly set by _general_constructor for edge cases.
@@ -187,7 +191,11 @@ class Polytope(ContSet):
         self._b = other.b.copy() if other.b is not None and other.b.size > 0 else np.array([]).reshape(0,1)
         self._Ae = other.Ae.copy() if other.Ae is not None and other.Ae.size > 0 else np.array([]).reshape(0,0)
         self._be = other.be.copy() if other.be is not None and other.be.size > 0 else np.array([]).reshape(0,1)
-        self._V = other.V.copy() if other.V is not None and other.V.size > 0 else np.array([]).reshape(0,0)
+        # Copy stored vertices without triggering computation (MATLAB parity)
+        if hasattr(other, '_V') and other._V is not None and other._V.size > 0:
+            self._V = other._V.copy()
+        else:
+            self._V = np.array([]).reshape(0,0)
 
         self._isHRep = other.isHRep
         self._isVRep = other.isVRep
@@ -355,9 +363,6 @@ class Polytope(ContSet):
     def isHRep(self, val: bool):
         """Set the H-representation status."""
         self._isHRep = val
-        # When HRep status is explicitly set, other representation is implicitly not active
-        if val:
-            self._isVRep = False
 
     @property
     def isVRep(self) -> bool:
@@ -370,9 +375,6 @@ class Polytope(ContSet):
     def isVRep(self, val: bool):
         """Set the V-representation status."""
         self._isVRep = val
-        # When VRep status is explicitly set, other representation is implicitly not active
-        if val:
-            self._isHRep = False
 
     @property
     def minHRep(self) -> Optional[bool]:
@@ -542,6 +544,13 @@ def _aux_validate_and_normalize_polytope_inputs(
         be = be_raw if be_raw is not None else np.array([]).reshape(0,1)
         V = np.array([]).reshape(0,0) # No vertices for HRep construction
 
+        # Try to determine dimension early from provided matrices (even with zero rows)
+        n = 0
+        if isinstance(A, np.ndarray) and A.ndim == 2 and A.shape[1] > 0:
+            n = A.shape[1]
+        if isinstance(Ae, np.ndarray) and Ae.ndim == 2 and Ae.shape[1] > 0:
+            n = max(n, Ae.shape[1])
+
         # Validate types
         for var, name in [(A, 'A'), (b, 'b'), (Ae, 'Ae'), (be, 'be')]:
             if not isinstance(var, np.ndarray):
@@ -560,19 +569,20 @@ def _aux_validate_and_normalize_polytope_inputs(
         elif be.ndim == 2 and be.shape[1] != 1 and be.shape[0] != 0:
             raise CORAerror('CORA:wrongInputInConstructor', 'Argument "be" has to be a column vector or 1D array.')
 
-        # Determine dimension from A/Ae
-        if A.size > 0:
-            n = A.shape[1]
-        elif Ae.size > 0:
-            n = Ae.shape[1]
-        # If A and Ae are empty, n remains 0 initially; it will be determined by context or default.
+        # Determine dimension from A/Ae if still unknown
+        if n == 0:
+            if A.size > 0:
+                n = A.shape[1]
+            elif Ae.size > 0:
+                n = Ae.shape[1]
 
         # Ensure empty constraint matrices have correct column dimension (0 rows, n columns)
         # This is critical for `numpy.dot` operations later, which fail on 0x0 @ x if x is N-dim.
-        if A.shape[1] != n: # If A is empty or has wrong dimension
-             A = np.zeros((A.shape[0], n)) if A.shape[0] > 0 else np.zeros((0, n))
-        if Ae.shape[1] != n: # If Ae is empty or has wrong dimension
-             Ae = np.zeros((Ae.shape[0], n)) if Ae.shape[0] > 0 else np.zeros((0, n))
+        if n > 0:
+            if A.shape[1] != n: # If A is empty or has wrong dimension
+                 A = np.zeros((A.shape[0], n)) if A.shape[0] > 0 else np.zeros((0, n))
+            if Ae.shape[1] != n: # If Ae is empty or has wrong dimension
+                 Ae = np.zeros((Ae.shape[0], n)) if Ae.shape[0] > 0 else np.zeros((0, n))
 
         # Check row consistency
         if A.shape[0] != b.shape[0]:

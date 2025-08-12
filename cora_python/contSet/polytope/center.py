@@ -71,45 +71,78 @@ def center(P: 'Polytope', method: str = 'chebyshev') -> np.ndarray:
     n = P.dim()
     
     # Fullspace/empty case
-    if P.representsa_('fullspace', 0):
-        # Return origin; consistent with fullspace/center
-        return np.zeros((n, 1))
-    elif P.isemptyobject(): # Use method interface to check if empty
-        # Return empty
+    if P.isemptyobject():
+        # Empty object -> empty center
         return np.zeros((n, 0))
+    if P.representsa_('fullspace', 0):
+        # Fullspace -> origin
+        return np.zeros((n, 1))
     
     # Fast and simple computation for 1D
     if n == 1:
         return _aux_center_1D(P)
-    
+
     # Switch method
     if method == 'chebyshev':
-        return _aux_center_chebyshev(P)
+        c = _aux_center_chebyshev(P)
+        return c.flatten()
     elif method == 'avg':
-        return _aux_center_avg(P)
+        # MATLAB: compute average of vertices (vertices(P) may compute V from H if needed)
+        V = P.V
+        if V.size == 0:
+            return np.zeros((n,))
+        # Ensure orientation is (n x num_vertices)
+        if V.shape[0] != n and V.shape[1] == n:
+            V = V.T
+        c = np.mean(V.astype(float), axis=1)
+        # Remove negative zeros
+        c[np.abs(c) < 1e-15] = 0.0
+        return c
     else:
         raise CORAerror('CORA:wrongValue', f'Invalid method. Allowed: {allowed_methods}')
 
 
 def _aux_center_1D(P: 'Polytope') -> np.ndarray:
     """Special method for 1D polytopes"""
-    # Compute vertices
-    V = P.vertices_()
+    # Use H-rep if available; else convert constraints
+    if not P.isHRep and P.isVRep:
+        # For V-rep 1D: center is midpoint of min/max
+        V = P.V.flatten()
+        if V.size == 0:
+            return np.zeros((1, 0))
+        if V.size == 1:
+            c = np.array([[V[0]]])
+        else:
+            c = np.array([[(np.min(V) + np.max(V)) / 2]])
+        c[np.abs(c) < 1e-15] = 0.0
+        return c
 
-    # For 1D, the Chebyshev center is simply the midpoint of the interval
-    # bounded by the min/max vertices. If there are no vertices, it's empty.
-    if V.size == 0:
-        # Empty polytope, no center
-        return np.zeros((1, 0))
+    # Ensure H-rep
+    if not P.isHRep:
+        P.constraints()
 
-    if np.any(np.isinf(V)):
-        # Unbounded
+    A = P.A
+    b = P.b.flatten()
+    Ae = P.Ae
+    be = P.be.flatten()
+
+    # If only inequalities and one-sided bounded -> unbounded -> NaN
+    has_upper = np.any(A > 0) and np.any(A[A[:, 0] > 0, 0] > 0)
+    has_lower = np.any(A < 0) and np.any(A[A[:, 0] < 0, 0] < 0)
+    if (has_upper and not has_lower) or (has_lower and not has_upper):
         return np.array([np.nan])
 
-    if V.shape[1] == 1: # Single point
-        return V.flatten()
-    else: # Interval
-        return np.array([(np.min(V) + np.max(V)) / 2])
+    # Handle equalities-only via helper
+    if A.size == 0 and Ae.size > 0:
+        c = _aux_center_only_equalityConstraints(P, 1).reshape(-1, 1)
+        c[np.abs(c) < 1e-15] = 0.0
+        return c
+
+    # General: fall back to LP-based center and clean -0.0
+    c = _aux_center_LP(P, 1)
+    c = c.reshape(-1, 1) if c.ndim == 1 else c
+    c[np.abs(c) < 1e-15] = 0.0
+    return c.flatten()
 
 
 def _aux_center_chebyshev(P: 'Polytope') -> np.ndarray:
@@ -121,11 +154,15 @@ def _aux_center_chebyshev(P: 'Polytope') -> np.ndarray:
     # program from below (faster)
     if P.A.size == 0 and P.Ae.size > 0:
         return _aux_center_only_equalityConstraints(P, n)
-    
+
     # General method: compute Chebyshev center via linear program; to this end,
     # we require the halfspace representation
     P.constraints()
-    return _aux_center_LP(P, n)
+    c_lp = _aux_center_LP(P, n)
+    # If LP indicates empty (0 columns) or unbounded (NaN), forward as-is
+    if c_lp.size == 0 or np.any(np.isnan(c_lp)):
+        return c_lp
+    return c_lp
 
 
 def _aux_center_avg(P: 'Polytope') -> np.ndarray:

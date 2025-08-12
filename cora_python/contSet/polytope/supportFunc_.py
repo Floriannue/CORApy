@@ -46,6 +46,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union, Tuple, TYPE_CHECKING
+from scipy.optimize import linprog
 
 if TYPE_CHECKING:
     from .polytope import Polytope
@@ -82,10 +83,60 @@ def supportFunc_(P: 'Polytope',
     # Check if polytope represents fullspace (R^n)
     if P.representsa_('fullspace', 0):
         return _aux_supportFunc_fullspace(dir, type_)
-    
-    # For now, implement only the fullspace case
-    # TODO: Implement vertex representation and linear programming cases
-    raise NotImplementedError("supportFunc_ for polytope is only implemented for fullspace case")
+
+    # Normalize direction to 2D column
+    d = dir.reshape(-1, 1) if dir.ndim == 2 else dir.reshape(-1, 1)
+    n = P.dim()
+
+    # If V-representation available, compute directly
+    if P.isVRep and P.V.size > 0:
+        vals = (d.T @ P.V).flatten()
+        if type_ == 'upper':
+            idx = int(vals.argmax())
+            val = float(vals[idx])
+        elif type_ == 'lower':
+            idx = int(vals.argmin())
+            val = float(vals[idx])
+        else: # range
+            val = (float(vals.min()), float(vals.max()))
+            return val, None
+        x = P.V[:, idx:idx+1]
+        return val, x
+
+    # Else use H-representation via LP: maximize/minimize d^T x s.t. A x <= b, Ae x = be
+    if not P.isHRep:
+        P.constraints()
+
+    A_ub = P.A if (P.A is not None and P.A.size > 0) else None
+    b_ub = P.b.flatten() if (P.b is not None and P.b.size > 0) else None
+    A_eq = P.Ae if (P.Ae is not None and P.Ae.size > 0) else None
+    b_eq = P.be.flatten() if (P.be is not None and P.be.size > 0) else None
+
+    def _solve(cvec):
+        res = linprog(c=cvec, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=[(None, None)]*n, method='highs')
+        return res
+
+    if type_ == 'upper':
+        # maximize d^T x == minimize -(d^T x)
+        res = _solve((-d.flatten()).astype(float))
+        if not res.success:
+            # Unbounded -> +inf
+            return float('inf'), None
+        val = float(d.flatten() @ res.x)
+        return val, res.x.reshape(-1, 1)
+    elif type_ == 'lower':
+        res = _solve((d.flatten()).astype(float))
+        if not res.success:
+            # Unbounded -> -inf
+            return float('-inf'), None
+        val = float(d.flatten() @ res.x)
+        return val, res.x.reshape(-1, 1)
+    else: # range
+        resU = _solve((-d.flatten()).astype(float))
+        resL = _solve((d.flatten()).astype(float))
+        valU = float('inf') if not resU.success else float(d.flatten() @ resU.x)
+        valL = float('-inf') if not resL.success else float(d.flatten() @ resL.x)
+        return (valL, valU), None
 
 
 def _aux_supportFunc_fullspace(dir: np.ndarray, type_: str) -> Union[float, Tuple[float, np.ndarray]]:

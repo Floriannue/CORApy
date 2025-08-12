@@ -152,7 +152,7 @@ python test_coverage.py "cora_python/contSet/interval" "cora_python/tests/contSe
 - If methods need to import their own class or helpers, do it at the top of the file
 - `func` = public interface with validation (parent class)
 - `func_` = raw implementation for internal use (child overrides)
-- matlab nargout is not available in python -> solve with addtional methode parameter(s)
+- MATLABs nargout (how many outputs are expected) is not available in python -> solve with addtional methode parameters (e.g. return_set in representsa_), must be consistently used across functions
 - **NEVER** import methods as standalone functions. All methods are attached to classes in `__init__.py`.
 **WRONG:**
 ```python
@@ -320,6 +320,7 @@ class Interval(ContSet):
                    - Interval(a, b): Interval with bounds
         """
         # Translate MATLAB constructor logic exactly
+        # Must initlaize object correctly and fully so no unnesessary guards later 
         pass
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
@@ -552,4 +553,4 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-Your task is to translate missing `contSet.ellipsoid` methodes
+Your task is to fix `polytope`, compare probelmatic code against matlab to ensure both the cod and the tests are correct.

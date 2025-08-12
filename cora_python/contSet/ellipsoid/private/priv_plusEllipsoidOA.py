@@ -48,27 +48,65 @@ def priv_plusEllipsoidOA(E_cell: List[Ellipsoid]) -> Ellipsoid:
         b_i = -Qinv @ E_cell[i].q
         At_list.append(E_i.T @ Qinv @ E_i)
         bt_list.append(E_i.T @ b_i)
-        c_list.append(float(E_cell[i].q.T @ Qinv @ E_cell[i].q - 1))
+        # Fix the deprecation warning by extracting scalar value properly
+        c_val = E_cell[i].q.T @ Qinv @ E_cell[i].q - 1
+        c_list.append(float(c_val.item() if hasattr(c_val, 'item') else c_val))
 
     # Variables: symmetric B (n x n), vector b (n x 1), l (N)
     B = cp.Variable((n, n), symmetric=True)
     b = cp.Variable((n, 1))
     l = cp.Variable(N, nonneg=True)
 
-    constraints = []
-    # PSD block constraint
+    # Build the constraint matrix C exactly as in MATLAB YALMIP implementation
+    # C = [E0'*B*E0, E0'*b, zeros(n*N,n);
+    #      b'*E0,    -1,     b';
+    #      zeros(n,n*N), b,   -B];
+    
     top_left = E0.T @ B @ E0               # (nN x nN)
     top_right = E0.T @ b                   # (nN x 1)
-    bottom_left = (E0.T @ b).T             # (1 x nN)
-    bottom_right = cp.Constant([[-1]])     # (1 x 1)
-    C_psd = cp.bmat([[top_left, top_right], [bottom_left, bottom_right]])
-    constraints.append(C_psd >> 0)
+    top_zeros = cp.Constant(np.zeros((n*N, n)))  # (nN x n)
+    
+    middle_left = (E0.T @ b).T             # (1 x nN)
+    middle_middle = cp.Constant([[-1]])    # (1 x 1)
+    middle_right = b.T                     # (1 x n)
+    
+    bottom_left = cp.Constant(np.zeros((n, n*N)))  # (n x nN)
+    bottom_middle = b                      # (n x 1)
+    bottom_right = -B                      # (n x n)
+    
+    C = cp.bmat([[top_left, top_right, top_zeros],
+                  [middle_left, middle_middle, middle_right],
+                  [bottom_left, bottom_middle, bottom_right]])
 
-    # For each ellipsoid i: B - l_i * At_i <= 0 and b - l_i * bt_i = 0 and 1 - l_i * c_i >= 0
+    # For each ellipsoid i: subtract l_i * [At_c{i}, bt_c{i}, zeros(n*N,n);
+    #                                        bt_c{i}', c_c{i}, zeros(1,n);
+    #                                        zeros(n,n*N+1+n)]
     for i in range(N):
-        constraints.append(B - l[i] * At_list[i] << 0)
-        constraints.append(E0.T @ b - l[i] * bt_list[i] == 0)
-        constraints.append(1 - l[i] * c_list[i] >= 0)
+        At_i = At_list[i]                  # (nN x nN)
+        bt_i = bt_list[i]                  # (nN x 1)
+        c_i = c_list[i]                    # scalar
+        
+        # Build the matrix to subtract
+        sub_top_left = At_i                 # (nN x nN)
+        sub_top_right = bt_i                # (nN x 1)
+        sub_top_zeros = cp.Constant(np.zeros((n*N, n)))  # (nN x n)
+        
+        sub_middle_left = bt_i.T            # (1 x nN)
+        sub_middle_middle = cp.Constant([[c_i]])  # (1 x 1)
+        sub_middle_right = cp.Constant(np.zeros((1, n)))  # (1 x n)
+        
+        sub_bottom_left = cp.Constant(np.zeros((n, n*N)))  # (n x nN)
+        sub_bottom_middle = cp.Constant(np.zeros((n, 1)))  # (n x 1)
+        sub_bottom_right = cp.Constant(np.zeros((n, n)))   # (n x n)
+        
+        C_i = cp.bmat([[sub_top_left, sub_top_right, sub_top_zeros],
+                       [sub_middle_left, sub_middle_middle, sub_middle_right],
+                       [sub_bottom_left, sub_bottom_middle, sub_bottom_right]])
+        
+        C = C - l[i] * C_i
+
+    # Constraint: C <= 0 (negative semidefinite)
+    constraints = [C << 0]
 
     # Objective: minimize -logdet(B^{-1}) == maximize logdet(B)
     prob = cp.Problem(cp.Maximize(cp.log_det(B)), constraints)

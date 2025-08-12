@@ -54,9 +54,6 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
             Containment Problem for Zonotopes and Ellipsotopes
     """
     
-    print(f"[DEBUG CONTAINS] Starting ellipsoid contains - method: {method}, tol: {tol}")
-    print(f"[DEBUG CONTAINS] S type: {type(S)}, S: {str(S)[:100]}")
-    
     # Validate method
     if method not in ['exact', 'approx']:
         raise CORAerror('CORA:noSpecificAlg', f'No algorithm for method {method}')
@@ -68,46 +65,28 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
     # If E is a point...
     try:
         ell_is_point, p = E.representsa_('point', tol, return_set=True)
-        print(f"[DEBUG CONTAINS] Ellipsoid ell_is_point: {ell_is_point}, p: {p}")
-    except Exception as e:
-        print(f"[DEBUG CONTAINS] Exception in E.representsa_('point'): {e}")
+    except Exception:
         ell_is_point = False
         p = None
         
-    print(f"[DEBUG CONTAINS] About to check if ell_is_point: {ell_is_point}")
     if ell_is_point:
-        print(f"[DEBUG CONTAINS] ell_is_point is True, checking S type")
-        print(f"[DEBUG CONTAINS] isinstance(S, np.ndarray): {isinstance(S, np.ndarray)}")
         if isinstance(S, np.ndarray):
-            print(f"[DEBUG CONTAINS] Taking numpy array branch")
             # S is numeric
             res = np.max(np.abs(S - p)) <= tol
             cert = True
-            if res:
-                scaling = 0.0
-            else:
-                scaling = np.inf
+            scaling = 0.0 if res else np.inf
         else:
-            print(f"[DEBUG CONTAINS] Taking contSet branch")
             # S is not numeric, check if S is a point (but as a contSet)
             try:
-                print(f"[DEBUG CONTAINS] Starting try block in contSet branch")
                 # First check if S represents an empty set
-                print(f"[DEBUG CONTAINS] hasattr(S, 'representsa_'): {hasattr(S, 'representsa_')}")
-                print(f"[DEBUG CONTAINS] callable(S.representsa_): {callable(S.representsa_) if hasattr(S, 'representsa_') else 'N/A'}")
                 if hasattr(S, 'representsa_') and callable(S.representsa_):
-                    print(f"[DEBUG CONTAINS] Calling S.representsa_('emptySet', {tol})")
                     is_empty = S.representsa_('emptySet', tol)
-                    print(f"[DEBUG CONTAINS] is_empty: {is_empty}")
                     if is_empty:
-                        print(f"[DEBUG CONTAINS] S is empty - returning True")
                         # Empty set is always contained in any ellipsoid
                         res = True
                         cert = True
                         scaling = 0.0
                         return res, cert, scaling
-                    else:
-                        print(f"[DEBUG CONTAINS] S is not empty - continuing to point check")
                 
                 # Then check if S is a point
                 try:
@@ -116,78 +95,46 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                     # Some representsa_ methods don't support return_set parameter
                     S_is_point = S.representsa_('point', tol)
                     q = None
-                print(f"[DEBUG CONTAINS] S_is_point: {S_is_point}")
-                print(f"[DEBUG CONTAINS] q: {q}")
-                print(f"[DEBUG CONTAINS] p: {p}")
                 if S_is_point:
-                    # q might be a numpy array or a set object, or None if return_set wasn't supported
-                    print(f"[DEBUG CONTAINS] isinstance(q, np.ndarray): {isinstance(q, np.ndarray)}")
-                    print(f"[DEBUG CONTAINS] q.shape == p.shape: {q.shape == p.shape if hasattr(q, 'shape') else 'no shape'}")
-                    print(f"[DEBUG CONTAINS] not np.any(np.isnan(q)): {not np.any(np.isnan(q)) if hasattr(q, 'shape') else 'no shape'}")
                     if isinstance(q, np.ndarray) and q.shape == p.shape and not np.any(np.isnan(q)):
                         # Direct comparison with numpy array (only if shapes match and no nan)
-                        allclose_result = np.allclose(q, p, atol=tol)
-                        print(f"[DEBUG CONTAINS] np.allclose(q, p, atol={tol}): {allclose_result}")
-                        res = allclose_result
+                        res = np.allclose(q, p, atol=tol)
                         if res:
                             cert = True
                             scaling = 0.0
-                            print(f"[DEBUG CONTAINS] Point comparison SUCCESS - returning True")
                             return res, cert, scaling
-                        else:
-                            print(f"[DEBUG CONTAINS] Point comparison FAILED - points not equal")
                     else:
-                        # q is invalid (wrong shape, contains nan, etc.) -> fall back to vertex check
-                        # This handles buggy polytope representsa_ implementations
+                        # q is invalid -> fall back to vertex check
                         try:
                             vertices = S.vertices_()
                             if vertices.size > 0:
                                 point_res, point_cert, point_scaling = priv_containsPoint(E, vertices, tol)
-                                if isinstance(point_res, np.ndarray):
-                                    res = np.all(point_res)
-                                else:
-                                    res = point_res
+                                res = np.all(point_res) if isinstance(point_res, np.ndarray) else point_res
                             else:
                                 # vertices_() failed, try to extract point from equality constraints
-                                # If polytope has Ae*x = be with Ae = I, then x = be
                                 if hasattr(S, 'Ae') and hasattr(S, 'be') and S.Ae is not None and S.be is not None:
                                     if np.allclose(S.Ae, np.eye(S.Ae.shape[0]), atol=1e-12):
                                         point_candidate = S.be
                                         point_res, point_cert, point_scaling = priv_containsPoint(E, point_candidate, tol)
-                                        if isinstance(point_res, np.ndarray):
-                                            res = np.all(point_res)
-                                        else:
-                                            res = point_res
+                                        res = np.all(point_res) if isinstance(point_res, np.ndarray) else point_res
                                     else:
                                         res = False
                                 else:
                                     res = False
-                        except Exception as e:
-                            print(f"[DEBUG CONTAINS] Exception in vertex fallback: {e}")
+                        except Exception:
                             res = False
-                    
-                    print(f"[DEBUG CONTAINS] After point check - res: {res}")
                     cert = True
-                    if res:
-                        scaling = 0.0
-                    else:
-                        scaling = np.inf
-                    print(f"[DEBUG CONTAINS] Point ellipsoid final result: res={res}, cert={cert}, scaling={scaling}")
+                    scaling = 0.0 if res else np.inf
                 else:
-                    print(f"[DEBUG CONTAINS] S has no representsa_ method")
-                    # S is not numeric and not empty -> S cannot possibly be contained
+                    # S is not numeric and not point
                     res = False
                     cert = True
                     scaling = np.inf
-            except Exception as e:
-                # Log the exception but continue with fallback
-                print(f"[ERROR] Exception in ellipsoid contains contSet branch: {e}")
-                import traceback
-                traceback.print_exc()
+            except Exception:
+                # Fallback on error
                 res = False
                 cert = True
                 scaling = np.inf
-        
         return res, cert, scaling
     
     # E is not a point
@@ -211,7 +158,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                     is_empty = S.representsa_('emptySet', tol)
                 else:
                     is_empty = False
-            except:
+            except Exception:
                 is_empty = False
                 
             if is_empty:
@@ -248,7 +195,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                 cert = True
                 scaling = np.inf
                 return res, cert, scaling
-        except:
+        except Exception:
             pass
     
     # Check if S represents an empty set (polymorphic)
@@ -257,7 +204,7 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
             is_empty = S.representsa_('emptySet', tol)
         else:
             is_empty = False
-    except:
+    except Exception:
         is_empty = False
     
     if is_empty:
@@ -283,12 +230,9 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                     return res, cert, scaling
         except Exception as e:
             if 'CORA:notSupported' in str(e) or 'MATLAB:maxlhs' in str(e):
-                # If the code above returns an error either because there are
-                # too many outputs, or the operation is not supported, we
-                # conclude that it is not implemented, and we do nothing
+                # Not implemented or wrong number of outputs
                 pass
             else:
-                # In any other case, something went wrong. Relay that information.
                 raise e
     
     # Containment check for specific set types
@@ -328,10 +272,6 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                 return res, cert, scaling
                 
             elif class_name == 'Zonotope':
-                # For zonotopes, we can leverage the symmetry for a better vertex
-                # enumeration, at least for dimensions >3. For some reason,
-                # computing the vertex representation in dimension 2 is still
-                # faster:
                 if S.dim() <= 2:
                     vertices = S.vertices_()
                     res, cert, scaling = priv_containsPoint(E, vertices, tol)
@@ -344,21 +284,18 @@ def contains_(E: 'Ellipsoid', S: Union[np.ndarray, Any], method: str = 'exact',
                     res, cert, scaling = priv_venumZonotope(E, S, tol, scaling_toggle)
                     return res, cert, scaling
             else:
-                # Throw error for unsupported types
                 raise CORAerror('CORA:noExactAlg', f'No exact algorithm for {class_name}')
         else:
             raise CORAerror('CORA:noExactAlg', 'No exact algorithm for unknown set type')
             
     elif method == 'approx':
-        # Compute approx algorithms
         if hasattr(S, '__class__') and S.__class__.__name__ == 'Zonotope':
             res, cert, scaling = aux_symmetricGrothendieck(E, S, tol, cert_toggle)
             return res, cert, scaling
         elif hasattr(S, 'zonotope') and callable(S.zonotope):
-            # Convert to zonotope and retry
             Z = S.zonotope()
             res, cert, scaling = contains_(E, Z, method, tol, max_eval, cert_toggle, scaling_toggle)
-            cert = res  # For approximation, cert equals res
+            cert = res
             return res, cert, scaling
         else:
             raise CORAerror('CORA:noExactAlg', 'No approximation algorithm for this set type')

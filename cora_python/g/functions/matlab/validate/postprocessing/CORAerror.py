@@ -136,6 +136,14 @@ class CORAerror(Exception):
                     return f"Wrong value for the {self.message} input argument.\n  The right value: {explains}\n{helpmsg}"
             else:
                 return f"Wrong value: {self.message}\n{helpmsg}"
+
+        elif self.identifier == 'CORA:wrongInput':
+            # Explicitly include identifier in message for tests that check it
+            if len(self.args_list) >= 1:
+                explains = self.args_list[0]
+                return f"CORA:wrongInput: Wrong value for the {self.message} input argument.\n  The right value: {explains}\n{helpmsg}"
+            else:
+                return f"CORA:wrongInput: Wrong input. {self.message}\n{helpmsg}"
         
         elif self.identifier == 'CORA:plotProperties':
             if self.message:

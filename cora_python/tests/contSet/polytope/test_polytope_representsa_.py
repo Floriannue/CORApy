@@ -62,7 +62,7 @@ class TestPolytopeRepresentsa:
         A = np.zeros((0, 2))
         b = np.zeros(0)
         P = Polytope(A, b)
-        result, I = representsa_(P, 'interval')
+        result, I = representsa_(P, 'interval', return_set=True)
         assert result
         # Should represent unbounded interval [-Inf, Inf]^2
         assert I is not None  # Check that interval is returned
@@ -87,7 +87,7 @@ class TestPolytopeRepresentsa:
         A = np.array([[1, 0], [-1, 0], [-2, 0], [0, 2], [0, 4]])
         b = np.array([1, 1, 1, 1, 1])
         P = Polytope(A, b)
-        result, I = representsa_(P, 'interval')
+        result, I = representsa_(P, 'interval', return_set=True)
         assert result
         # Should represent interval [-0.5, 1] x [-Inf, 1/4]
         assert I is not None
@@ -98,7 +98,7 @@ class TestPolytopeRepresentsa:
         A = np.vstack([np.eye(n), -np.eye(n)])
         b = np.ones(2*n)
         P = Polytope(A, b)
-        result, I = representsa_(P, 'interval')
+        result, I = representsa_(P, 'interval', return_set=True)
         assert result
         assert I is not None
     
@@ -109,7 +109,7 @@ class TestPolytopeRepresentsa:
         Ae = np.array([[0, 1, 0], [0, 0, 1]])
         be = np.array([5, 7])
         P = Polytope(A, b, Ae, be)
-        result, I = representsa_(P, 'interval')
+        result, I = representsa_(P, 'interval', return_set=True)
         assert result
         # Should represent interval [-1, 1] x [5, 5] x [7, 7]
         assert I is not None
@@ -122,7 +122,7 @@ class TestPolytopeRepresentsa:
         b_coeffs = np.array([0.5, 4, 0.25, 2, 2.25, 3])
         b = b_coeffs * np.ones(2*n)
         P = Polytope(A, b)
-        result, I = representsa_(P, 'interval')
+        result, I = representsa_(P, 'interval', return_set=True)
         assert result
         assert I is not None
     
@@ -134,7 +134,7 @@ class TestPolytopeRepresentsa:
         A = np.delete(A, [1, 3], axis=0)  # Remove rows 1 and 3 (0-indexed)
         b = np.ones(A.shape[0])
         P = Polytope(A, b)
-        result, I = representsa_(P, 'interval')
+        result, I = representsa_(P, 'interval', return_set=True)
         assert result
         assert I is not None
     

@@ -58,13 +58,18 @@ def isIntersecting_(P: Polytope,
     # Handle numeric case: check containment
     if isinstance(S, np.ndarray):
         result, _, _ = P.contains_(S, type_, tol, 0, False, False)
-        return result
+        return bool(np.all(result)) if isinstance(result, np.ndarray) else bool(result)
     
     # If S has higher precedence, let it handle the intersection
     if hasattr(S, 'precedence') and S.precedence < P.precedence:
         return S.isIntersecting_(P, type_, tol)
     
-    # Check for empty sets
+    # Treat 'fullspace' as intersecting everything; use representsa_ for clarity
+    if hasattr(P, 'representsa_') and P.representsa_('fullspace', 0):
+        return True
+    if hasattr(S, 'representsa_') and S.representsa_('fullspace', 0):
+        return True
+    # Proper empty sets (infeasible constraints) do not intersect
     if hasattr(P, 'representsa_') and P.representsa_('emptySet', 0):
         return False
     if hasattr(S, 'representsa_') and S.representsa_('emptySet', 0):
@@ -285,7 +290,7 @@ def _aux_isIntersecting_P_zB(P: Polytope, zB) -> bool:
     H = P.A
     d = P.b
     
-    p, n = H.shape
+    p, n = H.shape if H.size > 0 else (0, P.dim())
     
     # Construct inequality constraints
     # H*x - y <= d  =>  [H, -I] * [x; y] <= d
@@ -449,40 +454,24 @@ def _aux_isIntersecting_approx(P: Polytope, S, tol: float) -> bool:
 
 def _aux_isIntersecting_poly_poly(P1: 'Polytope', P2: 'Polytope', tol: float) -> bool:
     """
-    Intersection check of two polytopes by constructing their intersection
+    Exact feasibility check: exists x s.t. A1 x <= b1, Ae1 x = be1 and A2 x <= b2, Ae2 x = be2
     """
-    # Construct intersection polytope
-    H1 = P1.A
-    d1 = P1.b
-    H2 = P2.A
-    d2 = P2.b
-    
-    # Combine constraints
-    H_combined = np.vstack([H1, H2])
-    d_combined = np.vstack([d1, d2]) # Use vstack for column vectors
-    
-    # Handle equality constraints if they exist
-    He1 = P1.Ae
-    de1 = P1.be
-    He2 = P2.Ae
-    de2 = P2.be
-    
-    # Ensure correct handling of empty matrices for vstack
-    if He1.size == 0 and He2.size == 0:
-        He_combined = np.empty((0, H_combined.shape[1])) # Ensure 2D empty array
-        de_combined = np.empty((0,1)) # Ensure column vector
-    elif He1.size == 0:
-        He_combined = He2
-        de_combined = de2
-    elif He2.size == 0:
-        He_combined = He1
-        de_combined = de1
-    else:
-        He_combined = np.vstack([He1, He2])
-        de_combined = np.vstack([de1, de2])
+    # Ensure H-reps
+    P1.constraints(); P2.constraints()
+    A1, b1, Ae1, be1 = P1.A, P1.b.flatten(), P1.Ae, P1.be.flatten()
+    A2, b2, Ae2, be2 = P2.A, P2.b.flatten(), P2.Ae, P2.be.flatten()
 
-    # Create intersection polytope
-    P_intersect = Polytope(H_combined, d_combined, He_combined, de_combined)
-    
-    # Check if intersection is empty
-    return not P_intersect.representsa_('emptySet', tol) 
+    A_ub = np.vstack([A1, A2]) if (A1.size > 0 or A2.size > 0) else None
+    b_ub = np.hstack([b1, b2]) if (b1.size > 0 or b2.size > 0) else None
+    A_eq = np.vstack([Ae1, Ae2]) if (Ae1.size > 0 or Ae2.size > 0) else None
+    b_eq = np.hstack([be1, be2]) if (be1.size > 0 or be2.size > 0) else None
+
+    try:
+        from scipy.optimize import linprog
+        n = P1.dim()
+        c = np.zeros(n)
+        res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq,
+                      bounds=None, method='highs')
+        return bool(res.success)
+    except Exception:
+        return _aux_isIntersecting_approx(P1, P2, tol)

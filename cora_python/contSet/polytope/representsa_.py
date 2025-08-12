@@ -1,21 +1,28 @@
 """
-representsa_ - checks if a polytope represents a specific type
+representsa_ - checks if a polytope represents a specific set type
 
 Syntax:
-    res = representsa_(P, type, tol)
+    res = representsa_(P, set_type, tol)
+    res, S = representsa_(P, set_type, tol, return_set=True)
 
 Inputs:
-    P - polytope object
-    type - string specifying the type ('emptySet', 'fullspace', 'origin', etc.)
-    tol - tolerance for checks
+    P        - polytope object
+    set_type - string specifying the target set ('emptySet', 'fullspace', 'origin', 'interval', ...)
+    tol      - tolerance for checks (default: 1e-9)
+    return_set (kwarg) - if True, additionally returns a corresponding set/object when supported
 
 Outputs:
-    res - true/false
+    res      - boolean
+    S        - optional returned object only if return_set=True
 
 Authors:       Mark Wetzlinger
 Written:       19-July-2023
 Last update:   ---
 Last revision: ---
+Notes:
+    - By default this function returns a boolean only. It NEVER returns an object
+      unless explicitly requested via return_set=True. This mirrors MATLAB nargout
+      usage via an explicit parameter for clarity in Python.
 """
 
 import numpy as np
@@ -57,36 +64,32 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
     return_obj = None
     n = p.dim()
 
-    # Handle case where p.Ae or p.be might be None
-    # Ensure they are empty numpy arrays if not initialized to prevent AttributeError
-    if p.Ae is None:
-        p.Ae = np.array([[]]).reshape(0, n)
-    if p.be is None:
-        p.be = np.array([[]]).reshape(0, 1)
+    # Arrays are always initialized by constructor; no None guards needed
 
-    # Check for empty object case using isemptyobject like MATLAB
+    # Check for empty object case using H-rep feasibility and V cache
     empty_obj = p.isemptyobject()
     if empty_obj:
-        if set_type == 'emptySet':
-            res = True
-            # MATLAB: P.emptySet.val = res; (already known to be true)
-            # save properties, now that P is known to be the empty set
-            if res:
-                p._bounded_val = True      # MATLAB: P.bounded.val = true;
-                p._fullDim_val = False     # MATLAB: P.fullDim.val = false;
-                # Note: MATLAB also sets P.V_.val = zeros(n,0), P.isVRep.val = true, P.minVRep.val = true
-                # But we handle representation flags differently in Python
+        # No constraints case: represents fullspace and also an (unbounded) interval
+        if set_type == 'fullspace':
+            p._bounded_val = False
+            p._fullDim_val = True
+            p._emptySet_val = False
             if 'return_set' in kwargs and kwargs['return_set']:
-                from cora_python.contSet.emptySet.emptySet import EmptySet
-                return_obj = EmptySet(n)
-            return _return_result(res, return_obj)
-        elif set_type == 'fullspace':
-            # If the polytope is empty, it cannot be a fullspace
+                from cora_python.contSet.fullspace.fullspace import Fullspace
+                return_obj = Fullspace(n)
+            return _return_result(True, return_obj)
+        if set_type == 'interval':
+            from cora_python.contSet.interval.interval import Interval
+            I = Interval(-np.inf*np.ones((n,1)), np.inf*np.ones((n,1)))
+            if 'return_set' in kwargs and kwargs['return_set']:
+                return _return_result(True, I)
+            return _return_result(True, None)
+        if set_type == 'emptySet':
             return _return_result(False, None)
-        else:
-            # Empty polytope cannot represent other types
-            return _return_result(False, None)
-    elif set_type == 'emptySet': 
+        # All other types false by default
+        return _return_result(False, None)
+    elif set_type == 'emptySet':
+        # Non-empty object does not represent emptySet
         return _return_result(False, None)
     
     # If it's a fullspace, emptySet would be false. Check fullspace explicitly.
@@ -96,10 +99,15 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         # all(all(withinTol(P.Ae_.val,0,tol))) && all(withinTol(P.be_.val,0,tol))) || ...
         # (P.isVRep.val && (n == 1 && any(P.V_.val == -Inf) && any(P.V_.val == Inf)));
         
-        # Check H-representation
-        hrep_fullspace = (p.isHRep and \
-                          np.all(withinTol(p.A, 0, tol)) and \
-                          np.all((p.b > 0) | withinTol(p.b, 0, tol)))
+        # Check H-representation: no constraints means fullspace
+        # or all A rows zero and b >= 0
+        hrep_fullspace = False
+        if p.isHRep:
+            if p.A.size == 0 and p.Ae.size == 0:
+                hrep_fullspace = True
+            else:
+                hrep_fullspace = (np.all(withinTol(p.A, 0, tol)) and 
+                                  np.all((p.b > 0) | withinTol(p.b, 0, tol)))
         
         # Check equality constraints for H-representation
         # Ensure Ae and be are also trivially fulfilled (all zeros) for fullspace
@@ -140,14 +148,50 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         
         if res and 'return_set' in kwargs and kwargs['return_set']:
             from cora_python.contSet.fullspace.fullspace import fullspace as fullspace_func
-            return_obj = fullspace_func(n) # Return an actual fullspace object
+            return_obj = fullspace_func(n)
         return _return_result(res, return_obj)
 
-    # Initialize return_obj (for cases where res is False by default)
-    if 'return_set' in kwargs and kwargs['return_set']:
-        return_obj = None # Default to None if not converting
+
     
     # Logic for other types
+    if set_type == 'emptySet':
+        # Determine emptiness via quick feasibility check of Ax<=b, Ae x = be
+        A = p.A; b = p.b.flatten(); Ae = p.Ae; be = p.be.flatten()
+        # No constraints -> fullspace, not empty set
+        if A.size == 0 and Ae.size == 0:
+            return _return_result(False, None)
+        # Quick contradictory pair check: exists i,j with A_i = −A_j and −b_j > b_i + tol
+        if A.size > 0:
+            with np.errstate(invalid='ignore'):
+                for i in range(A.shape[0]):
+                    ai = A[i, :]
+                    bi = b[i]
+                    # find rows equal to -ai
+                    mask = np.all(np.isclose(A, -ai, atol=tol), axis=1)
+                    if np.any(mask):
+                        bj = b[mask]
+                        if np.any((-bj) > (bi + tol)):
+                            return _return_result(True, None)
+            # Any all-zero inequality with negative offset -> empty
+            zero_rows = np.all(np.isclose(A, 0, atol=tol), axis=1)
+            if np.any(zero_rows):
+                if np.any(b[zero_rows] < -tol):
+                    return _return_result(True, None)
+        if Ae.size > 0 and np.allclose(Ae, 0, atol=tol) and not np.allclose(be, 0, atol=tol):
+            return _return_result(True, None)
+        # Try feasibility with linprog: min 0 s.t. A x <= b, Ae x = be
+        try:
+            n = p.dim()
+            c = np.zeros(n)
+            from scipy.optimize import linprog
+            res_lp = linprog(c, A_ub=A if A.size > 0 else None, b_ub=b if b.size > 0 else None,
+                             A_eq=Ae if Ae.size > 0 else None, b_eq=be if be.size > 0 else None,
+                             bounds=None, method='highs')
+            res = (not res_lp.success)
+        except Exception:
+            res = False
+        return _return_result(res, None)
+
     if set_type == 'origin':
 
         # Quick check: is origin contained?
@@ -172,12 +216,23 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
 
     elif set_type == 'point':
         if n == 1:
-            V = p.vertices_()
-            res = V.shape[1] == 1 # True if only one vertex
+            # 1D: point if bounds collapse or equality fixes x
+            A = p.A; b = p.b; Ae = p.Ae; be = p.be
+            if Ae.size > 0 and not np.allclose(Ae, 0, atol=tol):
+                res = True
+            else:
+                upper = np.inf; lower = -np.inf
+                if A.size > 0:
+                    for i in range(A.shape[0]):
+                        a = float(A[i,0]); bi = float(b[i,0])
+                        if a > tol:
+                            upper = min(upper, bi/a)
+                        elif a < -tol:
+                            lower = max(lower, bi/a)
+                res = (np.isfinite(upper) and np.isfinite(lower) and abs(upper - lower) <= tol)
         else:
-            # MATLAB: [fulldim,subspace] = isFullDim(P); res = ~fulldim && isempty(subspace);
-            fulldim, subspace = p.isFullDim()
-            res = not fulldim and (subspace is None or subspace.size == 0)
+            fulldim, subspace = p.isFullDim(return_subspace=True)
+            res = (not fulldim) and (subspace is None or subspace.size == 0)
         
         # Set is degenerate if it's only a single point
         if res:
@@ -219,9 +274,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         A, b, Ae, be, empty = priv_compact_zeros(p.A, p.b, p.Ae, p.be, tol)
         if empty:
             res = False
-            if 'return_set' in kwargs and kwargs['return_set']:# Added this block to ensure tuple return
-                return res, None
-            return res, None # Ensure tuple return here
+            return _return_result(res, None)
 
         A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
         A, b, Ae, be = priv_compact_toEquality(A, b, Ae, be, tol)
@@ -336,12 +389,16 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                     offset = all_constraints_b[c_idx, 0]
                     
                     val_upper = I.supportFunc_(constraint, 'upper')
+                    if isinstance(val_upper, tuple):
+                        val_upper = val_upper[0]
                     if val_upper <= offset + tol: # Constraint is redundant (or satisfied within tolerance)
                         # Constraint is redundant
                         pass
                     else:
                         # Constraint cuts through the interval. Check lower bound of support function
                         val_lower = I.supportFunc_(constraint, 'lower')
+                        if isinstance(val_lower, tuple):
+                            val_lower = val_lower[0]
                         if val_lower > offset - tol: # Interval is on one side, meaning empty with this constraint
                             res = False # Empty
                             break
@@ -394,13 +451,46 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         return _return_result(res, return_obj)
 
     elif set_type == 'zonotope':
-        raise CORAerror('CORA:notSupported',
-                        f'Comparison of polytope to {set_type} not supported.')
+        # For representability, an axis-aligned box qualifies
+        A = p.A; b = p.b
+        res = False
+        if A is not None and A.size > 0:
+            n = p.dim()
+            ok = True
+            # A row is axis-aligned if only one column is non-zero
+            for i in range(A.shape[0]):
+                nz = np.where(np.abs(A[i, :]) > 1e-12)[0]
+                if nz.size > 1:
+                    ok = False
+                    break
+            res = ok
+        return _return_result(res, return_obj)
 
     elif set_type == 'hyperplane':
-        # Hyperplane: no inequality constraints, exactly one equality constraint
-        # Use p.A and p.Ae directly
-        res = p.A.size == 0 and p.Ae.shape[0] == 1
+        # Hyperplane: A empty and Ae rows all proportional; be proportional with same factors
+        if p.A.size > 0 or p.Ae.size == 0:
+            return _return_result(False, return_obj)
+        Ae = p.Ae.copy().astype(float)
+        be = p.be.copy().astype(float).flatten()
+        # Remove zero rows
+        nonzero = np.linalg.norm(Ae, axis=1) > tol
+        if not np.any(nonzero):
+            return _return_result(False, return_obj)
+        Ae_nz = Ae[nonzero, :]
+        be_nz = be[nonzero]
+        a_ref = Ae_nz[0, :]
+        b_ref = be_nz[0]
+        denom = np.dot(a_ref, a_ref)
+        if denom <= tol:
+            return _return_result(False, return_obj)
+        ok = True
+        for i in range(Ae_nz.shape[0]):
+            c_i = float(np.dot(Ae_nz[i, :], a_ref) / denom)
+            if not np.allclose(Ae_nz[i, :], c_i * a_ref, atol=1e-9):
+                ok = False; break
+            if not np.isclose(be_nz[i], c_i * b_ref, atol=1e-9):
+                ok = False; break
+        res = ok
         return _return_result(res, return_obj)
 
     elif set_type == 'parallelotope':

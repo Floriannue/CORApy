@@ -67,7 +67,8 @@ def priv_andEllipsoidIA(E_list: List[Ellipsoid]) -> Ellipsoid:
     d = cp.Variable((n, 1))
     l = [cp.Variable(nonneg=True) for _ in E_cell]
 
-    eps = 1e-9
+    # tighten PSD floor to avoid biasing optimum
+    eps = 1e-12
     constraints = [B >> eps * np.eye(n)]
     I_n = cp.Constant(np.eye(n))
     Z1n = cp.Constant(np.zeros((1, n)))
@@ -83,7 +84,12 @@ def priv_andEllipsoidIA(E_list: List[Ellipsoid]) -> Ellipsoid:
         constraints.append(lmi >> 0)
 
     prob = cp.Problem(cp.Maximize(cp.log_det(B)), constraints)
-    prob.solve(solver=cp.SCS, verbose=False)
+    # Use stricter SCS settings for higher accuracy
+    try:
+        prob.solve(solver=cp.SCS, verbose=False, eps=1e-9, max_iters=200000, acceleration_lookback=50, normalize=True, scale=0.5)
+    except TypeError:
+        # Fallback for older SCS versions without these kwargs
+        prob.solve(solver=cp.SCS, verbose=False, eps=1e-9, max_iters=200000)
     if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
         raise CORAerror('CORA:solverIssue', f'Inner intersection SDP failed: {prob.status}')
 

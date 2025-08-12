@@ -103,12 +103,13 @@ def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exa
 
     # Point cloud in polytope containment
     if isinstance(S, np.ndarray):
-        if S.shape[0] != P.dim():
-            raise CORAerror('CORA:wrongDimension', f'Dimension of point cloud ({S.shape[0]}) must match polytope dimension ({P.dim()}).')
-
-        # If S is a single point, convert it to a 2D array for consistent processing
+        # Accept both (n, N) and (N, n) where N is number of points and n is dim
         if S.ndim == 1:
             S = S.reshape(-1, 1)
+        if S.shape[0] != P.dim() and S.shape[1] == P.dim():
+            S = S.T
+        if S.shape[0] != P.dim():
+            raise CORAerror('CORA:wrongDimension', f'Dimension of point cloud ({S.shape[0]}) must match polytope dimension ({P.dim()}).')
         
         # Use _aux_exactParser to determine the correct underlying function
         # For point clouds, we always use H-poly check unless V-poly is forced
@@ -132,14 +133,26 @@ def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exa
     if isinstance(representsa_result, tuple) and len(representsa_result) == 2:
         is_point, point_val = representsa_result
     else:
-        is_point = representsa_result # Assume it's just the boolean result
-        point_val = None # No point value available
+        is_point = representsa_result
+        point_val = None
 
     if is_point:
-        # If S is a single point, check if it's contained in P
-        res_pc, cert_pc, scaling_pc = contains_(P, point_val.reshape(-1, 1), 'exact', tol, maxEval, certToggle, scalingToggle)
-        # Ensure single boolean/float output for single point sets
-        return bool(res_pc), bool(cert_pc), float(scaling_pc) 
+        # If no point value provided, try extracting from V or center
+        if point_val is None:
+            try:
+                if hasattr(S, 'V') and S.isVRep and S.V.size > 0 and S.V.shape[1] == 1:
+                    point_val = S.V
+                elif hasattr(S, 'center'):
+                    c_tmp = S.center()
+                    # center may return 1D; reshape to column
+                    point_val = c_tmp.reshape(-1, 1)
+            except Exception:
+                point_val = None
+        if point_val is not None:
+            res_pc, cert_pc, scaling_pc = contains_(P, point_val.reshape(-1, 1), 'exact', tol, maxEval, certToggle, scalingToggle)
+            return res_pc, cert_pc, scaling_pc
+        # If still no point value, conservatively return False with cert
+        return False, True, np.inf
 
     # 1D -> cheap computation of vertices (skip linear program below)
     if P.dim() == 1:

@@ -211,6 +211,18 @@ class TestPolytopeCenter:
         c = P.center(method='avg')
         c_true = np.array([2, 3])
         assert np.allclose(c, c_true)
+
+    def test_center_hrep_computes_vertices_and_keeps_hrep(self):
+        """center('avg') should compute vertices for H-rep and keep both reps on."""
+        A = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]])
+        b = np.array([[1], [1], [1], [1]])
+        P = Polytope(A, b)
+        # Initially only H-rep
+        assert P.isHRep and not P.isVRep
+        c = P.center(method='avg')
+        assert np.allclose(c, np.array([0.0, 0.0]))
+        # After call, vertices were computed; both reps available
+        assert P.isVRep and P.isHRep
     
     def test_center_v_polytope_1d(self):
         """Test V-polytope, 1D"""
@@ -272,3 +284,5 @@ class TestPolytopeCenter:
         assert np.allclose(c_default, np.array([0, 0]), atol=1e-6)
         assert np.allclose(c_chebyshev, np.array([0, 0]), atol=1e-6)
         assert np.allclose(c_avg, np.array([0, 0]), atol=1e-6) 
+
+

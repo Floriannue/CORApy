@@ -31,8 +31,9 @@ def test_minus_h_rep():
     # Check the H-representation
     assert np.allclose(p_minus_v.A, A)
     assert np.allclose(p_minus_v.b, b_expected)
-    assert p_minus_v.Ae is None
-    assert p_minus_v.be is None
+    # In Python translation, equality matrices are always arrays; expect 0-row arrays
+    assert isinstance(p_minus_v.Ae, np.ndarray) and p_minus_v.Ae.shape[0] == 0
+    assert isinstance(p_minus_v.be, np.ndarray) and p_minus_v.be.shape[0] == 0
     
     # Original polytope should be unchanged
     assert np.allclose(p.b, b)

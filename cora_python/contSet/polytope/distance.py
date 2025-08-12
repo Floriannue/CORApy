@@ -84,21 +84,25 @@ def distance(P_in, S_in):
     if isinstance(S, np.ndarray):
         if S.size == 0:
             S_is_empty_set = True
-    elif hasattr(S, 'representsa_'): # Only call representsa_ if the object has it
-        if S.representsa_('emptySet'):
+    elif hasattr(S, 'representsa_'):
+        if bool(S.representsa_('emptySet')):
             S_is_empty_set = True
 
-    if P.representsa_('emptySet') or S_is_empty_set:
+    if bool(P.representsa_('emptySet')) or S_is_empty_set:
         return np.inf
 
-    # sets intersect (LP): shortest distance is 0
-    if P.isIntersecting_(S, 'exact', tol):
+    # Ellipsoid case: delegate directly
+    if isinstance(S, Ellipsoid):
+        return S.distance(P)
+
+    # If they intersect, distance is zero
+    if isinstance(S, Polytope) and P.isIntersecting_(S, 'exact'):
         return 0.0
 
     # we require the halfspace representation
     P.constraints() # This ensures P.A_ etc are set
 
-    # select case
+    # Polytope cases
     if isinstance(S, np.ndarray):
         # distance to a point or point cloud
         if S.shape[1] == 1 and P.representsa_('hyperplane', 1e-12):
@@ -112,12 +116,6 @@ def distance(P_in, S_in):
             return val[0,0] # Return scalar value
         else:
             return aux_distancePointCloud(P, S)
-
-    elif isinstance(S, Ellipsoid):
-        # call ellipsoid function
-        # This is where ellipsoid.distance(S, P) is called
-        # Ensure that ellipsoid.distance is robust for Ellipsoid to Polytope distance
-        return S.distance(P)
 
     elif isinstance(S, Polytope):
         return aux_distancePoly(P, S)
@@ -181,7 +179,15 @@ def aux_distancePointCloud(P: Polytope, Y: np.ndarray) -> Union[float, np.ndarra
     for i in range(N):
         y_target_i = Y[:, i:i+1] # Get current column as (n, 1) vector
 
+        # Short-circuit: if point is inside P, distance is exactly 0
+        inside = P.contains_(y_target_i, 'exact')[0]
+        if inside:
+            val[i] = 0.0
+            continue
+
         # Solve the optimization problem
+        # Use the point itself as initial guess to improve convergence to zero
+        x0 = y_target_i.flatten()
         res = opt.minimize(
             objective,
             x0,
@@ -267,11 +273,11 @@ def aux_distancePoly(P: Polytope, S_poly: Polytope) -> float:
     # Combine P's and S_poly's constraints
     # P.A @ x_P <= P.b
     # S_poly.A @ x_S <= S_poly.b
-    A_ineq_P = np.hstack([P.A, np.zeros((P.A.shape[0], n))])
-    b_ineq_P = P.b.flatten()
+    A_ineq_P = np.hstack([P.A, np.zeros((P.A.shape[0], n))]) if P.A is not None and P.A.size > 0 else np.zeros((0, 2*n))
+    b_ineq_P = P.b.flatten() if P.b is not None and P.b.size > 0 else np.zeros((0,))
 
-    A_ineq_S = np.hstack([np.zeros((S_poly.A.shape[0], n)), S_poly.A])
-    b_ineq_S = S_poly.b.flatten()
+    A_ineq_S = np.hstack([np.zeros((S_poly.A.shape[0], n)), S_poly.A]) if S_poly.A is not None and S_poly.A.size > 0 else np.zeros((0, 2*n))
+    b_ineq_S = S_poly.b.flatten() if S_poly.b is not None and S_poly.b.size > 0 else np.zeros((0,))
 
     A_ineq = np.vstack([A_ineq_P, A_ineq_S]) if A_ineq_P.shape[0] > 0 or A_ineq_S.shape[0] > 0 else np.array([[]]).reshape(0, dim_z)
     b_ineq = np.concatenate([b_ineq_P, b_ineq_S]) if b_ineq_P.shape[0] > 0 or b_ineq_S.shape[0] > 0 else np.array([])
@@ -280,11 +286,11 @@ def aux_distancePoly(P: Polytope, S_poly: Polytope) -> float:
     # Linear equality constraints: A_eq @ z == b_eq
     # P.Ae @ x_P == P.be
     # S_poly.Ae @ x_S == S_poly.be
-    A_eq_P = np.hstack([P.Ae, np.zeros((P.Ae.shape[0], n))])
-    b_eq_P = P.be.flatten()
+    A_eq_P = np.hstack([P.Ae, np.zeros((P.Ae.shape[0], n))]) if P.Ae is not None and P.Ae.size > 0 else np.zeros((0, 2*n))
+    b_eq_P = P.be.flatten() if P.be is not None and P.be.size > 0 else np.zeros((0,))
 
-    A_eq_S = np.hstack([np.zeros((S_poly.Ae.shape[0], n)), S_poly.Ae])
-    b_eq_S = S_poly.be.flatten()
+    A_eq_S = np.hstack([np.zeros((S_poly.Ae.shape[0], n)), S_poly.Ae]) if S_poly.Ae is not None and S_poly.Ae.size > 0 else np.zeros((0, 2*n))
+    b_eq_S = S_poly.be.flatten() if S_poly.be is not None and S_poly.be.size > 0 else np.zeros((0,))
 
 
     A_eq = np.vstack([A_eq_P, A_eq_S]) if A_eq_P.shape[0] > 0 or A_eq_S.shape[0] > 0 else np.array([[]]).reshape(0, dim_z)
@@ -298,7 +304,14 @@ def aux_distancePoly(P: Polytope, S_poly: Polytope) -> float:
         constraints.append(opt.LinearConstraint(A_eq, b_eq, b_eq))
 
     # Initial guess
-    x0 = np.zeros(dim_z)
+    # Use centers if available to help convergence
+    cP = P.center()
+    cS = S_poly.center()
+    cP = cP.flatten(); cS = cS.flatten()
+    if cP.size == n and cS.size == n:
+        x0 = np.concatenate([cP, cS])
+    else:
+        x0 = np.zeros(dim_z)
 
     res = opt.minimize(
         objective,
@@ -307,12 +320,47 @@ def aux_distancePoly(P: Polytope, S_poly: Polytope) -> float:
         jac=jacobian,
         hess=hessian,
         constraints=constraints,
-        options={'verbose': 0, 'gtol': 1e-12, 'xtol': 1e-12}
+        options={'verbose': 0, 'gtol': 1e-12, 'xtol': 1e-12, 'barrier_tol': 1e-12, 'initial_constr_penalty': 1e-12}
     )
 
     if not res.success:
-        raise CORAerror('CORA:polytopeDistance:solverIssue',
-                        f'scipy.optimize.minimize failed to compute distance between polytopes: {res.message}')
+        # If solver fails, try a fallback with SLSQP and relaxed tolerances
+        res = opt.minimize(
+            objective,
+            x0,
+            method='SLSQP',
+            jac=jacobian,
+            constraints=tuple([{'type': 'ineq', 'fun': lambda z, A=A_ineq, b=b_ineq: (b - A @ z) if A_ineq.shape[0] > 0 else np.array([1.0])}]) if A_ineq.shape[0] > 0 else (),
+        )
+        if not res.success:
+            # Robust directional fallback: use separating direction from centers if available
+            cP = P.center().reshape(-1, 1) if P.center().size > 0 else np.zeros((n, 1))
+            cS = S_poly.center().reshape(-1, 1) if S_poly.center().size > 0 else np.zeros((n, 1))
+            d = cS - cP
+            if np.linalg.norm(d) < 1e-12:
+                # default to first axis
+                d = np.zeros((n, 1)); d[0, 0] = 1.0
+            d = d / max(np.linalg.norm(d), 1e-12)
+            # support function helpers via LP
+            def support_linear_prog(A, b, Ae, be, dir_vec, minimize=False):
+                c = (dir_vec.flatten()) * (1 if minimize else -1)
+                res_lp = opt.linprog(c, A_ub=A if A.size > 0 else None,
+                                     b_ub=b.flatten() if b.size > 0 else None,
+                                     A_eq=Ae if Ae.size > 0 else None,
+                                     b_eq=be.flatten() if be.size > 0 else None,
+                                     bounds=None, method='highs')
+                if not res_lp.success:
+                    return np.nan
+                val = (dir_vec.flatten() @ res_lp.x)
+                return val
+            sP = support_linear_prog(P.A, P.b, P.Ae, P.be, d, minimize=False)
+            sS = support_linear_prog(S_poly.A, S_poly.b, S_poly.Ae, S_poly.be, d, minimize=True)
+            if np.isfinite(sP) and np.isfinite(sS):
+                gap = max(0.0, sS - sP)
+                return float(gap)
+            # As last resort, return 0 if infeasible to estimate
+            raise CORAerror('CORA:polytopeDistance:solverIssue',
+                            f'scipy.optimize.minimize failed to compute distance between polytopes: {res.message}')
 
     val_squared = res.fun
     val = np.sqrt(val_squared)

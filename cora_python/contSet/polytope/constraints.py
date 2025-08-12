@@ -86,6 +86,12 @@ def constraints(P: 'Polytope') -> 'Polytope':
         # General case
         A, b, Ae, be = _aux_nD(V, n)
     
+    # Normalize None to empty arrays for equalities
+    if Ae is None:
+        Ae = np.zeros((0, n))
+    if be is None:
+        be = np.zeros((0, 1))
+
     # Save to object
     P._A = A
     P._b = b

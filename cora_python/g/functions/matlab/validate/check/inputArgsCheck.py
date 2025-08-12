@@ -6,14 +6,16 @@ from cora_python.g.functions.matlab.validate.preprocessing import readNameValueP
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger(__name__)
+# Do not configure logging globally here; leave it to application/tests
+# logging.basicConfig(level=logging.DEBUG)
+
+logger = logging.getLogger(__name__)
 
 # Assume CHECKS_ENABLED is True for now, or needs to be imported from g.macros if it exists.
 # For a more robust solution, CHECKS_ENABLED would be a configuration or global variable.
 CHECKS_ENABLED = True
 
-def inputArgsCheck(inputArgs: List[List[Any]]) -> None:
+def inputArgsCheck(args: List[List[Any]]) -> None:
     """
     inputArgsCheck - checks input arguments of CORA functions for compliance
     with semantic requirements; if any violation is detected, an error is
@@ -192,12 +194,12 @@ def inputArgsCheck(inputArgs: List[List[Any]]) -> None:
         return
 
     # number of input arguments to original function that have to be checked
-    nrInputArgs = len(inputArgs)
+    nrInputArgs = len(args)
 
     # loop over all input arguments
     for i in range(nrInputArgs):
         # read information about i-th input argument
-        inputArg = inputArgs[i]
+        inputArg = args[i]
         # read value of i-th input argument
         value = inputArg[0]
         # read identifier ('att' or 'str')
@@ -205,10 +207,10 @@ def inputArgsCheck(inputArgs: List[List[Any]]) -> None:
 
         # case distinction
         if identifier == 'att': # check classname (and attributes) in this case
-            aux_checkAtt(i + 1, inputArg, value, log) # i+1 to match MATLAB 1-indexing for error messages
+            aux_checkAtt(i + 1, inputArg, value, logger) # i+1 to match MATLAB 1-indexing for error messages
 
         elif identifier == 'str': # check the strings in this case
-            aux_checkStr(i + 1, inputArg, value, log)
+            aux_checkStr(i + 1, inputArg, value, logger)
 
         else:
             raise CORAerror("CORA:wrongValue", 'second', "'att' or 'str'.") 
