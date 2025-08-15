@@ -44,6 +44,8 @@ def origin(n: int) -> 'ZonoBundle':
     from cora_python.contSet.zonotope.zonotope import Zonotope
     
     # Create origin zonotope and put it in a bundle
+    if n == 0:
+        # In 0D, return empty bundle
+        return ZonoBundle([])
     origin_zono = Zonotope.origin(n)
-    
-    return ZonoBundle([origin_zono]) 
+    return ZonoBundle([origin_zono])

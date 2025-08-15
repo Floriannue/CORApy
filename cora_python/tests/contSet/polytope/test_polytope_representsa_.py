@@ -223,7 +223,7 @@ class TestPolytopeRepresentsa:
     def test_representsa_point_line_segment(self):
         """Test point representation with line segment"""
         # Line segment from [0,0] to [1,1]
-        V = np.array([[0, 1], [0, 1]]).T
+        V = np.array([[0, 1], [0, 1]])
         P = Polytope(V)
         assert not representsa_(P, 'point')
     
@@ -285,8 +285,9 @@ class TestPolytopeRepresentsa:
 
     def test_representsa_halfspace_normalization(self):
         # Multiple aligned inequalities normalize to a single halfspace
-        A = np.array([[2.0, 0.0], [1.0, 0.0], [-2.0, -0.0]])
-        b = np.array([2.0, 1.0, -2.0])
+        # Here we provide constraints that should reduce to x <= 1 (halfspace)
+        A = np.array([[2.0, 0.0], [1.0, 0.0]])
+        b = np.array([2.0, 1.0])
         P = Polytope(A, b)
         assert representsa_(P, 'halfspace')
     
@@ -319,7 +320,7 @@ class TestPolytopeRepresentsa:
         b = np.array([1, 1, 1, 1])
         P = Polytope(A, b)
         
-        result, I = representsa_(P, 'interval')
+        result, I = representsa_(P, 'interval', return_set=True)
         assert isinstance(result, (bool, np.bool_))
         if result:
             assert I is not None

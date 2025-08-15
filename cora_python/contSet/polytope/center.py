@@ -71,11 +71,10 @@ def center(P: 'Polytope', method: str = 'chebyshev') -> np.ndarray:
     n = P.dim()
     
     # Fullspace/empty case
+    # Tests expect A=0,b=0 to yield empty center (size 0); give precedence to empty object
     if P.isemptyobject():
-        # Empty object -> empty center
         return np.zeros((n, 0))
     if P.representsa_('fullspace', 0):
-        # Fullspace -> origin
         return np.zeros((n, 1))
     
     # Fast and simple computation for 1D

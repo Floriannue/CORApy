@@ -18,12 +18,22 @@ from .empty import empty
 from .origin import origin
 from .generateRandom import generateRandom
 from .representsa_ import representsa_
+from .polytope import polytope
+from .mtimes import mtimes
+from .plus import plus
+from .enclose import enclose
+from .randPoint_ import randPoint_
 
 # Attach methods to the PolyZonotope class
 # dim and isemptyobject are required by ContSet
 PolyZonotope.dim = dim
 PolyZonotope.isemptyobject = isemptyobject
 PolyZonotope.representsa_ = representsa_
+PolyZonotope.polytope = polytope
+PolyZonotope.mtimes = mtimes
+PolyZonotope.plus = plus
+PolyZonotope.enclose = enclose
+PolyZonotope.randPoint_ = randPoint_
 
 # Attach static methods
 PolyZonotope.empty = staticmethod(empty)

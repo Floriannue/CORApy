@@ -152,6 +152,7 @@ class Polytope(ContSet):
             if 'dim' in kkwargs and any(hasattr(a, 'dtype') for a in args):
                 kkwargs.pop('dim')
             self._general_constructor(*args, **kkwargs)
+            print(f"DEBUG (Polytope.__init__): self._dim_val after _general_constructor: {self._dim_val}")
 
         # Ensure _dim_val is set after construction,
         # in case it was not explicitly set by _general_constructor for edge cases.
@@ -538,20 +539,29 @@ def _aux_validate_and_normalize_polytope_inputs(
         be = np.zeros((0, 1))
 
     elif isHRep_flag:
+        # Debug prints for raw inputs
+        print(f"DEBUG (_aux_validate_and_normalize_polytope_inputs HRep): A_raw shape: {A_raw.shape if A_raw is not None else 'None'}, Ae_raw shape: {Ae_raw.shape if Ae_raw is not None else 'None'}")
+
         A = A_raw if A_raw is not None else np.array([]).reshape(0,0)
         b = b_raw if b_raw is not None else np.array([]).reshape(0,1)
         Ae = Ae_raw if Ae_raw is not None else np.array([]).reshape(0,0)
         be = be_raw if be_raw is not None else np.array([]).reshape(0,1)
         V = np.array([]).reshape(0,0) # No vertices for HRep construction
 
-        # Try to determine dimension early from provided matrices (even with zero rows)
+        # Determine dimension from provided matrices
         n = 0
-        if isinstance(A, np.ndarray) and A.ndim == 2 and A.shape[1] > 0:
+        if A.ndim == 2 and A.shape[1] > 0: # Check column count if A has columns
             n = A.shape[1]
-        if isinstance(Ae, np.ndarray) and Ae.ndim == 2 and Ae.shape[1] > 0:
-            n = max(n, Ae.shape[1])
+        elif Ae.ndim == 2 and Ae.shape[1] > 0: # Fallback to Ae if A is 0x0 or None
+            n = Ae.shape[1]
+        
+        # If n is still 0, but b or be have rows, it implies 1D zero-set. (Heuristic for edge cases)
+        if n == 0 and (b.size > 0 or be.size > 0):
+            n = 1
 
-        # Validate types
+        print(f"DEBUG (_aux_validate_and_normalize_polytope_inputs HRep): Inferred n: {n}")
+
+        # Validate types and shapes
         for var, name in [(A, 'A'), (b, 'b'), (Ae, 'Ae'), (be, 'be')]:
             if not isinstance(var, np.ndarray):
                 raise CORAerror('CORA:wrongInputInConstructor', f'{name} has to be a numpy array.')
@@ -569,19 +579,11 @@ def _aux_validate_and_normalize_polytope_inputs(
         elif be.ndim == 2 and be.shape[1] != 1 and be.shape[0] != 0:
             raise CORAerror('CORA:wrongInputInConstructor', 'Argument "be" has to be a column vector or 1D array.')
 
-        # Determine dimension from A/Ae if still unknown
-        if n == 0:
-            if A.size > 0:
-                n = A.shape[1]
-            elif Ae.size > 0:
-                n = Ae.shape[1]
-
         # Ensure empty constraint matrices have correct column dimension (0 rows, n columns)
-        # This is critical for `numpy.dot` operations later, which fail on 0x0 @ x if x is N-dim.
         if n > 0:
-            if A.shape[1] != n: # If A is empty or has wrong dimension
+            if A.shape[1] != n: # If A has wrong dimension
                  A = np.zeros((A.shape[0], n)) if A.shape[0] > 0 else np.zeros((0, n))
-            if Ae.shape[1] != n: # If Ae is empty or has wrong dimension
+            if Ae.shape[1] != n: # If Ae has wrong dimension
                  Ae = np.zeros((Ae.shape[0], n)) if Ae.shape[0] > 0 else np.zeros((0, n))
 
         # Check row consistency
@@ -611,5 +613,5 @@ def _aux_validate_and_normalize_polytope_inputs(
         V = np.array([]).reshape(0, 0)
         n = 0 # Default to 0 dimension if no other information
 
-
+    print(f"DEBUG (_aux_validate_and_normalize_polytope_inputs): Final n before return: {n}")
     return A, b, Ae, be, V, n

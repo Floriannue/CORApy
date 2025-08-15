@@ -100,24 +100,51 @@ def _aux_isFullDim_1D_Hpoly(P: 'Polytope', tol: float) -> Tuple[bool, Optional[n
     # In 1D: determine if set has positive length (full-dim), a single point (not full-dim),
     # unbounded line/half-line (full-dim), or empty (not full-dim).
     A = P.A; b = P.b; Ae = P.Ae; be = P.be
+    # Ensure column-vector shape for offsets to avoid indexing errors
+    if b is not None and b.ndim == 1:
+        b = b.reshape(-1, 1)
+    if be is not None and be.ndim == 1:
+        be = be.reshape(-1, 1)
     # No constraints at all -> fullspace
     if A.size == 0 and Ae.size == 0:
+        P._emptySet_val = False
+        P._fullDim_val = True
         return True, None
     # Equality constraints present
     if Ae.size > 0:
         # Any zero-row with nonzero be -> empty
-        if np.allclose(Ae, 0, atol=tol) and be.size > 0 and not np.allclose(be, 0, atol=tol):
+        zero_row = np.allclose(Ae, 0, atol=tol)
+        if zero_row and be.size > 0 and not np.allclose(be, 0, atol=tol):
             P._emptySet_val = True
             return False, np.zeros((1, 0))
-        # Any nonzero equality fixes x to a point -> not full-dim
-        if not np.allclose(Ae, 0, atol=tol):
+        # If there are nonzero equalities, check implied value consistency
+        if not zero_row:
+            implied_vals = []
+            for i in range(Ae.shape[0]):
+                ae = float(Ae[i, 0])
+                be_i = float(be[i, 0]) if be.ndim > 1 else float(be[i])
+                if abs(ae) > tol:
+                    implied_vals.append(be_i / ae)
+                elif abs(be_i) > tol:
+                    # 0*x = nonzero -> empty
+                    P._emptySet_val = True
+                    return False, np.zeros((1, 0))
+            if len(implied_vals) > 1:
+                first_val = implied_vals[0]
+                for v in implied_vals[1:]:
+                    if not np.isclose(v, first_val, atol=tol):
+                        P._emptySet_val = True
+                        return False, np.zeros((1, 0))
+            # Nonzero equalities consistent -> fixes x to a point -> not full-dim
+            P._emptySet_val = False
             return False, np.zeros((1, 0))
     # Handle inequalities to detect bounds
     upper = np.inf
     lower = -np.inf
     if A.size > 0:
         for i in range(A.shape[0]):
-            a = float(A[i, 0]); bi = float(b[i, 0])
+            a = float(A[i, 0])
+            bi = float(b[i, 0])
             if a > tol:
                 upper = min(upper, bi / a)
             elif a < -tol:
@@ -132,6 +159,7 @@ def _aux_isFullDim_1D_Hpoly(P: 'Polytope', tol: float) -> Tuple[bool, Optional[n
             P._emptySet_val = True
             return False, np.zeros((1, 0))
         if abs(upper - lower) <= tol:
+            P._emptySet_val = False
             return False, np.zeros((1, 0))
         return True, None
     # Unbounded in at least one direction -> still full-dim in 1D
@@ -205,6 +233,7 @@ def _aux_isFullDim_nD_Hpoly_subspace(P: 'Polytope', tol: float) -> Tuple[bool, O
     """Compute (res, subspace) per MATLAB Alg. 2."""
     # Empty -> degenerate
     if P.representsa_('emptySet', tol):
+        P._emptySet_val = True
         return False, np.zeros((0, 0))
 
     n = P.dim()

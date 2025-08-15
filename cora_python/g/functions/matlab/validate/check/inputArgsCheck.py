@@ -168,8 +168,8 @@ def inputArgsCheck(args: List[List[Any]]) -> None:
 
     def aux_checkStr(i: int, input_arg: List[Any], value: Any, log: logging.Logger) -> None:
         # read string
-        if isinstance(input_arg[2], list):
-            validateStr = input_arg[2]
+        if isinstance(input_arg[2], (list, set)):
+            validateStr = list(input_arg[2]) # Convert set to list for join operation
         else:
             validateStr = [input_arg[2]]
 

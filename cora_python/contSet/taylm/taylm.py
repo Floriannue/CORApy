@@ -129,6 +129,25 @@ class Taylm:
             self.tolerance = other.tolerance
             return
 
+        # 2.a special constructor form: (monomials, coefficients, remainder Interval)
+        remainder_arg_is_interval = False
+        if len(varargin) == 3:
+            rem = varargin[2]
+            try:
+                from cora_python.contSet.interval.interval import Interval
+                remainder_arg_is_interval = isinstance(rem, Interval)
+            except Exception:
+                remainder_arg_is_interval = False
+            # Fallback duck-typing for Interval
+            if not remainder_arg_is_interval:
+                remainder_arg_is_interval = hasattr(rem, 'inf') and hasattr(rem, 'sup')
+        if len(varargin) == 3 and remainder_arg_is_interval:
+            monomials, coefficients, remainder = varargin
+            self.monomials = monomials
+            self.coefficients = np.asarray(coefficients).reshape(-1)
+            self.remainder = remainder
+            return
+
         # 2. parse input arguments: varargin -> vars
         func, int_obj, max_order, names, opt_method, eps, tolerance = _aux_parseInputArgs(*varargin)
         
@@ -177,7 +196,15 @@ def _aux_parseInputArgs(*varargin) -> Tuple[Any, Any, int, List[str], str, float
     arg_offset = 2 if func is not None else 1
     
     if len(varargin) >= arg_offset + 1:
-        max_order = int(varargin[arg_offset])
+        # Accept numpy arrays or lists with single element
+        mo_arg = varargin[arg_offset]
+        if isinstance(mo_arg, (list, tuple, np.ndarray)):
+            if np.size(mo_arg) == 1:
+                max_order = int(np.asarray(mo_arg).item())
+            else:
+                raise CORAerror('CORA:wrongInputInConstructor', 'max_order must be a scalar')
+        else:
+            max_order = int(mo_arg)
     if len(varargin) >= arg_offset + 2:
         names = varargin[arg_offset + 1] if varargin[arg_offset + 1] is not None else []
     if len(varargin) >= arg_offset + 3:

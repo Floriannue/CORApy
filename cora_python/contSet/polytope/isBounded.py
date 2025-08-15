@@ -52,7 +52,7 @@ def isBounded(P: 'Polytope') -> bool:
     if hasattr(P, '_bounded_val') and P._bounded_val is not None:
         return P._bounded_val
 
-    # Empty object (no stored constraints/vertices) represents fullspace -> unbounded
+    # Empty object (no representation stored) -> unbounded fullspace container
     if P.isemptyobject():
         res = False
     elif P.isVRep:
@@ -105,31 +105,36 @@ def isBounded(P: 'Polytope') -> bool:
                 res = (np.isfinite(lower) and np.isfinite(upper) and (lower <= upper + 1e-12))
 
         else:
-            # Quick column zero check: any un-constrained dimension -> unbounded
+            # Quick column zero check: any unconstrained dimension -> unbounded
             if not P.isHRep:
                 P.constraints()
             A = P.A
             Ae = P.Ae
-            if (A.size + Ae.size) == 0:
-                # No constraints -> fullspace -> unbounded (but not empty)
-                res = False
-            elif not np.all(np.any(np.vstack([A, Ae]), axis=0)):
+            # Ensure consistent column counts when stacking
+            if A.size == 0 and Ae.size == 0:
                 res = False
             else:
-                # Evaluate support function in simplex directions
-                unbounded = False
-                for i in range(n):
-                    d = np.zeros((n, 1)); d[i, 0] = 1.0
-                    val = P.supportFunc_(d, 'upper')
-                    vnum = val[0] if isinstance(val, tuple) else val
-                    if vnum == np.inf:
-                        unbounded = True; break
-                if not unbounded:
-                    d = -np.ones((n, 1))
-                    val = P.supportFunc_(d, 'upper')
-                    vnum = val[0] if isinstance(val, tuple) else val
-                    unbounded = (vnum == np.inf)
-                res = not unbounded
+                ncols = max(A.shape[1] if A.ndim == 2 and A.size > 0 else 0,
+                               Ae.shape[1] if Ae.ndim == 2 and Ae.size > 0 else 0)
+                A_ = A if (A.size > 0 and A.shape[1] == ncols) else np.zeros((A.shape[0] if A.size > 0 else 0, ncols))
+                Ae_ = Ae if (Ae.size > 0 and Ae.shape[1] == ncols) else np.zeros((Ae.shape[0] if Ae.size > 0 else 0, ncols))
+                if not np.all(np.any(np.vstack([A_, Ae_]), axis=0)):
+                    res = False
+                else:
+                    # Evaluate support function in simplex directions
+                    unbounded = False
+                    for i in range(n):
+                        d = np.zeros((n, 1)); d[i, 0] = 1.0
+                        val = P.supportFunc_(d, 'upper')
+                        vnum = val[0] if isinstance(val, tuple) else val
+                        if vnum == np.inf:
+                            unbounded = True; break
+                    if not unbounded:
+                        d = -np.ones((n, 1))
+                        val = P.supportFunc_(d, 'upper')
+                        vnum = val[0] if isinstance(val, tuple) else val
+                        unbounded = (vnum == np.inf)
+                    res = not unbounded
 
     # cache result
     P._bounded_val = res

@@ -23,24 +23,24 @@ Last update:   05-April-2023 (MATLAB)
 Python translation: 2025
 """
 
-import numpy as np
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .conZonotope import ConZonotope
 
-
 def dim(cZ: 'ConZonotope') -> int:
     """
-    Returns the dimension of the ambient space of a constrained zonotope
-    
+    Returns the dimension of the ambient space of the constrained zonotope.
+
     Args:
-        cZ: conZonotope object
-        
+        cZ: ConZonotope object.
+
     Returns:
-        n: dimension of the ambient space
+        Dimension of the ambient space.
     """
-    
-    # Simply return the number of rows in the center vector
-    # This matches MATLAB: n = size(cZ.c,1);
+    if cZ._dim_val is not None:
+        return cZ._dim_val
+    # Fallback if _dim_val is not set (should not happen with proper construction)
+    if cZ.c.size == 0:
+        return 0
     return cZ.c.shape[0] 

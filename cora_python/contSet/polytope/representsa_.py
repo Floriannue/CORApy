@@ -66,7 +66,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
 
     # Arrays are always initialized by constructor; no None guards needed
 
-    # Check for empty object case using H-rep feasibility and V cache
+    # Check for empty object case: no representation stored
     empty_obj = p.isemptyobject()
     if empty_obj:
         # No constraints case: represents fullspace and also an (unbounded) interval
@@ -85,12 +85,12 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                 return _return_result(True, I)
             return _return_result(True, None)
         if set_type == 'emptySet':
-            return _return_result(False, None)
+            return _return_result(True, None)
         # All other types false by default
         return _return_result(False, None)
     elif set_type == 'emptySet':
-        # Non-empty object does not represent emptySet
-        return _return_result(False, None)
+        # Non-empty object may still be empty due to infeasible constraints; handle below
+        pass
     
     # If it's a fullspace, emptySet would be false. Check fullspace explicitly.
     elif set_type == 'fullspace': # Moved to an elif to correctly return False if not fullspace
@@ -179,18 +179,24 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                     return _return_result(True, None)
         if Ae.size > 0 and np.allclose(Ae, 0, atol=tol) and not np.allclose(be, 0, atol=tol):
             return _return_result(True, None)
-        # Try feasibility with linprog: min 0 s.t. A x <= b, Ae x = be
+        # Try feasibility with linprog and interpret solver status exactly like MATLAB
+        # highs status: 0 success, 2 infeasible, 3 unbounded; success -> non-empty
         try:
             n = p.dim()
             c = np.zeros(n)
             from scipy.optimize import linprog
             res_lp = linprog(c, A_ub=A if A.size > 0 else None, b_ub=b if b.size > 0 else None,
                              A_eq=Ae if Ae.size > 0 else None, b_eq=be if be.size > 0 else None,
-                             bounds=None, method='highs')
-            res = (not res_lp.success)
+                             bounds=None)
+            if res_lp.success:
+                return _return_result(False, None)
+            # infeasible -> empty; unbounded or other -> not empty (there exists feasible x)
+            status = getattr(res_lp, 'status', None)
+            if status == 2:  # infeasible
+                return _return_result(True, None)
+            return _return_result(False, None)
         except Exception:
-            res = False
-        return _return_result(res, None)
+            return _return_result(False, None)
 
     if set_type == 'origin':
 
@@ -215,37 +221,41 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         return _return_result(res, return_obj)
 
     elif set_type == 'point':
-        if n == 1:
-            # 1D: point if bounds collapse or equality fixes x
-            A = p.A; b = p.b; Ae = p.Ae; be = p.be
-            if Ae.size > 0 and not np.allclose(Ae, 0, atol=tol):
-                res = True
+        # Prefer V-representation direct check: all vertices identical -> single point
+        if hasattr(p, 'isVRep') and p.isVRep:
+            V = p.V
+            if V.size == 0:
+                res = False
             else:
-                upper = np.inf; lower = -np.inf
-                if A.size > 0:
-                    for i in range(A.shape[0]):
-                        a = float(A[i,0]); bi = float(b[i,0])
-                        if a > tol:
-                            upper = min(upper, bi/a)
-                        elif a < -tol:
-                            lower = max(lower, bi/a)
-                res = (np.isfinite(upper) and np.isfinite(lower) and abs(upper - lower) <= tol)
+                v0 = V[:, [0]]
+                res = bool(np.all(np.abs(V - v0) <= tol))
         else:
-            fulldim, subspace = p.isFullDim(return_subspace=True)
-            res = (not fulldim) and (subspace is None or subspace.size == 0)
-        
-        # Set is degenerate if it's only a single point
-        if res:
-            p._fullDim_val = False     # MATLAB: P.fullDim.val = false;
-        
-        # Only compute center if return_set is requested AND res is True (like MATLAB nargout == 2 && res)
-        if 'return_set' in kwargs and kwargs['return_set'] and res:
-            # MATLAB: if P.isVRep.val, S = center(P, 'avg'); else S = center(P); end
-            if hasattr(p, 'isVRep') and p.isVRep:
-                return_obj = p.center('avg')
+            # H-representation: unique solution if rank(Ae) == n and A x* <= b
+            A = p.A; b = p.b; Ae = p.Ae; be = p.be
+            rank_Ae = np.linalg.matrix_rank(Ae) if Ae.size > 0 else 0
+            if rank_Ae == n and Ae.shape[0] >= n:
+                try:
+                    x_star, *_ = np.linalg.lstsq(Ae, be, rcond=None)
+                except Exception:
+                    x_star = None
+                if x_star is not None:
+                    if A.size > 0:
+                        res = bool(np.all((A @ x_star) <= (b + tol)))
+                    else:
+                        res = True
+                else:
+                    res = False
             else:
-                return_obj = p.center()
-        
+                # Fallback: use affine hull dimension via isFullDim
+                fulldim, subspace = p.isFullDim(return_subspace=True)
+                res = (not fulldim) and (subspace is None or subspace.size == 0)
+
+        if res:
+            p._fullDim_val = False
+
+        if 'return_set' in kwargs and kwargs['return_set'] and res:
+            return_obj = p.center('avg') if (hasattr(p, 'isVRep') and p.isVRep) else p.center()
+
         return _return_result(res, return_obj)
 
     elif set_type == 'capsule':
@@ -330,10 +340,11 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                 res = False # Empty set is not a halfspace
             else:
                 # Normalize and compact aligned inequalities to a single representative
-                A, b, _, _ = priv_normalizeConstraints(A, b, np.array([[]]).reshape(0,n), np.array([[]]).reshape(0,1), 'A')
+                # Normalize rows of A and corresponding b
+                A, b, _, _ = priv_normalizeConstraints(A, b, np.zeros((0, n)), np.zeros((0, 1)), 'A')
                 A, b = priv_compact_alignedIneq(A, b, tol)
                 # After compaction, exactly one inequality and no equalities -> halfspace
-                res = (A.shape[0] == 1 and A.shape[1] == n)
+                res = (A.shape[0] == 1 and (A.shape[1] == n or A.size > 0))
 
         # Note: MATLAB doesn't convert to halfspace object, just returns boolean
         return _return_result(res, return_obj)
@@ -358,7 +369,8 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
             constraint = all_constraints_A[c_idx, :].reshape(-1, 1)
             offset = all_constraints_b[c_idx, 0]
 
-            if not np.any(withinTol(constraint, 0, tol)): # If not all-zero constraint
+            # If not all-zero constraint (all entries zero within tol)
+            if not np.all(withinTol(constraint, 0, tol)):
                 # Find non-zero index (axis-aligned)
                 non_zero_indices = np.where(np.abs(constraint.flatten()) > tol)[0]
                 if len(non_zero_indices) == 1:
@@ -416,7 +428,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         if res and 'return_set' in kwargs and kwargs['return_set']:
             return_obj = I
         else:
-            return_obj = None # Explicitly set to None if return_set is false or res is False
+            return_obj = None
         return _return_result(res, return_obj)
 
     elif set_type == 'levelSet':
@@ -499,9 +511,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
 
     elif set_type == 'convexSet':
         res = True
-        if 'return_set' in kwargs and kwargs['return_set']: # If return_set is true, return None
-            return res, None
-        return res, None # Ensure tuple return here
+        return _return_result(res, None)
 
     # Note: 'emptySet' and 'fullspace' are handled at the beginning due to their interaction
 

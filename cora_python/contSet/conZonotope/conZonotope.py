@@ -66,7 +66,7 @@ from cora_python.g.macros import CHECKS_ENABLED
 from cora_python.g.functions.matlab.validate.postprocessing.CORAwarning import CORAwarning
 
 if TYPE_CHECKING:
-    pass
+    from cora_python.contSet.polytope.polytope import Polytope
 
 
 class ConZonotope(ContSet):
@@ -83,10 +83,14 @@ class ConZonotope(ContSet):
         R: [rho_l, rho_h] (A.3) (format: column vector)
     """
     
+    _dim_val: Optional[int]
+
     def __init__(self, *varargin):
         """
         Class constructor for constrained zonotopes
         """
+        self._dim_val = None # Initialize _dim_val
+
         # 0. avoid empty instantiation
         if len(varargin) == 0:
             raise CORAerror('CORA:noInputInSetConstructor')
@@ -96,31 +100,88 @@ class ConZonotope(ContSet):
         if len(varargin) == 1 and isinstance(varargin[0], ConZonotope):
             # Direct assignment like MATLAB
             other = varargin[0]
-            self.c = other.c
-            self._G = other._G
-            self.A = other.A
-            self.b = other.b
-            self.ksi = other.ksi if hasattr(other, 'ksi') else np.array([])
-            self.R = other.R if hasattr(other, 'R') else np.array([])
+            self.c = other.c.copy() # Ensure copy to avoid shared references
+            self._G = other._G.copy() # Ensure copy
+            self.A = other.A.copy() # Ensure copy
+            self.b = other.b.copy() # Ensure copy
+            self.ksi = other.ksi.copy() if hasattr(other, 'ksi') and other.ksi.size > 0 else np.array([])
+            self.R = other.R.copy() if hasattr(other, 'R') and other.R.size > 0 else np.array([])
+            self._dim_val = other._dim_val # Copy dimension
             super().__init__()
             self.precedence = 90
             return
 
-        # 2. parse input arguments: varargin -> vars
-        c, G, A, b = _aux_parseInputArgs(*varargin)
+        # Handle Zonotope object input
+        from cora_python.contSet.zonotope.zonotope import Zonotope
+        if len(varargin) == 1 and isinstance(varargin[0], Zonotope):
+            z = varargin[0]
+            # MATLAB equivalent is `conZonotope(Z)`
+            # cZ = conZonotope(Z) -> c = Z.c, G = Z.G, A = [], b = []
+            self.c = z.c.copy()
+            self._G = z.G.copy()
+            self.A = np.array([]) # No constraints from bare zonotope
+            self.b = np.array([])
+            self.ksi = np.array([])
+            self.R = np.array([])
+            self._dim_val = z.dim() # Get dimension from Zonotope
+            super().__init__()
+            self.precedence = 90
+            return
 
-        # Ensure c is always 1D
-        if c is not None and hasattr(c, 'ndim') and c.ndim > 1:
-            c = c.flatten()
-        # Ensure G is always 2D
-        if G is not None:
-            if G.ndim == 1:
-                G = G.reshape(-1, 1)
-            elif G.size == 0 and c is not None and c.size > 0:
-                G = np.zeros((len(c), 0))
+        # Handle Polytope object input (direct conversion from Polytope.zonotope())
+        from cora_python.contSet.polytope.polytope import Polytope
+        if len(varargin) == 1 and isinstance(varargin[0], Polytope):
+            P = varargin[0]
+            # This path is typically P -> Zonotope -> ConZonotope
+            # So, convert Polytope to Zonotope first
+            if hasattr(P, 'zonotope') and callable(getattr(P, 'zonotope')):
+                z = P.zonotope()
+                # Then treat as Zonotope input
+                self.c = z.c.copy()
+                self._G = z.G.copy()
+                self.A = np.array([])
+                self.b = np.array([])
+                self.ksi = np.array([])
+                self.R = np.array([])
+                self._dim_val = P.dim() # Get dimension from original Polytope
+                super().__init__()
+                self.precedence = 90
+                return
+            else:
+                raise CORAerror('CORA:conversionError', 'Polytope.zonotope() method not found for conversion to ConZonotope.')
 
-        # 3. check correctness of input arguments
-        _aux_checkInputArgs(c, G, A, b, len(varargin))
+        # 2. Parse input arguments based on nargin for aux_parseInputArgs
+        # This mirrors MATLAB's explicit argument parsing before calling auxiliary functions
+        num_args = len(varargin)
+        
+        # Default values for all possible parameters (will be refined by _aux_parseInputArgs)
+        c, G, A, b = None, None, None, None
+
+        if num_args >= 1:
+            c = varargin[0]
+        if num_args >= 2:
+            G = varargin[1]
+        if num_args >= 3: # This corresponds to A in `conZonotope(c,G,A,b)`
+            A = varargin[2]
+        if num_args >= 4: # This corresponds to b in `conZonotope(c,G,A,b)`
+            b = varargin[3]
+        
+        # Determine dimension from inputs (c or G) early if not already set by specific constructors
+        if self._dim_val is None:
+            if c is not None and hasattr(c, 'shape') and c.size > 0:
+                self._dim_val = c.shape[0]
+            elif G is not None and hasattr(G, 'shape') and G.size > 0:
+                self._dim_val = G.shape[0]
+            elif hasattr(varargin[0], 'dim') and callable(getattr(varargin[0], 'dim')):
+                self._dim_val = varargin[0].dim()
+            else:
+                self._dim_val = 0 # Default to 0 if no dimension can be determined
+
+        # Now call the auxiliary functions with explicit arguments
+        c, G, A, b = _aux_parseInputArgs(c, G, A, b)
+
+        # 3. check correctness of input arguments (using num_args for assertNarginConstructor)
+        _aux_checkInputArgs(c, G, A, b, num_args)
 
         # 4. compute properties
         c, G, A, b = _aux_computeProperties(c, G, A, b)
@@ -361,51 +422,23 @@ class ConZonotope(ContSet):
 
 # Auxiliary functions -----------------------------------------------------
 
-def _aux_parseInputArgs(*varargin) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _aux_parseInputArgs(c: Optional[np.ndarray], G: Optional[np.ndarray], A: Optional[np.ndarray], b: Optional[np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Parse input arguments from user and assign to variables"""
     
-    # Handle Zonotope object input
-    from cora_python.contSet.zonotope.zonotope import Zonotope
-    if len(varargin) == 1 and isinstance(varargin[0], Zonotope):
-        # Extract center and generators from zonotope
-        z = varargin[0]
-        c = z.c.flatten() if z.c.size > 0 else np.array([])  # Convert to 1D array
-        G = z.G
-        A = np.array([])
-        b = np.array([])
-        return c, G, A, b
-    
-    # set default values depending on nargin
-    if len(varargin) == 1 or len(varargin) == 3:
-        # only center given, or [c,G] with A and b
-        result, _ = setDefaultValues([[], [], []], list(varargin))
-        c, A, b = result
-        if hasattr(varargin[0], 'shape') and len(varargin[0].shape) > 1 and varargin[0].shape[1] > 0:
-            c_matrix = np.array(varargin[0])
-            G = c_matrix[:, 1:]
-            c = c_matrix[:, 0]
-        else:
-            G = np.array([])
-    elif len(varargin) == 2 or len(varargin) == 4:
-        # c,G or c,G,A,b given
-        defaults = [[], [], [], []] if len(varargin) == 4 else [[], [], None, None]
-        if len(varargin) == 2:
-            result, _ = setDefaultValues(defaults[:2], list(varargin))
-            c, G = result
-            A, b = np.array([]), np.array([])
-        else:
-            result, _ = setDefaultValues(defaults, list(varargin))
-            c, G, A, b = result
-    else:
-        c, G, A, b = np.array([]), np.array([]), np.array([]), np.array([])
+    # Explicitly set defaults for potentially None inputs to empty numpy arrays
+    c_out = np.array([]) if c is None else np.asarray(c)
+    G_out = np.array([]) if G is None else np.asarray(G)
+    A_out = np.array([]) if A is None else np.asarray(A)
+    b_out = np.array([]) if b is None else np.asarray(b)
 
-    # Convert to numpy arrays
-    c = np.array(c) if c is not None else np.array([])
-    G = np.array(G) if G is not None else np.array([])
-    A = np.array(A) if A is not None else np.array([])
-    b = np.array(b) if b is not None else np.array([])
+    # Ensure c is a column vector and G is a 2D array
+    if c_out.ndim == 1: c_out = c_out.reshape(-1, 1)
+    if G_out.ndim == 1: G_out = G_out.reshape(-1, 1)
+    # If G is empty but c has dimension, reshape G to (n,0)
+    elif G_out.size == 0 and c_out.size > 0:
+        G_out = np.zeros((c_out.shape[0], 0))
 
-    return c, G, A, b
+    return c_out, G_out, A_out, b_out
 
 
 def _aux_checkInputArgs(c: np.ndarray, G: np.ndarray, A: np.ndarray, b: np.ndarray, n_in: int):
@@ -469,11 +502,15 @@ def _aux_checkInputArgs(c: np.ndarray, G: np.ndarray, A: np.ndarray, b: np.ndarr
 def _aux_computeProperties(c: np.ndarray, G: np.ndarray, A: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Compute properties"""
     
-    # if G is empty, set correct dimension
+    # make center a column vector (MATLAB line 492)
+    if c.ndim == 1:
+        c = c.reshape(-1, 1)
+
+    # if G is empty, set correct dimension (MATLAB lines 493-494)
     if G.size == 0 and c.size > 0:
         G = np.zeros((c.shape[0], 0))
 
-    # if no constraints, set correct dimension
+    # if no constraints, set correct dimension (MATLAB lines 496-503)
     if A.size == 0:
         # Handle case where G might be empty
         if G.size > 0:
@@ -482,7 +519,7 @@ def _aux_computeProperties(c: np.ndarray, G: np.ndarray, A: np.ndarray, b: np.nd
             A = np.zeros((0, 0))
         b = np.zeros((0, 1))
 
-    # convert A,b to double for internal processing
+    # convert A,b to double for internal processing (MATLAB lines 505-506)
     A = A.astype(float)
     b = b.astype(float)
 

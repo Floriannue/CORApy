@@ -61,6 +61,7 @@ from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 from cora_python.g.functions.matlab.validate.check.compareMatrices import compareMatrices
 from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
 from cora_python.g.functions.helper.sets.contSet.zonotope.aux_tightenHalfspaces import aux_tightenHalfspaces
+from cora_python.g.functions.helper.sets.contSet.zonotope.aux_minkDiffZono import aux_minkDiffZono as aux_minkDiffZono_helper
 from .zonotope import Zonotope
 from ..polytope.polytope import Polytope
 from ..interval.interval import Interval
@@ -130,13 +131,13 @@ def minkDiff(minuend: Zonotope, subtrahend: Union[Zonotope, np.ndarray],
                               minuend.generators() - subtrahend.generators())
             elif n == 2:
                 # Same method as 'inner' [1,Prop.6]
-                return aux_minkDiffZono(minuend, subtrahend, method)
+                return aux_minkDiffZono_helper(minuend, subtrahend, method)
             else:
                 raise CORAerror('CORA:wrongValue', 'third',
                                'No exact algorithm found: Sets have to be 2-dimensional or aligned.')
 
         elif method in ['outer', 'outer:coarse', 'inner', 'approx']:
-            return aux_minkDiffZono(minuend, subtrahend, method)
+            return aux_minkDiffZono_helper(minuend, subtrahend, method)
 
         elif method == 'inner:conZonotope':
             # Compute Minkowski difference using constrained zonotopes
@@ -194,103 +195,7 @@ def minkDiff(minuend: Zonotope, subtrahend: Union[Zonotope, np.ndarray],
 
 # Auxiliary functions -----------------------------------------------------
 
-def aux_minkDiffZono(minuend: Zonotope, subtrahend: Zonotope, method: str) -> Zonotope:
-    """Compute Minkowski difference using the approach in [1]"""
-    
-    # Determine generators to be kept
-    # Obtain halfspace representation
-    P = Polytope(minuend)
-    H_orig_twice = P.A
-    K_orig_twice = P.b
-    H_orig = H_orig_twice[:H_orig_twice.shape[0]//2, :]
-    
-    # nr of subtrahend generators
-    subtrahend_gens = subtrahend.G.shape[1]
-    
-    # Intersect polytopes according to Theorem 3 of [1]
-    delta_K = H_orig_twice @ subtrahend.center()
-    for i in range(subtrahend_gens):
-        delta_K = delta_K + np.abs(H_orig_twice @ subtrahend.generators()[:, i:i+1])
-    K_orig_new = K_orig_twice - delta_K
-    
-    C = H_orig
-    d = K_orig_new[:K_orig_new.shape[0]//2, :]
-    
-    # Compute center
-    c = minuend.center() - subtrahend.center()
-    
-    # Obtain minuend generators
-    G = minuend.generators()
-    
-    # Reverse computation from halfspace generation
-    n = minuend.dim()
-    if method == 'inner' or (method == 'exact' and n == 2):
-        delta_d = d - C @ minuend.c + C @ subtrahend.c
-        A_abs = np.abs(C @ G)
-        dims = A_abs.shape[1]
-        # Vector of cost function
-        f = np.linalg.norm(minuend.G, 2, axis=0)
-        # A_abs x <= delta_d && x >= 0
-        problem = {
-            'f': -f,
-            'Aineq': np.vstack([A_abs, -np.eye(dims)]),
-            'bineq': np.vstack([delta_d, np.zeros((dims, 1))]),
-            'Aeq': None,
-            'beq': None,
-            'lb': None,
-            'ub': None
-        }
-        alpha, _, exitflag = CORAlinprog(problem)[:3]
-        if alpha is None or exitflag != 1:
-            return Zonotope.empty(n)
-        
-    elif method in ['outer', 'outer:coarse']:
-        # Reduce delta_d using linear programming
-        if method == 'outer':
-            d_shortened = aux_tightenHalfspaces(H_orig_twice, K_orig_new)
-        else:
-            d_shortened = K_orig_new
-        
-        # Is set empty?
-        if d_shortened is None or d_shortened.size == 0:
-            # Return empty set with correct dimensions
-            return Zonotope.empty(n)
-        else:
-            # Vector of cost function
-            f = np.linalg.norm(minuend.generators(), 2, axis=0)
-            # Obtain unrestricted A_abs and delta_d
-            C = H_orig
-            d = d_shortened[:d_shortened.shape[0]//2, :]
-            delta_d = d - C @ minuend.center() + C @ subtrahend.center()
-            A_abs = np.abs(C @ G)
-            dims = A_abs.shape[1]
-            # A_abs x >= delta_d && x >= 0
-            problem = {
-                'f': f,
-                'Aineq': np.vstack([-A_abs, -np.eye(dims)]),
-                'bineq': np.vstack([-delta_d, np.zeros((dims, 1))]),
-                'Aeq': None,
-                'beq': None,
-                'lb': None,
-                'ub': None
-            }
-            alpha, _, exitflag = CORAlinprog(problem)[:3]
-    
-    elif method == 'approx':
-        delta_d = d - C @ minuend.center() + C @ subtrahend.center()
-        A_abs = np.abs(C @ G)
-        # Use pseudoinverse to compute an approximation
-        alpha = np.linalg.pinv(A_abs) @ delta_d  # solve linear set of equations using the pseudoinverse
-    
-    else:
-        # Should already be caught before
-        raise CORAerror('CORA:specialError', f"Unknown method: '{method}'")
-    
-    # Instantiate Z
-    G_new = minuend.generators() @ np.diag(alpha.flatten())
-    # Remove all zero columns
-    G_new = G_new[:, ~np.all(G_new == 0, axis=0)]
-    return Zonotope(c, G_new)
+# Note: Implementation of aux_minkDiffZono lives in g/functions/helper/... to keep a single source of truth.
 
 
 def aux_minkDiffOuterInterval(minuend: Zonotope, subtrahend: Interval) -> Zonotope:

@@ -62,11 +62,11 @@ def zonotope(Z, method: str = 'outer'):
     P = Z
     n = P.dim()
 
-    # Empty polytope -> return empty zonotope of dimension n
-    if P.isemptyobject():
+    # True empty set (infeasible) -> return empty zonotope; empty object (no rep) is fullspace
+    if hasattr(P, 'representsa_') and bool(P.representsa_('emptySet', 1e-12)):
         return Zonotope.empty(n)
 
-    # Unbounded polytopes are not supported for conversion
+    # Unbounded polytopes are not supported for conversion (MATLAB behavior)
     if not P.isBounded() and n > 0:
         raise CORAerror('CORA:specialError', 'Polytope is unbounded and can therefore not be converted into a zonotope.')
 
@@ -105,8 +105,11 @@ def zonotope(Z, method: str = 'outer'):
         Q = E.Q    # (n,n)
         # Numerical guard: ensure symmetric PSD
         Q = 0.5 * (Q + Q.T)
+        # Guard for non-finite ellipsoid data
+        if not (np.all(np.isfinite(Q)) and np.all(np.isfinite(c_e))):
+            raise ValueError('non-finite ellipsoid parameters')
         Q_r = sqrtm(Q).real
-        # If sqrtm failed or Q_r singular, fall back to interval hull
+        # If sqrtm failed or Q_r singular/non-finite, fall back to interval hull
         if not np.all(np.isfinite(Q_r)):
             raise ValueError('sqrtm failed')
     except Exception:
@@ -167,17 +170,40 @@ def _outer_interval_hull(P: 'Polytope'):
     b_ub = P.b.flatten() if P.b.size > 0 else None
     A_eq = P.Ae if P.Ae.size > 0 else None
     b_eq = P.be.flatten() if P.be.size > 0 else None
+    
+    # Debug prints
+    # with open('zonotope_interval_hull_debug.txt', 'a') as f:
+    print(f"\n--- Debugging _outer_interval_hull for Polytope {P} ---")
+    print(f"n={n}")
+    print(f"P.A={P.A}, P.b={P.b}")
+    print(f"P.Ae={P.Ae}, P.be={P.be}")
+    print(f"A_ub={A_ub}, b_ub={b_ub}")
+    print(f"A_eq={A_eq}, b_eq={b_eq}")
+
     for i in range(n):
         c_vec = np.zeros(n); c_vec[i] = 1.0
-        res_max = linprog(-c_vec, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, method='highs')
-        res_min = linprog(c_vec, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, method='highs')
+        res_max = linprog(-c_vec, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=[(None,None)]*n, method='highs')
+        res_min = linprog(c_vec, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=[(None,None)]*n, method='highs')
+        
+        # with open('zonotope_interval_hull_debug.txt', 'a') as f:
+        print(f"  Iteration {i}:")
+        print(f"    c_vec={c_vec}")
+        print(f"    res_max: success={res_max.success}, fun={res_max.fun}, status={res_max.status}, x={res_max.x}")
+        print(f"    res_min: success={res_min.success}, fun={res_min.fun}, status={res_min.status}, x={res_min.x}")
+
         if not (res_max.success and res_min.success):
             raise CORAerror('CORA:solverIssue', 'Failed to compute interval hull for zonotope conversion')
         ub[i, 0] = -res_max.fun
         lb[i, 0] = res_min.fun
     c = 0.5 * (lb + ub)
     widths = 0.5 * (ub - lb)
-    G = np.diagflat(widths)
+
+    # Handle point sets (zero widths) explicitly to return empty generators
+    if np.allclose(widths, 0, atol=1e-12):
+        G = np.zeros((n, 0)) # Empty generator matrix
+    else:
+        G = np.diagflat(widths)
+
     from cora_python.contSet.zonotope import Zonotope
     return Zonotope(c, G)
 
@@ -191,7 +217,7 @@ def _support_linear_program(P: 'Polytope', direction: np.ndarray, bound_type: st
     b_ub = P.b.flatten() if (P.b is not None and P.b.size > 0) else None
     A_eq = P.Ae if (P.Ae is not None and P.Ae.size > 0) else None
     b_eq = P.be.flatten() if (P.be is not None and P.be.size > 0) else None
-    res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, method='highs')
+    res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=[(None,None)]*n, method='highs')
     if not res.success:
         return np.inf if bound_type == 'upper' else -np.inf
     return (-res.fun) if bound_type == 'upper' else res.fun

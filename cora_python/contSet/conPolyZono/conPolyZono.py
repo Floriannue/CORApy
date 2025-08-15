@@ -21,12 +21,16 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Union, Optional, Any, Tuple
+from typing import Union, Optional, Any, Tuple, TYPE_CHECKING
 from ..contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
 from cora_python.g.functions.matlab.validate.check import inputArgsCheck
 from cora_python.g.macros import CHECKS_ENABLED
+from cora_python.contSet.conZonotope.conZonotope import ConZonotope
+
+if TYPE_CHECKING:
+    from cora_python.contSet.conZonotope.conZonotope import ConZonotope
 
 class ConPolyZono(ContSet):
     """
@@ -36,7 +40,10 @@ class ConPolyZono(ContSet):
     cPZ := {c + G*β + Σ(E_i*β^E[i,:]) + GI*γ | A_EC*β^EC = b, β ∈ [-1,1]^p, γ ∈ [-1,1]^q}
     """
     
-    def __init__(self, *varargin):
+    # Additional property for ambient dimension for empty sets
+    _dim_val: Optional[int]
+
+    def __init__(self, *varargin, **kwargs):
         """
         Constructor for constrained polynomial zonotope objects
         
@@ -44,12 +51,17 @@ class ConPolyZono(ContSet):
             *varargin: Variable arguments
                      - conPolyZono(c, G, E, [A, b, EC, GI, id])
                      - conPolyZono(other_conPolyZono): copy constructor
+                     - conPolyZono(other_conZonotope): conversion from conZonotope
         """
+        # Initialize _dim_val
+        self._dim_val = None
+
         # 0. avoid empty instantiation
         if len(varargin) == 0:
             raise CORAerror('CORA:noInputInSetConstructor')
         
-        # Check number of input arguments
+        # Check number of input arguments (MATLAB assertNarginConstructor handles this for regular calls)
+        # This check is kept to ensure robust handling of various input types before more specific parsing.
         if len(varargin) < 1 or len(varargin) > 8:
             raise CORAerror('CORA:wrongInputInConstructor', f'Expected 1-8 arguments, got {len(varargin)}')
 
@@ -64,15 +76,71 @@ class ConPolyZono(ContSet):
             self.EC = other.EC.copy() if hasattr(other, 'EC') else np.array([])
             self.GI = other.GI.copy() if hasattr(other, 'GI') else np.array([])
             self.id = other.id.copy() if hasattr(other, 'id') else np.array([])
+            self._dim_val = other._dim_val # Copy dimension
+            super().__init__()
+            self.precedence = 30
+            return
+        
+        # Handle ConZonotope conversion
+        if len(varargin) == 1 and isinstance(varargin[0], ConZonotope):
+            cz = varargin[0]
+            self.c = cz.c
+            self.G = cz.G
+            self.A = cz.A
+            self.b = cz.b
+            self._dim_val = cz.dim() # Get dimension from ConZonotope
+            # Initialize other properties as empty
+            self.E = np.array([]).reshape(0,0)
+            self.EC = np.array([]).reshape(0,0)
+            self.GI = np.array([]).reshape(self.c.shape[0],0) if self.c.size > 0 else np.array([])
+            self.id = np.array([]).reshape(0,1)
             super().__init__()
             self.precedence = 30
             return
 
-        # 2. parse input arguments: varargin -> vars
-        c, G, E, A, b, EC, GI, id_ = _aux_parseInputArgs(*varargin)
+        # 2. Parse input arguments directly within __init__ based on nargin
+        num_args = len(varargin)
+        
+        # Determine dimension early if possible, primarily from c, otherwise G
+        if num_args >= 1 and varargin[0] is not None and hasattr(varargin[0], 'shape') and varargin[0].size > 0:
+            self._dim_val = varargin[0].shape[0]
+        elif num_args >= 2 and varargin[1] is not None and hasattr(varargin[1], 'shape') and varargin[1].size > 0:
+            self._dim_val = varargin[1].shape[0]
+        elif 'dim' in kwargs and isinstance(kwargs['dim'], int):
+            self._dim_val = kwargs['dim']
+
+        # Default values for all possible parameters (will be refined by _aux_parseInputArgs)
+        c, G, E, A, b, EC, GI, id_ = None, None, None, None, None, None, None, None
+
+        if num_args >= 1:
+            c = varargin[0]
+        if num_args >= 2:
+            G = varargin[1]
+        if num_args >= 3:
+            E = varargin[2]
+        
+        if num_args == 4 or num_args == 5: # Handles GI, id
+            GI = varargin[3]
+            if num_args == 5:
+                id_ = varargin[4]
+        elif num_args >= 6: # Handles A, b, EC, then optional GI, id
+            A = varargin[3]
+            b = varargin[4]
+            EC = varargin[5]
+            if num_args >= 7:
+                GI = varargin[6]
+            if num_args == 8:
+                id_ = varargin[7]
+        
+        # Now call the auxiliary functions with explicit arguments
+        c, G, E, A, b, EC, GI, id_ = _aux_parseInputArgs(c, G, E, A, b, EC, GI, id_)
+
+        # If _dim_val is still None (e.g., empty inputs provided), and there's no implicit dim from c/G, set to 0.
+        if self._dim_val is None:
+            self._dim_val = c.shape[0] if c.size > 0 else 0
 
         # 3. check correctness of input arguments
-        _aux_checkInputArgs(c, G, E, A, b, EC, GI, id_, len(varargin))
+        _aux_checkInputArgs(c, G, E, A, b, EC, GI, id_, num_args)
 
         # 4. compute properties
         c, G, E, A, b, EC, GI, id_ = _aux_computeProperties(c, G, E, A, b, EC, GI, id_)
@@ -174,33 +242,41 @@ class ConPolyZono(ContSet):
 
 # Auxiliary functions -----------------------------------------------------
 
-def _aux_parseInputArgs(*varargin) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Parse input arguments from user and assign to variables"""
-    
-    c, G, E, A, b, EC, GI, id_ = (np.array([]) for _ in range(8))
-    
-    if len(varargin) == 1 and isinstance(varargin[0], ConPolyZono):
-        pass # Dealt with in __init__
-    elif len(varargin) >= 3:
-        c, G, E = varargin[0], varargin[1], varargin[2]
-        if len(varargin) >= 6:
-            A, b, EC = varargin[3], varargin[4], varargin[5]
-        if len(varargin) >= 4:
-            if len(varargin) == 4 or len(varargin) == 7:
-                GI = varargin[-1]
-            elif len(varargin) == 5 or len(varargin) == 8:
-                GI, id_ = varargin[-2], varargin[-1]
+def _aux_parseInputArgs(c: Optional[np.ndarray], G: Optional[np.ndarray], E: Optional[np.ndarray],
+                       A: Optional[np.ndarray], b: Optional[np.ndarray], EC: Optional[np.ndarray],
+                       GI: Optional[np.ndarray], id_: Optional[np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Parse input arguments from user and assign to variables (auxiliary function)"""
 
-    # Ensure all are numpy arrays and correct shape before validation
-    c, G, E, A, b, EC, GI, id_ = [np.asarray(arg) for arg in [c, G, E, A, b, EC, GI, id_]]
+    # Default values from MATLAB's aux_parseInputArgs (lines 173-175)
+    # This function now receives pre-parsed args, so it just needs to apply defaults
     
+    # Note: `setDefaultValues` expects a list of defaults and a list of actual inputs
+    # We need to construct these lists carefully based on whether the input was provided or is None.
+
+    # For c, G, E - these are always expected to be present, but might be None if not passed.
+    # MATLAB uses `setDefaultValues({[],[],[]}, varargin)` where varargin contains c,G,E
+    # We will assume these are passed as non-None if they were present in the original varargin.
+
+    # Explicitly set defaults for potentially None inputs to empty numpy arrays
+    c = np.array([]) if c is None else np.asarray(c)
+    G = np.array([]) if G is None else np.asarray(G)
+    E = np.array([]) if E is None else np.asarray(E)
+    A = np.array([]) if A is None else np.asarray(A)
+    b = np.array([]) if b is None else np.asarray(b)
+    EC = np.array([]) if EC is None else np.asarray(EC)
+    GI = np.array([]) if GI is None else np.asarray(GI)
+    id_ = np.array([]) if id_ is None else np.asarray(id_)
+
+    # set identifiers (MATLAB lines 187-189)
+    if E.size > 0 and id_.size == 0:
+        # MATLAB: id = (1:size(E,1))';
+        id_ = np.arange(1, E.shape[0] + 1).reshape(-1, 1)
+    
+    # Reshape vectors to column vectors for consistency (already in aux_computeProperties in MATLAB, but good to ensure early)
     if c.ndim == 1: c = c.reshape(-1, 1)
     if b.ndim == 1: b = b.reshape(-1, 1)
     if id_.ndim == 1: id_ = id_.reshape(-1, 1)
-    
-    if E.size > 0 and id_.size == 0:
-        id_ = np.arange(1, E.shape[0] + 1).reshape(-1, 1)
-    
+
     return c, G, E, A, b, EC, GI, id_
 
 
@@ -208,61 +284,91 @@ def _aux_checkInputArgs(c: np.ndarray, G: np.ndarray, E: np.ndarray, A: np.ndarr
                        b: np.ndarray, EC: np.ndarray, GI: np.ndarray, id_: np.ndarray, n_in: int):
     """Check correctness of input arguments by mirroring MATLAB's validation"""
     
-    if CHECKS_ENABLED and n_in > 1:
-        # Individual argument checks
-        inputChecks = [[c, 'att', 'numeric', ['finite']]]
-        if G.size > 0: inputChecks.append([G, 'att', 'numeric', ['finite', 'matrix']])
-        if E.size > 0: inputChecks.append([E, 'att', 'numeric', ['integer', 'matrix']])
-        
-        # In MATLAB, these checks are added based on nargin > 5.
-        # This is a bit tricky to replicate perfectly with Python's optional args,
-        # but we can check if they are non-empty.
-        if A.size > 0 or b.size > 0 or EC.size > 0:
-            inputChecks.append([A, 'att', 'numeric', ['finite', 'matrix']])
-            inputChecks.append([b, 'att', 'numeric', ['finite', 'matrix']])
-            inputChecks.append([EC, 'att', 'numeric', ['integer', 'matrix']])
+    if CHECKS_ENABLED and n_in > 0:
 
-        if GI.size > 0: inputChecks.append([GI, 'att', 'numeric', ['finite', 'matrix']])
-        if id_.size > 0: inputChecks.append([id_, 'att', 'numeric', ['finite']])
+        # check correctness of user input 
+        inputChecks = [
+            [c, 'att', 'numeric', ['finite']],
+            [G, 'att', 'numeric', ['finite', 'matrix']],
+            [E, 'att', 'numeric', ['integer', 'matrix']],
+        ]
+        
+        if n_in > 5:
+            # only add constraints checks if they were in the input
+            # to correctly indicate the position of the wrong input
+            inputChecks.extend([
+                [A, 'att', 'numeric', ['finite', 'matrix']],
+                [b, 'att', 'numeric', ['finite', 'matrix']],
+                [EC, 'att', 'numeric', ['finite', 'matrix']],
+            ])
+        
+        # Add GI and id checks universally as MATLAB does at the end
+        # (even if they were not explicitly passed, they are `np.array([])` from `_aux_parseInputArgs`)
+        inputChecks.extend([
+            [GI, 'att', 'numeric', ['finite', 'matrix']],
+            [id_, 'att', 'numeric', ['finite']],
+        ])
         
         inputArgsCheck(inputChecks)
         
         # center must be a vector
         if c.size == 0:
-            if any(arg.size > 0 for arg in [G, E, A, b, EC, GI, id_]):
+            # MATLAB: ~isempty(G) || ~isempty(E) || ~isempty(A) || ~isempty(b) || ~isempty(EC) || ~isempty(GI) || ~isempty(id)
+            if G.size > 0 or E.size > 0 or A.size > 0 or b.size > 0 or EC.size > 0 or GI.size > 0 or id_.size > 0:
                 raise CORAerror('CORA:wrongInputInConstructor', 'Either all or none input arguments are empty.')
         elif c.ndim > 1 and c.shape[1] > 1:
             raise CORAerror('CORA:wrongInputInConstructor', 'Center must be a vector.')
 
         # check inter-argument dimensions
-        if G.size > 0 and G.shape[0] != c.shape[0]:
-            raise CORAerror('CORA:wrongInputInConstructor', 'Dimension mismatch between center and G.')
-
+        # MATLAB: size(E,2) ~= size(G,2)
         if E.size > 0 and G.size > 0 and E.shape[1] != G.shape[1]:
             raise CORAerror('CORA:wrongInputInConstructor', 'E and G must have the same number of columns.')
         
         if EC.size > 0:
+            # MATLAB: size(E,1) ~= size(EC,1)
             if E.size > 0 and E.shape[0] != EC.shape[0]:
-                raise CORAerror('CORA:wrongInputInConstructor', 'E and EC must have the same number of rows.')
-            if A.size > 0:
-                if A.shape[1] != EC.shape[1]:
-                    raise CORAerror('CORA:wrongInputInConstructor', 'A and EC must have the same number of columns.')
-                if b.size > 0 and (b.shape[0] != A.shape[0] or b.shape[1] != 1):
-                    raise CORAerror('CORA:wrongInputInConstructor', 'b must be a column vector of the same height as A.')
-            elif b.size > 0:
-                 raise CORAerror('CORA:wrongInputInConstructor', 'If b is provided, A must be provided.')
-        elif A.size > 0 or b.size > 0:
-            raise CORAerror('CORA:wrongInputInConstructor', 'If A or b is provided, EC must be provided.')
+                raise CORAerror('CORA:wrongInputInConstructor', 'Input arguments "E" and "EC" are not compatible.')
+            
+            # MATLAB: ~all(all(floor(EC) == EC)) || ~all(all(EC >= 0))
+            if not (np.all(np.floor(EC) == EC) and np.all(EC >= 0)):
+                raise CORAerror('CORA:wrongInputInConstructor', 'Invalid constraint exponent matrix.')
+            
+            # check A, b
+            # MATLAB: isempty(A) || size(A,2) ~= size(EC,2)
+            if A.size == 0 or (A.size > 0 and A.shape[1] != EC.shape[1]):
+                raise CORAerror('CORA:wrongInputInConstructor', 'Input arguments "A" and "EC" are not compatible.')
+            
+            # MATLAB: isempty(b) || size(b,2) > 1 || size(b,1) ~= size(A,1)
+            if b.size == 0 or (b.size > 0 and (b.shape[1] > 1 or b.shape[0] != A.shape[0])):
+                raise CORAerror('CORA:wrongInputInConstructor', 'Input arguments "A" and "b" are not compatible.')
+        
+        # MATLAB: elseif ~isempty(A) || ~isempty(b)
+        # This handles cases where A or b are given, but EC is not (which is an error)
+        elif (A.size > 0 or b.size > 0) and EC.size == 0:
+            raise CORAerror('CORA:wrongInputInConstructor', 'Invalid constraint exponent matrix.')
 
 
 def _aux_computeProperties(c: np.ndarray, G: np.ndarray, E: np.ndarray, A: np.ndarray,
                           b: np.ndarray, EC: np.ndarray, GI: np.ndarray, id_: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Reshape vectors to column vectors for consistency"""
+    """Compute properties"""
+
+    # make center a column vector
     if c.ndim == 1:
         c = c.reshape(-1, 1)
+
+    # Reshape other vectors to column vectors for consistency
     if b.ndim == 1:
         b = b.reshape(-1, 1)
     if id_.ndim == 1:
         id_ = id_.reshape(-1, 1)
+
+    # set generator matrices to correct dimensions (MATLAB lines 273-279)
+    n = c.shape[0] # Get dimension from center
+    
+    if G.size == 0 and n > 0:
+        G = np.zeros((n, 0))
+    
+    if GI.size == 0 and n > 0:
+        GI = np.zeros((n, 0))
     
     return c, G, E, A, b, EC, GI, id_ 

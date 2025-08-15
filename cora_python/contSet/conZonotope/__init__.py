@@ -24,9 +24,11 @@ from .compact import compact
 from .reduceConstraints import reduceConstraints
 from .plus import plus
 from .uminus import uminus
+from .center import center
 
 # Attach methods to the ConZonotope class
 # dim and isemptyobject are required by ContSet
+ConZonotope.center = center
 ConZonotope.dim = dim
 ConZonotope.isemptyobject = isemptyobject
 ConZonotope.representsa_ = representsa_

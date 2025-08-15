@@ -49,7 +49,7 @@ Python translation: 2025
 """
 
 import numpy as np
-from cora_python.g.functions.matlab.validate.check import withinTol
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 
 def compareMatrices(M1, M2, tol=None, flag='equal', ordered=False, signed=True):

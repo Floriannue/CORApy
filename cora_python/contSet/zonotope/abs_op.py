@@ -28,8 +28,7 @@ def abs_op(Z: 'Zonotope') -> 'Zonotope':
     if Z.is_empty():
         return Zonotope.empty(Z.dim())
     
-    # Apply absolute value to center and generators
-    c_abs = np.abs(Z.c)
+    # MATLAB Appendix A.1: abs maps center and generators element-wise
+    c_abs = np.abs(Z.c).reshape(-1, 1)
     G_abs = np.abs(Z.G)
-    
-    return Zonotope(c_abs, G_abs) 
+    return Zonotope(c_abs, G_abs)

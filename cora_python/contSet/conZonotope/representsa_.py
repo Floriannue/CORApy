@@ -41,7 +41,7 @@ if TYPE_CHECKING:
     from cora_python.contSet.contSet import ContSet
 
 
-def representsa_(cZ: 'ConZonotope', set_type: str, tol: float = 1e-12) -> Union[bool, Tuple[bool, 'ContSet']]:
+def representsa_(cZ: 'ConZonotope', set_type: str, tol: float = 1e-12, **kwargs) -> Union[bool, Tuple[bool, 'ContSet']]:
     """
     Checks if a constrained zonotope can also be represented by a different set type.
 
@@ -60,19 +60,21 @@ def representsa_(cZ: 'ConZonotope', set_type: str, tol: float = 1e-12) -> Union[
     from cora_python.contSet.interval import Interval
     from cora_python.contSet.zonotope import Zonotope
     
+    def _return_result(res_val, set_val=None):
+        if kwargs.get('return_set', False):
+            return res_val, set_val
+        return res_val
+
     # check empty object case
     empty_result = cZ.representsa_emptyObject(set_type)
     if isinstance(empty_result, tuple) and len(empty_result) == 3:
         empty, res, S = empty_result
         if empty:
-            if S is not None:
-                return res, S
-            else:
-                return res
+            return _return_result(res, S)
     elif isinstance(empty_result, tuple) and len(empty_result) == 2:
         empty, res = empty_result
         if empty:
-            return res
+            return _return_result(res, None)
 
     # dimension
     n = cZ.dim()
@@ -87,7 +89,7 @@ def representsa_(cZ: 'ConZonotope', set_type: str, tol: float = 1e-12) -> Union[
             res = I.representsa_('origin', tol)
         else:
             res = I.representsa_('origin', tol)
-        if res:
+        if res and kwargs.get('return_set', False):
             S = np.zeros((n, 1))
 
     elif set_type == 'point':
@@ -97,7 +99,7 @@ def representsa_(cZ: 'ConZonotope', set_type: str, tol: float = 1e-12) -> Union[
             res = I.representsa_('point', tol)
         else:
             res = I.representsa_('point', tol)
-        if res:
+        if res and kwargs.get('return_set', False):
             S = cZ.center()
 
     elif set_type == 'conPolyZono':
@@ -107,7 +109,8 @@ def representsa_(cZ: 'ConZonotope', set_type: str, tol: float = 1e-12) -> Union[
     elif set_type == 'conZonotope':
         # obviously true
         res = True
-        S = cZ
+        if kwargs.get('return_set', False):
+            S = cZ
 
     elif set_type == 'halfspace':
         # constrained zonotopes cannot be unbounded
@@ -119,7 +122,7 @@ def representsa_(cZ: 'ConZonotope', set_type: str, tol: float = 1e-12) -> Union[
             res = (cZ.A.size == 0) and Z.representsa_('interval', tol)
         else:
             res = (cZ.A.size == 0) and Z.representsa_('interval', tol)
-        if res:
+        if res and kwargs.get('return_set', False):
             S = Interval(Z)
 
     elif set_type == 'polytope':
@@ -138,7 +141,7 @@ def representsa_(cZ: 'ConZonotope', set_type: str, tol: float = 1e-12) -> Union[
         res = (cZ.A.size == 0)
         # note: there may be cases with constraints that can still be
         # represented by zonotopes
-        if res:
+        if res and kwargs.get('return_set', False):
             S = Zonotope(cZ.c, cZ.G)
 
     elif set_type == 'hyperplane':
@@ -151,7 +154,7 @@ def representsa_(cZ: 'ConZonotope', set_type: str, tol: float = 1e-12) -> Union[
 
     elif set_type == 'emptySet':
         res = _aux_isEmptySet(cZ, tol)
-        if res:
+        if res and kwargs.get('return_set', False):
             from cora_python.contSet.emptySet import EmptySet
             S = EmptySet(n)
 
@@ -166,99 +169,36 @@ def representsa_(cZ: 'ConZonotope', set_type: str, tol: float = 1e-12) -> Union[
     else:
         res = False
 
-    # Return tuple if conversion set was computed, otherwise just boolean
-    if S is not None:
-        return res, S
-    else:
-        return res
+    return _return_result(res, S)
 
 
 def _aux_isEmptySet(cZ: 'ConZonotope', tol: float) -> bool:
     """Check if constrained zonotope represents empty set"""
-    
+    import numpy as np
     from cora_python.contSet.zonotope import Zonotope
-    from cora_python.contSet.interval import Interval
-    from cora_python.contSet.polytope import Polytope
-    # check if the (in general, enclosing) zonotope is already empty
+    # If enclosing zonotope is empty, constrained zonotope is empty
     Z = Zonotope(cZ.c, cZ.G)
-    if hasattr(Z, 'representsa_'):
-        if Z.representsa_('emptySet', tol):
-            return True
-    else:
-        if Z.representsa_('emptySet', tol):
-            return True
+    if Z.representsa_('emptySet', tol):
+        return True
 
-    # if there are no constraints, we are finished
+    # No constraints -> not empty
     if cZ.A.size == 0:
         return False
 
-    # approach: if the constraints are satisfiable, there is at least one value
-    # for the beta factors and, thus, the constrained zonotope is non-empty
-
-    # functions below do not support sparse matrices
-    A = cZ.A
-    if hasattr(A, 'toarray'):  # scipy sparse matrix
-        A = A.toarray()
-
-    # null space of the constraints
+    # Feasibility of A beta = b with beta in [-1,1]
     try:
-        Neq = null_space(A)
-    except ImportError:
-        # fallback using SVD
-        U, s, Vh = np.linalg.svd(A)
-        null_mask = s <= np.finfo(float).eps
-        Neq = Vh[len(s):, :].T.conj()
-
-    # find a single point that satisfies the constraints
-    # Handle case where A is empty
-    if A.size == 0:
-        x0 = np.array([])
-    else:
-        x0 = np.linalg.pinv(A) @ cZ.b
-
-    if A.size > 0 and np.linalg.norm(A @ x0 - cZ.b) > 1e-10 * np.linalg.norm(cZ.b):  # infeasible
-        # note: the tolerance above must be hardcoded to some non-zero value
-        return True
-
-    if Neq.size == 0:  # null space empty -> constraints admit a single point
-        # check if the single point for beta satisfies the unit cube
+        from scipy.optimize import linprog
         nrGen = cZ.G.shape[1]
-        unit_interval = Interval(-np.ones((nrGen, 1)), np.ones((nrGen, 1)))
-        result, _, _ = unit_interval.contains_(x0, 'exact', tol)
-        return not result
-
-    # check if the null-space intersects the unit-cube
-    nrCon, nrGen = A.shape
-    unit_interval = Interval(-np.ones((nrGen, 1)), np.ones((nrGen, 1)))
-
-    # loop over all constraints (= hyperplanes)
-    for i in range(nrCon):
-        # hyperplane from a constraint does not intersect the unit cube
-        # -> set is empty
-        P = Polytope(A[i:i+1, :], cZ.b[i:i+1])
-        if not P.isIntersecting_(unit_interval, 'exact', tol):
-            return True
-
-    # use linear programming to check if the constrained zonotope is
-    # empty (this seems to be more robust than the previous solution
-    # using the polytope/isempty function)
-    if nrCon >= 1:
-        # setup linear program
-        problem = {
-            'f': np.ones(nrGen),
-            'Aineq': np.array([]).reshape(0, nrGen),
-            'bineq': np.array([]),
-            'Aeq': A,
-            'beq': cZ.b,
-            'ub': np.ones(nrGen),
-            'lb': -np.ones(nrGen)
-        }
-        
+        Aeq = cZ.A
+        beq = cZ.b.flatten() if cZ.b.ndim > 1 else cZ.b
+        bounds = [(-1.0, 1.0)] * nrGen
+        # Minimize 0 subject to constraints
+        res = linprog(np.zeros(nrGen), A_ub=None, b_ub=None, A_eq=Aeq, b_eq=beq, bounds=bounds, method='highs')
+        return not bool(res.success)
+    except Exception:
+        # Fallback: use pseudoinverse feasibility check
         try:
-            _, _, exitflag = CORAlinprog(problem)
-            return exitflag == -2
+            x0 = np.linalg.pinv(cZ.A) @ cZ.b
+            return not np.all(np.abs(x0) <= 1 + tol)
         except Exception:
-            # fallback to simple feasibility check
             return False
-
-    return False 

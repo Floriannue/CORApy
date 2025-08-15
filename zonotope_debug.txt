@@ -1,0 +1,22 @@
+DEBUG: P.representsa_('emptySet', 1e-12) for 
+ans =
+
+Polytope object with dimension: 3
+
+Vertex representation:
+
+Inequality constraints (A*x <= b):
+    A =
+          0.0000    0.0000    0.0000
+    b =
+         -1.0000
+
+Equality constraints (Ae*x = be): (none)
+
+Set properties:
+Bounded?                          true
+Empty set?                        true
+Full-dimensional set?             false
+Minimal halfspace representation? true
+Minimal vertex representation?    true
+: False

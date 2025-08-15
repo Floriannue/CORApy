@@ -34,7 +34,7 @@ class TestConZonotopeRepresentsa:
         assert cZ.representsa_('origin', 1e-12)
         
         # With return set
-        res, S = cZ.representsa_('origin', 1e-12)
+        res, S = cZ.representsa_('origin', 1e-12, return_set=True)
         assert res
         assert np.allclose(S, np.zeros((2, 1)))
         
@@ -56,7 +56,7 @@ class TestConZonotopeRepresentsa:
         assert cZ_point.representsa_('point', 1e-12)
         
         # With return set
-        res, S = cZ_point.representsa_('point', 1e-12)
+        res, S = cZ_point.representsa_('point', 1e-12, return_set=True)
         assert res
         assert np.allclose(S, c)
         
@@ -76,7 +76,7 @@ class TestConZonotopeRepresentsa:
         assert cZ.representsa_('conZonotope', 1e-12)
         
         # With return set
-        res, S = cZ.representsa_('conZonotope', 1e-12)
+        res, S = cZ.representsa_('conZonotope', 1e-12, return_set=True)
         assert res
         assert S is cZ
 
@@ -173,7 +173,7 @@ class TestConZonotopeRepresentsa:
         assert cZ_unconstrained.representsa_('zonotope', 1e-12)
         
         # With return set
-        res, S = cZ_unconstrained.representsa_('zonotope', 1e-12)
+        res, S = cZ_unconstrained.representsa_('zonotope', 1e-12, return_set=True)
         assert res
         assert isinstance(S, Zonotope)
         assert np.allclose(S.c, c)
@@ -239,7 +239,7 @@ class TestConZonotopeRepresentsa:
         
         # With return set
         if res:
-            res_with_set, S = cZ_empty.representsa_('emptySet', 1e-12)
+            res_with_set, S = cZ_empty.representsa_('emptySet', 1e-12, return_set=True)
             assert res_with_set
             assert isinstance(S, EmptySet)
 
@@ -293,7 +293,7 @@ class TestConZonotopeRepresentsa:
         assert res
         
         # Two return values
-        res, S = cZ.representsa_('conZonotope', 1e-12)
+        res, S = cZ.representsa_('conZonotope', 1e-12, return_set=True)
         assert isinstance(res, bool)
         assert res
         assert S is cZ

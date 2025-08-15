@@ -57,7 +57,7 @@ def interval(P: 'Polytope') -> Interval:
     # dimension
     n = P.dim()
     
-    # obtain bounding box
+    # obtain bounding box (MATLAB priv_box_* logic)
     if P.isVRep:
         # vertex representation
         A, b, empty = priv_box_V(P.V, n)
@@ -71,28 +71,17 @@ def interval(P: 'Polytope') -> Interval:
     if empty:
         return Interval.empty(n)
     
-    # init lower and upper bounds of resulting interval with Inf values
-    lb = np.full((n, 1), -np.inf)
-    ub = np.full((n, 1), np.inf)
-    
-    # indices of constraints for upper bounds (indices of constraints for lower
-    # bounds are given by the logical opposite)
-    idx_ub = np.any(A > 0, axis=1)
-    nnz_ub = np.sum(idx_ub)
-    
-    # upper bounds that are non-Inf
-    idx_nonInf = np.any(A[idx_ub, :] != 0, axis=0) # Changed to check for non-zero
-    
-    # overwrite bounds using b
-    if nnz_ub > 0:
-        ub[idx_nonInf] = b[:nnz_ub].reshape(-1, 1)
-    
-    # lower bounds that are non-(-Inf)
-    idx_nonInf_lb = np.any(A[~idx_ub, :] != 0, axis=0) # Changed to check for non-zero
-    
-    # overwrite bounds using b
-    if np.sum(~idx_ub) > 0:
-        lb[idx_nonInf_lb] = -b[nnz_ub:].reshape(-1, 1)
-    
-    # instantiate resulting interval
-    return Interval(lb, ub) 
+    # A from priv_box is axis-aligned +/- ei normals stacked; b has corresponding bounds
+    # Reconstruct lb/ub directly to avoid mis-indexing
+    if A.shape[0] != 2*n:
+        # Fallback: compute via support functions
+        lb = np.zeros((n, 1)); ub = np.zeros((n, 1))
+        I = np.eye(n)
+        for i in range(n):
+            ui = I[:, [i]]
+            ub[i, 0] = P.supportFunc_(ui, 'upper')[0]
+            lb[i, 0] = -P.supportFunc_(ui, 'lower')[0]
+        return Interval(lb, ub)
+    ub = b[:n].reshape(n, 1)
+    lb = -b[n:].reshape(n, 1)
+    return Interval(lb, ub)

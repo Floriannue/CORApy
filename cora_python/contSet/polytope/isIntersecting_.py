@@ -24,6 +24,8 @@ import numpy as np
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
 from cora_python.contSet.polytope.polytope import Polytope
+from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
+from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
 
 if TYPE_CHECKING:
     from cora_python.contSet.contSet.contSet import ContSet
@@ -64,15 +66,15 @@ def isIntersecting_(P: Polytope,
     if hasattr(S, 'precedence') and S.precedence < P.precedence:
         return S.isIntersecting_(P, type_, tol)
     
-    # Treat 'fullspace' as intersecting everything; use representsa_ for clarity
-    if hasattr(P, 'representsa_') and P.representsa_('fullspace', 0):
+    # Treat 'fullspace' as intersecting everything; use representsa_ with tol
+    if hasattr(P, 'representsa_') and bool(P.representsa_('fullspace', tol)):
         return True
-    if hasattr(S, 'representsa_') and S.representsa_('fullspace', 0):
+    if hasattr(S, 'representsa_') and bool(S.representsa_('fullspace', tol)):
         return True
     # Proper empty sets (infeasible constraints) do not intersect
-    if hasattr(P, 'representsa_') and P.representsa_('emptySet', 0):
+    if hasattr(P, 'representsa_') and bool(P.representsa_('emptySet', tol)):
         return False
-    if hasattr(S, 'representsa_') and S.representsa_('emptySet', 0):
+    if hasattr(S, 'representsa_') and bool(S.representsa_('emptySet', tol)):
         return False
     
     # Handle different set types
@@ -91,32 +93,72 @@ def isIntersecting_(P: Polytope,
                 from cora_python.contSet.conZonotope.conZonotope import ConZonotope
                 # Convert interval to zonotope representation first
                 c = S.center()
-                G = np.diag(S.rad())
-                # Ensure G is 2D (np.diag returns 1D for scalar input)
-                if G.ndim == 1:
-                    G = G.reshape(-1, 1)
-                # Ensure c is 1D and has the same dimension as G
-                c = c.flatten() if c.ndim > 1 else c
-                # Ensure c and G have matching dimensions
-                if c.size != G.shape[0]:
-                    # Pad c or G to match dimensions
-                    if c.size < G.shape[0]:
-                        c = np.pad(c, (0, G.shape[0] - c.size), 'constant')
-                    elif c.size > G.shape[0]:
-                        G = np.pad(G, ((0, c.size - G.shape[0]), (0, 0)), 'constant')
-                # Handle case where G might be empty
-                if G.size > 0:
-                    cZ = ConZonotope(c, G, np.empty((0, G.shape[1])), np.empty((0,)))
-                else:
-                    G = np.zeros((len(c), 0))
-                    cZ = ConZonotope(c, G, np.empty((0, 0)), np.empty((0,)))
+                r = S.rad()
+                # Ensure shapes
+                c = c.flatten() if c.ndim > 1 else np.asarray(c)
+                r = r.flatten() if r.ndim > 1 else np.asarray(r)
+                G = np.diagflat(r) if r.size > 0 else np.zeros((c.size, 0))
+                # Construct constrained zonotope without constraints
+                cZ = ConZonotope(c, G, np.zeros((0, G.shape[1])), np.zeros((0,)))
                 return _aux_isIntersecting_P_cZ(P, cZ)
             elif type_ == 'approx':
                 return _aux_isIntersecting_approx(P, S, tol)
         
         elif S.__class__.__name__ == 'Polytope':
             # Handle polytope-polytope intersection
-            return _aux_isIntersecting_poly_poly(P, S, tol)
+            # Fast 1D path using direct bound extraction without vertex enumeration
+            if P.dim() == 1 and S.dim() == 1:
+                def _bounds_1d(A, b, Ae, be):
+                    upper = np.inf; lower = -np.inf
+                    if A.size > 0:
+                        for i in range(A.shape[0]):
+                            a = float(A[i,0]); bi = float(b[i] if b.ndim == 1 else b[i,0])
+                            if a > tol:
+                                upper = min(upper, bi / a)
+                            elif a < -tol:
+                                lower = max(lower, bi / a)
+                            else:
+                                if bi < -tol:
+                                    return np.inf, -np.inf
+                    if Ae.size > 0:
+                        for i in range(Ae.shape[0]):
+                            ae = float(Ae[i,0]); bei = float(be[i] if be.ndim == 1 else be[i,0])
+                            if abs(ae) > tol:
+                                val = bei / ae
+                                upper = min(upper, val); lower = max(lower, val)
+                            else:
+                                if abs(bei) > tol:
+                                    return np.inf, -np.inf
+                    return lower, upper
+                A1, b1, Ae1, be1 = P.A, P.b, P.Ae, P.be
+                A2, b2, Ae2, be2 = S.A, S.b, S.Ae, S.be
+                l1, u1 = _bounds_1d(A1, b1, Ae1, be1)
+                l2, u2 = _bounds_1d(A2, b2, Ae2, be2)
+                # If both are single points (equalities fix), compare directly
+                if np.isfinite(l1) and np.isfinite(u1) and abs(u1 - l1) <= tol and np.isfinite(l2) and np.isfinite(u2) and abs(u2 - l2) <= tol:
+                    return abs(l1 - l2) <= tol
+                # If one is a single point and the other has bounds, check inclusion
+                if np.isfinite(l1) and np.isfinite(u1) and abs(u1 - l1) <= tol:
+                    return (l2 <= l1 + tol) and (l1 <= u2 + tol)
+                if np.isfinite(l2) and np.isfinite(u2) and abs(u2 - l2) <= tol:
+                    return (l1 <= l2 + tol) and (l2 <= u1 + tol)
+                if l1 == np.inf and u1 == -np.inf:
+                    return False
+                if l2 == np.inf and u2 == -np.inf:
+                    return False
+                # Overlap if max(lower) <= min(upper) + tol
+                return (max(l1, l2) <= min(u1, u2) + tol)
+            # Normalize and compact like MATLAB before feasibility LP
+            P1 = P; P2 = S
+            for PP in (P1, P2):
+                if not PP.isHRep:
+                    PP.constraints()
+                A, b, Ae, be = PP.A, PP.b.reshape(-1, 1), PP.Ae, PP.be.reshape(-1, 1)
+                A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
+                A, b, Ae, be, _, _ = priv_compact_all(A, b, Ae, be, PP.dim(), tol)
+                PP._A, PP._b, PP._Ae, PP._be = A, b, Ae, be
+                PP._isHRep = True
+            return _aux_isIntersecting_poly_poly(P1, P2, tol)
         
         elif S.__class__.__name__ == 'ConZonotope':
             # Handle constrained zonotope case
@@ -251,9 +293,9 @@ def _aux_isIntersecting_P_cZ(P: Polytope, cZ) -> bool:
             res = False
         elif exitflag == 1:  # Could include 3 and 0
             # Feasible point found, check if max(y) < 0 == val
-            # Use constraint tolerance (default: 1e-6) following MATLAB
-            constraint_tol = 1e-6
-            res = val < constraint_tol
+            # Use constraint tolerance consistent with withinTol default (~1e-9)
+            constraint_tol = 1e-9
+            res = val <= constraint_tol
         elif exitflag == -3:
             # Unbounded (because no inequality constraints in P) => feasible
             res = True
@@ -458,8 +500,13 @@ def _aux_isIntersecting_poly_poly(P1: 'Polytope', P2: 'Polytope', tol: float) ->
     """
     # Ensure H-reps
     P1.constraints(); P2.constraints()
-    A1, b1, Ae1, be1 = P1.A, P1.b.flatten(), P1.Ae, P1.be.flatten()
-    A2, b2, Ae2, be2 = P2.A, P2.b.flatten(), P2.Ae, P2.be.flatten()
+    n = P1.dim()
+    def ensure_cols(M, ncols):
+        if M is None or M.size == 0:
+            return np.zeros((0, ncols))
+        return M
+    A1, b1, Ae1, be1 = ensure_cols(P1.A, n), P1.b.flatten(), ensure_cols(P1.Ae, n), P1.be.flatten()
+    A2, b2, Ae2, be2 = ensure_cols(P2.A, n), P2.b.flatten(), ensure_cols(P2.Ae, n), P2.be.flatten()
 
     A_ub = np.vstack([A1, A2]) if (A1.size > 0 or A2.size > 0) else None
     b_ub = np.hstack([b1, b2]) if (b1.size > 0 or b2.size > 0) else None
@@ -468,7 +515,6 @@ def _aux_isIntersecting_poly_poly(P1: 'Polytope', P2: 'Polytope', tol: float) ->
 
     try:
         from scipy.optimize import linprog
-        n = P1.dim()
         c = np.zeros(n)
         res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq,
                       bounds=None, method='highs')

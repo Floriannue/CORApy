@@ -11,10 +11,12 @@ Authors: Mark Wetzlinger (MATLAB)
 from .matrixSet import MatrixSet
 from .intervalMatrix import IntervalMatrix
 from .matZonotope import matZonotope
+from .matPolytope import MatPolytope
 
 # Export all classes
 __all__ = [
     'MatrixSet',
     'IntervalMatrix',
     'matZonotope',
+    'MatPolytope',
 ] 

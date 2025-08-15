@@ -10,6 +10,7 @@ from cora_python.contSet.polytope.private.priv_equalityToInequality import priv_
 from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
 from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 if TYPE_CHECKING:
     from cora_python.contSet.polytope.polytope import Polytope
@@ -68,7 +69,7 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
         P._fullDim_val = V.shape[1] > 1
         return P.V
 
-    # Detect unboundedness early
+    # Detect unboundedness early (MATLAB throws error for unbounded vertex enumeration)
     if not P.isemptyobject() and not P.isBounded():
         P._emptySet_val = False
         P._bounded_val = False
@@ -76,12 +77,7 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
 
     # Compute Chebyshev center to detect empty cases
     c = P.center()
-    if np.any(np.isnan(c)):
-        # Treat NaN in center as unbounded/invalid
-        P._emptySet_val = False
-        P._bounded_val = False
-        raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
-    elif (isinstance(c, np.ndarray) and c.size == 0) or (isinstance(c, float) and np.isnan(c)):
+    if isinstance(c, np.ndarray) and c.size == 0:
         # Empty
         V = np.zeros((n, 0))
         P._V = V
@@ -91,6 +87,11 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
         P._bounded_val = True
         P._fullDim_val = False
         return V
+    if np.any(np.isnan(c)):
+        # Treat NaN in center as unbounded/invalid
+        P._emptySet_val = False
+        P._bounded_val = False
+        raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
 
     # Ensure H-representation is available for methods
     if not P.isHRep:
@@ -174,41 +175,38 @@ def _priv_vertices_1D(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarr
         return np.zeros((1, 0))
 
 
-def _compute_affine_subspace_from_active_set(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray, c: np.ndarray, tol: float = 1e-10) -> np.ndarray:
-    """Compute an orthonormal basis S of the affine hull of the polytope at center c.
-    Uses active constraints at c (inequalities at equality within tol and all equalities).
-    Returns S with shape (n, k). If k==0, polytope is a single point.
+def _compute_affine_subspace_basis(P: 'Polytope', tol: float = 1e-10) -> np.ndarray:
+    """Get an orthonormal basis of the affine hull using isFullDim's subspace logic (MATLAB Alg. 2).
+    Returns X with shape (n, k). If k==n, the set is full-dimensional; if k==0, it's a single point.
     """
-    n = c.shape[0]
-    rows = []
-    if A.size > 0:
-        # Active inequalities where A_i c ~= b_i
-        act = np.where(np.abs(A @ c - b) <= tol)[0]
-        if act.size > 0:
-            rows.append(A[act, :])
-    if Ae.size > 0:
-        rows.append(Ae)
-    if len(rows) == 0:
-        # No active constraints -> full space
-        return np.eye(n)
-    M = np.vstack(rows)
-    # S is null space of M
-    # Compute nullspace via SVD
-    U, s, Vt = np.linalg.svd(M)
-    rank = np.sum(s > 1e-12)
-    S = Vt.T[:, rank:]
-    return S
+    res, X = P.isFullDim(tol, return_subspace=True)
+    if res:
+        # full-dimensional: return identity
+        return np.eye(P.dim())
+    # X can be None or empty for single point
+    if X is None:
+        return np.zeros((P.dim(), 0))
+    return X
 
 
-def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray) -> np.ndarray:
+def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray, tol_local: float = 1e-12) -> np.ndarray:
     """
     Vertex enumeration using a duality-like approach with degeneracy handling based on
     affine subspace computed from active constraints at the center.
     """
+    # Start from normalized and compacted constraints like MATLAB
     A = P.A
-    b = P.b.flatten()
+    b = P.b.reshape(-1, 1)
     Ae = P.Ae
-    be = P.be.flatten()
+    be = P.be.reshape(-1, 1)
+    # Normalize
+    A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
+    # Compact
+    A, b, Ae, be, empty, _ = priv_compact_all(A, b, Ae, be, n, tol_local)
+    if empty:
+        return np.zeros((n, 0))
+    # Flatten for downstream
+    b = b.flatten(); be = be.flatten()
 
     halfspaces = []
     for i in range(A.shape[0]):
@@ -219,25 +217,29 @@ def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray) -> np.ndarray:
     halfspaces = np.array(halfspaces, dtype=float)
 
     def _handle_degeneracy() -> np.ndarray:
-        # Compute affine subspace basis S from active constraints
-        S = _compute_affine_subspace_from_active_set(A, b.reshape(-1, 1), Ae, be.reshape(-1, 1), c)
-        k = S.shape[1]
+        # Compute affine subspace basis X via isFullDim logic
+        X = _compute_affine_subspace_basis(P)
+        k = X.shape[1]
         if k == 0:
             return c.reshape(-1, 1)
         if 0 < k < n:
-            A_sub = A @ S
-            b_sub = b.reshape(-1, 1) - (A @ c).reshape(-1, 1) if A.size > 0 else b.reshape(-1, 1)
-            Ae_sub = Ae @ S if Ae.size > 0 else np.zeros((0, k))
-            be_sub = be.reshape(-1, 1) - (Ae @ c).reshape(-1, 1) if Ae.size > 0 else np.zeros((0, 1))
+            A_sub = A @ X if A.size > 0 else np.zeros((0, k))
+            b_sub = (b.reshape(-1, 1) - (A @ c).reshape(-1, 1)) if A.size > 0 else b.reshape(-1, 1)
+            Ae_sub = Ae @ X if Ae.size > 0 else np.zeros((0, k))
+            be_sub = (be.reshape(-1, 1) - (Ae @ c).reshape(-1, 1)) if Ae.size > 0 else np.zeros((0, 1))
             from cora_python.contSet.polytope.polytope import Polytope
             P_sub = Polytope(A_sub, b_sub, Ae_sub, be_sub)
             V_sub = vertices_(P_sub, 'lcon2vert')
-            return S @ V_sub + c
-        # k == n but we are here -> likely numeric issue or unbounded; guard boundedness
+            return X @ V_sub + c
+        # full-dimensional but we ended here: fallback safety
         if not P.isBounded():
             raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
-        # Fallback
         return _aux_vertices_comb(P)
+
+    # Proactively handle degeneracy (lower-dimensional polytopes)
+    X_test = _compute_affine_subspace_basis(P)
+    if X_test.shape[1] < n:
+        return _handle_degeneracy()
 
     if halfspaces.shape[0] == 0:
         return _handle_degeneracy()
@@ -247,11 +249,13 @@ def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray) -> np.ndarray:
         c_pt = np.zeros(n)
 
     try:
-        hs = HalfspaceIntersection(halfspaces, interior_point=c_pt)
+        # Ensure interior point lies strictly inside; if not, nudge slightly along feasible direction
+        eps = 1e-10
+        hs = HalfspaceIntersection(halfspaces, interior_point=c_pt + eps)
         V_pts = hs.intersections
         if V_pts.size == 0:
             return _handle_degeneracy()
-        tol_local = 1e-10
+        # use provided local tolerance
         keep = np.ones(V_pts.shape[0], dtype=bool)
         if A.shape[0] > 0:
             # Compare each candidate against all A rows; broadcast b correctly per candidate
@@ -259,15 +263,24 @@ def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray) -> np.ndarray:
             keep &= np.all(AV.T <= (b.reshape(-1, 1) + tol_local).T, axis=1)
         if Ae.shape[0] > 0:
             AVe = Ae @ V_pts.T
-            keep &= np.all(np.abs(AVe.T - be.reshape(1, -1)) <= 1e-8, axis=1)
+            keep &= np.all(np.abs(AVe.T - be.reshape(1, -1)) <= tol_local, axis=1)
         V_pts = V_pts[keep, :]
         if V_pts.shape[0] == 0:
             return _handle_degeneracy()
-        V_round = np.round(V_pts / tol_local) * tol_local
+        # Deduplicate with stable tolerance: snap to grid but keep extreme corners
+        grid = max(tol_local, 1e-14)
+        V_round = np.round(V_pts / grid) * grid
         _, unique_idx = np.unique(V_round, axis=0, return_index=True)
         V_pts = V_pts[np.sort(unique_idx), :]
-        V_sorted = V_pts[np.lexsort(tuple((-V_pts[:, j] for j in range(V_pts.shape[1]-1, -1, -1)))), :]
-        return V_sorted.T
+        # In full-dimensional cases, keep only convex-hull extreme points (no hidden exceptions)
+        # Determine affine rank and ensure enough points before calling ConvexHull
+        Vc = V_pts - np.mean(V_pts, axis=0, keepdims=True)
+        rank = np.linalg.matrix_rank(Vc)
+        if rank == n and V_pts.shape[0] >= n + 1:
+            from scipy.spatial import ConvexHull
+            ch = ConvexHull(V_pts)
+            V_pts = V_pts[np.sort(ch.vertices), :]
+        return V_pts.T
     except Exception:
         # If center is not strictly interior (common for unbounded), fall back
         return _handle_degeneracy()

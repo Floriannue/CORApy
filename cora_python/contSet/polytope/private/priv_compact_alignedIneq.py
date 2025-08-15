@@ -43,10 +43,15 @@ def priv_compact_alignedIneq(A, b, tol):
     if A is None or A.size == 0:
         return A, b
     
+    # Ensure column vector for b
+    if b.ndim == 1:
+        b = b.reshape(-1, 1)
+
     # Sort the matrix rows to detect aligned normal vectors
-    sorted_indices = np.lexsort(A.T)
-    A = A[sorted_indices]
-    b = b[sorted_indices]
+    if A.size > 0:
+        sorted_indices = np.lexsort(A.T)
+        A = A[sorted_indices]
+        b = b[sorted_indices]
     
     # Remove all aligned halfspaces
     counter = 0
@@ -60,12 +65,12 @@ def priv_compact_alignedIneq(A, b, tol):
             a_ = A[counter, :]
             
             # Determine minimum b
-            bmin = min(b[counter], b[counter + 1])
+            bmin = np.minimum(b[counter], b[counter + 1])
             counter += 2
             
             while counter < A.shape[0]:
                 if np.sum(np.abs(A[counter, :] - a_)) < tol:
-                    bmin = min(bmin, b[counter])
+                    bmin = np.minimum(bmin, b[counter])
                     counter += 1
                 else:
                     break

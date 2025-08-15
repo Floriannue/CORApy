@@ -47,7 +47,6 @@ def test_project_fourier_method():
         assert _check_point_in_polytope(A_proj, b_proj, v)
 
 
-@pytest.mark.skip(reason="pycddlib causes fatal errors, skipping for now")
 def test_project_fourier_jones_method():
     """Test Fourier-Jones (pycddlib) method"""
     # pytest.importorskip("cdd") # Temporarily remove to avoid fatal errors or comment out
@@ -178,7 +177,6 @@ def test_project_with_equality_constraints():
         assert _check_point_in_polytope(P_proj.A, P_proj.b, corner)
 
 
-@pytest.mark.skip(reason="pycddlib causes fatal errors, skipping for now")
 def test_project_both_methods_consistency():
     """Test that both fourier and fourier_jones methods give consistent results"""
     # pytest.importorskip("cdd") # Temporarily remove to avoid fatal errors or comment out

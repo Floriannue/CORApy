@@ -88,15 +88,18 @@ def projVertices(S, *varargin):
 
     # Initial vertices
     V_init = np.zeros((2, 3))
-    _, V_init[:, 0], _ = S_proj.supportFunc_(np.array([1, 0]), 'upper', **other_options)
+    _, v0, _ = S_proj.supportFunc_(np.array([1, 0]), 'upper', **other_options)
+    V_init[:, 0] = v0.flatten()
     
     angle_120 = 120 * np.pi / 180
     dir_120 = np.array([np.cos(angle_120), np.sin(angle_120)])
-    _, V_init[:, 1], _ = S_proj.supportFunc_(dir_120, 'upper', **other_options)
+    _, v1, _ = S_proj.supportFunc_(dir_120, 'upper', **other_options)
+    V_init[:, 1] = v1.flatten()
     
     angle_240 = 240 * np.pi / 180
     dir_240 = np.array([np.cos(angle_240), np.sin(angle_240)])
-    _, V_init[:, 2], _ = S_proj.supportFunc_(dir_240, 'upper', **other_options)
+    _, v2, _ = S_proj.supportFunc_(dir_240, 'upper', **other_options)
+    V_init[:, 2] = v2.flatten()
     
     # Use a list of vectors for easier insertion
     V_list = [V_init[:, 0]]
@@ -131,6 +134,7 @@ def projVertices(S, *varargin):
         direction = np.array([v[1], -v[0]]) / norm_v
         
         _, v_new, _ = S_proj.supportFunc_(direction, 'upper', **other_options)
+        v_new = v_new.flatten()
         
         # Check if v_new is already in the list
         is_duplicate = any(withinTol(v_new, v_existing, 1e-6).all() for v_existing in V_list)

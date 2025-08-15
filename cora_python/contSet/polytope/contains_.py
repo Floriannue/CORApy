@@ -41,6 +41,8 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 from scipy.spatial import ConvexHull # For aux_contains_Vpoly_pointcloud
 from cora_python.contSet.polytope.private.priv_equality_to_inequality import priv_equality_to_inequality
+from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
+from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
 from cora_python.contSet.contSet.supportFunc_ import supportFunc_
 
 from typing import TYPE_CHECKING, Tuple, Union
@@ -74,7 +76,7 @@ def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exa
     """
 
     # Special cases for empty sets
-    if P.representsa_('emptySet', 0):
+    if P.representsa_('emptySet', tol):
         # An empty set contains nothing unless S is also an empty set.
         if isinstance(S, np.ndarray):
             if S.size == 0: # Empty point cloud
@@ -87,7 +89,7 @@ def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exa
             return False, True, np.inf
 
     # Special cases for fullspace
-    if P.representsa_('fullspace', 0):
+    if P.representsa_('fullspace', tol):
         # A fullspace contains everything that has the same dimension.
         # If S is fullspace, it is contained. If S is not fullspace, it is still contained if it's a valid set/point in the same dimension.
         if isinstance(S, np.ndarray):
@@ -110,18 +112,17 @@ def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exa
             S = S.T
         if S.shape[0] != P.dim():
             raise CORAerror('CORA:wrongDimension', f'Dimension of point cloud ({S.shape[0]}) must match polytope dimension ({P.dim()}).')
-        
-        # Use _aux_exactParser to determine the correct underlying function
-        # For point clouds, we always use H-poly check unless V-poly is forced
-        if method == 'exact:venum':
-            # Force V-representation for P, then use V-poly point cloud check
-            # This might involve converting P to V-rep if not already
-            P.vertices_()
-            res, cert, scaling = _aux_contains_Vpoly_pointcloud(P, S, tol, scalingToggle)
-        else: # Default to H-poly point cloud check
-            # This might involve converting P to H-rep if not already
-            P.constraints()
-            res, cert, scaling = _aux_contains_Hpoly_pointcloud(P, S, tol, scalingToggle)
+        # Always use H-representation for point clouds (MATLAB uses inequalities/equalities)
+        P.constraints()
+        # Normalize/compact for numerical robustness
+        from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
+        from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
+        A = P.A; b = P.b.reshape(-1, 1); Ae = P.Ae; be = P.be.reshape(-1, 1)
+        A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
+        A, b, Ae, be, _, _ = priv_compact_all(A, b, Ae, be, P.dim(), tol)
+        P_H = P
+        P_H._A, P_H._b, P_H._Ae, P_H._be = A, b, Ae, be
+        res, cert, scaling = _aux_contains_Hpoly_pointcloud(P_H, S, tol, scalingToggle)
 
         return res, cert, scaling
 
@@ -145,12 +146,26 @@ def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exa
                 elif hasattr(S, 'center'):
                     c_tmp = S.center()
                     # center may return 1D; reshape to column
-                    point_val = c_tmp.reshape(-1, 1)
+                    point_val = np.asarray(c_tmp).reshape(-1, 1)
             except Exception:
                 point_val = None
         if point_val is not None:
-            res_pc, cert_pc, scaling_pc = contains_(P, point_val.reshape(-1, 1), 'exact', tol, maxEval, certToggle, scalingToggle)
-            return res_pc, cert_pc, scaling_pc
+            # For point-vs-H-poly check, do direct inequality/equality test with tol
+            if not P.isHRep:
+                P.constraints()
+            # Normalize/compact for numerical robustness
+            A = P.A; b = P.b.reshape(-1, 1); Ae = P.Ae; be = P.be.reshape(-1, 1)
+            from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
+            from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
+            A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
+            A, b, Ae, be, _, _ = priv_compact_all(A, b, Ae, be, P.dim(), tol)
+            v = point_val.reshape(-1, 1)
+            ok = True
+            if A.size > 0:
+                ok = ok and np.all(A @ v <= b + tol)
+            if ok and Ae.size > 0:
+                ok = ok and np.all(np.abs(Ae @ v - be) <= tol)
+            return (np.array([ok], dtype=bool), np.array([True], dtype=bool), np.array([0.0]) if ok else np.array([np.inf]))
         # If still no point value, conservatively return False with cert
         return False, True, np.inf
 
@@ -274,55 +289,41 @@ def _aux_contains_Hpoly_pointcloud(P: 'Polytope', V: np.ndarray, tol: float, sca
     if not P.isHRep:
         P.constraints() # Convert to H-representation
 
-    A = P.A
-    b = P.b
-    Ae = P.Ae
-    be = P.be
+    # Normalize and compact constraints like MATLAB before checking
+    A = P.A; b = P.b.reshape(-1, 1)
+    Ae = P.Ae; be = P.be.reshape(-1, 1)
+    A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
+    A, b, Ae, be, _, _ = priv_compact_all(A, b, Ae, be, P.dim(), tol)
+    # Flatten b/be for vectorized math below
+    b = b.reshape(-1, 1)
+    be = be.reshape(-1, 1)
 
     num_points = V.shape[1]
     res = np.full(num_points, True, dtype=bool)
     scaling = np.zeros(num_points)
     cert = np.full(num_points, True, dtype=bool) # Certification is not fully implemented
     
-    # Check inequality constraints: A*V <= b
-    if A.size > 0 and V.size > 0:
-        violations_ineq = A @ V - b # A (m x n), V (n x num_points), b (m x 1)
-        # A*V should be <= b, so violations should be <= 0
-        # Use withinTol for nearly zero values
-        # MATLAB uses (violations > tol) & (~withinTol(violations, 0, tol))
-        # This means, if violation is greater than tol and not within tolerance of zero
-        # it's a violation. We want: violations > tol. Or, violations <= 0 + tol.
-        # So, if violations_ineq[i,j] > tol for some j, then it's a violation.
-        # Or, we want (violations_ineq < tol) for all elements.
-        # More simply: check if max(A*V - b) <= tol
-
-        # Find points that violate any inequality constraint
-        # A point is contained if all its entries satisfy the constraints
-        # Each row of violations_ineq corresponds to a constraint. Each column to a point.
-        for i in range(violations_ineq.shape[0]):
-            # Check if any point violates this constraint
-            current_violations = violations_ineq[i, :]
-            violating_indices = current_violations > tol
-            
-            if np.any(violating_indices):
-                res[violating_indices] = False
-                # Compute scaling for violated points
-                current_scaling = current_violations[violating_indices] / (b[i,0] + tol) # Avoid div by zero
-                scaling[violating_indices] = np.maximum(scaling[violating_indices], current_scaling)
-
-    # Check equality constraints: Ae*V = be
-    if Ae.size > 0 and V.size > 0:
-        violations_eq = Ae @ V - be
-        # For equalities, check if abs(Ae*V - be) > tol
-        # Find points that violate any equality constraint
-        for i in range(violations_eq.shape[0]):
-            current_violations = np.abs(violations_eq[i, :])
-            violating_indices = current_violations > tol
-            
-            if np.any(violating_indices):
-                res[violating_indices] = False
-                # For equality violations, scaling is usually not defined or is Inf
-                scaling[violating_indices] = np.inf
+    # Robust per-point checks to avoid broadcasting pitfalls
+    for j in range(num_points):
+        v = V[:, j:j+1]
+        ok = True
+        if A.size > 0:
+            lhs = A @ v  # (m,1)
+            if np.any(lhs > b + tol):
+                ok = False
+                if scalingToggle:
+                    # crude scaling estimate per violated constraint
+                    viol = (lhs - b)[:, 0]
+                    # Avoid division by zero
+                    denom = np.where(np.abs(b[:, 0]) > tol, b[:, 0], 1.0)
+                    scaling[j] = np.max(np.maximum(scaling[j], viol / denom))
+        if ok and Ae.size > 0:
+            eq_res = Ae @ v - be  # (k,1)
+            if np.any(np.abs(eq_res) > tol):
+                ok = False
+                if scalingToggle:
+                    scaling[j] = np.inf
+        res[j] = ok
 
     return res, cert, scaling
 
@@ -472,6 +473,12 @@ def _aux_contains_P_Hpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle
     # equality and inequality constraints
     # Get combined A, b from P.A, P.b, P.Ae, P.be
     combined_A, combined_b = priv_equality_to_inequality(P_shifted.A, P_shifted.b, P_shifted.Ae, P_shifted.be)
+    # Normalize and compact like MATLAB pre-steps
+    n_dim = P_shifted.dim()
+    A_n, b_n, Ae_n, be_n = priv_normalizeConstraints(combined_A, combined_b.reshape(-1, 1), np.zeros((0, n_dim)), np.zeros((0, 1)), 'A')
+    A_n, b_n, Ae_n, be_n, _, _ = priv_compact_all(A_n, b_n, Ae_n, be_n, n_dim, tol)
+    combined_A = A_n
+    combined_b = b_n.reshape(-1, 1)
     
     scaling = 0.0
     res = True

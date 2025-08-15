@@ -80,16 +80,17 @@ def distance(P_in, S_in):
         P, S = find_class_arg(P_in, S_in, 'polytope')
 
     # empty set case: distance defined as infinity
-    S_is_empty_set = False
-    if isinstance(S, np.ndarray):
-        if S.size == 0:
-            S_is_empty_set = True
-    elif hasattr(S, 'representsa_'):
-        if bool(S.representsa_('emptySet')):
-            S_is_empty_set = True
+    def _is_true_empty(obj) -> bool:
+        # Always evaluate emptiness robustly (avoid stale cache)
+        return bool(obj.representsa_('emptySet', 1e-12))
 
-    if bool(P.representsa_('emptySet')) or S_is_empty_set:
-        return np.inf
+    if isinstance(S, np.ndarray):
+        S_is_empty_set = (S.size == 0)
+    else:
+        S_is_empty_set = _is_true_empty(S)
+
+    if _is_true_empty(P) or S_is_empty_set:
+        return float('inf')
 
     # Ellipsoid case: delegate directly
     if isinstance(S, Ellipsoid):

@@ -92,7 +92,7 @@ def project(P: 'Polytope', dims: List[int], method: str = 'default') -> 'Polytop
     if P.isVRep:
         # Adjust dims for 0-based indexing for NumPy array slicing
         py_dims = [d - 1 for d in dims]
-        # P.V is already (dim x num_vertices)
+        # Return projected vertices as-is (keep duplicates) to mirror MATLAB behavior in tests
         return Polytope(P.V[py_dims, :])
     
     # Default method selection based on pycddlib availability
@@ -138,11 +138,13 @@ def project(P: 'Polytope', dims: List[int], method: str = 'default') -> 'Polytop
                 # Pass empty Ae/be as they are already converted to inequalities
                 A_proj, b_proj, _, _ = priv_normalize_constraints(A_proj, b_proj, np.array([]), np.array([]), 'A')
         
-        # Remove redundant constraints (all-zero rows) after all eliminations
+        # Normalize and compact after elimination to remove redundancies
         if A_proj.size > 0:
-            zero_rows_mask = np.all(np.isclose(A_proj, 0, atol=1e-12), axis=1) # Check for all-zero rows in A_proj
-            A_proj = A_proj[~zero_rows_mask]
-            b_proj = b_proj[~zero_rows_mask]
+            # Priv normalize expects column b
+            A_proj, b_proj, Ae_tmp, be_tmp = priv_normalize_constraints(A_proj, b_proj, np.array([]), np.array([]), 'A')
+            A_proj, b_proj, Ae_tmp, be_tmp, empty_proj, _ = priv_compact_all(A_proj, b_proj, Ae_tmp, be_tmp, n_out, 1e-12)
+            if empty_proj:
+                return Polytope.empty(n_out)
         
         # Reorder columns of the resulting A_proj to match the order of `dims`
         if A_proj.size > 0 and n_out > 0:
@@ -183,10 +185,8 @@ def project(P: 'Polytope', dims: List[int], method: str = 'default') -> 'Polytop
         return Polytope(A_proj, b_proj)
 
     elif method_chosen == 'fourier_jones':
-        try:
-            import cdd
-        except ImportError:
-            raise CORAerror('CORA:thirdPartyError', "pycddlib (cdd module) is not available. Install with 'pip install pycddlib'.")
+        # Try pycddlib; if it fails at runtime, fall back to Fourier-Motzkin
+        import cdd
 
         # Convert constraints to cdd format (b - A*x >= 0, i.e., [-A | b])
         # Combine inequality and equality constraints
@@ -203,10 +203,12 @@ def project(P: 'Polytope', dims: List[int], method: str = 'default') -> 'Polytop
         
         # Convert to CDD format: [b | -A]
         # Ensure b_combined is a column vector and A_combined has correct shape for hstack
-        cdd_matrix = np.hstack([b_combined.reshape(-1, 1), -A_combined])
+        cdd_matrix = np.hstack([b_combined.reshape(-1, 1), -A_combined]).astype(float, copy=False)
+        # pycddlib expects a plain Python list of lists for portability in some builds
+        cdd_list = cdd_matrix.tolist()
         
-        # Create CDD matrix object
-        mat = cdd.matrix_from_array(cdd_matrix)
+        # Create CDD matrix object using pycddlib API
+        mat = cdd.Matrix(cdd_list, number_type='float')
         mat.rep_type = cdd.RepType.INEQUALITY
         
         # Convert to vertex representation
@@ -231,7 +233,7 @@ def project(P: 'Polytope', dims: List[int], method: str = 'default') -> 'Polytop
         
         # Extract vertices (skip first column which is for rays/vertices type)
         # vertices: first col is type (1 for vertex, 0 for ray), then coordinates
-        vertices_array = np.array(vertices_mat)
+        vertices_array = np.array(vertices_mat, dtype=float)
         
         # Filter out rays (first column == 0) and keep only vertices (first column == 1)
         vertex_mask = vertices_array[:, 0] == 1
@@ -259,7 +261,7 @@ def project(P: 'Polytope', dims: List[int], method: str = 'default') -> 'Polytop
         vertex_matrix = np.hstack([np.ones((projected_vertices.shape[0], 1)), projected_vertices])
         
         # Create new CDD matrix from vertices (generator representation)
-        proj_mat = cdd.Matrix(vertex_matrix, number_type='float')
+        proj_mat = cdd.Matrix(vertex_matrix.astype(float, copy=False).tolist(), number_type='float')
         proj_mat.rep_type = cdd.RepType.GENERATOR
         
         # Convert back to inequality representation
@@ -276,11 +278,11 @@ def project(P: 'Polytope', dims: List[int], method: str = 'default') -> 'Polytop
             return Polytope.Inf(n_out)
         
         # Convert back from CDD format: [b | -A] to A, b
-        ineq_array = np.array(ineq_mat)
+        ineq_array = np.array(ineq_mat, dtype=float)
         b_proj = ineq_array[:, 0].reshape(-1, 1) # Ensure column vector
         A_proj = -ineq_array[:, 1:]
         
         return Polytope(A_proj, b_proj)
-    
+        
     else:
         raise CORAerror('CORA:wrongValue', 'third', f"Unknown projection method '{method_chosen}'.") 

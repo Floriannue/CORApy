@@ -29,6 +29,16 @@ from .priv_compact_2D import priv_compact_2D
 from .priv_compact_nD import priv_compact_nD
 from .priv_representsa_emptySet import priv_representsa_emptySet
 from .priv_vertices_1D import priv_vertices_1D
+from .priv_conZonotope_supportFunc import priv_conZonotope_supportFunc
+from .priv_conZonotope_vertices import priv_conZonotope_vertices
+from .priv_copyProperties import priv_copyProperties
+from .priv_feasiblePoint import priv_feasiblePoint
+from .priv_isFullDim_V import priv_isFullDim_V
+from .priv_normalizeConstraints import priv_normalizeConstraints
+from .priv_equalityToInequality import priv_equalityToInequality
+from .priv_cartprod import priv_cartprod
+from .priv_compactv import priv_compactv
+from .priv_minkdiff import priv_minkdiff
 
 __all__ = [
     "priv_supportFunc",
@@ -48,4 +58,14 @@ __all__ = [
     "priv_compact_nD",
     "priv_representsa_emptySet",
     "priv_vertices_1D",
+    "priv_conZonotope_supportFunc",
+    "priv_conZonotope_vertices",
+    "priv_copyProperties",
+    "priv_feasiblePoint",
+    "priv_isFullDim_V",
+    "priv_normalizeConstraints",
+    "priv_equalityToInequality",
+    "priv_cartprod",
+    "priv_compactv",
+    "priv_minkdiff",
 ] 

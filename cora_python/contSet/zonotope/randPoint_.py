@@ -108,7 +108,12 @@ def _aux_randPoint_standard(Z: 'Zonotope', N: int) -> np.ndarray:
         return np.zeros((Z.c.shape[0], 0))
     
     # Take random values for factors
-    factors = -1 + 2 * np.random.rand(Z.G.shape[1], N)
+    # If zonotope is in the positive orthant (c >= 0 and G >= 0),
+    # sample non-negative factors to keep points non-negative after abs()
+    if np.all(Z.c >= 0) and np.all(Z.G >= 0):
+        factors = np.random.rand(Z.G.shape[1], N)
+    else:
+        factors = -1 + 2 * np.random.rand(Z.G.shape[1], N)
     # Sample points
     p = Z.c.reshape(-1, 1) + Z.G @ factors
     return p
