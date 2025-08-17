@@ -36,8 +36,11 @@ def isemptyobject(P: 'Polytope') -> bool:
     - Constructor guarantees proper array initialization; no None checks needed.
     """
     # Treat cached empty set as empty object in tests after explicit empty() constructor
-    if hasattr(P, '_emptySet_val') and P._emptySet_val is True:
-        return True
+    # NOTE: This is incorrect! An empty set is NOT an empty object.
+    # An empty object has no representation data, while an empty set has representation data
+    # that represents an empty set. We should remove this check.
+    # if hasattr(P, '_emptySet_val') and P._emptySet_val is True:
+    #     return True
 
     # Empty object according to tests/MATLAB semantics:
     # - H-rep with no constraints (A and Ae have 0 rows) -> empty object

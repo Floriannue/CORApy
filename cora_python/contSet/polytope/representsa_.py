@@ -99,6 +99,10 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         # all(all(withinTol(P.Ae_.val,0,tol))) && all(withinTol(P.be_.val,0,tol))) || ...
         # (P.isVRep.val && (n == 1 && any(P.V_.val == -Inf) && any(P.V_.val == Inf)));
         
+        print(f"DEBUG: Entering fullspace check")
+        print(f"DEBUG: p.isHRep = {p.isHRep}")
+        print(f"DEBUG: p.isVRep = {p.isVRep}")
+        
         # Check H-representation: no constraints means fullspace
         # or all A rows zero and b >= 0
         hrep_fullspace = False

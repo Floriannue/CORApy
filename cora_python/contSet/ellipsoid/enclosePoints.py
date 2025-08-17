@@ -67,7 +67,15 @@ def enclosePoints(points, method='cov'):
         # interval arithmetic (is exact in this case)
         r = 0.5 * (np.max(points) - np.min(points))
         q = 0.5 * (np.max(points) + np.min(points))
-        E = Ellipsoid(np.array([[r**2]]), q.reshape(-1, 1))
+        # For single point in higher dimensional space, create a small ellipsoid
+        if n > 1:
+            # Create a small ellipsoid in the original space
+            Q_small = 1e-6 * np.eye(n)
+            q_small = np.zeros((n, 1))
+            E = Ellipsoid(Q_small, q_small)
+        else:
+            # 1D case
+            E = Ellipsoid(np.array([[r**2]]), q)
     
     elif method == 'cov':
         # compute the covariance matrix

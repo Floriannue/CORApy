@@ -42,10 +42,13 @@ def empty(n: int = 0) -> 'ConZonotope':
     
     from .conZonotope import ConZonotope
     
-    # Create empty center and generator matrix
-    c = np.zeros((n, 1)) if n > 0 else np.zeros((0, 1))
+    # Create empty center and generator matrix (following MATLAB implementation)
+    # zeros(n,0) means n rows, 0 columns - no center point, no generators
+    c = np.zeros((n, 0)) if n > 0 else np.zeros((0, 0))
     G = np.zeros((n, 0)) if n > 0 else np.zeros((0, 0))
+    
+    # No constraints - empty matrices
     A = np.zeros((0, 0))
-    b = np.zeros((0, 1))
+    b = np.zeros((0, 0))
     
     return ConZonotope(c, G, A, b) 

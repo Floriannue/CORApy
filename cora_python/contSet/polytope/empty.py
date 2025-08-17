@@ -36,7 +36,7 @@ def empty(n: int = 0) -> Polytope:
     P_out._minHRep_val = True         # P_out.minHRep.val = true;
     P_out._minVRep_val = True         # P_out.minVRep.val = true;
     P_out._V = np.zeros((n, 0))       # P_out.V_.val = zeros(n,0);
-    P_out.isVRep = True               # P_out.isVRep.val = true;
+    P_out._isVRep = True              # P_out.isVRep.val = true;
     # P_out.isHRep will be true because of the constructor Polytope(A,b)
     
     return P_out 

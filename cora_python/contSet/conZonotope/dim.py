@@ -41,6 +41,5 @@ def dim(cZ: 'ConZonotope') -> int:
     if cZ._dim_val is not None:
         return cZ._dim_val
     # Fallback if _dim_val is not set (should not happen with proper construction)
-    if cZ.c.size == 0:
-        return 0
+    # MATLAB returns size(cZ.c,1) which is the number of rows
     return cZ.c.shape[0] 

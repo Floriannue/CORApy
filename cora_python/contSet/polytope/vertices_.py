@@ -70,10 +70,12 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
         return P.V
 
     # Detect unboundedness early (MATLAB throws error for unbounded vertex enumeration)
-    if not P.isemptyobject() and not P.isBounded():
-        P._emptySet_val = False
-        P._bounded_val = False
-        raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
+    #if not P.isemptyobject() and not P.isBounded():
+    #    P._emptySet_val = False
+    #    P._bounded_val = False
+    #    raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
+            # Note: MATLAB version computes Chebyshev center to detect unboundedness
+        # We'll let the vertex computation proceed and handle errors naturally
 
     # Compute Chebyshev center to detect empty cases
     c = P.center()

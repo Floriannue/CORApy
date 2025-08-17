@@ -168,10 +168,10 @@ class ConZonotope(ContSet):
         
         # Determine dimension from inputs (c or G) early if not already set by specific constructors
         if self._dim_val is None:
-            if c is not None and hasattr(c, 'shape') and c.size > 0:
-                self._dim_val = c.shape[0]
-            elif G is not None and hasattr(G, 'shape') and G.size > 0:
-                self._dim_val = G.shape[0]
+            if c is not None and hasattr(c, 'shape'):
+                self._dim_val = c.shape[0]  # Dimension is number of rows, not dependent on size
+            elif G is not None and hasattr(G, 'shape'):
+                self._dim_val = G.shape[0]  # Dimension is number of rows, not dependent on size
             elif hasattr(varargin[0], 'dim') and callable(getattr(varargin[0], 'dim')):
                 self._dim_val = varargin[0].dim()
             else:

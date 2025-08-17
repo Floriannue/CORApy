@@ -1,31 +1,55 @@
+"""
+ellipsoid - converts a polytope to an ellipsoid
+
+Description:
+    Converts a polytope to an ellipsoid using different approximation methods.
+
+Syntax:
+    E = ellipsoid(P, mode)
+
+Inputs:
+    P - polytope object
+    mode - (optional): 
+               'inner' (inner approx)
+               'outer' (outer approx)
+               'outer:min-vol' (min-vol outer approx)
+
+Outputs:
+    E - ellipsoid object
+
+Example: 
+    A = [1 2; -1 2; -2 -2; 1 -2]; b = ones(4,1);
+    P = polytope(A,b);
+    E = ellipsoid(P);
+    figure; hold on;
+    plot(P); plot(E);
+
+Authors:       Victor Gassmann (MATLAB)
+               Python translation by AI Assistant
+Written:       15-March-2021 (MATLAB)
+Python translation: 2025
+"""
+
 import numpy as np
 from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from .private.priv_equality_to_inequality import priv_equality_to_inequality
+from .private.priv_normalize_constraints import priv_normalize_constraints
 
 
 def ellipsoid(P, mode='outer'):
     """
     Converts a polytope to an ellipsoid.
     
-    Syntax:
-        E = ellipsoid(P,mode)
+    Args:
+        P: polytope object
+        mode: (optional) approximation mode
+              'inner' (inner approx)
+              'outer' (outer approx) 
+              'outer:min-vol' (min-vol outer approx)
     
-    Inputs:
-        P - polytope object
-        mode - (optional): 
-                   'inner' (inner approx)
-                   'outer' (outer approx)
-                   'outer:min-vol' (min-vol outer approx)
-    
-    Outputs:
-        E - ellipsoid object
-    
-    Example: 
-        A = [1 2; -1 2; -2 -2; 1 -2]; b = ones(4,1);
-        P = polytope(A,b);
-        E = ellipsoid(P);
-        figure; hold on;
-        plot(P); plot(E);
+    Returns:
+        E: ellipsoid object
     """
     # check input arguments
     if mode not in ['outer', 'outer:min-vol', 'inner']:
@@ -39,6 +63,7 @@ def ellipsoid(P, mode='outer'):
         E = Ellipsoid.empty(n)
         return E
     
+    # select mode
     if mode == 'outer':
         V = P.vertices_()
         mm = 'cov'
@@ -57,40 +82,26 @@ def _aux_ellipsoid_inner(P, n):
     """
     Inner approximation of a polytope with an ellipsoid.
     """
+    # rewrite equality constraints as inequality constraints
+    A, b = priv_equality_to_inequality(P.A, P.b, P.Ae, P.be)
+    
+    # normalize to prevent numerical issues
+    A, b, _, _ = priv_normalize_constraints(A, b, None, None, 'A')
+    
+    # number of inequality constraints
+    nrCon = A.shape[0] if A.size > 0 else 0
+    
     # For now, use a simplified approach since full SDP solvers are not available
     # This provides a reasonable inner approximation
-    
-    # Get the polytope constraints
-    A = P.A
-    b = P.b
-    
-    # Normalize constraints to prevent numerical issues
-    A, b = _normalize_constraints(A, b)
-    
-    # Use a simplified approach: find the largest inscribed ellipsoid
-    # by solving a simplified optimization problem
     E = _approximate_inner_ellipsoid(A, b, n, P)
     
     return E
 
 
-def _normalize_constraints(A, b):
-    """
-    Normalize constraints to prevent numerical issues.
-    """
-    # Normalize each constraint by its norm
-    norms = np.linalg.norm(A, axis=1, keepdims=True)
-    # Avoid division by zero
-    norms = np.where(norms < 1e-10, 1.0, norms)
-    A_norm = A / norms
-    b_norm = b / norms.flatten()
-    
-    return A_norm, b_norm
-
-
 def _approximate_inner_ellipsoid(A, b, n, P=None):
     """
     Approximate inner ellipsoid using a simplified approach.
+    This is a fallback since full SDP solvers are not available.
     """
     # Use the analytical center as a starting point
     # This is a reasonable approximation for the center of the largest inscribed ellipsoid
@@ -107,6 +118,12 @@ def _approximate_inner_ellipsoid(A, b, n, P=None):
     except:
         # Fallback: use origin as center
         center = np.zeros((n, 1))
+    
+    # If no constraints, create a small ellipsoid
+    if A.size == 0:
+        Q = 0.1 * np.eye(n)
+        q = center
+        return Ellipsoid(Q, q)
     
     # Compute distances from center to each constraint
     distances = (b - A @ center).flatten()

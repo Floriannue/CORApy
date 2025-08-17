@@ -27,10 +27,14 @@ def conZonotope(P, method: str = 'exact:supportFunc', B: Interval | None = None)
 
     # Default values
     if B is None:
-        B = Interval(P)
+        B = P.interval()
 
     # fullspace cannot be represented as a conZonotope
-    if P.representsa_('fullspace', 0):
+    # Check if this is an empty polytope first (which should be allowed)
+    if hasattr(P, '_emptySet_val') and P._emptySet_val is True:
+        # Empty polytopes should return empty constrained zonotopes
+        return ConZonotope.empty(n)
+    elif P.representsa_('fullspace', 0):
         raise CORAerror('CORA:specialError', 'Polytope is unbounded and can therefore not be converted into a constrained zonotope.')
 
     # vertex representation given and polytope is empty
@@ -57,7 +61,7 @@ def conZonotope(P, method: str = 'exact:supportFunc', B: Interval | None = None)
     else:
         # 'exact:supportFunc'
         if B is None:
-            B = Interval(P)
+            B = P.interval()
         if getattr(P, '_bounded_val', None) is False:
             raise CORAerror('CORA:specialError', 'Polytope is unbounded and can therefore not be converted into a constrained zonotope.')
         if getattr(P, '_emptySet_val', None) is True:

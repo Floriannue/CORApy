@@ -29,68 +29,89 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Tuple, Union
+from typing import Tuple, Optional
 from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
-def priv_supportFunc(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray, 
-                     dir: np.ndarray, type: str) -> Tuple[float, Union[np.ndarray, None]]:
+def priv_supportFunc(
+    A: np.ndarray, b: np.ndarray,
+    Ae: np.ndarray, be: np.ndarray,
+    dir_vec: np.ndarray, type_str: str
+) -> Tuple[float, Optional[np.ndarray]]:
     """
-    Computes the support function value for a polytope
+    priv_supportFunc - computes the support function of a polytope in H-representation
     
-    Args:
-        A: Inequality constraint matrix
-        b: Inequality constraint offset
-        Ae: Equality constraint matrix
-        be: Equality constraint offset
-        dir: Direction vector
-        type: 'upper' or 'lower'
-        
-    Returns:
-        tuple: (val, x) where:
-            val - value of the support function
-            x - support vector (or None if infeasible/unbounded)
+    Syntax:
+       [val,x] = priv_supportFunc(A,b,Ae,be,dir,type)
+    
+    Inputs:
+       A - inequality constraint matrix
+       b - inequality constraint offset
+       Ae - equality constraint matrix
+       be - equality constraint offset
+       dir - direction
+       type - 'upper' or 'lower'
+    
+    Outputs:
+       val - value of the support function
+       x - support vector
+    
+    Authors:       Mark Wetzlinger (MATLAB)
+                   Automatic python translation: Florian Nüssel BA 2025
+    Written:       03-October-2024 (MATLAB)
+    Last update:   ---
+    Last revision: ---
     """
 
-    
-    if type == 'upper':
-        s = -1
-    elif type == 'lower':
-        s = 1
+    s = 0.0
+    if type_str == 'upper':
+        s = -1.0
+    elif type_str == 'lower':
+        s = 1.0
     else:
-        raise ValueError("type must be 'upper' or 'lower'")
-    
-    # simple check: empty polytope (fullspace)
-    if A.size == 0 and Ae.size == 0:
-        val = -s * np.inf
-        x = None
-        return val, x
-    
-    # set up linear program
-    # Ensure dir is a column vector and then transpose for f
-    dir = dir.reshape(-1, 1)
-    problem = {
-        'f': (s * dir).flatten(),  # CORAlinprog expects 1D array
-        'Aineq': A if A.size > 0 else None,
-        'bineq': b.flatten() if A.size > 0 else None,
-        'Aeq': Ae if Ae.size > 0 else None,
-        'beq': be.flatten() if Ae.size > 0 else None,
-        'lb': None,
-        'ub': None
-    }
-    
-    # solve linear program
-    x, val, exitflag, _, _ = CORAlinprog(problem) # Unpack all 5 return values
+        raise ValueError("Type must be 'upper' or 'lower'.")
 
-    # Handle exitflag from CORAlinprog to determine feasibility and boundedness
-    if exitflag == 1:  # Optimal solution found
+    # simple check: empty polytope (fullspace in MATLAB original doc, but refers to no constraints)
+    # In Python, empty arrays will be (0,0) or (0,1) shape
+    if (A.size == 0 and b.size == 0) and (Ae.size == 0 and be.size == 0):
+        val = -s * np.inf
+        x = np.array([]) # Return an empty numpy array for x
         return val, x
-    elif exitflag == 2:  # Unbounded
-        return np.inf, None # MATLAB returns inf for unbounded, regardless of type
-    elif exitflag == 3:  # Infeasible
-        # This case means the polytope is empty. Support function is -inf.
-        return -np.inf, None # MATLAB returns -inf for infeasible
-    else: # Other exit flags (e.g., -2: no feasible solution found, -3: problem is unbounded)
-        # Treat other flags as inability to find a support vector (similar to infeasible)
-        return -np.inf, None # Return -infinity as a general 'cannot find' indicator 
+
+    # set up linear program
+    problem = {
+        'f': s * dir_vec.flatten(), # Flatten dir to 1D array for linprog
+        'Aineq': A,
+        'bineq': b.flatten(), # Flatten b to 1D array
+        'Aeq': Ae,
+        'beq': be.flatten(), # Flatten be to 1D array
+        'lb': None,
+        'ub': None,
+        'x0': None # Not used in scipy linprog directly
+    }
+
+    # solve linear program
+    x_sol, fval, exitflag, output, _ = CORAlinprog(problem)
+    val = s * fval if fval is not None else None
+
+    if exitflag == -3:
+        # unbounded
+        val = -s * np.inf
+        # Handle x: -s*sign(dir).*Inf(length(dir),1)
+        # dir_vec must be 1D, so length(dir) is dir_vec.size
+        x = -s * np.sign(dir_vec) * np.inf
+        if x.ndim == 1: # Ensure it's a column vector if it was 1D
+            x = x.reshape(-1, 1)
+    elif exitflag == -2:
+        # infeasible -> empty set
+        val = s * np.inf
+        x = np.array([]) # Empty array as per MATLAB
+    elif exitflag != 1:
+        raise CORAerror('CORA:solverIssue', f"Solver issue with exitflag: {exitflag}, message: {output.get('message', '')}")
+    
+    # Ensure x is a column vector if it's a solution and not None
+    if x_sol is not None and x is None: # If x was not set by unbounded/infeasible and x_sol exists
+        x = x_sol.reshape(-1, 1)
+
+    return val, x 
