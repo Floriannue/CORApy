@@ -83,6 +83,19 @@ def priv_compact_1D(A, b, Ae, be, tol):
                 empty = True
                 return np.array([]).reshape(0, 1), np.array([]), np.array([]).reshape(0, 1), np.array([]), empty
             
+            # Check if we have contradictory equality constraints
+            # For the case Ae = [1; 4], be = [2; -5], after normalization we get
+            # different values that are not compatible
+            if not np.all(withinTol(Ae, Ae[0], tol)):
+                # Different coefficients in equality constraints -> check if they're contradictory
+                # Normalize to get the actual values: x = be[0]/Ae[0], x = be[1]/Ae[1]
+                x1 = be[0] / Ae[0, 0]
+                x2 = be[1] / Ae[1, 0]
+                if not withinTol(x1, x2, tol):
+                    # Contradictory equality constraints -> empty set
+                    empty = True
+                    return np.array([]).reshape(0, 1), np.array([]), np.array([]).reshape(0, 1), np.array([]), empty
+            
             # All equality constraints are the same as the first one; take
             # this one and normalize w.r.t Ae
             Ae = np.array([[1]])

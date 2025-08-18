@@ -120,22 +120,50 @@ def supportFunc_(P: 'Polytope',
         # maximize d^T x == minimize -(d^T x)
         res = _solve((-d.flatten()).astype(float))
         if not res.success:
-            # Unbounded -> +inf
-            return float('inf'), None
+            # Distinguish infeasible (empty set) vs unbounded using exitflag mapping
+            if res.status == 2:  # infeasible -> empty set
+                return float('-inf'), None
+            elif res.status == 3:  # unbounded
+                return float('inf'), None
+            # Fallback: treat as infeasible (conservative)
+            return float('-inf'), None
         val = float(d.flatten() @ res.x)
         return val, res.x.reshape(-1, 1)
     elif type_ == 'lower':
         res = _solve((d.flatten()).astype(float))
         if not res.success:
-            # Unbounded -> -inf
-            return float('-inf'), None
+            # Distinguish infeasible (empty set) vs unbounded using exitflag mapping
+            if res.status == 2:  # infeasible -> empty set
+                return float('inf'), None
+            elif res.status == 3:  # unbounded
+                return float('-inf'), None
+            # Fallback: treat as infeasible (conservative)
+            return float('inf'), None
         val = float(d.flatten() @ res.x)
         return val, res.x.reshape(-1, 1)
     else: # range
         resU = _solve((-d.flatten()).astype(float))
         resL = _solve((d.flatten()).astype(float))
-        valU = float('inf') if not resU.success else float(d.flatten() @ resU.x)
-        valL = float('-inf') if not resL.success else float(d.flatten() @ resL.x)
+        # Upper
+        if not resU.success:
+            if resU.status == 2:  # infeasible -> empty set
+                valU = float('-inf')
+            elif resU.status == 3:  # unbounded
+                valU = float('inf')
+            else:
+                valU = float('-inf')
+        else:
+            valU = float(d.flatten() @ resU.x)
+        # Lower
+        if not resL.success:
+            if resL.status == 2:  # infeasible -> empty set
+                valL = float('inf')
+            elif resL.status == 3:  # unbounded
+                valL = float('-inf')
+            else:
+                valL = float('inf')
+        else:
+            valL = float(d.flatten() @ resL.x)
         return (valL, valU), None
 
 

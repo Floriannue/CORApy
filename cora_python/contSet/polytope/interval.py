@@ -65,7 +65,7 @@ def interval(P: 'Polytope') -> Interval:
         # halfspace representation
         Ae = P.Ae if hasattr(P, 'Ae') else np.array([]).reshape(0, n)
         be = P.be if hasattr(P, 'be') else np.array([]).reshape(0, 1)
-        A, b, empty = priv_box_H(P.A, P.b, Ae, be, n)
+        A, b, empty, _, _ = priv_box_H(P.A, P.b, Ae, be, n)
     
     # exit if already empty
     if empty:

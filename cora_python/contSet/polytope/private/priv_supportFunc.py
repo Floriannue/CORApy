@@ -95,6 +95,9 @@ def priv_supportFunc(
     x_sol, fval, exitflag, output, _ = CORAlinprog(problem)
     val = s * fval if fval is not None else None
 
+    # Initialize x to None, will be set based on exitflag
+    x = None
+
     if exitflag == -3:
         # unbounded
         val = -s * np.inf
@@ -107,11 +110,30 @@ def priv_supportFunc(
         # infeasible -> empty set
         val = s * np.inf
         x = np.array([]) # Empty array as per MATLAB
-    elif exitflag != 1:
+    elif exitflag == 1:
+        # successful optimization
+        if x_sol is not None:
+            x = x_sol.reshape(-1, 1)
+        else:
+            x = np.array([])  # Fallback if no solution
+    elif exitflag == 0:
+        # Solver reached iteration limit or had numerical issues
+        # But might still have a usable solution
+        if x_sol is not None and fval is not None:
+            # Use the solution we have, even if not optimal
+            x = x_sol.reshape(-1, 1)
+            # Keep the val we already computed
+        else:
+            # No solution available, treat as solver issue
+            raise CORAerror('CORA:solverIssue', f"Solver issue with exitflag: {exitflag}, message: {output.get('message', '')}")
+    else:
+        # Other exit flags (-1, etc.) - treat as solver issues
         raise CORAerror('CORA:solverIssue', f"Solver issue with exitflag: {exitflag}, message: {output.get('message', '')}")
     
     # Ensure x is a column vector if it's a solution and not None
-    if x_sol is not None and x is None: # If x was not set by unbounded/infeasible and x_sol exists
+    if x is None and x_sol is not None: # Fallback if x was not set above
         x = x_sol.reshape(-1, 1)
+    elif x is None:
+        x = np.array([])  # Final fallback
 
     return val, x 

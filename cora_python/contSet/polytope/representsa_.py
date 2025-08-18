@@ -85,15 +85,67 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                 return _return_result(True, I)
             return _return_result(True, None)
         if set_type == 'emptySet':
-            return _return_result(True, None)
+            # A polytope with no constraints represents the fullspace, not an empty set
+            # This is the key fix: empty object ≠ empty set
+            return _return_result(False, None)
         # All other types false by default
         return _return_result(False, None)
-    elif set_type == 'emptySet':
-        # Non-empty object may still be empty due to infeasible constraints; handle below
-        pass
     
-    # If it's a fullspace, emptySet would be false. Check fullspace explicitly.
-    elif set_type == 'fullspace': # Moved to an elif to correctly return False if not fullspace
+    # Handle emptySet check for non-empty objects
+    if set_type == 'emptySet':
+        # Determine emptiness via quick feasibility check of Ax<=b, Ae x = be
+        A = p.A; b = p.b.flatten(); Ae = p.Ae; be = p.be.flatten()
+        # No constraints -> fullspace, not empty set
+        # Handle case where Ae might be None
+        Ae_size = 0 if Ae is None else Ae.size
+        print(f"DEBUG: emptySet check - A.size={A.size}, Ae_size={Ae_size}, A.shape={A.shape}, Ae.shape={Ae.shape if Ae is not None else 'None'}")
+        if A.size == 0 and Ae_size == 0:
+            print(f"DEBUG: No constraints detected, returning False (fullspace)")
+            return _return_result(False, None)
+        # Quick contradictory pair check: exists i,j with A_i = −A_j and −b_j > b_i + tol
+        if A.size > 0:
+            with np.errstate(invalid='ignore'):
+                for i in range(A.shape[0]):
+                    ai = A[i, :]
+                    bi = b[i]
+                    # find rows equal to -ai
+                    mask = np.all(np.isclose(A, -ai, atol=tol), axis=1)
+                    if np.any(mask):
+                        bj = b[mask]
+                        if np.any((-bj) > (bi + tol)):
+                            p._emptySet_val = True  # Set the property when empty set detected
+                            return _return_result(True, None)
+            # Any all-zero inequality with negative offset -> empty
+            zero_rows = np.all(np.isclose(A, 0, atol=tol), axis=1)
+            if np.any(zero_rows):
+                if np.any(b[zero_rows] < -tol):
+                    p._emptySet_val = True  # Set the property when empty set detected
+                    return _return_result(True, None)
+        if Ae_size > 0 and np.allclose(Ae, 0, atol=tol) and not np.allclose(be, 0, atol=tol):
+            p._emptySet_val = True  # Set the property when empty set detected
+            return _return_result(True, None)
+        # Try feasibility with linprog and interpret solver status exactly like MATLAB
+        # highs status: 0 success, 2 infeasible, 3 unbounded; success -> non-empty
+        try:
+            n = p.dim()
+            c = np.zeros(n)
+            from scipy.optimize import linprog
+            res_lp = linprog(c, A_ub=A if A.size > 0 else None, b_ub=b if b.size > 0 else None,
+                             A_eq=Ae if Ae_size > 0 else None, b_eq=be if Ae_size > 0 else None,
+                             bounds=None)
+            if res_lp.success:
+                return _return_result(False, None)
+            # infeasible -> empty; unbounded or other -> not empty (there exists feasible x)
+            status = getattr(res_lp, 'status', None)
+            if status == 2:  # infeasible
+                p._emptySet_val = True  # Set the property when empty set detected
+                return _return_result(True, None)
+            return _return_result(False, None)
+        except Exception as e:
+            return _return_result(False, None)
+
+    # Handle fullspace check
+    if set_type == 'fullspace':
         # MATLAB logic for fullspace check:
         # P.isHRep.val && all(all(withinTol(P.A_.val,0,tol))) && all(P.b_.val > 0 | withinTol(P.b_.val,0,tol)) && ...
         # all(all(withinTol(P.Ae_.val,0,tol))) && all(withinTol(P.be_.val,0,tol))) || ...
@@ -154,53 +206,6 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
             from cora_python.contSet.fullspace.fullspace import fullspace as fullspace_func
             return_obj = fullspace_func(n)
         return _return_result(res, return_obj)
-
-
-    
-    # Logic for other types
-    if set_type == 'emptySet':
-        # Determine emptiness via quick feasibility check of Ax<=b, Ae x = be
-        A = p.A; b = p.b.flatten(); Ae = p.Ae; be = p.be.flatten()
-        # No constraints -> fullspace, not empty set
-        if A.size == 0 and Ae.size == 0:
-            return _return_result(False, None)
-        # Quick contradictory pair check: exists i,j with A_i = −A_j and −b_j > b_i + tol
-        if A.size > 0:
-            with np.errstate(invalid='ignore'):
-                for i in range(A.shape[0]):
-                    ai = A[i, :]
-                    bi = b[i]
-                    # find rows equal to -ai
-                    mask = np.all(np.isclose(A, -ai, atol=tol), axis=1)
-                    if np.any(mask):
-                        bj = b[mask]
-                        if np.any((-bj) > (bi + tol)):
-                            return _return_result(True, None)
-            # Any all-zero inequality with negative offset -> empty
-            zero_rows = np.all(np.isclose(A, 0, atol=tol), axis=1)
-            if np.any(zero_rows):
-                if np.any(b[zero_rows] < -tol):
-                    return _return_result(True, None)
-        if Ae.size > 0 and np.allclose(Ae, 0, atol=tol) and not np.allclose(be, 0, atol=tol):
-            return _return_result(True, None)
-        # Try feasibility with linprog and interpret solver status exactly like MATLAB
-        # highs status: 0 success, 2 infeasible, 3 unbounded; success -> non-empty
-        try:
-            n = p.dim()
-            c = np.zeros(n)
-            from scipy.optimize import linprog
-            res_lp = linprog(c, A_ub=A if A.size > 0 else None, b_ub=b if b.size > 0 else None,
-                             A_eq=Ae if Ae.size > 0 else None, b_eq=be if be.size > 0 else None,
-                             bounds=None)
-            if res_lp.success:
-                return _return_result(False, None)
-            # infeasible -> empty; unbounded or other -> not empty (there exists feasible x)
-            status = getattr(res_lp, 'status', None)
-            if status == 2:  # infeasible
-                return _return_result(True, None)
-            return _return_result(False, None)
-        except Exception:
-            return _return_result(False, None)
 
     if set_type == 'origin':
 

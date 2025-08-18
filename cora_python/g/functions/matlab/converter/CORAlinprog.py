@@ -132,12 +132,24 @@ def CORAlinprog(problem: Dict[str, Any]) -> Tuple[Optional[np.ndarray], Optional
         c = np.array(c, dtype=float).flatten()
     if A_ub is not None:
         A_ub = np.array(A_ub, dtype=float)
+        # Convert empty arrays to None for linprog
+        if A_ub.size == 0:
+            A_ub = None
     if b_ub is not None:
         b_ub = np.array(b_ub, dtype=float).flatten()
+        # Convert empty arrays to None for linprog
+        if b_ub.size == 0:
+            b_ub = None
     if A_eq is not None:
         A_eq = np.array(A_eq, dtype=float)
+        # Convert empty arrays to None for linprog
+        if A_eq.size == 0:
+            A_eq = None
     if b_eq is not None:
         b_eq = np.array(b_eq, dtype=float).flatten()
+        # Convert empty arrays to None for linprog
+        if b_eq.size == 0:
+            b_eq = None
     
     # Set solver options
     method = 'highs'  # Default to HiGHS solver (most robust)

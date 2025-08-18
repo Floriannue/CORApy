@@ -27,6 +27,7 @@ from scipy.spatial import ConvexHull, QhullError
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 from typing import TYPE_CHECKING
+from .private.priv_normalizeConstraints import priv_normalizeConstraints
 
 if TYPE_CHECKING:
     from .polytope import Polytope
@@ -43,6 +44,7 @@ def constraints(P: 'Polytope') -> 'Polytope':
     """
     # Check if halfspace representation already available
     if P.isHRep:
+        # Return existing constraints like MATLAB does (no normalization)
         return P
         
     # Check if vertex representation is available

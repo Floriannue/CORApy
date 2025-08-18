@@ -62,18 +62,20 @@ class TestPolytopeVertices:
         A = np.array([[1]])
         b = np.array([0])
         P = Polytope(A, b)
-        # Should raise NotSupported error for unbounded polytope
-        with pytest.raises(Exception):
-            vertices_(P)
+        # MATLAB returns vertices for 1D unbounded: [-Inf, 0]
+        V = vertices_(P)
+        V_expected = np.array([[-np.inf, 0]])
+        assert np.allclose(V, V_expected, rtol=0, atol=1e-10)
     
     def test_vertices_1d_unbounded_case2(self):
         """Test 1D, unbounded (second case)"""
         A = np.array([[3]])
         b = np.array([6])
         P = Polytope(A, b)
-        # Should raise NotSupported error for unbounded polytope
-        with pytest.raises(Exception):
-            vertices_(P)
+        # MATLAB returns vertices for 1D unbounded: [-Inf, 2]
+        V = vertices_(P)
+        V_expected = np.array([[-np.inf, 2]])
+        assert np.allclose(V, V_expected, rtol=0, atol=1e-10)
     
     def test_vertices_1d_degenerate_inequalities(self):
         """Test 1D, degenerate, only inequalities"""

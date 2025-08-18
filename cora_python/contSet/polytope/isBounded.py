@@ -26,6 +26,10 @@ Python translation: 2025
 import numpy as np
 from typing import Optional, TYPE_CHECKING
 from scipy.optimize import linprog
+from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
+from cora_python.contSet.polytope.private.priv_equalityToInequality import priv_equalityToInequality
+from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
+from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 if TYPE_CHECKING:
     from .polytope import Polytope
@@ -121,24 +125,109 @@ def isBounded(P: 'Polytope') -> bool:
                 if not np.all(np.any(np.vstack([A_, Ae_]), axis=0)):
                     res = False
                 else:
-                    # Evaluate support function in simplex directions
-                    unbounded = False
-                    for i in range(n):
-                        d = np.zeros((n, 1)); d[i, 0] = 1.0
-                        val = P.supportFunc_(d, 'upper')
-                        vnum = val[0] if isinstance(val, tuple) else val
-                        if vnum == np.inf:
-                            unbounded = True; break
-                    if not unbounded:
+                    # If we already know the set is non-degenerate, use MATLAB's dual LP check
+                    if getattr(P, '_fullDim_val', None) is True:
+                        res = _aux_isBounded_nD_Hpoly_nondegenerate(P, n)
+                    else:
+                        # Standard method: check support function in simplex directions [I_n, -1_n]
+                        # This matches MATLAB's aux_isBounded_nD_Hpoly exactly
+                        for i in range(n):
+                            # check every axis-aligned direction
+                            d = np.zeros((n, 1)); d[i, 0] = 1.0
+                            # evaluate support function (returns tuple (val, x) like MATLAB)
+                            val, _ = P.supportFunc_(d, 'upper')
+                            vnum = val
+                            if vnum == np.inf:
+                                # set is unbounded
+                                res = False
+                                P._emptySet_val = False
+                                return res
+                            elif vnum == -np.inf:
+                                # set is empty
+                                res = True
+                                P._emptySet_val = True
+                                return res
+                        
+                        # check -1_n direction
                         d = -np.ones((n, 1))
-                        val = P.supportFunc_(d, 'upper')
-                        vnum = val[0] if isinstance(val, tuple) else val
-                        unbounded = (vnum == np.inf)
-                    res = not unbounded
+                        # evaluate support function (returns tuple (val, x) like MATLAB)
+                        val, _ = P.supportFunc_(d, 'upper')
+                        vnum = val
+                        if vnum == np.inf:
+                            # set is unbounded
+                            res = False
+                            P._emptySet_val = False
+                            return res
+                        elif vnum == -np.inf:
+                            # set is empty
+                            res = True
+                            P._emptySet_val = True
+                            return res
+
+                        # code reaches this part: set is neither unbounded nor empty
+                        res = True
+                        P._emptySet_val = False
 
     # cache result
     P._bounded_val = res
     return res
+
+
+def _aux_isBounded_nD_Hpoly_nondegenerate(P: 'Polytope', n: int) -> bool:
+    """Non-degenerate H-polytope boundedness via dual LP (MATLAB parity).
+    Matches @polytope/isBounded.m aux_isBounded_nD_Hpoly_nondegenerate.
+    """
+    # Ensure origin is contained; otherwise shift by Chebyshev center
+    contains_origin = False
+    try:
+        if hasattr(P, 'contains_'):
+            contains_origin = P.contains_(np.zeros((n, 1)))[0]
+    except Exception:
+        contains_origin = False
+
+    if not contains_origin:
+        c = P.center()
+        if isinstance(c, np.ndarray) and c.size == 0:
+            # empty set
+            P._emptySet_val = True
+            return True
+        if np.any(np.isnan(c)):
+            # unbounded (not every unbounded set yields NaN, but this is MATLAB's early exit)
+            P._emptySet_val = False
+            return False
+        # not empty
+        P._emptySet_val = False
+        P_ = P - c
+    else:
+        P_ = P
+
+    # Rewrite equality constraints as inequalities
+    A, b = priv_equalityToInequality(P_.A, P_.b, P_.Ae, P_.be)
+    # Normalize constraints w.r.t. b to obtain A x <= 1
+    A, b, _, _ = priv_normalizeConstraints(A, b, None, None, 'b')
+    h = A.shape[0]
+
+    # Dual LP: check if origin is contained in dual polytope conv(A^T)
+    # Variables: t in R, x in R^h
+    # min -t s.t. A^T x = 0, t <= x_i, sum_i x_i = 1
+    problem = {
+        'f': np.concatenate([np.array([-1.0]), np.zeros(h)]),
+        'Aineq': np.hstack([np.ones((h, 1)), -np.eye(h)]) if h > 0 else np.zeros((0, 1 + h)),
+        'bineq': np.zeros(h),
+        'Aeq': np.vstack([np.hstack([np.zeros((n, 1)), A.T]), np.hstack([np.zeros((1, 1)), np.ones((1, h))])]),
+        'beq': np.concatenate([np.zeros(n), np.array([1.0])]),
+        'lb': None,
+        'ub': None,
+    }
+
+    _, fval, exitflag, _, _ = CORAlinprog(problem)
+    if exitflag >= 0:
+        if fval > 0 or withinTol(fval, 0, 1e-8):
+            # origin not contained in dual -> primal unbounded
+            return False
+        return True
+    # Solver issue: follow MATLAB and raise error; here, be conservative
+    raise Exception('CORA:solverIssue in _aux_isBounded_nD_Hpoly_nondegenerate')
 
 
 def _check_bounded_halfspace(P: 'Polytope') -> bool:

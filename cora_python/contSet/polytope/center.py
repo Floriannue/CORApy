@@ -32,10 +32,10 @@ Python translation: 2025
 """
 
 import numpy as np
-from scipy.optimize import linprog
 from typing import TYPE_CHECKING, Optional, Union
 from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
 from cora_python.contSet.polytope.private.priv_compact_alignedEq import priv_compact_alignedEq
+from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
 
 if TYPE_CHECKING:
     from .polytope import Polytope
@@ -211,51 +211,54 @@ def _aux_center_LP(P: 'Polytope', n: int) -> np.ndarray:
     Ae_val = P.Ae
     be_val = P.be
     
+
+    
     # Dimension and number of (in)equalities
     nrEq = Ae_val.shape[0]
     
-    # 2-Norm of each row
+    # 2-Norm of each row - always compute like MATLAB
     if A_val.size > 0:
         A_norm = np.sqrt(np.sum(A_val**2, axis=1, keepdims=True))
-        
-        # Extend inequality constraints by one column
-        A_ext = np.hstack([A_val, A_norm])
     else:
-        A_ext = None
+        A_norm = np.array([]).reshape(0, 1)
+    
+    # Extend inequality constraints by one column - always do this like MATLAB
+    A_ext = np.hstack([A_val, A_norm]) if A_val.size > 0 else A_norm
         
-    # Extend equality constraints by one column
+    # Extend equality constraints by one column - always create array like MATLAB
     if nrEq > 0:
         Ae_ext = np.hstack([Ae_val, np.zeros((nrEq, 1))])
     else:
-        Ae_ext = None
+        Ae_ext = np.array([]).reshape(0, n + 1)  # Empty array with correct shape
     
     # Cost function for linear program: minimize 2-norm of constraints
     f = np.zeros(n + 1)
     f[-1] = -1  # Maximize the radius (minimize negative radius)
     
-    # Bounds: center can be anything, radius must be non-negative
-    bounds = [(None, None)] * n + [(0, None)]
-    
     try:
-        # Solve LP using scipy.optimize.linprog
-        result = linprog(
-            c=f,
-            A_ub=A_ext,
-            b_ub=b_val.flatten() if b_val.size > 0 else None,
-            A_eq=Ae_ext,
-            b_eq=be_val.flatten() if be_val.size > 0 else None,
-            bounds=bounds,
-            method='highs'
-        )
+        # Solve LP using CORAlinprog to match MATLAB behavior exactly
+        # Set up problem struct like MATLAB
+        problem = {
+            'f': f,
+            'Aineq': A_ext if A_ext.size > 0 else None,
+            'bineq': b_val.flatten() if b_val.size > 0 else None,
+            'Aeq': Ae_ext if Ae_ext.size > 0 else None,
+            'beq': be_val.flatten() if be_val.size > 0 else None,
+            'lb': [-np.inf] * n + [0],  # center can be anything, radius must be ≥ 0
+            'ub': [np.inf] * n + [np.inf]  # no upper bounds
+        }
         
-        if result.success:
-            # Truncate solution (remove radius component)
-            c = result.x[:n].reshape(-1, 1)
+        # Call CORAlinprog with same interface as MATLAB
+        x, fval, exitflag, output, _ = CORAlinprog(problem)
+        
+        if exitflag == 1:
+            # Success - truncate solution (remove radius component)
+            c = x[:n].reshape(-1, 1)
             return c
-        elif result.status == 2:  # Infeasible
-            # Set is empty
+        elif exitflag == -2:
+            # Infeasible (empty set)
             return np.zeros((n, 0))
-        elif result.status == 3:  # Unbounded
+        elif exitflag == -3:
             # Unbounded
             return np.full((n, 1), np.nan)
         else:

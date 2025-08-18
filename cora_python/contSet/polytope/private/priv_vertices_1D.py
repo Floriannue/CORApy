@@ -1,11 +1,13 @@
 import numpy as np
-from typing import Optional
+from typing import Optional, Tuple
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from .priv_compact_1D import priv_compact_1D
+from .priv_normalize_constraints import priv_normalize_constraints
 
 def priv_vertices_1D(A: Optional[np.ndarray], b: Optional[np.ndarray], 
-                     Ae: Optional[np.ndarray], be: Optional[np.ndarray]) -> Optional[np.ndarray]:
+                     Ae: Optional[np.ndarray], be: Optional[np.ndarray]) -> Tuple[np.ndarray, bool]:
     """
-    Compute vertices for 1D polytope.
+    Compute vertices for 1D polytope following MATLAB logic exactly.
     
     Args:
         A: inequality constraint matrix (n_ineq x 1)
@@ -14,61 +16,90 @@ def priv_vertices_1D(A: Optional[np.ndarray], b: Optional[np.ndarray],
         be: equality constraint offset (n_eq,)
         
     Returns:
-        V: vertices as (1 x n_vertices) array, or None if empty
+        V: vertices as (1 x n_vertices) array
+        empty: true/false whether polytope is empty
     """
-    # Initialize bounds
-    lb = -np.inf
-    ub = np.inf
+    # Debug output
+    print(f"DEBUG priv_vertices_1D: A={A}, A.size={A.size if A is not None else 'None'}")
+    print(f"DEBUG priv_vertices_1D: b={b}, b.size={b.size if b is not None else 'None'}")
+    print(f"DEBUG priv_vertices_1D: Ae={Ae}, Ae.size={Ae.size if Ae is not None else 'None'}")
+    print(f"DEBUG priv_vertices_1D: be={be}, be.size={be.size if be is not None else 'None'}")
     
-    # Process equality constraints first
-    if Ae is not None and Ae.size > 0 and be is not None and be.size > 0:
-        # For 1D, equality constraint Ae*x = be means x = be/Ae
-        # Check if all equality constraints are consistent
-        for i in range(len(be)):
-            if abs(Ae[i, 0]) < 1e-12:  # Ae[i] ≈ 0
-                if abs(be[i]) > 1e-12:  # be[i] ≠ 0
-                    # Constraint 0*x = be[i] with be[i] ≠ 0 -> infeasible
-                    return None
-                # else: constraint 0*x = 0 -> always satisfied, ignore
+    # Set tolerance like MATLAB
+    tol = 1e-12
+    
+    # Handle empty inputs (MATLAB: zeros(0,1) and zeros(0,0))
+    A_norm = A if A is not None and A.size > 0 else np.array([]).reshape(0, 1)
+    b_norm = b if b is not None and b.size > 0 else np.array([]).reshape(0, 1)
+    Ae_norm = Ae if Ae is not None and Ae.size > 0 else np.array([]).reshape(0, 1)
+    be_norm = be if be is not None and be.size > 0 else np.array([]).reshape(0, 1)
+    
+    # MATLAB: compute minimal representation
+    A_compact, b_compact, Ae_compact, be_compact, empty = priv_compact_1D(A_norm, b_norm, Ae_norm, be_norm, tol)
+    print(f"DEBUG priv_vertices_1D: after priv_compact_1D: empty={empty}")
+    
+    # MATLAB: if there is no point, P is already empty
+    if empty:
+        print(f"DEBUG priv_vertices_1D: polytope is empty")
+        return np.array([]).reshape(1, 0), True
+    
+    # MATLAB: normalize constraints
+    A_norm, b_norm, Ae_norm, be_norm = priv_normalize_constraints(A_compact, b_compact, Ae_compact, be_compact, 'A')
+    print(f"DEBUG priv_vertices_1D: after priv_normalize_constraints: A={A_norm}, b={b_norm}, Ae={Ae_norm}, be={be_norm}")
+    
+    # MATLAB: if ~isempty(A)
+    if A_norm.size > 0:
+        print(f"DEBUG priv_vertices_1D: processing inequality constraints")
+        
+        # MATLAB: check boundedness from below
+        Aisminus1 = withinTol(A_norm, -1, tol)
+        if np.any(Aisminus1):
+            # bounded from below
+            lb_idx = np.where(Aisminus1)[0][0]
+            V = np.array([[-b_norm[lb_idx]]])
+            print(f"DEBUG priv_vertices_1D: bounded below at {V[0, 0]}")
+        else:
+            # unbounded toward -Inf
+            V = np.array([[-np.inf]])
+            print(f"DEBUG priv_vertices_1D: unbounded below")
+        
+        # MATLAB: check boundedness from above
+        Ais1 = withinTol(A_norm, 1, tol)
+        if np.any(Ais1):
+            # bounded from above (add only if not a duplicate)
+            ub_idx = np.where(Ais1)[0][0]
+            ub_val = b_norm[ub_idx]
+            print(f"DEBUG priv_vertices_1D: bounded above at {ub_val}")
+            
+            # MATLAB: if ~withinTol(V,b(Ais1))
+            if not withinTol(V[0, 0], ub_val, tol):
+                V = np.array([[V[0, 0], ub_val]])
             else:
-                # x = be[i] / Ae[i, 0]
-                x_eq = be[i] / Ae[i, 0]
-                # All equality constraints must give the same x value
-                if lb == -np.inf and ub == np.inf:
-                    lb = ub = x_eq
-                elif not withinTol(x_eq, lb, 1e-12):
-                    # Inconsistent equality constraints
-                    return None
+                print(f"DEBUG priv_vertices_1D: upper bound is duplicate, keeping V={V}")
+        else:
+            # unbounded toward +Inf
+            ub_val = np.inf
+            print(f"DEBUG priv_vertices_1D: unbounded above")
+            V = np.array([[V[0, 0], ub_val]])
+        
+        print(f"DEBUG priv_vertices_1D: final V from inequalities: {V}")
+        return V, False
     
-    # Process inequality constraints
-    if A is not None and A.size > 0 and b is not None and b.size > 0:
-        for i in range(len(b)):
-            if abs(A[i, 0]) < 1e-12:  # A[i] ≈ 0
-                if b[i] < -1e-12:  # b[i] < 0
-                    # Constraint 0*x <= b[i] with b[i] < 0 -> infeasible
-                    return None
-                # else: constraint 0*x <= b[i] with b[i] >= 0 -> always satisfied, ignore
-            else:
-                # A[i]*x <= b[i] -> x <= b[i]/A[i] (if A[i] > 0) or x >= b[i]/A[i] (if A[i] < 0)
-                if A[i, 0] > 0:
-                    # x <= b[i] / A[i, 0]
-                    ub = min(ub, b[i] / A[i, 0])
-                else:
-                    # x >= b[i] / A[i, 0]
-                    lb = max(lb, b[i] / A[i, 0])
+    # MATLAB: elseif ~isempty(Ae)
+    elif Ae_norm.size > 0:
+        print(f"DEBUG priv_vertices_1D: processing equality constraints")
+        # MATLAB: due to minHRep call above, we should only have one equality here
+        if Ae_norm.shape[0] == 1:
+            V = np.array([[be_norm[0] / Ae_norm[0, 0]]])
+            print(f"DEBUG priv_vertices_1D: equality constraint -> single point V={V}")
+            return V, False
+        else:
+            # Multiple equality constraints - this should not happen after priv_compact_1D
+            print(f"DEBUG priv_vertices_1D: multiple equality constraints after compact - error")
+            raise ValueError("Error in vertex computation of 1D polytope.")
     
-    # Check feasibility
-    if lb > ub + 1e-12:
-        return None  # Empty set
-    
-    # Construct vertices
-    if lb == ub:
-        # Single point
-        return np.array([[lb]])
-    elif lb == -np.inf or ub == np.inf:
-        # Unbounded polytope - return None as vertices are not well-defined
-        # This is consistent with MATLAB behavior for unbounded polytopes
-        return None
+    # MATLAB: else (this should not happen if we handled all cases above)
     else:
-        # Bounded interval
-        return np.array([[lb, ub]]) 
+        print(f"DEBUG priv_vertices_1D: no constraints -> fullspace")
+        # This case should be handled by priv_compact_1D, but if we get here, return fullspace
+        return np.array([[-np.inf, np.inf]]), False 

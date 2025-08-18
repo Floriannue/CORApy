@@ -35,6 +35,8 @@ def enclosePoints(points, method='cov'):
     References:
         [1]: Boyd; Vandenberghe: Convex Optimization
     """
+    print(f"DEBUG: enclosePoints called with points.shape={points.shape}, method={method}")
+    
     # check input arguments
     if not isinstance(points, np.ndarray) or points.size == 0:
         raise CORAerror('CORA:wrongInputInConstructor', 'points must be non-empty numeric array')
@@ -47,11 +49,18 @@ def enclosePoints(points, method='cov'):
     points = points - c
     n, M = points.shape
     
+    print(f"DEBUG: After bias removal: n={n}, M={M}, c={c}")
+    
     # handle degenerate case
     U, S, _ = np.linalg.svd(points)
-    n_nd = np.linalg.matrix_rank(S)
+    # Use a tolerance similar to MATLAB's default rank() function
+    # MATLAB's rank() typically uses tol = max(size(A)) * eps(norm(A))
+    tol = max(n, M) * np.finfo(float).eps * np.linalg.norm(S)
+    n_nd = np.linalg.matrix_rank(S, tol=tol)
     points = U.T @ points
     n_d = n - n_nd
+    
+    print(f"DEBUG: After SVD: n_nd={n_nd}, n_d={n_d}, tol={tol}")
     
     if n_nd < n:
         # remove zeros for degenerate dimensions
@@ -60,10 +69,12 @@ def enclosePoints(points, method='cov'):
     # handle special cases n_nd=0 and n_nd=1
     if n_nd == 0:
         # all zero matrix
+        print(f"DEBUG: n_nd=0 case, creating empty ellipsoid")
         E = Ellipsoid.empty(n)
         return E
     
     elif n_nd == 1:
+        print(f"DEBUG: n_nd=1 case, n={n}")
         # interval arithmetic (is exact in this case)
         r = 0.5 * (np.max(points) - np.min(points))
         q = 0.5 * (np.max(points) + np.min(points))
@@ -72,7 +83,12 @@ def enclosePoints(points, method='cov'):
             # Create a small ellipsoid in the original space
             Q_small = 1e-6 * np.eye(n)
             q_small = np.zeros((n, 1))
+            print(f"DEBUG: Creating small ellipsoid for n_nd=1, n={n}")
+            print(f"DEBUG: Q_small.shape={Q_small.shape}, q_small.shape={q_small.shape}")
             E = Ellipsoid(Q_small, q_small)
+            # Skip the transformation back since we already created it in the right space
+            print(f"DEBUG: Skipping transformation for single point case")
+            return E
         else:
             # 1D case
             E = Ellipsoid(np.array([[r**2]]), q)
@@ -123,7 +139,11 @@ def enclosePoints(points, method='cov'):
     else:
         # Apply transformation: U * E_ext + c
         # For ellipsoid E with shape matrix Q and center q: U*E + d = ellipsoid(U*Q*U', U*q + d)
+        print(f"DEBUG: Before transformation: E_ext.Q.shape={E_ext.Q.shape}, E_ext.q.shape={E_ext.q.shape}")
+        print(f"DEBUG: U.shape={U.shape}, c.shape={c.shape}, c={c}")
         E_final = Ellipsoid(U @ E_ext.Q @ U.T, U @ E_ext.q + c)
+        print(f"DEBUG: After transformation: E_final.Q.shape={E_final.Q.shape}, E_final.q.shape={E_final.q.shape}")
+        print(f"DEBUG: E_final.q={E_final.q}")
     
     return E_final
 

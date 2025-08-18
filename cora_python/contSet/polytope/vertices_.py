@@ -11,6 +11,7 @@ from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_
 from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+from cora_python.contSet.polytope.private.priv_vertices_1D import priv_vertices_1D
 
 if TYPE_CHECKING:
     from cora_python.contSet.polytope.polytope import Polytope
@@ -21,38 +22,55 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
     Computes the vertices of a polytope.
     This is a Python translation of the MATLAB CORA implementation.
     """
+    print(f"DEBUG vertices_: entering vertices_")
     tol = 1e-12
 
     # If polytope has V-representation, return it (assume minimal)
     if P.isVRep:
+        print(f"DEBUG vertices_: polytope has V-representation, returning P.V")
         return P.V
 
     n = P.dim()
+    print(f"DEBUG vertices_: n = P.dim() = {n}")
 
-    # Check if polytope is known to be empty
-    if P.isemptyobject():
+    # Check if polytope is known to be empty (MATLAB checks P.emptySet.val, not isemptyobject)
+    if getattr(P, '_emptySet_val', None) is True:
+        print(f"DEBUG vertices_: polytope is known empty set (cache)")
         V = np.zeros((n, 0))
         P._V = V
         P._isVRep = True
         P._minVRep_val = True
-        P._emptySet_val = True
         P._bounded_val = True
         P._fullDim_val = False
         return V
 
     # 1D case quick
+    print(f"DEBUG vertices_: checking if n == 1: {n == 1}")
     if n == 1:
+        print(f"DEBUG vertices_: entering 1D case")
+        print(f"DEBUG vertices_: n={n}, P.dim()={P.dim()}")
+        
         # Convert to H-rep if not already
         if not P.isHRep:
+            print(f"DEBUG vertices_: converting to H-rep")
             P.constraints()
-        V = _priv_vertices_1D(P.A, P.b, P.Ae, P.be, tol)
-        # Unbounded signalled by +/-Inf among candidates
-        if V.size > 0 and np.any(np.isinf(V)):
-            P._emptySet_val = False
-            P._bounded_val = False
-            raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
+        
+        # Debug output
+        print(f"DEBUG vertices_ 1D case: P.A={P.A}, P.b={P.b}, P.Ae={P.Ae}, P.be={P.be}")
+        print(f"DEBUG vertices_: about to call priv_vertices_1D")
+        
+        try:
+            V, empty = priv_vertices_1D(P.A, P.b, P.Ae, P.be)
+            print(f"DEBUG vertices_ 1D case: priv_vertices_1D returned V={V}, empty={empty}")
+        except Exception as e:
+            print(f"DEBUG vertices_: priv_vertices_1D failed with error: {e}")
+            raise
+        
+        # Debug output
+        print(f"DEBUG vertices_ 1D case: V={V}, V.shape={V.shape}, V.size={V.size}")
+        
         # Empty set
-        if V.size == 0:
+        if empty or V.size == 0:
             V_out = np.zeros((1, 0))
             P._V = V_out
             P._isVRep = True
@@ -61,21 +79,26 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
             P._bounded_val = True
             P._fullDim_val = False
             return V_out
-        # Bounded 1D
+        # Check if unbounded (has Inf values)
+        if np.any(np.isinf(V)):
+            P._emptySet_val = False
+            P._bounded_val = False
+            P._fullDim_val = V.shape[1] > 1
+        else:
+            P._emptySet_val = False
+            P._bounded_val = True
+            P._fullDim_val = V.shape[1] > 1
+        # Set V-representation
         P._V = V
         P._isVRep = True
-        P._emptySet_val = False
-        P._bounded_val = True
-        P._fullDim_val = V.shape[1] > 1
-        return P.V
+        return V
 
     # Detect unboundedness early (MATLAB throws error for unbounded vertex enumeration)
-    #if not P.isemptyobject() and not P.isBounded():
-    #    P._emptySet_val = False
-    #    P._bounded_val = False
-    #    raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
-            # Note: MATLAB version computes Chebyshev center to detect unboundedness
-        # We'll let the vertex computation proceed and handle errors naturally
+    # Check isBounded() first since it's more reliable than center() for rotated polytopes
+    if not P.isBounded():
+        P._emptySet_val = False
+        P._bounded_val = False
+        raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
 
     # Compute Chebyshev center to detect empty cases
     c = P.center()
@@ -90,7 +113,7 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
         P._fullDim_val = False
         return V
     if np.any(np.isnan(c)):
-        # Treat NaN in center as unbounded/invalid
+        # Treat NaN in center as unbounded/invalid (fallback)
         P._emptySet_val = False
         P._bounded_val = False
         raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
@@ -121,60 +144,6 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
         P._fullDim_val = n == np.count_nonzero(~withinTol(S, 0, 1e-12))
 
     return V
-
-
-def _priv_vertices_1D(A: np.ndarray, b: np.ndarray, Ae: np.ndarray, be: np.ndarray, tol: float) -> np.ndarray:
-    """Auxiliary function for 1D case, extracting vertices from H-rep.
-    Matches MATLAB's priv_vertices_1D.
-    """
-    # Collect all boundary points from inequalities and equalities
-    boundaries = []
-
-    # From inequalities: A*x <= b
-    # For A[i,0] > 0, x <= b[i,0]/A[i,0] (upper bound)
-    # For A[i,0] < 0, x >= b[i,0]/A[i,0] (lower bound, divide by negative)
-    upper_bounds = []
-    lower_bounds = []
-
-    if A.size > 0:
-        for i in range(A.shape[0]):
-            if A[i, 0] > tol: # Check for positive coefficient
-                upper_bounds.append(b[i, 0] / A[i, 0])
-            elif A[i, 0] < -tol: # Check for negative coefficient
-                lower_bounds.append(b[i, 0] / A[i, 0])
-            elif withinTol(A[i, 0], 0, tol) and b[i, 0] < -tol: # 0*x <= negative -> empty set
-                return np.zeros((1, 0))
-
-    # From equalities: Ae*x == be
-    if Ae.size > 0:
-        for i in range(Ae.shape[0]):
-            if not withinTol(Ae[i, 0], 0, tol):
-                val = be[i, 0] / Ae[i, 0]
-                upper_bounds.append(val)
-                lower_bounds.append(val)
-            elif withinTol(Ae[i, 0], 0, tol) and not withinTol(be[i, 0], 0, tol):
-                return np.zeros((1, 0))
-
-    min_val = -np.inf if not lower_bounds else np.max(lower_bounds)
-    max_val = np.inf if not upper_bounds else np.min(upper_bounds)
-
-    if min_val > max_val + tol:
-        return np.zeros((1, 0))
-
-    if withinTol(min_val, max_val, tol):
-        return np.array([[min_val]])
-
-    if not np.isinf(min_val) and not np.isinf(max_val):
-        return np.array([[min_val, max_val]])
-    elif not np.isinf(min_val) and np.isinf(max_val):
-        # Unbounded above -> return finite and +Inf to signal unboundedness
-        return np.array([[min_val, np.inf]])
-    elif np.isinf(min_val) and not np.isinf(max_val):
-        # Unbounded below -> return -Inf and finite
-        return np.array([[-np.inf, max_val]])
-    else:
-        # Fully unbounded in 1D -> return empty to allow upstream to treat as unbounded
-        return np.zeros((1, 0))
 
 
 def _compute_affine_subspace_basis(P: 'Polytope', tol: float = 1e-10) -> np.ndarray:
@@ -225,14 +194,27 @@ def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray, tol_local: flo
         if k == 0:
             return c.reshape(-1, 1)
         if 0 < k < n:
+            # Project constraints to subspace: A_sub * y <= b_sub, Ae_sub * y = be_sub
+            # where y represents coordinates in the k-dimensional subspace
             A_sub = A @ X if A.size > 0 else np.zeros((0, k))
-            b_sub = (b.reshape(-1, 1) - (A @ c).reshape(-1, 1)) if A.size > 0 else b.reshape(-1, 1)
+            b_sub = b.reshape(-1, 1)  # Keep original b values
             Ae_sub = Ae @ X if Ae.size > 0 else np.zeros((0, k))
-            be_sub = (be.reshape(-1, 1) - (Ae @ c).reshape(-1, 1)) if Ae.size > 0 else np.zeros((0, 1))
+            be_sub = be.reshape(-1, 1)  # Keep original be values
+
+            # Create polytope in subspace coordinates
             from cora_python.contSet.polytope.polytope import Polytope
             P_sub = Polytope(A_sub, b_sub, Ae_sub, be_sub)
+
+            # Compute vertices in subspace coordinates
             V_sub = vertices_(P_sub, 'lcon2vert')
-            return X @ V_sub + c
+
+            # Transform back to original space: V = X * V_sub + c
+            # Handle case where V_sub might be empty or have wrong shape
+            if V_sub.size == 0:
+                return c.reshape(-1, 1)
+            if V_sub.ndim == 1:
+                V_sub = V_sub.reshape(-1, 1)
+            return X @ V_sub + c.reshape(-1, 1)
         # full-dimensional but we ended here: fallback safety
         if not P.isBounded():
             raise CORAerror('CORA:notSupported', 'Vertex enumeration requires a bounded polytope.')
@@ -240,10 +222,27 @@ def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray, tol_local: flo
 
     # Proactively handle degeneracy (lower-dimensional polytopes)
     X_test = _compute_affine_subspace_basis(P)
+    print(f"DEBUG: X_test.shape={X_test.shape}, n={n}")
+    
+    # MATLAB-style single point detection: if isFullDim returns empty subspace, it's a single point
+    if X_test.shape[1] == 0:
+        print(f"DEBUG: Single point detected via isFullDim, returning center")
+        V = c.reshape(-1, 1)
+        P._V = V
+        P._isVRep = True
+        P._minVRep = True
+        P._emptySet_val = False
+        P._bounded_val = True
+        P._fullDim_val = False
+        return V
+    
+    # For degenerate cases (X_test.shape[1] < n), we need to compute vertices in the subspace
     if X_test.shape[1] < n:
+        print(f"DEBUG: Going through degeneracy path")
         return _handle_degeneracy()
 
     if halfspaces.shape[0] == 0:
+        print(f"DEBUG: No halfspaces, going through degeneracy path")
         return _handle_degeneracy()
 
     c_pt = c.flatten()
