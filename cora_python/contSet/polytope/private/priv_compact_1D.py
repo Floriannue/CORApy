@@ -134,16 +134,22 @@ def priv_compact_1D(A, b, Ae, be, tol):
                     empty = True
                     return np.array([]).reshape(0, 1), np.array([]), np.array([]).reshape(0, 1), np.array([]), empty
                 else:
-                    # Equality constraint is satisfied by inequality
-                    # constraints, only keep equality constraint
-                    A = np.array([]).reshape(0, 1)
-                    b = np.array([])
+                    # Equality constraint is satisfied by inequality constraints
+                    # BUT: we should keep the inequalities if they define a bounded line segment
+                    # Only remove them if the equality constraint completely determines the point
+                    if len(b) == 2 and b[0] >= -b[1]:
+                        # Keep inequalities as they define a bounded interval
+                        pass
+                    else:
+                        # Only keep equality constraint
+                        A = np.array([]).reshape(0, 1)
+                        b = np.array([])
             elif len(b) == 1:
                 if (A[0, 0] > 0 and np.any(be_ > b[0])) or (A[0, 0] < 0 and np.any(be_ < b[0])):
                     empty = True
                     return np.array([]).reshape(0, 1), np.array([]), np.array([]).reshape(0, 1), np.array([]), empty
                 else:
-                    A = np.array([]).reshape(0, 1)
-                    b = np.array([])
+                    # Keep the inequality constraint as it defines a bound
+                    pass
     
     return A, b, Ae, be, empty 

@@ -89,6 +89,7 @@ All of them apply always
 - **ALWAYS** run tests after implementation
 - **ALWAYS** verify the mathematical correctness of both the implementation AND the tests, verify not just the algorithm implementation, but also the test expectations and mathematical assumptions.
 - **ALWAYS** after translating a file **report** back with a comparison against the MATLAB source
+- **ALWAYS** if there is an error, compare the logic step by step against matlab (python code and tests against matlab code and tests) to find the errors root cause
 
 #### Prohibited Actions:
 - **NEVER** create simplified versions

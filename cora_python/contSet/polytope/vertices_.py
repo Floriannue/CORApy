@@ -12,19 +12,16 @@ from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_a
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 from cora_python.contSet.polytope.private.priv_vertices_1D import priv_vertices_1D
-
-if TYPE_CHECKING:
-    from cora_python.contSet.polytope.polytope import Polytope
+from cora_python.contSet.polytope.polytope import Polytope
 
 
-def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
+def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
     """
     Computes the vertices of a polytope.
     This is a Python translation of the MATLAB CORA implementation.
     """
-    print(f"DEBUG vertices_: entering vertices_")
     tol = 1e-12
-
+    
     # If polytope has V-representation, return it (assume minimal)
     if P.isVRep:
         print(f"DEBUG vertices_: polytope has V-representation, returning P.V")
@@ -59,12 +56,7 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
         print(f"DEBUG vertices_ 1D case: P.A={P.A}, P.b={P.b}, P.Ae={P.Ae}, P.be={P.be}")
         print(f"DEBUG vertices_: about to call priv_vertices_1D")
         
-        try:
-            V, empty = priv_vertices_1D(P.A, P.b, P.Ae, P.be)
-            print(f"DEBUG vertices_ 1D case: priv_vertices_1D returned V={V}, empty={empty}")
-        except Exception as e:
-            print(f"DEBUG vertices_: priv_vertices_1D failed with error: {e}")
-            raise
+        V, empty = priv_vertices_1D(P.A, P.b, P.Ae, P.be)
         
         # Debug output
         print(f"DEBUG vertices_ 1D case: V={V}, V.shape={V.shape}, V.size={V.size}")
@@ -146,7 +138,7 @@ def vertices_(P: 'Polytope', method: str = 'lcon2vert') -> np.ndarray:
     return V
 
 
-def _compute_affine_subspace_basis(P: 'Polytope', tol: float = 1e-10) -> np.ndarray:
+def _compute_affine_subspace_basis(P: Polytope, tol: float = 1e-10) -> np.ndarray:
     """Get an orthonormal basis of the affine hull using isFullDim's subspace logic (MATLAB Alg. 2).
     Returns X with shape (n, k). If k==n, the set is full-dimensional; if k==0, it's a single point.
     """
@@ -160,7 +152,7 @@ def _compute_affine_subspace_basis(P: 'Polytope', tol: float = 1e-10) -> np.ndar
     return X
 
 
-def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray, tol_local: float = 1e-12) -> np.ndarray:
+def _aux_vertices_lcon2vert(P: Polytope, n: int, c: np.ndarray, tol_local: float = 1e-12) -> np.ndarray:
     """
     Vertex enumeration using a duality-like approach with degeneracy handling based on
     affine subspace computed from active constraints at the center.
@@ -197,16 +189,26 @@ def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray, tol_local: flo
             # Project constraints to subspace: A_sub * y <= b_sub, Ae_sub * y = be_sub
             # where y represents coordinates in the k-dimensional subspace
             A_sub = A @ X if A.size > 0 else np.zeros((0, k))
-            b_sub = b.reshape(-1, 1)  # Keep original b values
             Ae_sub = Ae @ X if Ae.size > 0 else np.zeros((0, k))
-            be_sub = be.reshape(-1, 1)  # Keep original be values
+            
+            # Adjust offset vectors to account for the center point c
+            # The constraints A*x <= b become A*(X*y + c) <= b, which is A_sub*y <= b - A*c
+            b_sub = (b - A @ c).reshape(-1, 1) if A.size > 0 else np.zeros((0, 1))
+            be_sub = (be - Ae @ c).reshape(-1, 1) if Ae.size > 0 else np.zeros((0, 1))
 
             # Create polytope in subspace coordinates
-            from cora_python.contSet.polytope.polytope import Polytope
             P_sub = Polytope(A_sub, b_sub, Ae_sub, be_sub)
+            
+            # CRITICAL FIX: P_sub is a k-dimensional polytope in k-dimensional space
+            # We need to ensure that when P_sub.isFullDim() is called, it compares against k, not n
+            # The issue is that P_sub.dim() returns k, but the degeneracy detection logic
+            # is still comparing against the original n-dimensional space
+            # Force P_sub to be recognized as full-dimensional in its own space
+            #P_sub._fullDim_val = True
 
             # Compute vertices in subspace coordinates
-            V_sub = vertices_(P_sub, 'lcon2vert')
+            # MATLAB does this recursively, which is fine since it's a different polytope
+            V_sub = P_sub.vertices_('lcon2vert')
 
             # Transform back to original space: V = X * V_sub + c
             # Handle case where V_sub might be empty or have wrong shape
@@ -287,7 +289,7 @@ def _aux_vertices_lcon2vert(P: 'Polytope', n: int, c: np.ndarray, tol_local: flo
         return _handle_degeneracy()
 
 
-def _aux_vertices_comb(P: 'Polytope') -> np.ndarray:
+def _aux_vertices_comb(P: Polytope) -> np.ndarray:
     """
     Simple vertex enumeration algorithm: returns a superset containing the true vertices.
     Mirrors MATLAB's aux_vertices_comb; may return extra points.

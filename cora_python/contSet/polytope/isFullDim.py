@@ -318,7 +318,7 @@ def _aux_isFullDim_nD_Hpoly_subspace(P: 'Polytope', tol: float) -> Tuple[bool, O
         print(f"DEBUG: Iteration {i}, subspace shape: {subspace.shape}")
         x_iter = _aux_maxNormPerpendicularPolytope(P_iter, subspace)
         print(f"DEBUG: x_iter norm: {np.linalg.norm(x_iter, ord=np.inf)}")
-        if np.linalg.norm(x_iter, ord=np.inf) <= 1e-8:
+        if np.linalg.norm(x_iter, ord=np.inf) <= tol:
             print(f"DEBUG: Breaking at iteration {i}, subspace shape: {subspace.shape}")
             break
         x_unit = x_iter / np.linalg.norm(x_iter)

@@ -51,6 +51,32 @@ def priv_vertices_1D(A: Optional[np.ndarray], b: Optional[np.ndarray],
     if A_norm.size > 0:
         print(f"DEBUG priv_vertices_1D: processing inequality constraints")
         
+        # Check if we have equality constraints that define a single point
+        if Ae_norm.size > 0:
+            # If we have equality constraints, they should take precedence
+            # Check if the equality constraint defines a point within the inequality bounds
+            eq_val = be_norm[0] / Ae_norm[0, 0]
+            print(f"DEBUG priv_vertices_1D: equality constraint defines point x = {eq_val}")
+            
+            # Check if this point satisfies all inequality constraints
+            all_satisfied = True
+            for i in range(A_norm.shape[0]):
+                if A_norm[i, 0] > 0:  # A[i] * x <= b[i]
+                    if A_norm[i, 0] * eq_val > b_norm[i] + tol:
+                        all_satisfied = False
+                        break
+                elif A_norm[i, 0] < 0:  # A[i] * x <= b[i] (A[i] is negative)
+                    if A_norm[i, 0] * eq_val > b_norm[i] + tol:
+                        all_satisfied = False
+                        break
+            
+            if all_satisfied:
+                print(f"DEBUG priv_vertices_1D: equality point satisfies all inequalities, returning single point")
+                return np.array([[eq_val]]), False
+        
+        # If no equality constraints or equality point doesn't satisfy inequalities,
+        # proceed with normal inequality processing
+        
         # MATLAB: check boundedness from below
         Aisminus1 = withinTol(A_norm, -1, tol)
         if np.any(Aisminus1):
