@@ -88,14 +88,19 @@ def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exa
         else:
             return False, True, np.inf
 
-    # Special cases for fullspace
+        # Special cases for fullspace
     if P.representsa_('fullspace', tol):
         # A fullspace contains everything that has the same dimension.
         # If S is fullspace, it is contained. If S is not fullspace, it is still contained if it's a valid set/point in the same dimension.
         if isinstance(S, np.ndarray):
+            # Handle both 1D arrays and 2D arrays
+            if S.ndim == 1:
+                # Single point: reshape to (n, 1) for consistent handling
+                S = S.reshape(-1, 1)
+            
             if S.shape[0] != P.dim():
                  # Incompatible dimensions for point cloud and fullspace
-                return np.full(S.shape[1], False, dtype=bool), np.full(S.shape[1], True, dtype=bool), np.full(S.shape[1], np.inf)
+                return np.full(S.shape[1], False, dtype=bool), np.full(S.shape[1], True, dtype=bool), np.full(S.shape[1], np.inf)       
             return np.full(S.shape[1], True, dtype=bool), np.full(S.shape[1], True, dtype=bool), np.full(S.shape[1], 0.0)
         elif hasattr(S, 'dim') and S.dim() == P.dim():
             return True, True, 0.0 # Set always contained in fullspace of same dim
@@ -252,15 +257,15 @@ def _aux_exactParser(P: 'Polytope', S: 'ContSet', method: str, tol: float, maxEv
         # For Polytope in Polytope containment
         if method == 'exact':
             if P.isHRep:
-                res, scaling = _aux_contains_P_Hpoly(P, S, tol, scalingToggle, certToggle)
+                res, cert, scaling = _aux_contains_P_Hpoly(P, S, tol, scalingToggle, certToggle)
             else:
-                res, scaling = _aux_contains_P_Vpoly(P, S, tol, scalingToggle, certToggle)
+                res, cert, scaling = _aux_contains_P_Vpoly(P, S, tol, scalingToggle, certToggle)
         elif method == 'exact:venum':
             P.vertices_() # Force V-representation
-            res, scaling = _aux_contains_P_Vpoly(P, S, tol, scalingToggle, certToggle)
+            res, cert, scaling = _aux_contains_P_Vpoly(P, S, tol, scalingToggle, certToggle)
         elif method == 'exact:polymax':
             P.constraints() # Force H-representation
-            res, scaling = _aux_contains_P_Hpoly(P, S, tol, scalingToggle, certToggle)
+            res, cert, scaling = _aux_contains_P_Hpoly(P, S, tol, scalingToggle, certToggle)
     # elif isinstance(S, Zonotope):
     #     # Handle Zonotope containment, similar logic as Polytope
     #     pass
@@ -435,7 +440,7 @@ def _aux_contains_Vpoly_pointcloud(P: 'Polytope', S: np.ndarray, tol: float, sca
 
     return res, cert, scaling
 
-def _aux_contains_P_Hpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle: bool, certToggle: bool) -> Tuple[bool, float]:
+def _aux_contains_P_Hpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle: bool, certToggle: bool) -> Tuple[bool, bool, float]:
     """
     Containment check for any set in H-polytope using support functions.
     Assumes P is in H-representation.
@@ -448,7 +453,7 @@ def _aux_contains_P_Hpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle
         certToggle: Compute certification
         
     Returns:
-        Tuple of (result, scaling)
+        Tuple of (result, certification, scaling)
     """
     from cora_python.contSet.polytope.polytope import Polytope # Explicitly import Polytope here
 
@@ -467,7 +472,7 @@ def _aux_contains_P_Hpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle
         res_pc, _, scaling_pc = _aux_contains_Hpoly_pointcloud(P_shifted, S_shifted.V, tol, scalingToggle)
         res = np.all(res_pc)
         scaling = np.max(scaling_pc) if scaling_pc.size > 0 else 0.0
-        return res, scaling
+        return res, True, scaling
 
     # Generic method: check support function value along each normal vector of
     # equality and inequality constraints
@@ -501,26 +506,26 @@ def _aux_contains_P_Hpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle
                 scaling = scaling_current
             # Early exit for no certification
             if not certToggle:
-                return res, scaling
-    return res, scaling
+                return res, True, scaling
+    return res, True, scaling
 
 
-def _aux_contains_P_Vpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle: bool, certToggle: bool) -> Tuple[bool, float]:
+def _aux_contains_P_Vpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle: bool, certToggle: bool) -> Tuple[bool, bool, float]:
     """
     Containment check for any set in V-polytope using support functions (dual method).
     Assumes P is in V-representation.
     
     Args:
         P: Polytope object (V-representation)
-        S: ContSet object
+    S: ContSet object
         tol: Tolerance
         scalingToggle: Compute scaling
         certToggle: Compute certification
         
     Returns:
-        Tuple of (result, scaling)
+        Tuple of (result, certification, scaling)
     """
-    from cora_python.contSet.polytope.polytope import Polytope # Explicitly import Polytope here
+
 
     # If scaling has to be computed, first need to shift center to origin
     if scalingToggle:
@@ -541,6 +546,6 @@ def _aux_contains_P_Vpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle
     # It's important that _aux_contains_P_Hpoly correctly handles the parameters.
     # Since this function returns (result, scaling), we return them directly.
     # The certToggle is passed to ensure consistency.
-    res, scaling = _aux_contains_P_Hpoly(P_shifted, S_shifted, tol, scalingToggle, certToggle)
+    res, cert, scaling = _aux_contains_P_Hpoly(P_shifted, S_shifted, tol, scalingToggle, certToggle)
 
-    return res, scaling 
+    return res, cert, scaling 

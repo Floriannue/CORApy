@@ -1,5 +1,5 @@
 """
-mldivide - overloaded '\\' operator for set difference P1 \ P2
+mldivide - overloaded \ operator for set difference P1 \ P2
 
 Exact MATLAB translation of control flow; uses existing helpers.
 """
@@ -48,10 +48,12 @@ def mldivide(P1, P2):
         shift_tol = 1e-12
         for i in range(b1.shape[0]):
             A = np.vstack([-A2[i:i+1, :], A2[:i, :], A1])
-            b = np.vstack([-(b2[i, 0] + shift_tol)].reshape(1, 1), b2[:i, :], b1)
-            b[0, 0] = b[0, 0] + shift_tol
-            Pi = Polytope(A, b)
-            P_out = Pi if P_out.A is None or P_out.A.size == 0 else P_out
+            b = np.vstack([-(b2[i, 0] + shift_tol).reshape(1, 1), b2[:i, :], b1])
+            # Create a copy to avoid modifying the original array
+            b_copy = b.copy()
+            b_copy[0, 0] = b_copy[0, 0] + shift_tol
+            Pi = Polytope(A, b_copy)
+            P_out = Pi if P_out.A.shape[0] == 0 else P_out
         return P_out
 
     if Ae2.size == 0 and Ae1.size == 0 and (P1c <= P2c):

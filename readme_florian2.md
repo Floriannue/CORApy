@@ -554,4 +554,8 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-Your task is to translate the missing tests of `polytope` methodes. 'conzonotope.py', 'ellipsoid.py', 'encloseother.py', 'enclosepoints.py', 'eventfcn.py', 'getprintsetinfo.py', 'inf.py', 'supportfunc.py', 'privboxh.py', 'privboxv.py', 'privcartprod.py', 'privcompactv.py', 'privcompact1d.py', 'privcompact2d.py', 'privcompactalignedeq.py', 'privcompactalignedineq.py', 'privcompactall.py', 'privcompactnd.py', 'privcompacttoequality.py', 'privcompactzeros.py', 'privconzonotopesupportfunc.py', 'privconzonotopevertices.py', 'privcopyproperties.py', 'privequalitytoinequality.py', 'privequalitytoinequality.py', 'privfeasiblepoint.py', 'privisfulldimv.py', 'privplusminusvector.py', 'privrepresentsaemptyset.py', 'privsupportfunc.py', 'privvertices1d.py'
+Your task is to translate cora_matlab/nn.
+
+Punkte, mengen durch netzwerk schicken
+basic layer, relu layer, neural network verify function, neural netwrok evaluate(punkt, interval, zonotope)
+Approximation nur mit grad 1 polyinomen ist okay

@@ -47,7 +47,11 @@ def test_empty_cache_values():
     # Test that property access works
     assert p.minVRep == True
     assert p.minHRep == True
-    assert p.isemptyobject() == True
+    # According to MATLAB, isemptyobject returns false for polytope.empty() 
+    # because it has constraints (even though they're infeasible)
+    assert p.isemptyobject() == False
+    # But it should represent an empty set
+    assert p.representsa_('emptySet', 1e-12) == True
 
 
 def test_empty_invalid_input():

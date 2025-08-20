@@ -63,7 +63,7 @@ def center(P: 'Polytope', method: str = 'chebyshev') -> np.ndarray:
     
     # Input validation
     inputArgsCheck([
-        [P, 'att', 'polytope'],
+        [P, 'att', 'Polytope'],
         [method, 'str', allowed_methods]
     ])
     

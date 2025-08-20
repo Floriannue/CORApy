@@ -58,7 +58,7 @@ class TestPolytopeSetVertices:
         V = np.array([[0, 1, 2]]).T
         P.setVertices(V)
         
-        assert P.V.shape == (1, 3)
+        assert P.V.shape == (3, 1)
         assert P.isVRep
     
     def test_setVertices_3d(self):

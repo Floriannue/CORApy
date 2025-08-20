@@ -419,7 +419,7 @@ def _aux_firstMaximum(P: 'Polytope', y: np.ndarray, X: np.ndarray) -> Tuple[floa
     if exitflag == -3:
         problem['Aeq'] = np.vstack([P_Aeq_extended, y_extended.T])
         problem['beq'] = np.hstack([P_beq_extended.flatten(), 1.0])
-        x, _, _ = CORAlinprog(problem)
+        x, _, _, _, _ = CORAlinprog(problem)
         # set the objective value manually to -Inf to force updating the
         # maximizer (see calling function)
         res = -np.inf

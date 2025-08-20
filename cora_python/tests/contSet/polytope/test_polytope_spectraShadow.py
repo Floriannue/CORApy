@@ -13,9 +13,9 @@ def test_polytope_spectraShadow_basic_properties():
     SpS = P.spectraShadow()
 
     # Properties should mirror polytope
-    assert SpS.bounded.val == P.isBounded()
-    assert SpS.emptySet.val == P.representsa_('emptySet', 1e-10)
-    assert SpS.fullDim.val == P.isFullDim()
+    assert SpS._bounded_val == P.isBounded()
+    assert SpS._emptySet_val == P.representsa_('emptySet', 1e-10)
+    assert SpS._fullDim_val == P.isFullDim()
     # Centers should match
     Pc = P.center()
     Sc = SpS.center.val
@@ -30,9 +30,9 @@ def test_polytope_spectraShadow_fullspace_no_constraints():
 
     SpS = P.spectraShadow()
 
-    assert SpS.fullDim.val is True
-    assert SpS.emptySet.val is False
-    assert SpS.bounded.val is False
+    assert SpS._fullDim_val is True
+    assert SpS._emptySet_val is False
+    assert SpS._bounded_val is False
     # dimension via c
     assert SpS.c.shape[0] == n
 
@@ -46,9 +46,9 @@ def test_polytope_spectraShadow_equalities_only_point():
     SpS = P.spectraShadow()
 
     # Should be a single point -> not full-dim, bounded
-    assert SpS.fullDim.val is False
-    assert SpS.bounded.val is True
-    assert SpS.emptySet.val is False
+    assert SpS._fullDim_val is False
+    assert SpS._bounded_val is True
+    assert SpS._emptySet_val is False
     assert np.allclose(SpS.center.val.reshape(-1, 1), be, atol=1e-10, rtol=0)
 
 
@@ -60,8 +60,8 @@ def test_polytope_spectraShadow_unbounded_case():
 
     SpS = P.spectraShadow()
 
-    assert SpS.bounded.val is False
-    assert SpS.emptySet.val is False
+    assert SpS._bounded_val is False
+    assert SpS._emptySet_val is False
 
 
 def test_polytope_spectraShadow_A_shape_matches_constraints():

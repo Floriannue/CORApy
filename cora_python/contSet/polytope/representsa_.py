@@ -96,14 +96,11 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         # Determine emptiness via quick feasibility check of Ax<=b, Ae x = be
         A = p.A; b = p.b.flatten(); Ae = p.Ae; be = p.be.flatten()
         # No constraints -> fullspace, not empty set
-        # Handle case where Ae might be None
-        Ae_size = 0 if Ae is None else Ae.size
-        print(f"DEBUG: emptySet check - A.size={A.size}, Ae_size={Ae_size}, A.shape={A.shape}, Ae.shape={Ae.shape if Ae is not None else 'None'}")
-        if A.size == 0 and Ae_size == 0:
-            print(f"DEBUG: No constraints detected, returning False (fullspace)")
+        # Check if there are no constraints (A has no rows and Ae has no rows)
+        if A.shape[0] == 0 and (Ae is None or Ae.shape[0] == 0):
             return _return_result(False, None)
         # Quick contradictory pair check: exists i,j with A_i = −A_j and −b_j > b_i + tol
-        if A.size > 0:
+        if A.shape[0] > 0:
             with np.errstate(invalid='ignore'):
                 for i in range(A.shape[0]):
                     ai = A[i, :]
@@ -121,27 +118,58 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                 if np.any(b[zero_rows] < -tol):
                     p._emptySet_val = True  # Set the property when empty set detected
                     return _return_result(True, None)
-        if Ae_size > 0 and np.allclose(Ae, 0, atol=tol) and not np.allclose(be, 0, atol=tol):
+        if Ae is not None and Ae.shape[0] > 0 and np.allclose(Ae, 0, atol=tol) and not np.allclose(be, 0, atol=tol):
             p._emptySet_val = True  # Set the property when empty set detected
             return _return_result(True, None)
-        # Try feasibility with linprog and interpret solver status exactly like MATLAB
-        # highs status: 0 success, 2 infeasible, 3 unbounded; success -> non-empty
+        # Use the same approach as MATLAB: convert equality constraints to inequalities
+        # and solve the dual problem
         try:
-            n = p.dim()
-            c = np.zeros(n)
+            from .private.priv_equality_to_inequality import priv_equality_to_inequality
+            
+            # Convert equality constraints to inequality constraints
+            A_aug, b_aug = priv_equality_to_inequality(A, b, Ae, be)
+            
+            # Solve the dual problem using linear programming
+            # This follows MATLAB's approach in priv_representsa_emptySet
+            nrConIneq = len(b_aug)
+            
+            # Set up the dual problem: min b'*y s.t. A'*y = 0, y >= 0
+            # This is equivalent to checking if the polytope is empty
             from scipy.optimize import linprog
-            res_lp = linprog(c, A_ub=A if A.size > 0 else None, b_ub=b if b.size > 0 else None,
-                             A_eq=Ae if Ae_size > 0 else None, b_eq=be if Ae_size > 0 else None,
-                             bounds=None)
+            
+            # Objective: minimize b'*y
+            c_dual = b_aug.flatten()
+            
+            # Constraints: A'*y = 0 (equality) and y >= 0 (bounds)
+            A_eq_dual = A_aug.T if A_aug.shape[0] > 0 else np.zeros((n, 0))
+            b_eq_dual = np.zeros(n)
+            bounds_dual = [(0, None)] * nrConIneq  # y >= 0
+            
+            res_lp = linprog(c_dual, A_eq=A_eq_dual, b_eq=b_eq_dual, bounds=bounds_dual)
+            
             if res_lp.success:
-                return _return_result(False, None)
-            # infeasible -> empty; unbounded or other -> not empty (there exists feasible x)
-            status = getattr(res_lp, 'status', None)
-            if status == 2:  # infeasible
-                p._emptySet_val = True  # Set the property when empty set detected
-                return _return_result(True, None)
-            return _return_result(False, None)
+                # Check the objective value
+                if res_lp.fun >= -tol:  # b'*y >= 0 (within tolerance)
+                    return _return_result(False, None)  # Not empty
+                else:  # b'*y < 0
+                    p._emptySet_val = True
+                    return _return_result(True, None)  # Empty
+            else:
+                # Problem infeasible or unbounded
+                if res_lp.status == 2:  # infeasible
+                    # Dual problem infeasible means primal is unbounded, not empty
+                    return _return_result(False, None)  # Not empty
+                elif res_lp.status == 3:  # unbounded
+                    # Dual problem unbounded means there exists y >= 0 with A'*y = 0 and b'*y < 0
+                    # This indicates the polytope is empty
+                    p._emptySet_val = True
+                    return _return_result(True, None)  # Empty
+                else:
+                    # Other status, can't guarantee emptiness
+                    return _return_result(False, None)
+                    
         except Exception as e:
+            # If anything goes wrong, assume not empty (conservative)
             return _return_result(False, None)
 
     # Handle fullspace check
@@ -151,15 +179,13 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         # all(all(withinTol(P.Ae_.val,0,tol))) && all(withinTol(P.be_.val,0,tol))) || ...
         # (P.isVRep.val && (n == 1 && any(P.V_.val == -Inf) && any(P.V_.val == Inf)));
         
-        print(f"DEBUG: Entering fullspace check")
-        print(f"DEBUG: p.isHRep = {p.isHRep}")
-        print(f"DEBUG: p.isVRep = {p.isVRep}")
+
         
         # Check H-representation: no constraints means fullspace
         # or all A rows zero and b >= 0
         hrep_fullspace = False
         if p.isHRep:
-            if p.A.size == 0 and p.Ae.size == 0:
+            if p.A.shape[0] == 0 and p.Ae.shape[0] == 0:
                 hrep_fullspace = True
             else:
                 hrep_fullspace = (np.all(withinTol(p.A, 0, tol)) and 
@@ -167,7 +193,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         
         # Check equality constraints for H-representation
         # Ensure Ae and be are also trivially fulfilled (all zeros) for fullspace
-        if p.Ae.size > 0:
+        if p.Ae.shape[0] > 0:
             hrep_fullspace = hrep_fullspace and \
                              np.all(withinTol(p.Ae, 0, tol)) and \
                              np.all(withinTol(p.be, 0, tol))
@@ -241,14 +267,14 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         else:
             # H-representation: unique solution if rank(Ae) == n and A x* <= b
             A = p.A; b = p.b; Ae = p.Ae; be = p.be
-            rank_Ae = np.linalg.matrix_rank(Ae) if Ae.size > 0 else 0
+            rank_Ae = np.linalg.matrix_rank(Ae) if Ae.shape[0] > 0 else 0
             if rank_Ae == n and Ae.shape[0] >= n:
                 try:
                     x_star, *_ = np.linalg.lstsq(Ae, be, rcond=None)
                 except Exception:
                     x_star = None
                 if x_star is not None:
-                    if A.size > 0:
+                    if A.shape[0] > 0:
                         res = bool(np.all((A @ x_star) <= (b + tol)))
                     else:
                         res = True
@@ -298,7 +324,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
         A, b, Ae, be = priv_compact_toEquality(A, b, Ae, be, tol)
 
-        res = Ae.shape[0] == 1 and A.size == 0 and be.size > 0 # Exactly one equality, no inequalities, non-empty be
+        res = Ae.shape[0] == 1 and A.shape[0] == 0 and be.shape[0] > 0 # Exactly one equality, no inequalities, non-empty be
 
         if res: # If it's a constrained hyperplane
             # hyperplanes are unbounded and non-empty
@@ -340,7 +366,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
     elif set_type == 'halfspace':
         # MATLAB uses aux_isHalfspace
         # At least one equality constraint -> cannot be a halfspace
-        if p.Ae.size > 0: # Use p.Ae directly
+        if p.Ae.shape[0] > 0: # Use p.Ae directly
             res = False
         else:
             # Remove all-zero constraints and normalize
@@ -353,7 +379,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
                 A, b, _, _ = priv_normalizeConstraints(A, b, np.zeros((0, n)), np.zeros((0, 1)), 'A')
                 A, b = priv_compact_alignedIneq(A, b, tol)
                 # After compaction, exactly one inequality and no equalities -> halfspace
-                res = (A.shape[0] == 1 and (A.shape[1] == n or A.size > 0))
+                res = (A.shape[0] == 1 and (A.shape[1] == n or A.shape[0] > 0))
 
         # Note: MATLAB doesn't convert to halfspace object, just returns boolean
         return _return_result(res, return_obj)
@@ -475,7 +501,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
         # For representability, an axis-aligned box qualifies
         A = p.A; b = p.b
         res = False
-        if A is not None and A.size > 0:
+        if A is not None and A.shape[0] > 0:
             n = p.dim()
             ok = True
             # A row is axis-aligned if only one column is non-zero
@@ -489,7 +515,7 @@ def representsa_(p: 'Polytope', set_type: str, tol: float = 1e-9, **kwargs) -> U
 
     elif set_type == 'hyperplane':
         # Hyperplane: A empty and Ae rows all proportional; be proportional with same factors
-        if p.A.size > 0 or p.Ae.size == 0:
+        if p.A.shape[0] > 0 or p.Ae.shape[0] == 0:
             return _return_result(False, return_obj)
         Ae = p.Ae.copy().astype(float)
         be = p.be.copy().astype(float).flatten()

@@ -53,9 +53,9 @@ def spectraShadow(P: 'Polytope') -> SpectraShadow:
         G = np.eye(n)
         SpS = SpectraShadow(A_empty, c, G)
         # Properties
-        SpS.bounded.val = False
-        SpS.emptySet.val = P.representsa_('emptySet', 1e-10)
-        SpS.fullDim.val = P.isFullDim()
+        SpS._bounded_val = False
+        SpS._emptySet_val = P.representsa_('emptySet', 1e-10)
+        SpS._fullDim_val = P.isFullDim()
         SpS.center.val = P.center()
         return SpS
 
@@ -99,18 +99,18 @@ def spectraShadow(P: 'Polytope') -> SpectraShadow:
     # Instantiate spectraShadow
     SpS = SpectraShadow(A_concat)
 
-    # Set additional properties from P (MATLAB parity)
-    SpS.bounded.val = P.isBounded()
-    SpS.emptySet.val = P.representsa_('emptySet', 1e-10)
-    SpS.fullDim.val = P.isFullDim()
+        # Set additional properties from P (MATLAB parity)
+    SpS._bounded_val = P.isBounded()
+    SpS._emptySet_val = P.representsa_('emptySet', 1e-10)
+    SpS._fullDim_val = P.isFullDim()
     # For equalities-only single point, set center directly (no try/except)
     if A.size == 0 and Ae.size > 0 and Ae.shape[0] == n:
         if np.linalg.matrix_rank(Ae) == n:
             x_eq = np.linalg.solve(Ae, be).reshape(-1, 1)
             SpS.center.val = x_eq
-            SpS.emptySet.val = False
-            SpS.bounded.val = True
-            SpS.fullDim.val = False
+            SpS._emptySet_val = False
+            SpS._bounded_val = True
+            SpS._fullDim_val = False
         else:
             SpS.center.val = P.center()
     else:

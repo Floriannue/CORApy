@@ -86,7 +86,11 @@ def priv_normalize_constraints(A, b, Ae, be, mode):
         if Ae is not None and Ae.size > 0 and be is not None and be.size > 0:
             nonzero_be = be != 0
             if np.any(nonzero_be):
-                Ae[nonzero_be, :] = Ae[nonzero_be, :] / be[nonzero_be, np.newaxis]
-                be[nonzero_be] = np.sign(be[nonzero_be])  # Preserve sign, normalize magnitude to 1
+                # For equality constraints Ae*x = be, normalization with respect to be 
+                # should preserve the constraint. The correct normalization is:
+                # If |be| != 1, then divide both Ae and be by |be| to get |be| = 1
+                abs_be = np.abs(be[nonzero_be])
+                Ae[nonzero_be, :] = Ae[nonzero_be, :] / abs_be[:, np.newaxis]
+                be[nonzero_be] = be[nonzero_be] / abs_be  # This gives ±1 preserving the sign
     
     return A, b, Ae, be 

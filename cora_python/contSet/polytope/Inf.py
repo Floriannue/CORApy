@@ -38,8 +38,18 @@ def Inf(n: int = 0) -> Polytope:
     P_out._fullDim_val = True     # P_out.fullDim.val = true;
     P_out._minHRep_val = True     # P_out.minHRep.val = true;
     
+    # Handle 0-dimensional case specially
+    if n == 0:
+        # 0-dimensional polytope represents a single point (the origin)
+        # For 0D, we need to create a representation that indicates it's not empty
+        # Since 0D has no coordinates, we'll create a special case
+        P_out._V = np.array([]).reshape(0, 0)  # Empty array with shape (0, 0)
+        P_out._minVRep_val = True
+        P_out.isVRep = True
+        # For 0D, we need to override the emptySet property since it represents a point
+        P_out._emptySet_val = False
     # Only store vertices for low-dimensional polytopes (MATLAB: if n <= 8)
-    if n <= 8:
+    elif n <= 8:
         # Compute all possible combinations of lower/upper bounds like MATLAB
         from itertools import product
         # MATLAB: fac = logical(combinator(2,n,'p','r')-1);
@@ -61,7 +71,7 @@ def Inf(n: int = 0) -> Polytope:
         P_out.isVRep = True           # P_out.isVRep.val = true;
     else:
         # For high dimensions, don't set V-representation (like MATLAB)
-        P_out._V = np.zeros((n, 0))   # Keep V empty
+        # Don't set _V at all - let vertices_() handle it when called
         P_out.isVRep = False          # Not V-rep for high dimensions
 
     return P_out 

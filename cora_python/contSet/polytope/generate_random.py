@@ -102,12 +102,12 @@ def generate_random(*varargin) -> Polytope:
     P_out = Polytope(A, b, Ae, be)
 
     # set properties (if they exist)
-    if hasattr(P_out, 'bounded'):
-        P_out.bounded.val = is_bnd
-    if hasattr(P_out, 'fullDim'):
-        P_out.fullDim.val = not is_deg
-    if hasattr(P_out, 'emptySet'):
-        P_out.emptySet.val = False
+    if hasattr(P_out, '_bounded_val'):
+        P_out._bounded_val = is_bnd
+    if hasattr(P_out, '_fullDim_val'):
+        P_out._fullDim_val = not is_deg
+    if hasattr(P_out, '_emptySet_val'):
+        P_out._emptySet_val = False
 
     return P_out
 

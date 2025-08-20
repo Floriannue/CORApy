@@ -6,26 +6,26 @@ from cora_python.contSet.polytope.dim import dim
 
 def test_polytope_box_basic():
     """Test basic box enclosure functionality for a 2D polytope."""
-    # MATLAB example from polytope/box.m
-    A_matlab = np.array([[1, 2], [-2, 1], [-2, -2], [3, -1]])
-    b_matlab = np.ones((4, 1))
+    # Simple diamond shape test case from MATLAB test_polytope_box.m
+    # This is a diamond with vertices at (±2,0) and (0,±2)
+    # The box enclosure should be [-2,2] × [-2,2]
+    A_matlab = np.array([[1, 1], [1, -1], [-1, 1], [-1, -1]])
+    b_matlab = np.array([[2], [2], [2], [2]])
     P = Polytope(A=A_matlab, b=b_matlab)
 
     B_enclosing = box(P)
 
-    # Expected bounding box values (manually calculated or from a reliable source)
-    # For the given polytope, the bounds are approximately:
-    # min_x = -0.75, max_x = 0.4
-    # min_y = -0.5, max_y = 0.6
-    expected_min_x = -0.75
-    expected_max_x = 0.4
-    expected_min_y = -0.5
-    expected_max_y = 0.6
+    # Expected bounding box values (manually verified)
+    # For the diamond shape, the box should be [-2,2] × [-2,2]
+    expected_min_x = -2.0
+    expected_max_x = 2.0
+    expected_min_y = -2.0
+    expected_max_y = 2.0
 
     tol = 1e-9  # Tolerance for numerical comparisons
 
     assert isinstance(B_enclosing, Polytope)
-    assert B_enclosing.is_h_rep is True
+    assert B_enclosing.isHRep is True
 
     # Extract actual bounds from the resulting polytope's A and b
     actual_A = B_enclosing.A
@@ -54,7 +54,7 @@ def test_polytope_box_empty_polytope():
     # Create an empty 2D polytope (e.g., x >= 1, x <= 0)
     P_empty = Polytope(A=np.array([[1.0, 0.0], [-1.0, 0.0]]), b=np.array([[-1.0], [-1.0]]))
     B_enclosing = box(P_empty)
-    assert B_enclosing.empty_set is True
+    assert B_enclosing.isemptyobject() is True
 
 def test_polytope_box_fullspace():
     """Test box enclosure for a fullspace polytope."""
@@ -62,8 +62,8 @@ def test_polytope_box_fullspace():
     P_fullspace = Polytope(A=np.zeros((0, 2)), b=np.zeros((0, 1)))
     B_enclosing = box(P_fullspace)
     # A fullspace box should also be a fullspace
-    assert B_enclosing.full_dim is True
-    assert B_enclosing.bounded is False
+    assert B_enclosing.isFullDim() is True
+    assert B_enclosing.isBounded() is False
 
 def test_polytope_box_1d_polytope():
     """Test box enclosure for a 1D polytope."""

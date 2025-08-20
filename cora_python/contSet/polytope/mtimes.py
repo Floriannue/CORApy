@@ -224,7 +224,7 @@ def _aux_mtimes_projection(P: 'Polytope', M: np.ndarray) -> 'Polytope':
     
     # project onto first r dimensions
     # If P_new is empty at this point, the projection should also be an empty polytope
-    if P_new.emptySet: # Check if the source polytope is already empty
+    if P_new.isemptyobject(): # Check if the source polytope is already empty
         return Polytope.empty(r) # Return empty polytope of the projected dimension
     P_proj = _project_polytope(P_new, list(range(r)))
     

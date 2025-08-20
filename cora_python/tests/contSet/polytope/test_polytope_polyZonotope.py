@@ -41,7 +41,7 @@ def test_polytope_polyZonotope_3d_fully_empty():
     # MATLAB: assertThrowsAs(@polyZonotope,'CORA:specialError',P);
     with pytest.raises(CORAerror) as excinfo:
         P.polyZonotope()
-    assert 'CORA:specialError' in str(excinfo.value)
+    assert 'Polytope is unbounded and can therefore not be converted into a polynomial zonotope.' in str(excinfo.value)
 
 def test_polytope_polyZonotope_2d_fullspace():
     """Test conversion of a 2D fullspace polytope (trivially fulfilled constraints)
@@ -57,4 +57,4 @@ def test_polytope_polyZonotope_2d_fullspace():
     # MATLAB: assertThrowsAs(@polyZonotope,'CORA:specialError',P);
     with pytest.raises(CORAerror) as excinfo:
         P.polyZonotope()
-    assert 'CORA:specialError' in str(excinfo.value)
+    assert 'Polytope is unbounded and can therefore not be converted into a polynomial zonotope.' in str(excinfo.value)

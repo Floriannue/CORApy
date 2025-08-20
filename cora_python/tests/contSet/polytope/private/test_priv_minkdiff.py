@@ -37,20 +37,22 @@ class TestPrivMinkdiff:
     
     def test_priv_minkdiff_empty_result(self):
         """Test Minkowski difference that results in empty set"""
-        # Create constraint matrices
-        A = np.array([[1, 0], [-1, 0]])
-        b = np.array([1, 1])
-        Ae = np.array([])
-        be = np.array([])
+        # Create constraint matrices for a degenerate polytope (line segment)
+        # This creates a line segment at x = 3 (degenerate in y-direction)
+        A = np.array([[0, 1], [0, -1]])  # 0*x + 1*y <= 2 and 0*x + 1*y <= 1
+        b = np.array([2, 1])
+        Ae = np.array([[1, 0]])  # 1*x + 0*y = 3 (equality constraint)
+        be = np.array([3])
         
-        # Create an unbounded set that will cause empty result
-        from cora_python.contSet.zonotope.zonotope import Zonotope
-        S = Zonotope(np.array([[0], [0]]), np.array([[1, 0], [0, 1]]))
+        # Create a bounded set for testing (box)
+        from cora_python.contSet.interval.interval import Interval
+        S = Interval(np.array([[-0.5], [-0.5]]), np.array([[0.5], [0.5]]))
         
         # Compute Minkowski difference
-        A_out, b_out, Ae_out, be_out, empty = priv_minkdiff(A, b.copy(), Ae, be, S)
+        A_out, b_out, Ae_out, be_out, empty = priv_minkdiff(A, b.copy(), Ae, be.copy(), S)
         
-        # Check that result is empty
+        # Check that result is empty due to dimension mismatch
+        # The line segment doesn't have enough "thickness" in y-direction
         assert empty
         assert A_out.size == 0
         assert b_out.size == 0
@@ -60,14 +62,16 @@ class TestPrivMinkdiff:
     def test_priv_minkdiff_equality_constraints(self):
         """Test Minkowski difference with equality constraints"""
         # Create constraint matrices with equality constraints
+        # This creates a line segment from (-1,0) to (1,0) with equality constraint y = 0
         A = np.array([[1, 0], [-1, 0]])
         b = np.array([1, 1])
         Ae = np.array([[0, 1]])
         be = np.array([0])
         
-        # Create a set for testing
+        # Create a vector (point) for testing, matching MATLAB test case
+        # P2 = [-1; 1] - this is a single point, not an interval with extent
         from cora_python.contSet.interval.interval import Interval
-        S = Interval(np.array([[-0.2], [-0.2]]), np.array([[0.2], [0.2]]))
+        S = Interval(np.array([[-1], [1]]), np.array([[-1], [1]]))  # Single point at (-1, 1)
         
         # Compute Minkowski difference
         A_out, b_out, Ae_out, be_out, empty = priv_minkdiff(A, b.copy(), Ae, be.copy(), S)
@@ -78,6 +82,7 @@ class TestPrivMinkdiff:
         assert Ae_out.shape == Ae.shape
         
         # Check that equality constraints were adjusted
+        # The support function in y-direction will return a single value, and be should be adjusted
         assert not np.array_equal(be_out, be)
     
     def test_priv_minkdiff_equality_empty_result(self):
