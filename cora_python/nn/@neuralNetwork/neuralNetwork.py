@@ -94,4 +94,16 @@ class NeuralNetwork:
                     self.neurons += layer.neurons_out
                 if hasattr(layer, 'W') and hasattr(layer, 'b'):
                     self.connections += layer.W.size + layer.b.size
+    
+    def __len__(self) -> int:
+        """Returns the number of layers"""
+        return len(self.layers)
+    
+    def __repr__(self) -> str:
+        """String representation of the neural network"""
+        return f"NeuralNetwork(name='{self.name}', layers={len(self.layers)}, neurons_in={self.neurons_in}, neurons_out={self.neurons_out})"
+    
+    def __str__(self) -> str:
+        """String representation of the neural network"""
+        return self.__repr__()
 

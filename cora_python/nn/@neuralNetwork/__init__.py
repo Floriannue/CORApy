@@ -11,9 +11,10 @@ from .verify import verify
 from .explain import explain
 from .getRefinableLayers import getRefinableLayers
 from .getInputNeuronOrder import getInputNeuronOrder
+from .readONNXNetwork import readONNXNetwork
 
 # Import the main class to attach methods to
-from ..neuralNetwork import NeuralNetwork
+from .neuralNetwork import NeuralNetwork
 
 # Attach all methods to the class
 NeuralNetwork.evaluate_ = evaluate_
@@ -23,6 +24,7 @@ NeuralNetwork.verify = verify
 NeuralNetwork.explain = explain
 NeuralNetwork.getRefinableLayers = getRefinableLayers
 NeuralNetwork.getInputNeuronOrder = getInputNeuronOrder
+NeuralNetwork.readONNXNetwork = staticmethod(readONNXNetwork)
 
 # Export the class with attached methods
 __all__ = ['NeuralNetwork']

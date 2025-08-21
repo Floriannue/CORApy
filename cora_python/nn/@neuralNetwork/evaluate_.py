@@ -1,122 +1,168 @@
 """
-evaluate_ - internal evaluation method
-
-Description:
-    Internal evaluation method - compute the output of a neural network for the given input
+evaluate_ - compute the output of a neural network for the given input
     internal use to speed up computation, use neuralNetwork/evaluate
 
 Syntax:
-    r = evaluate_(input_data, options, idxLayer)
+    res = evaluate_(obj, input, options)
+    res = evaluate_(obj, input, options, idxlayer)
 
 Inputs:
-    input_data - Input data or set
-    options - Evaluation options
-    idxLayer - Indices of layers to evaluate
+    obj - object of class neuralNetwork
+    input - input represented as a numeric or set
+    options - options for neural network evaluation 
+    idxLayer - indices of layers that should be evaluated
 
 Outputs:
-    r - Evaluation result
+    res - output of the neural network
 
-Example:
-    r = nn.evaluate_(x, options, [0, 1, 2])
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
 
-Authors:       Niklas Kochdumper, Tobias Ladner
-Written:       23-November-2022 (polish)
-Last update:   23-November-2022 (polish)
+See also: neuralNetwork/evaluate
+
+Authors:       Tobias Ladner
+Written:       21-February-2024
+Last update:   21-March-2024 (TL, updateOptions)
+Last revision: ---
                Automatic python translation: Florian Nüssel BA 2025
 """
 
 import numpy as np
 from typing import Any, Dict, List, Optional
 
-def evaluate_(self, input_data: Any, options: Optional[Dict[str, Any]] = None, 
+
+def evaluate_(obj: 'NeuralNetwork', input_data: Any, options: Optional[Dict[str, Any]] = None, 
               idxLayer: Optional[List[int]] = None) -> Any:
     """
-    Internal evaluation method - compute the output of a neural network for the given input
-    internal use to speed up computation, use neuralNetwork/evaluate
+    Compute the output of a neural network for the given input.
+    Internal use to speed up computation, use neuralNetwork/evaluate
     
     Args:
-        input_data: Input data or set
-        options: Evaluation options
-        idxLayer: Indices of layers to evaluate
+        obj: object of class neuralNetwork
+        input_data: input represented as a numeric or set
+        options: options for neural network evaluation
+        idxLayer: indices of layers that should be evaluated
         
     Returns:
-        r: Evaluation result
+        res: output of the neural network
     """
-    if options is None:
-        options = {}
-    
     # parse input
     if idxLayer is None:
         # default: all layers
-        idxLayer = list(range(len(self.layers)))
+        idxLayer = list(range(1, len(obj.layers) + 1))  # MATLAB: 1:length(obj.layers)
     
-    # evaluate based on input type
-    if isinstance(input_data, np.ndarray):  # numeric
-        r = self._aux_evaluateNumeric(input_data, options, idxLayer)
-    elif hasattr(input_data, 'inf') and hasattr(input_data, 'sup'):  # interval
-        r = self._aux_evaluateInterval(input_data, options, idxLayer)
-    elif hasattr(input_data, 'center') and hasattr(input_data, 'generators'):  # zonotope/polyZonotope
-        r = self._aux_evaluatePolyZonotope(input_data, options, idxLayer)
-    elif hasattr(input_data, 'monomials'):  # taylm
-        r = self._aux_evaluateTaylm(input_data, options, idxLayer)
-    elif hasattr(input_data, 'C') and hasattr(input_data, 'd'):  # conZonotope
-        r = self._aux_evaluateConZonotope(input_data, options, idxLayer)
-    else:
+    # evaluate ----------------------------------------------------------------
+    
+    if isinstance(input_data, np.ndarray):  # numeric ---
+        r = aux_evaluateNumeric(obj, input_data, options, idxLayer)
+    
+    elif hasattr(input_data, 'inf') and hasattr(input_data, 'sup'):  # interval ---
+        r = aux_evaluateInterval(obj, input_data, options, idxLayer)
+    
+    elif hasattr(input_data, 'center') and hasattr(input_data, 'generators'):  # zonotope/polyZonotope ---
+        r = aux_evaluatePolyZonotope(obj, input_data, options, idxLayer)
+    
+    elif hasattr(input_data, 'monomials'):  # taylm ---
+        r = aux_evaluateTaylm(obj, input_data, options, idxLayer)
+    
+    elif hasattr(input_data, 'C') and hasattr(input_data, 'd'):  # conZonotope ---
+        r = aux_evaluateConZonotope(obj, input_data, options, idxLayer)
+    
+    else:  # other ---
         raise NotImplementedError(f"Set representation {type(input_data)} is not supported.")
     
     return r
 
-def _aux_evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any], idxLayer: List[int]) -> np.ndarray:
-    """Evaluate numeric input"""
+
+# Auxiliary functions -----------------------------------------------------
+
+def aux_evaluateNumeric(obj: 'NeuralNetwork', input_data: np.ndarray, options: Dict[str, Any], 
+                        idxLayer: List[int]) -> np.ndarray:
+    """
+    Evaluate numeric input.
+    
+    Args:
+        obj: Neural network object
+        input_data: Numeric input data
+        options: Evaluation options
+        idxLayer: Layer indices to evaluate
+        
+    Returns:
+        Evaluation result
+    """
     r = input_data
     for k in idxLayer:
         if 'nn' not in options:
             options['nn'] = {}
         options['nn']['layer_k'] = k
-        layer_k = self.layers[k]
-        
-        # Store input for backpropagation
-        if options.get('nn', {}).get('train', {}).get('backprop', False):
+        layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
+        # Store input for backpropgation
+        if options['nn'].get('train', {}).get('backprop', False):
             if not hasattr(layer_k, 'backprop'):
                 layer_k.backprop = {}
             if 'store' not in layer_k.backprop:
                 layer_k.backprop['store'] = {}
             layer_k.backprop['store']['input'] = r
-        
         r = layer_k.evaluateNumeric(r, options)
-        options = self._aux_updateOptions(options, 'numeric', k, layer_k)
+        options = aux_updateOptions(obj, options, 'numeric', k, layer_k)
     
     return r
 
-def _aux_evaluateInterval(self, input_data: Any, options: Dict[str, Any], idxLayer: List[int]) -> Any:
-    """Evaluate interval input"""
+
+def aux_evaluateInterval(obj: 'NeuralNetwork', input_data: Any, options: Dict[str, Any], 
+                         idxLayer: List[int]) -> Any:
+    """
+    Evaluate interval input.
+    
+    Args:
+        obj: Neural network object
+        input_data: Interval input data
+        options: Evaluation options
+        idxLayer: Layer indices to evaluate
+        
+    Returns:
+        Evaluation result
+    """
     r = input_data
     for k in idxLayer:
         if 'nn' not in options:
             options['nn'] = {}
         options['nn']['layer_k'] = k
-        layer_k = self.layers[k]
-        
-        # Store input for backpropagation
-        if options.get('nn', {}).get('train', {}).get('backprop', False):
+        layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
+        # Store input for backpropgation
+        if options['nn'].get('train', {}).get('backprop', False):
             if not hasattr(layer_k, 'backprop'):
                 layer_k.backprop = {}
             if 'store' not in layer_k.backprop:
                 layer_k.backprop['store'] = {}
             layer_k.backprop['store']['input'] = r
-        
         r = layer_k.evaluateInterval(r, options)
-        options = self._aux_updateOptions(options, 'interval', k, layer_k)
+        options = aux_updateOptions(obj, options, 'interval', k, layer_k)
     
     return r
 
-def _aux_evaluatePolyZonotope(self, input_data: Any, options: Dict[str, Any], idxLayer: List[int]) -> Any:
-    """Evaluate zonotope/polyZonotope input"""
+
+def aux_evaluatePolyZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dict[str, Any], 
+                              idxLayer: List[int]) -> Any:
+    """
+    Evaluate zonotope/polyZonotope input.
+    
+    Args:
+        obj: Neural network object
+        input_data: Zonotope or polyZonotope input data
+        options: Evaluation options
+        idxLayer: Layer indices to evaluate
+        
+    Returns:
+        Evaluation result
+    """
     # we only use polyZonotopes internally
     isZonotope = hasattr(input_data, 'center') and hasattr(input_data, 'generators') and not hasattr(input_data, 'E')
     
     if isZonotope:
-        # transform to polyZonotope and only use independent generators
+        # transform to polyZonotope
+        # and only use independent generators
         # This would require PolyZonotope import
         # For now, we'll work with the original input
         if 'nn' not in options:
@@ -155,18 +201,17 @@ def _aux_evaluatePolyZonotope(self, input_data: Any, options: Dict[str, Any], id
         
         if options.get('nn', {}).get('order_reduction_sensitivity', False):
             # set sensitivity in each layer (used for order reduction)
-            self.calcSensitivity(c)
+            obj.calcSensitivity(c)
         
         # iterate over all layers
         for k in idxLayer:
             if 'nn' not in options:
                 options['nn'] = {}
             options['nn']['layer_k'] = k
-            layer_k = self.layers[k]
-            
+            layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
             c, G, GI, E, id_, id_max, ind, ind_ = layer_k.evaluatePolyZonotope(
                 c, G, GI, E, id_, id_max, ind, ind_, options)
-            options = self._aux_updateOptions(options, 'polyZonotope', k, layer_k)
+            options = aux_updateOptions(obj, options, 'polyZonotope', k, layer_k)
         
         # build result
         # This would require PolyZonotope constructor
@@ -183,21 +228,47 @@ def _aux_evaluatePolyZonotope(self, input_data: Any, options: Dict[str, Any], id
     
     return r
 
-def _aux_evaluateTaylm(self, input_data: Any, options: Dict[str, Any], idxLayer: List[int]) -> Any:
-    """Evaluate Taylor model input"""
+
+def aux_evaluateTaylm(obj: 'NeuralNetwork', input_data: Any, options: Dict[str, Any], 
+                       idxLayer: List[int]) -> Any:
+    """
+    Evaluate Taylor model input.
+    
+    Args:
+        obj: Neural network object
+        input_data: Taylor model input data
+        options: Evaluation options
+        idxLayer: Layer indices to evaluate
+        
+    Returns:
+        Evaluation result
+    """
     r = input_data
     for k in idxLayer:
         if 'nn' not in options:
             options['nn'] = {}
         options['nn']['layer_k'] = k
-        layer_k = self.layers[k]
+        layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
         r = layer_k.evaluateTaylm(r, options)
-        options = self._aux_updateOptions(options, 'taylm', k, layer_k)
+        options = aux_updateOptions(obj, options, 'taylm', k, layer_k)
     
     return r
 
-def _aux_evaluateConZonotope(self, input_data: Any, options: Dict[str, Any], idxLayer: List[int]) -> Any:
-    """Evaluate constrained zonotope input"""
+
+def aux_evaluateConZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dict[str, Any], 
+                             idxLayer: List[int]) -> Any:
+    """
+    Evaluate constrained zonotope input.
+    
+    Args:
+        obj: Neural network object
+        input_data: Constrained zonotope input data
+        options: Evaluation options
+        idxLayer: Layer indices to evaluate
+        
+    Returns:
+        Evaluation result
+    """
     # convert constrained zonotope to star set
     # This would require nnHelper.conversionConZonoStarSet
     # For now, we'll use a simplified approach
@@ -212,9 +283,9 @@ def _aux_evaluateConZonotope(self, input_data: Any, options: Dict[str, Any], idx
         if 'nn' not in options:
             options['nn'] = {}
         options['nn']['layer_k'] = k
-        layer_k = self.layers[k]
+        layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
         c, G, C, d, l, u = layer_k.evaluateConZonotope(c, G, C, d, l, u, options)
-        options = self._aux_updateOptions(options, 'conZonotope', k, layer_k)
+        options = aux_updateOptions(obj, options, 'conZonotope', k, layer_k)
     
     # convert star set back to constrained zonotope
     # This would require nnHelper.conversionStarSetConZono
@@ -223,10 +294,23 @@ def _aux_evaluateConZonotope(self, input_data: Any, options: Dict[str, Any], idx
     
     return r
 
-def _aux_updateOptions(self, options: Dict[str, Any], type_: str, k: int, layer_k: Any) -> Dict[str, Any]:
-    """Update options during evaluation"""
+
+def aux_updateOptions(obj: 'NeuralNetwork', options: Dict[str, Any], type_: str, k: int, layer_k: Any) -> Dict[str, Any]:
+    """
+    Update options during evaluation.
+    
+    Args:
+        obj: Neural network object
+        options: Current options
+        type_: Type of evaluation
+        k: Layer index
+        layer_k: Layer object
+        
+    Returns:
+        Updated options
+    """
     if type_ == 'polyZonotope':
-        self.propagateBounds(k, options)
+        obj.propagateBounds(k, options)
     
     # Check if it's a GNN projection layer
     if hasattr(layer_k, '__class__') and 'nnGNNProjectionLayer' in str(layer_k.__class__):

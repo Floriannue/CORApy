@@ -36,6 +36,7 @@ import numpy as np
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from .nnActivationLayer import nnActivationLayer
 
+
 class nnLeakyReLULayer(nnActivationLayer):
     """
     LeakyReLU layer class for neural networks
@@ -52,9 +53,20 @@ class nnLeakyReLULayer(nnActivationLayer):
             alpha: Slope of the LeakyReLU for x<0, defaults to 0.01
             name: Name of the layer, defaults to type
         """
+        if alpha is None:
+            alpha = 0.01
+        if name is None:
+            name = None
+        
+        # Validate input arguments
+        if not isinstance(alpha, (int, float)) or not np.isscalar(alpha):
+            raise ValueError("alpha must be a numeric scalar")
+        
         # call super class constructor
         super().__init__(name)
         self.alpha = alpha
+    
+    # evaluate ----------------------------------------------------------------
     
     def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
         """
@@ -69,6 +81,8 @@ class nnLeakyReLULayer(nnActivationLayer):
         """
         r = np.maximum(self.alpha * input_data, input_data)
         return r
+    
+    # Auxiliary functions -----------------------------------------------------
     
     def getDf(self, i: int) -> Callable:
         """
@@ -143,7 +157,7 @@ class nnLeakyReLULayer(nnActivationLayer):
         else:  # l < 0 < u
             # This would call the parent class method in MATLAB
             # For now, we'll use a simple linear approximation
-            coeffs, d = self._computeApproxPolyCustom(l, u, 1, 'singh')
+            coeffs, d = self.computeApproxPolyCustom(l, u, 1, 'singh')
         
         return coeffs, d
     
@@ -162,11 +176,23 @@ class nnLeakyReLULayer(nnActivationLayer):
         # error can be computed exactly by checking each linear part
         # according to [2, Sec. 3.2]
         
-        # This is a simplified version - the full implementation would require
-        # the minMaxDiffPoly function from CORA
+        # x < 0: p(x) - alpha*x
+        # This would require minMaxDiffPoly function from CORA
+        # For now, we'll use a simplified approach
+        diffl1 = 0.0
+        diffu1 = 0.0
         
-        # For now, return the coefficients as-is with zero error
-        d = 0.0
+        # x > 0: p(x) - 1*x
+        diffl2 = 0.0
+        diffu2 = 0.0
+        
+        # compute final approx error
+        diffl = min(diffl1, diffl2)
+        diffu = max(diffu1, diffu2)
+        diffc = (diffu + diffl) / 2
+        coeffs[-1] = coeffs[-1] - diffc
+        d = diffu - diffc  # error is radius then.
+        
         return coeffs, d
     
     def getFieldStruct(self) -> Dict[str, Any]:
@@ -176,12 +202,11 @@ class nnLeakyReLULayer(nnActivationLayer):
         Returns:
             fieldStruct: Field structure
         """
-        fieldStruct = {
-            'alpha': self.alpha
-        }
+        fieldStruct = {}
+        fieldStruct['alpha'] = self.alpha
         return fieldStruct
     
-    def _computeExtremePointsBatch(self, m: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def computeExtremePointsBatch(self, m: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Compute extreme points batch
         
@@ -196,7 +221,7 @@ class nnLeakyReLULayer(nnActivationLayer):
         dxsdm = xs
         return xs, dxsdm
     
-    def _computeApproxPolyCustom(self, l: np.ndarray, u: np.ndarray, order: int, poly_method: str) -> Tuple[np.ndarray, float]:
+    def computeApproxPolyCustom(self, l: np.ndarray, u: np.ndarray, order: int, poly_method: str) -> Tuple[np.ndarray, float]:
         """
         Compute custom approximating polynomial
         
@@ -211,7 +236,7 @@ class nnLeakyReLULayer(nnActivationLayer):
         """
         # implement custom polynomial computation in subclass
         coeffs = []
-        d = []
+        d = 0.0
         
         if poly_method == 'singh':
             if order == 1:

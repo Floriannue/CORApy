@@ -1,0 +1,156 @@
+"""
+example_neuralNetwork_verify_safe - example for the verification of a 
+   neural networks using the function neuralNetwork/verify.
+
+Syntax:
+    res = example_neuralNetwork_verify_safe()
+
+Inputs:
+    -
+
+Outputs:
+    res - string, verification result 
+       ['VERIFIED','COUNTEREXAMPLE','UNKNOWN']
+
+References:
+    -
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: -
+
+Authors:       Lukas Koller
+Written:       18-July-2024
+Last update:   ---
+Last revision: ---
+               Automatic python translation: Florian Nüssel BA 2025
+"""
+
+import numpy as np
+import time
+from typing import Tuple, Optional, Dict, Any
+
+# Import CORA Python modules
+from cora_python.nn.neuralNetwork import NeuralNetwork
+from cora_python.converter.neuralnetwork2cora.vnnlib2cora import vnnlib2cora
+from cora_python.nn.nnHelper.validateNNoptions import validateNNoptions
+
+
+def example_neuralNetwork_verify_safe() -> str:
+    """
+    Example for the verification of a neural network using the verify function.
+    
+    Returns:
+        res: Verification result string
+    """
+    np.random.seed(42)  # rng('default')
+    
+    verbose = True
+    # Specify model and specification path.
+    modelPath = 'ACASXU_run2a_1_2_batch_2000.onnx'
+    specPath = 'prop_1.vnnlib'
+    timeout = 2
+    # Load model and specification.
+    nn, x, r, A, b, safeSet, options = aux_readModelAndSpecs(modelPath, specPath)
+    # Do verification.
+    timerVal = time.time()
+    res, x_, y_ = nn.verify(x, r, A, b, safeSet, options, timeout, verbose)
+    # Print result.
+    if verbose:
+        # Print result.
+        print(f'{modelPath} -- {specPath}: {res}')
+        elapsed_time = time.time() - timerVal
+        print(f'--- Verification time: {elapsed_time:.4f} / {timeout:.4f} [s]')
+    # Write results.
+    print('Result:')
+    aux_writeResults(res, x_, y_)
+    
+    return res
+
+
+# Auxiliary functions -----------------------------------------------------
+
+def aux_readModelAndSpecs(modelPath: str, specPath: str) -> Tuple[NeuralNetwork, np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool, Dict[str, Any]]:
+    """
+    Read model and specifications from files.
+    
+    Args:
+        modelPath: Path to the ONNX model file
+        specPath: Path to the VNNLIB specification file
+        
+    Returns:
+        Tuple of (nn, x, r, A, b, safeSet, options)
+    """
+    # Load the model.
+    nn = NeuralNetwork.readONNXNetwork(modelPath, False, 'BSSC')
+    # Load specification.
+    X0, specs = vnnlib2cora(specPath)
+    # Compute center and radius of the input set.
+    x = 1/2 * (X0[0].sup + X0[0].inf)
+    r = 1/2 * (X0[0].sup - X0[0].inf)
+
+    # Extract specification.
+    if hasattr(specs.set, 'c') and hasattr(specs.set, 'd'):
+        # halfspace case
+        A = specs.set.c.T
+        b = -specs.set.d
+    else:
+        # polytope case
+        A = specs.set.A
+        b = -specs.set.b
+    
+    safeSet = (specs.type == 'safeSet')
+
+    # Create evaluation options.
+    options = {}
+    options['nn'] = {
+        'use_approx_error': True,
+        'poly_method': 'bounds',  # 'bounds','singh'
+        'train': {
+            'backprop': False,
+            'mini_batch_size': 512
+        }
+    }
+    # Set default training parameters
+    options = validateNNoptions(options, True)
+    options['nn']['interval_center'] = False
+    
+    return nn, x, r, A, b, safeSet, options
+
+
+def aux_writeResults(res: str, x_: Optional[np.ndarray], y_: Optional[np.ndarray]) -> None:
+    """
+    Write verification results in the expected format.
+    
+    Args:
+        res: Verification result string
+        x_: Counterexample input (if found)
+        y_: Counterexample output (if found)
+    """
+    # Write results.
+    if res == 'VERIFIED':
+        # Write content.
+        print('unsat')
+    elif res == 'COUNTEREXAMPLE':
+        # Write content.
+        print('sat')
+        print('(')
+        # Write input values.
+        if x_ is not None:
+            for j in range(x_.shape[0]):
+                print(f'(X_{j} {x_[j]:f})')
+        # Write output values.
+        if y_ is not None:
+            for j in range(y_.shape[0]):
+                print(f'(Y_{j} {y_[j]:f})')
+        print(')')
+    else:
+        print('unknown')
+
+
+if __name__ == "__main__":
+    # Run the example
+    result = example_neuralNetwork_verify_safe()
+    print(f"Verification result: {result}")

@@ -32,6 +32,7 @@ import numpy as np
 from typing import Any, Dict, List, Optional, Tuple, Union
 from .nnLeakyReLULayer import nnLeakyReLULayer
 
+
 class nnReLULayer(nnLeakyReLULayer):
     """
     ReLU layer class for neural networks
@@ -47,8 +48,12 @@ class nnReLULayer(nnLeakyReLULayer):
         Args:
             name: Name of the layer, defaults to type
         """
-        # call super class constructor with alpha = 0
+        if name is None:
+            name = None
+        # call super class constructor
         super().__init__(0, name)
+    
+    # evaluate ----------------------------------------------------------------
     
     def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
         """
@@ -63,16 +68,6 @@ class nnReLULayer(nnLeakyReLULayer):
         """
         r = np.maximum(0, input_data)
         return r
-    
-    def getMergeBuckets(self) -> int:
-        """
-        Get merge buckets for network reduction
-        
-        Returns:
-            buckets: Number of merge buckets
-        """
-        buckets = 0
-        return buckets
     
     def evaluateConZonotopeNeuron(self, c: np.ndarray, G: np.ndarray, C: np.ndarray, 
                                   d: np.ndarray, l_: np.ndarray, u_: np.ndarray, 
@@ -104,24 +99,42 @@ class nnReLULayer(nnLeakyReLULayer):
         M[:, j] = np.zeros(n)
         
         # get lower bound
-        if options.get('nn', {}).get('bound_approx', False):
+        if options['nn']['bound_approx']:
             c_ = c[j] + 0.5 * G[j, :] @ (u_ - l_)
             G_ = 0.5 * G[j, :] * np.diag(u_ - l_)
             l = c_ - np.sum(np.abs(G_))
         else:
+            problem = {}
+            problem['f'] = G[j, :]
+            problem['Aineq'] = C
+            problem['bineq'] = d
+            problem['Aeq'] = []
+            problem['beq'] = []
+            problem['lb'] = []
+            problem['ub'] = []
             # This would require CORAlinprog in MATLAB
             # For now, we'll use a simplified approach
-            l = c[j] + np.min(G[j, :])
+            temp = np.min(G[j, :])
+            l = c[j] + temp
         
         # compute output according to Sec. 3.2 in [1]
         if l < 0:
             # compute upper bound
-            if options.get('nn', {}).get('bound_approx', False):
+            if options['nn']['bound_approx']:
                 u = c_ + np.sum(np.abs(G_))
             else:
+                problem = {}
+                problem['f'] = -G[j, :]
+                problem['Aineq'] = C
+                problem['bineq'] = d
+                problem['Aeq'] = []
+                problem['beq'] = []
+                problem['lb'] = []
+                problem['ub'] = []
                 # This would require CORAlinprog in MATLAB
                 # For now, we'll use a simplified approach
-                u = c[j] + np.max(G[j, :])
+                temp = np.max(G[j, :])
+                u = c[j] - temp
             
             if u <= 0:
                 # l <= u <= 0 -> linear
@@ -131,14 +144,13 @@ class nnReLULayer(nnLeakyReLULayer):
                 # compute relaxation
                 
                 # constraints and offset
-                C_new = np.vstack([
+                C = np.vstack([
                     np.hstack([C, np.zeros((C.shape[0], 1))]),
                     np.hstack([np.zeros((1, m)), -1]),
                     np.hstack([G[j, :], -1]),
                     np.hstack([-u / (u - l) * G[j, :], 1])
                 ])
-                
-                d_new = np.concatenate([
+                d = np.concatenate([
                     d,
                     [0],
                     [-c[j]],
@@ -147,37 +159,25 @@ class nnReLULayer(nnLeakyReLULayer):
                 
                 # center and generators
                 c = M @ c
-                G_new = np.hstack([M @ G, self._unitvector(j, n)])
+                G = np.hstack([M @ G, self.unitvector(j, n)])
                 
                 # bounds
                 l_ = np.concatenate([l_, [0]])
                 u_ = np.concatenate([u_, [u]])
-                
-                # Update variables
-                C = C_new
-                d = d_new
-                G = G_new
         
         return c, G, C, d, l_, u_
     
-    def getDf(self, i: int) -> callable:
+    def getMergeBuckets(self) -> int:
         """
-        Get derivative function
+        Get merge buckets for network reduction
         
-        Args:
-            i: Derivative order
-            
         Returns:
-            df_i: Derivative function
+            buckets: Number of merge buckets
         """
-        if i == 0:
-            return self.f
-        elif i == 1:
-            return lambda x: np.where(x > 0, 1, 0)
-        else:
-            return lambda x: np.zeros_like(x)
+        buckets = 0
+        return buckets
     
-    def _unitvector(self, j: int, n: int) -> np.ndarray:
+    def unitvector(self, j: int, n: int) -> np.ndarray:
         """
         Create unit vector with 1 at position j
         
