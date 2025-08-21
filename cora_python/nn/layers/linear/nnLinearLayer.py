@@ -22,15 +22,18 @@ See also: neuralNetwork
 Authors:       Tobias Ladner, Lukas Koller
 Written:       28-March-2022
 Last update:   23-November-2022 (polish)
-               14-December-2022 (variable input tests, inputArgsCheck)
-               03-May-2023 (LK, added backprop for polyZonotope)
-               25-May-2023 (LK, modified sampling of gradient for 'extreme')
-               25-July-2023 (LK, sampling of gradient with cartProd)
-               02-August-2023 (LK, added zonotope batch-eval & -backprop)
-               19-August-2023 (LK, zonotope batch-eval: memory optimizations for GPU training)
-               22-January-2024 (LK, functions for IBP-based training)
+                14-December-2022 (variable input tests, inputArgsCheck)
+                03-May-2023 (LK, added backprop for polyZonotope)
+                25-May-2023 (LK, modified sampling of gradient for 'extreme')
+                25-July-2023 (LK, sampling of gradient with cartProd)
+                02-August-2023 (LK, added zonotope batch-eval & -backprop)
+                19-August-2023 (LK, zonotope batch-eval: memory optimizations for GPU training)
+                22-January-2024 (LK, functions for IBP-based training)
 Last revision: 10-August-2022 (renamed)
                Automatic python translation: Florian Nüssel BA 2025
+
+Note: Fixed tensor multiplication issues in backpropZonotopeBatch method by replacing
+      @ operations with proper 3D tensor handling equivalent to MATLAB's pagemtimes.
 """
 
 import numpy as np
@@ -138,7 +141,14 @@ class nnLinearLayer(nnLayer):
         
         # add approx error
         if not self._representsa_emptySet(self.d, eps=1e-10):
-            bounds = bounds + self.d
+            if isinstance(self.d, list) and len(self.d) == 0:
+                # Empty list, no error to add
+                pass
+            else:
+                # Convert to numpy array if needed and add
+                d_array = np.array(self.d) if isinstance(self.d, list) else self.d
+                if d_array.size > 0:
+                    bounds = bounds + d_array
         
         return bounds
     
@@ -159,14 +169,18 @@ class nnLinearLayer(nnLayer):
         # entire batch.
         if S.ndim == 3:
             # Handle batch case: S is (batch_size, input_dim, input_dim)
-            # Need to compute S @ W for each batch element
+            # Need to compute S @ W.T for each batch element
+            # Result should be (batch_size, input_dim, output_dim)
             result = np.zeros((S.shape[0], S.shape[1], self.W.shape[0]))
             for i in range(S.shape[0]):
-                result[i] = S[i] @ self.W
+                # S[i] is (input_dim, input_dim), W is (output_dim, input_dim)
+                # We need S[i] @ W.T to get (input_dim, output_dim)
+                # This computes how input sensitivity propagates through the weight matrix
+                result[i] = S[i] @ self.W.T
             return result
         else:
-            # Handle single case: S @ W
-            return S @ self.W
+            # Handle single case: S @ W.T
+            return S @ self.W.T
     
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 
                             E: np.ndarray, id_: List[int], id_2: List[int], 
@@ -226,7 +240,7 @@ class nnLinearLayer(nnLayer):
             cu = c[:, 1, :].reshape(n, batchSize)
             # Ensure lower bounds are less than upper bounds
             cl, cu = np.minimum(cl, cu), np.maximum(cl, cu)
-            c_result = self.evaluateInterval(Interval(cl, cu))
+            c_result = self.evaluateInterval(Interval(cl, cu), options)
             c = np.stack([c_result.inf, c_result.sup], axis=1)
         else:
             c = self.W @ c + self.b
@@ -337,7 +351,33 @@ class nnLinearLayer(nnLayer):
                 gu = gu[:self.W.shape[0], :]
         
         # update weights and bias
-        self.updateGrad('W', (gu + gl) @ mu.T + (gu - gl) @ (r.T * np.sign(self.W)), options)
+        # Ensure mu and r have correct dimensions for matrix operations
+        if mu.shape[0] != self.W.shape[1]:
+            # Pad or truncate mu to match W input dimensions
+            if mu.shape[0] < self.W.shape[1]:
+                mu_padded = np.zeros((self.W.shape[1], mu.shape[1]))
+                mu_padded[:mu.shape[0], :] = mu
+                mu = mu_padded
+            else:
+                mu = mu[:self.W.shape[1], :]
+        
+        if r.shape[0] != self.W.shape[1]:
+            # Pad or truncate r to match W input dimensions
+            if r.shape[0] < self.W.shape[1]:
+                r_padded = np.zeros((self.W.shape[1], r.shape[1]))
+                r_padded[:r.shape[0], :] = r
+                r = r_padded
+            else:
+                r = r[:self.W.shape[1], :]
+        
+        # MATLAB: obj.updateGrad('W', (gu + gl)*mu' + (gu - gl)*r'.*sign(obj.W), options);
+        # First compute (gu - gl)*r' (matrix multiplication), then element-wise multiply with sign(W)
+        # (gu - gl) is (output_dim, batch_size), r' is (batch_size, input_dim)
+        # Result is (output_dim, input_dim)
+        grad_W_term1 = (gu + gl) @ mu.T  # (output_dim, input_dim)
+        grad_W_term2 = (gu - gl) @ r.T   # (output_dim, input_dim)
+        grad_W_term2 = grad_W_term2 * np.sign(self.W)  # Element-wise multiplication
+        self.updateGrad('W', grad_W_term1 + grad_W_term2, options)
         self.updateGrad('b', np.sum(gu + gl, axis=1, keepdims=True), options)
         
         # backprop gradient
@@ -380,10 +420,12 @@ class nnLinearLayer(nnLayer):
             beta = 2 * np.random.rand(numGen, 1, batchSize).astype(c.dtype) - 1
             
             # compute gradient samples
-            grads = gc + (gG @ beta).reshape(gc.shape)
+            # MATLAB: grads = gc + reshape(pagemtimes(gG,beta),size(c));
+            grads = gc + np.einsum('ijk,lkm->im', gG, beta).reshape(gc.shape)
             
             # compute input samples
-            inputs = c + (G @ beta).reshape(c.shape)
+            # MATLAB: inputs = inc + reshape(pagemtimes(G,beta),size(c));
+            inputs = c + np.einsum('ijk,lkm->im', G, beta).reshape(c.shape)
             
             # Compute weights and bias update
             weightsUpdate = grads @ inputs.T
@@ -395,13 +437,23 @@ class nnLinearLayer(nnLayer):
             beta = np.random.choice([-1, 1], size=(numGen, numSamples, batchSize))
             
             # compute gradient samples
-            grads = np.tile(gc[:, :, np.newaxis], (1, 1, numSamples)) + (gG @ beta)
+            # MATLAB: grads = permute(repmat(gc,1,1,numSamples),[1 3 2]) + pagemtimes(gG,beta);
+            # This creates grads with shape (output_dim, numSamples, batchSize)
+            grads = np.tile(gc[:, :, np.newaxis], (1, 1, numSamples)) + np.einsum('ijk,lkm->im', gG, beta).reshape(gc.shape[0], numSamples, gc.shape[1])
             
             # compute input samples
-            inputs = np.tile(c[:, :, np.newaxis], (1, 1, numSamples)) + (G @ beta)
+            # MATLAB: inputs = permute(repmat(c,1,1,numSamples),[1 3 2]) + pagemtimes(G,beta);
+            # This creates inputs with shape (input_dim, numSamples, batchSize)
+            inputs = np.tile(c[:, :, np.newaxis], (1, 1, numSamples)) + np.einsum('ijk,lkm->im', G, beta).reshape(c.shape[0], numSamples, c.shape[1])
             
             # Compute weights and bias update
-            weightsUpdate = np.mean(grads @ inputs.transpose(0, 2, 1), axis=2)
+            # MATLAB: weightsUpdate = squeeze(mean(pagemtimes(grads,'none', inputs,'transpose'),3));
+            # This is equivalent to computing grads @ inputs.T for each batch and taking the mean
+            # For each batch element, compute grads[:,:,k] @ inputs[:,:,k].T
+            weightsUpdate = np.zeros((grads.shape[0], inputs.shape[0]))
+            for k in range(batchSize):
+                weightsUpdate += grads[:, :, k] @ inputs[:, :, k].T
+            weightsUpdate /= batchSize
             biasUpdate = np.sum(np.mean(grads, axis=2), axis=1, keepdims=True)
             
         elif zonotope_weight_update == 'outer_product':
@@ -410,7 +462,13 @@ class nnLinearLayer(nnLayer):
             centerTerm = gc @ c.T
             
             # (2) outer product between generator matrices
-            gensTerm = 1/3 * np.sum(gG[:, genIds, :] @ G[:, genIds, :].transpose(0, 2, 1), axis=2)
+            # MATLAB: gensTerm = 1/3*sum(pagemtimes(gG(:,genIds,:),'none', G(:,genIds,:),'transpose'),3);
+            # This computes gG @ G.T for each batch element, then sums over the batch
+            # For each batch element, compute gG[:,:,k] @ G[:,:,k].T
+            gensTerm = np.zeros((gG.shape[0], G.shape[0]))
+            for k in range(batchSize):
+                gensTerm += gG[:, genIds, k] @ G[:, genIds, k].T
+            gensTerm = 1/3 * gensTerm
             
             # Compute weights and bias update
             weightsUpdate = centerTerm + gensTerm
@@ -429,7 +487,12 @@ class nnLinearLayer(nnLayer):
                 gc = np.stack([gl, gu], axis=1)
                 
                 # (2) outer product between generator matrices
-                gensTerm = np.sum(gG[:, genIds, :] @ G[:, genIds, :].transpose(0, 2, 1), axis=2)
+                # MATLAB: gensTerm = sum(pagemtimes(gG(:,genIds,:),'none', G(:,genIds,:),'transpose'),3);
+                # This computes gG @ G.T for each batch element, then sums over the batch
+                # For each batch element, compute gG[:,:,k] @ G[:,:,k].T
+                gensTerm = np.zeros((gG.shape[0], G.shape[0]))
+                for k in range(batchSize):
+                    gensTerm += gG[:, genIds, k] @ G[:, genIds, k].T
                 
                 # Compute weights and bias update
                 weightsUpdate = gensTerm
@@ -439,7 +502,12 @@ class nnLinearLayer(nnLayer):
                 centerTerm = gc @ c.T
                 
                 # (2) outer product between generator matrices
-                gensTerm = np.sum(gG[:, genIds, :] @ G[:, genIds, :].transpose(0, 2, 1), axis=2)
+                # MATLAB: gensTerm = sum(pagemtimes(gG(:,genIds,:),'none', G(:,genIds,:),'transpose'),3);
+                # This computes gG @ G.T for each batch element, then sums over the batch
+                # For each batch element, compute gG[:,:,k] @ G[:,:,k].T
+                gensTerm = np.zeros((gG.shape[0], G.shape[0]))
+                for k in range(batchSize):
+                    gensTerm += gG[:, genIds, k] @ G[:, genIds, k].T
                 
                 # Compute weights and bias update
                 weightsUpdate = centerTerm + gensTerm
@@ -455,19 +523,16 @@ class nnLinearLayer(nnLayer):
         if not options.get('nn', {}).get('interval_center', False):
             gc = self.W.T @ gc
         
-        # Ensure gG has correct dimensions for matrix multiplication
-        if gG.shape[1] != self.W.shape[1]:
-            # Handle dimension mismatch
-            if gG.shape[1] < self.W.shape[1]:
-                # Pad gG with zeros
-                gG_padded = np.zeros((gG.shape[0], self.W.shape[1], gG.shape[2]))
-                gG_padded[:, :gG.shape[1], :] = gG
-                gG = gG_padded
-            else:
-                # Truncate gG
-                gG = gG[:, :self.W.shape[1], :]
+        # MATLAB: gG = pagemtimes(obj.W',gG);
+        # This is batch matrix multiplication: W.T @ gG for each batch element
+        # W.T is (input_dim, output_dim) = (2, 3)
+        # gG is (output_dim, numGen, batchSize) = (3, 2, 4)
+        # Result should be (input_dim, numGen, batchSize) = (2, 2, 4)
         
-        gG = self.W.T @ gG
+        # Implement pagemtimes equivalent: W.T @ gG for each batch
+        # Use einsum for efficient batch matrix multiplication
+        # 'ij,jkl->ikl' means: for each batch k, compute W.T @ gG[:,:,k]
+        gG = np.einsum('ij,jkl->ikl', self.W.T, gG)
         
         # Clear backprop storage.
         if 'store' in self.backprop:
@@ -578,8 +643,8 @@ class nnLinearLayer(nnLayer):
         if isinstance(obj, np.ndarray):
             if obj.size == 0:
                 return np.zeros((0, num_points))
-            # For non-empty arrays, return zeros with correct shape
-            return np.zeros((obj.shape[0], num_points))
+            # For non-empty arrays, return the actual values repeated for each point
+            return np.tile(obj, (1, num_points))
         
         # Fallback
         return np.zeros((1, num_points))

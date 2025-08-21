@@ -196,14 +196,17 @@ class TestNnLinearLayerComplete:
     
     def test_evaluateSensitivity_full_functionality(self):
         """Test evaluateSensitivity (matching MATLAB pagemtimes exactly)"""
-        # Test sensitivity computation
-        S = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])  # 2x2x2
+        # Test sensitivity computation - use 2x2 sensitivity matrices to match layer input dimensions (2D)
+        # MATLAB: S = pagemtimes(S, obj.W) where S is (batch_size, input_dim, input_dim)
+        # Result should be (batch_size, input_dim, output_dim) = (2, 2, 3)
+        S = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])  # 2x2x2 (batch_size=2, input_dim=2, input_dim=2)
         x = np.array([[1], [2]])
-        
+
         result = self.layer.evaluateSensitivity(S, x, {})
-        
-        # Should compute S @ W for each batch (matching MATLAB pagemtimes)
-        expected = np.array([S[0] @ self.W, S[1] @ self.W])
+
+        # Should compute S @ W.T for each batch (matching MATLAB pagemtimes)
+        # Result: (batch_size, input_dim, output_dim) = (2, 2, 3)
+        expected = np.array([S[0] @ self.W.T, S[1] @ self.W.T])
         assert np.allclose(result, expected)
     
     def test_evaluatePolyZonotope_full_functionality(self):
@@ -238,8 +241,8 @@ class TestNnLinearLayerComplete:
         """Test evaluateZonotopeBatch (matching MATLAB exactly)"""
         # Test zonotope batch evaluation
         n, numGen, batchSize = 3, 2, 4
-        c = np.random.rand(n, 2, batchSize)  # 3x2x4
-        G = np.random.rand(n, numGen, batchSize)  # 3x2x4
+        c = np.random.rand(2, 2, batchSize)  # 2x2x4 (matching layer input dimension)
+        G = np.random.rand(2, numGen, batchSize)  # 2x2x4 (matching layer input dimension)
         
         # Test without interval_center
         result_c, result_G = self.layer.evaluateZonotopeBatch(c, G, {})
@@ -305,21 +308,23 @@ class TestNnLinearLayerComplete:
     
     def test_backpropIntervalBatch_full_functionality(self):
         """Test backpropIntervalBatch (matching MATLAB exactly)"""
-        # Test interval batch backpropagation
-        l = np.array([[0.5, 1.0], [1.5, 2.0]])
-        u = np.array([[1.5, 2.0], [2.5, 3.0]])
-        gl = np.array([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]])
-        gu = np.array([[0.2, 0.3], [0.4, 0.5], [0.6, 0.7]])
-        
+        # Test interval batch backpropagation - use 2x2 to match layer input dimensions
+        # MATLAB: l, u are input bounds (should match input dimension = 2)
+        # MATLAB: gl, gu are output gradients (should match output dimension = 3)
+        l = np.array([[0.5, 1.0], [1.5, 2.0]])  # 2x2 (input_dim=2, batch_size=2)
+        u = np.array([[1.5, 2.0], [2.5, 3.0]])  # 2x2 (input_dim=2, batch_size=2)
+        gl = np.array([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]])  # 3x2 (output_dim=3, batch_size=2)
+        gu = np.array([[0.2, 0.3], [0.4, 0.5], [0.6, 0.7]])  # 3x2 (output_dim=3, batch_size=2)
+
         result_gl, result_gu = self.layer.backpropIntervalBatch(l, u, gl, gu, {})
-        
+
         # Verify IBP backpropagation (matching MATLAB exactly)
         mu = (u + l) / 2
         r = (u - l) / 2
-        
+
         expected_gl = self.W.T @ (gu + gl) / 2 - np.abs(self.W.T) @ (gu - gl) / 2
         expected_gu = self.W.T @ (gu + gl) / 2 + np.abs(self.W.T) @ (gu - gl) / 2
-        
+
         assert np.allclose(result_gl, expected_gl)
         assert np.allclose(result_gu, expected_gu)
     
@@ -327,10 +332,12 @@ class TestNnLinearLayerComplete:
         """Test backpropZonotopeBatch with all MATLAB update methods"""
         # Test zonotope batch backpropagation
         n, numGen, batchSize = 3, 2, 4
-        c = np.random.rand(n, batchSize)
-        G = np.random.rand(n, numGen, batchSize)
-        gc = np.random.rand(n, batchSize)
-        gG = np.random.rand(n, numGen, batchSize)
+        # MATLAB: c, G are input data (should match input dimension = 2)
+        # MATLAB: gc, gG are output gradients (should match output dimension = 3)
+        c = np.random.rand(2, batchSize)  # 2x4 (input_dim=2, batch_size=4)
+        G = np.random.rand(2, numGen, batchSize)  # 2x2x4 (input_dim=2, numGen=2, batch_size=4)
+        gc = np.random.rand(n, batchSize)  # 3x4 (output_dim=3, batch_size=4)
+        gG = np.random.rand(n, numGen, batchSize)  # 3x2x4 (output_dim=3, numGen=2, batch_size=4)
         
         # Mock backprop storage (matching MATLAB obj.backprop.store.genIds)
         self.layer.backprop = {'store': {'genIds': slice(None)}}
@@ -341,7 +348,8 @@ class TestNnLinearLayerComplete:
         
         # Verify center-based update
         expected_gc = self.W.T @ gc
-        expected_gG = self.W.T @ gG
+        # For 3D tensor gG, we need to use einsum like the implementation
+        expected_gG = np.einsum('ij,jkl->ikl', self.W.T, gG)
         
         assert np.allclose(result_gG, expected_gG)
         
