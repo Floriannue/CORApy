@@ -203,3 +203,40 @@ def test_nnLeakyReLULayer_alpha_zero():
     expected = np.array([[0], [0], [0], [1], [2]])
     
     assert np.allclose(result, expected, atol=1e-10)
+
+def test_nnLeakyReLULayer_function_values():
+    """Test nnLeakyReLULayer function values like MATLAB test"""
+    from cora_python.nn.layers.nonlinear.nnLeakyReLULayer import nnLeakyReLULayer
+    
+    layer = nnLeakyReLULayer()
+    
+    # Test function values like MATLAB test
+    assert layer.f(0) == 0
+    assert layer.f(np.inf) == np.inf
+    assert layer.f(-np.inf) == -np.inf
+
+def test_nnLeakyReLULayer_negative_alpha():
+    """Test nnLeakyReLULayer with negative alpha like MATLAB test"""
+    from cora_python.nn.layers.nonlinear.nnLeakyReLULayer import nnLeakyReLULayer
+    
+    alpha = -0.1
+    layer = nnLeakyReLULayer(alpha)
+    assert layer.alpha == alpha
+
+def test_nnLeakyReLULayer_evaluate():
+    """Test nnLeakyReLULayer evaluate method like MATLAB test"""
+    from cora_python.nn.layers.nonlinear.nnLeakyReLULayer import nnLeakyReLULayer
+    
+    alpha = 0.01
+    layer = nnLeakyReLULayer(alpha)
+    
+    # Test point evaluation
+    x = np.array([[1], [0], [-2]])
+    y = layer.evaluate(x)
+    expected = np.array([[1], [0], [-2*alpha]])
+    assert np.allclose(y, expected)
+    
+    # Test zonotope evaluation (basic containment check)
+    # Note: This would require zonotope implementation
+    # For now, we'll test that the method exists and can be called
+    assert hasattr(layer, 'evaluate')

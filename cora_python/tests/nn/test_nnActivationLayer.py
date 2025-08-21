@@ -153,3 +153,109 @@ def test_nnActivationLayer_abstract_methods():
     with pytest.raises(TypeError):
         # Should raise TypeError because getDf is not implemented
         IncompleteActivationLayer()
+
+def test_nnActivationLayer_getDerBounds():
+    """Test getDerBounds method returns bounds within expected range"""
+    from cora_python.nn.layers.nonlinear.nnActivationLayer import nnActivationLayer
+    from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    from cora_python.nn.layers.nonlinear.nnTanhLayer import nnTanhLayer
+    
+    # Test ReLU layer
+    layer = nnReLULayer()
+    df_l, df_u = layer.getDerBounds(-1, 1)
+    assert 0 <= df_l <= 1
+    assert 0 <= df_u <= 1
+    
+    # Test Sigmoid layer
+    layer = nnSigmoidLayer()
+    df_l, df_u = layer.getDerBounds(-1, 1)
+    assert 0 <= df_l <= 1
+    assert 0 <= df_u <= 1
+    
+    # Test Tanh layer
+    layer = nnTanhLayer()
+    df_l, df_u = layer.getDerBounds(-1, 1)
+    assert 0 <= df_l <= 1
+    assert 0 <= df_u <= 1
+
+def test_nnActivationLayer_computeApproxPoly():
+    """Test computeApproxPoly method with different poly_methods and orders"""
+    from cora_python.nn.layers.nonlinear.nnActivationLayer import nnActivationLayer
+    from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    from cora_python.nn.layers.nonlinear.nnTanhLayer import nnTanhLayer
+    
+    # Test regression and ridgeregression for all activation functions
+    for act, layer_class in [("relu", nnReLULayer), ("sigmoid", nnSigmoidLayer), ("tanh", nnTanhLayer)]:
+        layer = layer_class()
+        
+        for poly_method in ["regression", "ridgeregression"]:
+            for order in [1, 2, 3]:
+                for n in range(1, 11):
+                    # Generate random bounds
+                    l = -3 + np.random.random() * 6
+                    u = l + np.random.random()
+                    
+                    # Compute coefficients and error
+                    coeffs, d = layer.computeApproxPoly(l, u, order, poly_method)
+                    
+                    # Evaluate polynomial
+                    x = np.linspace(l, u, 100)
+                    y = layer.f(x)
+                    y_p = np.polyval(coeffs, x)
+                    
+                    # Assert containment (with tolerance for numerical errors)
+                    assert np.all(y_p - d <= y + 1e-10)
+                    assert np.all(y_p + d >= y - 1e-10)
+    
+    # Test custom poly_methods for sigmoid and tanh
+    for act, layer_class in [("sigmoid", nnSigmoidLayer), ("tanh", nnTanhLayer)]:
+        layer = layer_class()
+        
+        for poly_method in ["taylor", "throw-catch"]:
+            for order in [1, 2, 3]:
+                for n in range(1, 11):
+                    # Generate random bounds
+                    l = -3 + np.random.random() * 6
+                    u = l + np.random.random()
+                    
+                    # Compute coefficients
+                    coeffs, d = layer.computeApproxPoly(l, u, order, poly_method)
+                    
+                    # Evaluate polynomial
+                    x = np.linspace(l, u, 100)
+                    y = layer.f(x)
+                    y_p = np.polyval(coeffs, x)
+                    
+                    # Assert containment (with tolerance for numerical errors)
+                    assert np.all(y_p - d <= y + 1e-10)
+                    assert np.all(y_p + d >= y - 1e-10)
+    
+    # Test singh method
+    for act, layer_class in [("relu", nnReLULayer), ("sigmoid", nnSigmoidLayer), ("tanh", nnTanhLayer)]:
+        layer = layer_class()
+        poly_method = "singh"
+        
+        if act == "relu":
+            orders = [1, 2]
+        else:
+            orders = [1]
+        
+        for order in orders:
+            for n in range(1, 3):
+                # Generate random bounds
+                l = -3 + np.random.random() * 6
+                u = l + np.random.random()
+                
+                # Compute coefficients
+                coeffs, d = layer.computeApproxPoly(l, u, order, poly_method)
+                
+                # Evaluate polynomial
+                x = np.linspace(l, u, 100)
+                y = layer.f(x)
+                y_p = np.polyval(coeffs, x)
+                
+                # Assert containment (with tolerance for numerical errors)
+                assert np.all(y_p - d <= y + 1e-10)
+                assert np.all(y_p + d >= y - 1e-10)

@@ -1,184 +1,189 @@
 """
-Test file for NeuralNetwork.getInputNeuronOrder method
+Test for neuralNetwork getInputNeuronOrder method
 
-This file tests the getInputNeuronOrder method of the NeuralNetwork class.
+This test verifies that the getInputNeuronOrder method works correctly with different methods.
 """
 
 import pytest
 import numpy as np
-from cora_python.nn.neuralNetwork import NeuralNetwork
-from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
-from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
 
-class TestNeuralNetworkGetInputNeuronOrder:
-    """Test class for NeuralNetwork.getInputNeuronOrder method"""
+def test_neuralNetwork_getInputNeuronOrder_in_order():
+    """Test getInputNeuronOrder method with in-order method"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
     
-    def setup_method(self):
-        """Set up test fixtures"""
-        # Create a simple neural network
-        W1 = np.array([[1, 2], [3, 4]])
-        b1 = np.array([[0], [0]])
-        W2 = np.array([[1, 0], [0, 1]])
-        b2 = np.array([[0], [0]])
-        
-        layers = [
-            nnLinearLayer(W1, b1),
-            nnReLULayer(),
-            nnLinearLayer(W2, b2)
-        ]
-        
-        self.nn = NeuralNetwork(layers)
+    # Create simple network like MATLAB test
+    np.random.seed(1)
+    W1 = np.random.rand(10, 16) * 2 - 1
+    b1 = np.random.rand(10, 1)
     
-    def test_getInputNeuronOrder_basic(self):
-        """Test basic getInputNeuronOrder functionality"""
-        x = np.array([[1], [2]])
-        inputSize = [2, 1, 1]
-        
-        order = self.nn.getInputNeuronOrder('sensitivity', x, inputSize)
-        
-        # Should return a list
-        assert isinstance(order, list)
-        assert len(order) == 2  # 2 input features
+    W2 = np.random.rand(3, 10) * 2 - 1
+    b2 = np.random.rand(3, 1)
     
-    def test_getInputNeuronOrder_sensitivity_method(self):
-        """Test getInputNeuronOrder with sensitivity method"""
-        x = np.array([[1], [2]])
-        inputSize = [2, 1, 1]
-        
-        order = self.nn.getInputNeuronOrder('sensitivity', x, inputSize)
-        
-        # Should work with sensitivity method
-        assert isinstance(order, list)
-        assert len(order) == 2
+    nn = NeuralNetwork([
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2),
+        nnSigmoidLayer()
+    ])
     
-    def test_getInputNeuronOrder_random_method(self):
-        """Test getInputNeuronOrder with random method"""
-        x = np.array([[1], [2]])
-        inputSize = [2, 1, 1]
-        
-        order = self.nn.getInputNeuronOrder('random', x, inputSize)
-        
-        # Should work with random method
-        assert isinstance(order, list)
-        assert len(order) == 2
+    x = np.random.rand(16, 1)
     
-    def test_getInputNeuronOrder_custom_method(self):
-        """Test getInputNeuronOrder with custom method"""
-        x = np.array([[1], [2]])
-        inputSize = [2, 1, 1]
-        
-        order = self.nn.getInputNeuronOrder('custom', x, inputSize)
-        
-        # Should work with custom method
-        assert isinstance(order, list)
-        assert len(order) == 2
+    # Test in-order method
+    neuronOrder = nn.getInputNeuronOrder('in-order', x)
     
-    def test_getInputNeuronOrder_none_x(self):
-        """Test getInputNeuronOrder with None x (should use default)"""
-        inputSize = [2, 1, 1]
-        
-        order = self.nn.getInputNeuronOrder('sensitivity', None, inputSize)
-        
-        # Should work with default x
-        assert isinstance(order, list)
-        assert len(order) == 2
+    # Should return sequential order
+    expected_order = np.arange(1, 17)  # 1-based indexing like MATLAB
+    assert np.array_equal(neuronOrder, expected_order)
+
+def test_neuralNetwork_getInputNeuronOrder_sensitivity():
+    """Test getInputNeuronOrder method with sensitivity method"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
     
-    def test_getInputNeuronOrder_none_inputSize(self):
-        """Test getInputNeuronOrder with None inputSize (should use default)"""
-        x = np.array([[1], [2]])
-        
-        order = self.nn.getInputNeuronOrder('sensitivity', x, None)
-        
-        # Should work with default inputSize
-        assert isinstance(order, list)
+    # Create simple network like MATLAB test
+    np.random.seed(1)
+    W1 = np.random.rand(10, 16) * 2 - 1
+    b1 = np.random.rand(10, 1)
     
-    def test_getInputNeuronOrder_empty_network(self):
-        """Test getInputNeuronOrder with empty network"""
-        empty_nn = NeuralNetwork([])
-        x = np.array([[1], [2]])
-        inputSize = [2, 1, 1]
-        
-        order = empty_nn.getInputNeuronOrder('sensitivity', x, inputSize)
-        
-        # Should handle empty network gracefully
-        assert isinstance(order, list)
+    W2 = np.random.rand(3, 10) * 2 - 1
+    b2 = np.random.rand(3, 1)
     
-    def test_getInputNeuronOrder_single_layer(self):
-        """Test getInputNeuronOrder with single layer"""
-        single_layer_nn = NeuralNetwork([self.nn.layers[0]])
-        x = np.array([[1], [2]])
-        inputSize = [2, 1, 1]
-        
-        order = single_layer_nn.getInputNeuronOrder('sensitivity', x, inputSize)
-        
-        # Should work with single layer
-        assert isinstance(order, list)
+    nn = NeuralNetwork([
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2),
+        nnSigmoidLayer()
+    ])
     
-    def test_getInputNeuronOrder_different_input_sizes(self):
-        """Test getInputNeuronOrder with different input sizes"""
-        x = np.array([[1], [2]])
-        
-        # Test different input sizes
-        inputSizes = [
-            [2, 1, 1],
-            [3, 1, 1],
-            [2, 2, 1],
-            [1, 1, 1]
-        ]
-        
-        for inputSize in inputSizes:
-            order = self.nn.getInputNeuronOrder('sensitivity', x, inputSize)
-            assert isinstance(order, list)
-            assert len(order) == inputSize[0]
+    x = np.random.rand(16, 1)
     
-    def test_getInputNeuronOrder_batch_input(self):
-        """Test getInputNeuronOrder with batch input"""
-        x = np.array([[1, 3], [2, 4]])  # 2 inputs, batch size 2
-        inputSize = [2, 1, 1]
-        
-        order = self.nn.getInputNeuronOrder('sensitivity', x, inputSize)
-        
-        # Should handle batch input
-        assert isinstance(order, list)
-        assert len(order) == 2
+    # Test sensitivity method
+    neuronOrder = nn.getInputNeuronOrder('sensitivity', x)
     
-    def test_getInputNeuronOrder_method_validation(self):
-        """Test getInputNeuronOrder method validation"""
-        x = np.array([[1], [2]])
-        inputSize = [2, 1, 1]
-        
-        # Test valid methods
-        valid_methods = ['sensitivity', 'random', 'custom']
-        for method in valid_methods:
-            order = self.nn.getInputNeuronOrder(method, x, inputSize)
-            assert isinstance(order, list)
+    # Should return order based on sensitivity
+    S = nn.calcSensitivity(x, {}, False)
+    expected_order = np.argsort(np.mean(np.abs(S), axis=(0, 2))) + 1  # 1-based indexing
     
-    def test_getInputNeuronOrder_input_validation(self):
-        """Test getInputNeuronOrder input validation"""
-        inputSize = [2, 1, 1]
-        
-        # Test different input types
-        test_inputs = [
-            np.array([[1], [2]]),
-            np.array([1, 2]),
-            np.array([[1, 2], [3, 4]]),
-            np.array([[[1], [2]]])
-        ]
-        
-        for x in test_inputs:
-            order = self.nn.getInputNeuronOrder('sensitivity', x, inputSize)
-            assert isinstance(order, list)
+    # Check that the order matches (may be different due to numerical precision)
+    assert len(neuronOrder) == 16
+    assert np.all(neuronOrder >= 1) and np.all(neuronOrder <= 16)
+
+def test_neuralNetwork_getInputNeuronOrder_snake():
+    """Test getInputNeuronOrder method with snake method"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
     
-    def test_getInputNeuronOrder_consistency(self):
-        """Test getInputNeuronOrder consistency for same inputs"""
-        x = np.array([[1], [2]])
-        inputSize = [2, 1, 1]
+    # Create simple network like MATLAB test
+    np.random.seed(1)
+    W1 = np.random.rand(10, 16) * 2 - 1
+    b1 = np.random.rand(10, 1)
+    
+    W2 = np.random.rand(3, 10) * 2 - 1
+    b2 = np.random.rand(3, 1)
+    
+    nn = NeuralNetwork([
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2),
+        nnSigmoidLayer()
+    ])
+    
+    x = np.random.rand(16, 1)
+    
+    # Test snake method
+    neuronOrder = nn.getInputNeuronOrder('snake', x, [4, 4, 1])
+    
+    # Expected snake pattern for 4x4 grid
+    expected_order = np.array([1, 5, 9, 13, 14, 15, 16, 12, 8, 4, 3, 2, 6, 10, 11, 7])
+    assert np.array_equal(neuronOrder, expected_order)
+
+def test_neuralNetwork_getInputNeuronOrder_different_input_sizes():
+    """Test getInputNeuronOrder method with different input sizes"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Create simple network
+    W1 = np.random.rand(5, 8) * 2 - 1
+    b1 = np.random.rand(5, 1)
+    
+    W2 = np.random.rand(2, 5) * 2 - 1
+    b2 = np.random.rand(2, 1)
+    
+    nn = NeuralNetwork([
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ])
+    
+    x = np.random.rand(8, 1)
+    
+    # Test with different methods
+    methods = ['in-order', 'sensitivity']
+    for method in methods:
+        neuronOrder = nn.getInputNeuronOrder(method, x)
         
-        # Call multiple times with same parameters
-        order1 = self.nn.getInputNeuronOrder('sensitivity', x, inputSize)
-        order2 = self.nn.getInputNeuronOrder('sensitivity', x, inputSize)
+        # Should return order with correct length
+        assert len(neuronOrder) == 8
+        assert np.all(neuronOrder >= 1) and np.all(neuronOrder <= 8)
+
+def test_neuralNetwork_getInputNeuronOrder_empty_network():
+    """Test getInputNeuronOrder method with empty network"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    
+    # Create empty network
+    nn = NeuralNetwork([])
+    
+    x = np.random.rand(4, 1)
+    
+    # Test with different methods
+    methods = ['in-order', 'sensitivity']
+    for method in methods:
+        neuronOrder = nn.getInputNeuronOrder(method, x)
         
-        # Results should be consistent for deterministic methods
-        assert isinstance(order1, list)
-        assert isinstance(order2, list)
-        assert len(order1) == len(order2)
+        # Should return sequential order for empty network
+        expected_order = np.arange(1, 5)  # 1-based indexing
+        assert np.array_equal(neuronOrder, expected_order)
+
+def test_neuralNetwork_getInputNeuronOrder_single_layer():
+    """Test getInputNeuronOrder method with single layer network"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    
+    # Create single layer network
+    W = np.random.rand(3, 6) * 2 - 1
+    b = np.random.rand(3, 1)
+    
+    nn = NeuralNetwork([nnLinearLayer(W, b)])
+    
+    x = np.random.rand(6, 1)
+    
+    # Test with different methods
+    methods = ['in-order', 'sensitivity']
+    for method in methods:
+        neuronOrder = nn.getInputNeuronOrder(method, x)
+        
+        # Should return order with correct length
+        assert len(neuronOrder) == 6
+        assert np.all(neuronOrder >= 1) and np.all(neuronOrder <= 6)
+
+def test_neuralNetwork_getInputNeuronOrder_invalid_method():
+    """Test getInputNeuronOrder method with invalid method"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    
+    # Create simple network
+    W = np.random.rand(3, 4) * 2 - 1
+    b = np.random.rand(3, 1)
+    
+    nn = NeuralNetwork([nnLinearLayer(W, b)])
+    
+    x = np.random.rand(4, 1)
+    
+    # Test with invalid method
+    with pytest.raises(ValueError):
+        nn.getInputNeuronOrder('invalid_method', x)

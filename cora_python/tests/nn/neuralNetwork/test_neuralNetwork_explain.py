@@ -1,231 +1,186 @@
 """
-Test file for NeuralNetwork.explain method
+Test for neuralNetwork explain method
 
-This file tests the explanation method of the NeuralNetwork class.
+This test verifies that the explain method works correctly with different parameters.
 """
 
 import pytest
 import numpy as np
-from cora_python.nn.neuralNetwork import NeuralNetwork
-from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
-from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
 
-class TestNeuralNetworkExplain:
-    """Test class for NeuralNetwork.explain method"""
+def test_neuralNetwork_explain_standard():
+    """Test explain method with standard method"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
     
-    def setup_method(self):
-        """Set up test fixtures"""
-        # Create a simple neural network
-        W1 = np.array([[1, 2], [3, 4]])
-        b1 = np.array([[0], [0]])
-        W2 = np.array([[1, 0], [0, 1]])
-        b2 = np.array([[0], [0]])
-        
-        layers = [
-            nnLinearLayer(W1, b1),
-            nnReLULayer(),
-            nnLinearLayer(W2, b2)
-        ]
-        
-        self.nn = NeuralNetwork(layers)
-        
-        # Mock required methods that explain depends on
-        self.nn.getInputNeuronOrder = lambda method, x, inputSize: list(range(inputSize[0]))
+    # Construct network like MATLAB test
+    W1 = np.array([[-9, -8, -7], [10, -6, 0], [-6, 2, 5], [4, 4, -8], [-5, -8, 2], 
+                    [0, 6, 2], [-7, 10, -2], [0, 8, 6], [1, -3, -2], [3, 9, 2]])
+    W2 = np.array([[3, 6, -5, 3, -6, 2, 6, 2, -4, 8], 
+                    [4, 1, 7, -3, -4, 4, 2, 0, 2, -1], 
+                    [-3, 9, 1, 5, 10, 9, 1, 4, -6, -7]])
     
-    def test_explain_basic(self):
-        """Test basic explanation"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon)
-        
-        # Should return lists
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
-        
-        # Check lengths
-        assert len(featOrder) == 2  # 2 input features
-        assert len(timesPerFeat) == 2
+    nn = NeuralNetwork([
+        nnLinearLayer(W1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2)
+    ])
     
-    def test_explain_with_verbose(self):
-        """Test explanation with verbose output"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, verbose=True)
-        
-        # Should work with verbose=True
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+    # Construct input
+    x = np.array([[1], [2], [3]])
+    label = 1
     
-    def test_explain_with_method(self):
-        """Test explanation with different method"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, method='custom')
-        
-        # Should work with custom method
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+    # Compute explanation
+    verbose = False
+    epsilon = 0.2
     
-    def test_explain_with_featOrderMethod(self):
-        """Test explanation with different feature ordering method"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, featOrderMethod='random')
-        
-        # Should work with random feature ordering
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+    # Method: standard
+    method = 'standard'
+    idxFreedFeatsStandard = nn.explain(x, label, epsilon, InputSize=[3, 1, 1], 
+                                       Method=method, Verbose=verbose)
     
-    def test_explain_with_refineMethod(self):
-        """Test explanation with different refinement method"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, refineMethod='custom')
-        
-        # Should work with custom refinement method
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+    # Check expected output
+    assert np.array_equal(idxFreedFeatsStandard, np.array([3, 2]))
+
+def test_neuralNetwork_explain_abstract_refine():
+    """Test explain method with abstract+refine method"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
     
-    def test_explain_with_inputSize(self):
-        """Test explanation with custom input size"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        inputSize = [2, 1, 1]
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, inputSize=inputSize)
-        
-        # Should work with custom input size
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+    # Construct network like MATLAB test
+    W1 = np.array([[-9, -8, -7], [10, -6, 0], [-6, 2, 5], [4, 4, -8], [-5, -8, 2], 
+                    [0, 6, 2], [-7, 10, -2], [0, 8, 6], [1, -3, -2], [3, 9, 2]])
+    W2 = np.array([[3, 6, -5, 3, -6, 2, 6, 2, -4, 8], 
+                    [4, 1, 7, -3, -4, 4, 2, 0, 2, -1], 
+                    [-3, 9, 1, 5, 10, 9, 1, 4, -6, -7]])
     
-    def test_explain_with_refineSteps(self):
-        """Test explanation with refinement steps"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        refineSteps = [1, 2, 3]
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, refineSteps=refineSteps)
-        
-        # Should work with refinement steps
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+    nn = NeuralNetwork([
+        nnLinearLayer(W1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2)
+    ])
     
-    def test_explain_with_bucketType(self):
-        """Test explanation with bucket type"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        bucketType = 'dynamic'
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, bucketType=bucketType)
-        
-        # Should work with bucket type
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+    # Construct input
+    x = np.array([[1], [2], [3]])
+    label = 1
     
-    def test_explain_with_delta(self):
-        """Test explanation with delta parameter"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        delta = 0.2
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, delta=delta)
-        
-        # Should work with delta
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+    # Compute explanation
+    verbose = False
+    epsilon = 0.2
     
-    def test_explain_with_timeout(self):
-        """Test explanation with timeout"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        timeout = 60.0
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, timeout=timeout)
-        
-        # Should work with timeout
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+    # Method: abstract+refine
+    method = 'abstract+refine'
+    idxFreedFeatsStandard = nn.explain(x, label, epsilon, InputSize=[3, 1, 1], 
+                                       Method=method, Verbose=verbose)
     
-    def test_explain_none_inputSize(self):
-        """Test explanation with None inputSize (should use default)"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, inputSize=None)
-        
-        # Should work with default input size
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+    # Check expected output
+    assert np.array_equal(idxFreedFeatsStandard, np.array([3, 2]))
+
+def test_neuralNetwork_explain_different_epsilon():
+    """Test explain method with different epsilon values"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
     
-    def test_explain_list_featOrderMethod(self):
-        """Test explanation with list feature ordering method"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        featOrderMethod = [1, 0]  # Custom order
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, featOrderMethod=featOrderMethod)
-        
-        # Should work with list feature ordering
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
-        assert featOrder == [1, 0]
+    # Construct simple network
+    W1 = np.array([[1, 2], [3, 4]])
+    W2 = np.array([[1, 0], [0, 1]])
     
-    def test_explain_numpy_featOrderMethod(self):
-        """Test explanation with numpy array feature ordering method"""
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
-        featOrderMethod = np.array([1, 0])  # Custom order
-        
-        idxFreedFeats, featOrder, timesPerFeat = self.nn.explain(x, target, epsilon, featOrderMethod=featOrderMethod)
-        
-        # Should work with numpy array feature ordering
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
-        assert featOrder == [1, 0]
+    nn = NeuralNetwork([
+        nnLinearLayer(W1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2)
+    ])
     
-    def test_explain_empty_network(self):
-        """Test explanation with empty network"""
-        empty_nn = NeuralNetwork([])
-        empty_nn.getInputNeuronOrder = lambda method, x, inputSize: list(range(inputSize[0]))
+    # Construct input
+    x = np.array([[1], [2]])
+    label = 0
+    
+    # Test with different epsilon values
+    for epsilon in [0.1, 0.2, 0.5]:
+        result = nn.explain(x, label, epsilon, InputSize=[2, 1, 1], 
+                           Method='standard', Verbose=False)
         
-        x = np.array([[1], [2]])
-        target = 0
-        epsilon = 0.1
+        # Should return array of indices
+        assert isinstance(result, np.ndarray)
+        assert result.ndim == 1
+
+def test_neuralNetwork_explain_different_methods():
+    """Test explain method with different methods"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Construct simple network
+    W1 = np.array([[1, 2], [3, 4]])
+    W2 = np.array([[1, 0], [0, 1]])
+    
+    nn = NeuralNetwork([
+        nnLinearLayer(W1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2)
+    ])
+    
+    # Construct input
+    x = np.array([[1], [2]])
+    label = 0
+    epsilon = 0.2
+    
+    # Test with different methods
+    methods = ['standard', 'abstract+refine']
+    for method in methods:
+        result = nn.explain(x, label, epsilon, InputSize=[2, 1, 1], 
+                           Method=method, Verbose=False)
         
-        idxFreedFeats, featOrder, timesPerFeat = empty_nn.explain(x, target, epsilon)
-        
-        # Should handle empty network gracefully
-        assert isinstance(idxFreedFeats, list)
-        assert isinstance(featOrder, list)
-        assert isinstance(timesPerFeat, list)
+        # Should return array of indices
+        assert isinstance(result, np.ndarray)
+        assert result.ndim == 1
+
+def test_neuralNetwork_explain_verbose():
+    """Test explain method with verbose output"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Construct simple network
+    W1 = np.array([[1, 2], [3, 4]])
+    W2 = np.array([[1, 0], [0, 1]])
+    
+    nn = NeuralNetwork([
+        nnLinearLayer(W1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2)
+    ])
+    
+    # Construct input
+    x = np.array([[1], [2]])
+    label = 0
+    epsilon = 0.2
+    
+    # Test with verbose output
+    result = nn.explain(x, label, epsilon, InputSize=[2, 1, 1], 
+                       Method='standard', Verbose=True)
+    
+    # Should return array of indices
+    assert isinstance(result, np.ndarray)
+    assert result.ndim == 1
+
+def test_neuralNetwork_explain_empty_network():
+    """Test explain method with empty network"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    
+    # Create empty network
+    nn = NeuralNetwork([])
+    
+    # Construct input
+    x = np.array([[1], [2]])
+    label = 0
+    epsilon = 0.2
+    
+    # Should handle empty network gracefully
+    result = nn.explain(x, label, epsilon, InputSize=[2, 1, 1], 
+                       Method='standard', Verbose=False)
+    
+    # Should return array of indices
+    assert isinstance(result, np.ndarray)

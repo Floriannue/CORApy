@@ -532,3 +532,51 @@ class TestNnLinearLayerComplete:
         # Test getOutputSize matches MATLAB: [size(obj.W, 1), 1]
         output_size = self.layer.getOutputSize([2, 1])
         assert output_size == [self.W.shape[0], 1]
+
+def test_nnLinearLayer_constructor_basic():
+    """Test basic constructor like MATLAB test"""
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    
+    # Test basic example
+    W = np.random.rand(4, 3)
+    b = np.random.rand(4, 1)
+    layer = nnLinearLayer(W, b)
+    
+    assert np.allclose(W, layer.W)
+    assert np.allclose(b, layer.b)
+
+def test_nnLinearLayer_constructor_variable_input():
+    """Test constructor with variable input like MATLAB test"""
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    
+    W = np.random.rand(4, 3)
+    layer = nnLinearLayer(W)
+    assert np.sum(layer.b) == 0
+
+def test_nnLinearLayer_constructor_name():
+    """Test constructor with custom name like MATLAB test"""
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    
+    W = np.random.rand(4, 3)
+    b = np.random.rand(4, 1)
+    name = "TestLayer"
+    layer = nnLinearLayer(W, b, name)
+    assert layer.name == name
+
+def test_nnLinearLayer_constructor_wrong_input():
+    """Test constructor with wrong input like MATLAB test"""
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    
+    # Test with no arguments (should raise error)
+    with pytest.raises(TypeError):
+        nnLinearLayer()
+
+def test_nnLinearLayer_constructor_dimension_mismatch():
+    """Test constructor with dimension mismatch like MATLAB test"""
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    
+    W = np.random.rand(4, 3)
+    b = np.random.rand(10, 1)  # Wrong dimension
+    
+    with pytest.raises(ValueError):
+        nnLinearLayer(W, b)

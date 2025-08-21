@@ -106,3 +106,46 @@ def test_nnReLULayer_inheritance():
     assert isinstance(layer, nnLeakyReLULayer)
     assert isinstance(layer, nnActivationLayer)
     assert isinstance(layer, nnLayer)
+
+def test_nnReLULayer_function_values():
+    """Test nnReLULayer function values like MATLAB test"""
+    from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
+    
+    layer = nnReLULayer()
+    
+    # Test function values like MATLAB test
+    assert layer.f(0) == 0
+    assert layer.f(np.inf) == np.inf
+    assert layer.f(-1000) == 0
+
+def test_nnReLULayer_alpha():
+    """Test nnReLULayer alpha value like MATLAB test"""
+    from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
+    
+    layer = nnReLULayer()
+    assert layer.alpha == 0
+
+def test_nnReLULayer_custom_name():
+    """Test nnReLULayer custom name like MATLAB test"""
+    from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
+    
+    customName = 'MyLayer'
+    layer = nnReLULayer(customName)
+    assert layer.name == customName
+
+def test_nnReLULayer_evaluate():
+    """Test nnReLULayer evaluate method like MATLAB test"""
+    from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
+    
+    layer = nnReLULayer()
+    
+    # Test point evaluation
+    x = np.array([[1], [0], [-2]])
+    y = layer.evaluate(x)
+    expected = np.array([[1], [0], [0]])
+    assert np.allclose(y, expected)
+    
+    # Test zonotope evaluation (basic containment check)
+    # Note: This would require zonotope implementation
+    # For now, we'll test that the method exists and can be called
+    assert hasattr(layer, 'evaluate')

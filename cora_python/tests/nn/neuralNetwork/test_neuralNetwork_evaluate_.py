@@ -1,111 +1,268 @@
 """
-Test file for NeuralNetwork.evaluate_ method
+Test for neuralNetwork evaluate_ method
 
-This file tests the internal evaluation method of the NeuralNetwork class.
+This test verifies that the evaluate_ method works correctly with different input types.
 """
 
 import pytest
 import numpy as np
-from cora_python.nn.neuralNetwork import NeuralNetwork
-from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
-from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
 
-class TestNeuralNetworkEvaluate:
-    """Test class for NeuralNetwork.evaluate_ method"""
+def test_neuralNetwork_evaluate_numeric():
+    """Test evaluate_ method with numeric input"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
     
-    def setup_method(self):
-        """Set up test fixtures"""
-        # Create a simple neural network
-        W1 = np.array([[1, 2], [3, 4]])
-        b1 = np.array([[0], [0]])
-        W2 = np.array([[1, 0], [0, 1]])
-        b2 = np.array([[0], [0]])
-        
-        layers = [
-            nnLinearLayer(W1, b1),
-            nnReLULayer(),
-            nnLinearLayer(W2, b2)
-        ]
-        
-        self.nn = NeuralNetwork(layers)
+    # Create a simple neural network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
     
-    def test_evaluate_numeric_input(self):
-        """Test evaluate_ with numeric input"""
-        x = np.array([[1], [2]])
-        options = {}
-        
-        result = self.nn.evaluate_(x, options)
-        
-        # Should return numpy array
-        assert isinstance(result, np.ndarray)
-        assert result.shape[0] == 2  # Output dimension
+    layers = [
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ]
     
-    def test_evaluate_with_layer_indices(self):
-        """Test evaluate_ with specific layer indices"""
-        x = np.array([[1], [2]])
-        options = {}
-        idxLayer = [0, 1]  # Only first two layers
-        
-        result = self.nn.evaluate_(x, options, idxLayer)
-        
-        # Should return numpy array
-        assert isinstance(result, np.ndarray)
+    nn = NeuralNetwork(layers)
     
-    def test_evaluate_with_options(self):
-        """Test evaluate_ with various options"""
-        x = np.array([[1], [2]])
-        options = {
-            'nn': {
-                'train': {
-                    'backprop': True
-                }
-            }
-        }
-        
-        result = self.nn.evaluate_(x, options)
-        
-        # Should return numpy array
-        assert isinstance(result, np.ndarray)
-        
-        # Check if backprop storage was set up
-        for layer in self.nn.layers:
-            if hasattr(layer, 'backprop'):
-                assert 'store' in layer.backprop
+    # Test numeric input
+    x = np.array([[1], [2]])
+    options = {}
     
-    def test_evaluate_unsupported_input_type(self):
-        """Test evaluate_ with unsupported input type"""
-        x = "unsupported_input"
-        options = {}
-        
-        with pytest.raises(NotImplementedError):
-            self.nn.evaluate_(x, options)
+    result = nn.evaluate_(x, options)
     
-    def test_evaluate_none_options(self):
-        """Test evaluate_ with None options"""
-        x = np.array([[1], [2]])
-        
-        result = self.nn.evaluate_(x, None)
-        
-        # Should work with default options
-        assert isinstance(result, np.ndarray)
+    # Should return numeric output
+    assert isinstance(result, np.ndarray)
+    assert result.shape == (2, 1)
+
+def test_neuralNetwork_evaluate_interval():
+    """Test evaluate_ method with interval input"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
     
-    def test_evaluate_none_idxLayer(self):
-        """Test evaluate_ with None idxLayer (should use all layers)"""
-        x = np.array([[1], [2]])
-        options = {}
-        
-        result = self.nn.evaluate_(x, options, None)
-        
-        # Should evaluate through all layers
-        assert isinstance(result, np.ndarray)
+    # Create a simple neural network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
     
-    def test_evaluate_empty_layers(self):
-        """Test evaluate_ with empty network"""
-        empty_nn = NeuralNetwork([])
-        x = np.array([[1], [2]])
-        options = {}
-        
-        result = empty_nn.evaluate_(x, options)
-        
-        # Should return input unchanged
-        np.testing.assert_array_equal(result, x)
+    layers = [
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ]
+    
+    nn = NeuralNetwork(layers)
+    
+    # Test interval input (mock interval object)
+    class MockInterval:
+        def __init__(self, inf, sup):
+            self.inf = inf
+            self.sup = sup
+    
+    x = MockInterval(np.array([[-1], [-1]]), np.array([[1], [1]]))
+    options = {}
+    
+    result = nn.evaluate_(x, options)
+    
+    # Should return interval output
+    assert hasattr(result, 'inf')
+    assert hasattr(result, 'sup')
+
+def test_neuralNetwork_evaluate_zonotope():
+    """Test evaluate_ method with zonotope input"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Create a simple neural network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
+    
+    layers = [
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ]
+    
+    nn = NeuralNetwork(layers)
+    
+    # Test zonotope input (mock zonotope object)
+    class MockZonotope:
+        def __init__(self, center, generators):
+            self.center = center
+            self.generators = generators
+    
+    x = MockZonotope(np.array([[1], [2]]), np.array([[0.1, 0], [0, 0.1]]))
+    options = {}
+    
+    result = nn.evaluate_(x, options)
+    
+    # Should return zonotope output
+    assert hasattr(result, 'center')
+    assert hasattr(result, 'generators')
+
+def test_neuralNetwork_evaluate_polyZonotope():
+    """Test evaluate_ method with polyZonotope input"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Create a simple neural network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
+    
+    layers = [
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ]
+    
+    nn = NeuralNetwork(layers)
+    
+    # Test polyZonotope input (mock polyZonotope object)
+    class MockPolyZonotope:
+        def __init__(self, center, generators):
+            self.center = center
+            self.generators = generators
+    
+    x = MockPolyZonotope(np.array([[1], [2]]), np.array([[0.1, 0], [0, 0.1]]))
+    options = {}
+    
+    result = nn.evaluate_(x, options)
+    
+    # Should return polyZonotope output
+    assert hasattr(result, 'center')
+    assert hasattr(result, 'generators')
+
+def test_neuralNetwork_evaluate_taylm():
+    """Test evaluate_ method with taylm input"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Create a simple neural network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
+    
+    layers = [
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ]
+    
+    nn = NeuralNetwork(layers)
+    
+    # Test taylm input (mock taylm object)
+    class MockTaylm:
+        def __init__(self, monomials):
+            self.monomials = monomials
+    
+    x = MockTaylm(np.array([[1], [2]]))
+    options = {}
+    
+    result = nn.evaluate_(x, options)
+    
+    # Should return taylm output
+    assert hasattr(result, 'monomials')
+
+def test_neuralNetwork_evaluate_conZonotope():
+    """Test evaluate_ method with conZonotope input"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Create a simple neural network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
+    
+    layers = [
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ]
+    
+    nn = NeuralNetwork(layers)
+    
+    # Test conZonotope input (mock conZonotope object)
+    class MockConZonotope:
+        def __init__(self, C, d):
+            self.C = C
+            self.d = d
+    
+    x = MockConZonotope(np.array([[1, 0], [0, 1]]), np.array([[0.1], [0.1]]))
+    options = {}
+    
+    result = nn.evaluate_(x, options)
+    
+    # Should return conZonotope output
+    assert hasattr(result, 'C')
+    assert hasattr(result, 'd')
+
+def test_neuralNetwork_evaluate_unsupported_type():
+    """Test evaluate_ method with unsupported input type"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Create a simple neural network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
+    
+    layers = [
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ]
+    
+    nn = NeuralNetwork(layers)
+    
+    # Test unsupported input type
+    x = "unsupported_type"
+    options = {}
+    
+    with pytest.raises(NotImplementedError):
+        nn.evaluate_(x, options)
+
+def test_neuralNetwork_evaluate_with_layer_indices():
+    """Test evaluate_ method with specific layer indices"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Create a simple neural network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
+    
+    layers = [
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ]
+    
+    nn = NeuralNetwork(layers)
+    
+    # Test with specific layer indices
+    x = np.array([[1], [2]])
+    options = {}
+    idxLayer = [1, 2]  # Only evaluate first two layers
+    
+    result = nn.evaluate_(x, options, idxLayer)
+    
+    # Should return output from specified layers
+    assert isinstance(result, np.ndarray)

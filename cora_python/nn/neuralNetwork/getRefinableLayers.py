@@ -22,7 +22,7 @@ Last update:   23-November-2022 (polish)
                Automatic python translation: Florian Nüssel BA 2025
 """
 
-from typing import List
+from typing import List, Any
 
 def getRefinableLayers(self) -> List[Any]:
     """

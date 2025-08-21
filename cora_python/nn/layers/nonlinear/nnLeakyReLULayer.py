@@ -129,14 +129,14 @@ class nnLeakyReLULayer(nnActivationLayer):
         
         return df_l, df_u
     
-    def computeApproxPoly(self, l: np.ndarray, u: np.ndarray, **kwargs) -> Tuple[np.ndarray, float]:
+    def computeApproxPoly(self, l: np.ndarray, u: np.ndarray, *args) -> Tuple[np.ndarray, float]:
         """
-        Compute approximating polynomial
+        Compute approximating polynomial - match MATLAB exactly
         
         Args:
             l: Lower bounds
             u: Upper bounds
-            **kwargs: Additional arguments
+            *args: order and poly_method (order defaults to 1, poly_method defaults to 'regression')
             
         Returns:
             Tuple of (coeffs, d) polynomial coefficients and error bound
@@ -155,9 +155,9 @@ class nnLeakyReLULayer(nnActivationLayer):
             d = 0  # no approximation error!
             
         else:  # l < 0 < u
-            # This would call the parent class method in MATLAB
-            # For now, we'll use a simple linear approximation
-            coeffs, d = self.computeApproxPolyCustom(l, u, 1, 'singh')
+            # This calls the parent class method in MATLAB
+            # We need to call the parent method with the correct signature
+            coeffs, d = super().computeApproxPoly(l, u, *args)
         
         return coeffs, d
     

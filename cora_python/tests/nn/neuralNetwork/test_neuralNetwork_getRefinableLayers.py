@@ -1,153 +1,151 @@
 """
-Test file for NeuralNetwork.getRefinableLayers method
+Test for neuralNetwork getRefinableLayers method
 
-This file tests the getRefinableLayers method of the NeuralNetwork class.
+This test verifies that the getRefinableLayers method works correctly with different networks.
 """
 
 import pytest
 import numpy as np
-from cora_python.nn.neuralNetwork import NeuralNetwork
-from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
-from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
 
-class TestNeuralNetworkGetRefinableLayers:
-    """Test class for NeuralNetwork.getRefinableLayers method"""
+def test_neuralNetwork_getRefinableLayers_basic():
+    """Test getRefinableLayers method with basic network"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
     
-    def setup_method(self):
-        """Set up test fixtures"""
-        # Create a simple neural network
-        W1 = np.array([[1, 2], [3, 4]])
-        b1 = np.array([[0], [0]])
-        W2 = np.array([[1, 0], [0, 1]])
-        b2 = np.array([[0], [0]])
-        
-        layers = [
-            nnLinearLayer(W1, b1),
-            nnReLULayer(),
-            nnLinearLayer(W2, b2)
-        ]
-        
-        self.nn = NeuralNetwork(layers)
+    # Create a simple neural network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
     
-    def test_getRefinableLayers_basic(self):
-        """Test basic getRefinableLayers functionality"""
-        refinable_layers = self.nn.getRefinableLayers()
-        
-        # Should return a list
-        assert isinstance(refinable_layers, list)
-        
-        # Initially no layers should be refinable
-        assert len(refinable_layers) == 0
+    layers = [
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ]
     
-    def test_getRefinableLayers_with_refinable_layers(self):
-        """Test getRefinableLayers with refinable layers"""
-        # Make some layers refinable
-        self.nn.layers[0].is_refinable = True
-        self.nn.layers[1].is_refinable = True
-        
-        refinable_layers = self.nn.getRefinableLayers()
-        
-        # Should return refinable layers
-        assert len(refinable_layers) == 2
-        assert self.nn.layers[0] in refinable_layers
-        assert self.nn.layers[1] in refinable_layers
-        assert self.nn.layers[2] not in refinable_layers
+    nn = NeuralNetwork(layers)
     
-    def test_getRefinableLayers_mixed_refinable(self):
-        """Test getRefinableLayers with mixed refinable status"""
-        # Make only one layer refinable
-        self.nn.layers[0].is_refinable = True
-        self.nn.layers[1].is_refinable = False
-        self.nn.layers[2].is_refinable = True
-        
-        refinable_layers = self.nn.getRefinableLayers()
-        
-        # Should return only refinable layers
-        assert len(refinable_layers) == 2
-        assert self.nn.layers[0] in refinable_layers
-        assert self.nn.layers[1] not in refinable_layers
-        assert self.nn.layers[2] in refinable_layers
+    # Get refinable layers
+    refinable_layers = nn.getRefinableLayers()
     
-    def test_getRefinableLayers_all_refinable(self):
-        """Test getRefinableLayers with all layers refinable"""
-        # Make all layers refinable
-        for layer in self.nn.layers:
-            layer.is_refinable = True
-        
-        refinable_layers = self.nn.getRefinableLayers()
-        
-        # Should return all layers
-        assert len(refinable_layers) == 3
-        for layer in self.nn.layers:
-            assert layer in refinable_layers
+    # Should return list of refinable layers
+    assert isinstance(refinable_layers, list)
     
-    def test_getRefinableLayers_none_refinable(self):
-        """Test getRefinableLayers with no refinable layers"""
-        # Make no layers refinable
-        for layer in self.nn.layers:
-            layer.is_refinable = False
-        
-        refinable_layers = self.nn.getRefinableLayers()
-        
-        # Should return empty list
-        assert len(refinable_layers) == 0
+    # Check that sigmoid layer is refinable
+    assert any(isinstance(layer, nnSigmoidLayer) for layer in refinable_layers)
+
+def test_neuralNetwork_getRefinableLayers_mixed():
+    """Test getRefinableLayers method with mixed layer types"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
+    from cora_python.nn.layers.nonlinear.nnTanhLayer import nnTanhLayer
     
-    def test_getRefinableLayers_empty_network(self):
-        """Test getRefinableLayers with empty network"""
-        empty_nn = NeuralNetwork([])
-        
-        refinable_layers = empty_nn.getRefinableLayers()
-        
-        # Should return empty list
-        assert isinstance(refinable_layers, list)
-        assert len(refinable_layers) == 0
+    # Create a network with mixed layer types
+    layers = [
+        nnLinearLayer(np.array([[1, 2], [3, 4]])),
+        nnSigmoidLayer(),
+        nnLinearLayer(np.array([[1, 0], [0, 1]])),
+        nnReLULayer(),
+        nnLinearLayer(np.array([[1, 1], [1, 1]])),
+        nnTanhLayer()
+    ]
     
-    def test_getRefinableLayers_single_layer(self):
-        """Test getRefinableLayers with single layer"""
-        single_layer_nn = NeuralNetwork([self.nn.layers[0]])
-        
-        # Make layer refinable
-        single_layer_nn.layers[0].is_refinable = True
-        
-        refinable_layers = single_layer_nn.getRefinableLayers()
-        
-        # Should return the single layer
-        assert len(refinable_layers) == 1
-        assert single_layer_nn.layers[0] in refinable_layers
+    nn = NeuralNetwork(layers)
     
-    def test_getRefinableLayers_missing_attribute(self):
-        """Test getRefinableLayers with layers missing is_refinable attribute"""
-        # Remove is_refinable attribute from some layers
-        delattr(self.nn.layers[0], 'is_refinable')
-        self.nn.layers[1].is_refinable = True
-        delattr(self.nn.layers[2], 'is_refinable')
-        
-        refinable_layers = self.nn.getRefinableLayers()
-        
-        # Should only return layers with is_refinable=True
-        assert len(refinable_layers) == 1
-        assert self.nn.layers[1] in refinable_layers
+    # Get refinable layers
+    refinable_layers = nn.getRefinableLayers()
     
-    def test_getRefinableLayers_false_values(self):
-        """Test getRefinableLayers with various false values"""
-        # Test different false values
-        self.nn.layers[0].is_refinable = False
-        self.nn.layers[1].is_refinable = 0
-        self.nn.layers[2].is_refinable = None
-        
-        refinable_layers = self.nn.getRefinableLayers()
-        
-        # Should return empty list (all values are falsy)
-        assert len(refinable_layers) == 0
+    # Should return list of refinable layers
+    assert isinstance(refinable_layers, list)
     
-    def test_getRefinableLayers_true_values(self):
-        """Test getRefinableLayers with various true values"""
-        # Test different true values
-        self.nn.layers[0].is_refinable = True
-        self.nn.layers[1].is_refinable = 1
-        self.nn.layers[2].is_refinable = "any_string"
+    # Check that activation layers are refinable
+    assert any(isinstance(layer, nnSigmoidLayer) for layer in refinable_layers)
+    assert any(isinstance(layer, nnReLULayer) for layer in refinable_layers)
+    assert any(isinstance(layer, nnTanhLayer) for layer in refinable_layers)
+    
+    # Check that linear layers are not refinable
+    assert not any(isinstance(layer, nnLinearLayer) for layer in refinable_layers)
+
+def test_neuralNetwork_getRefinableLayers_empty():
+    """Test getRefinableLayers method with empty network"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    
+    # Create empty network
+    nn = NeuralNetwork([])
+    
+    # Get refinable layers
+    refinable_layers = nn.getRefinableLayers()
+    
+    # Should return empty list
+    assert isinstance(refinable_layers, list)
+    assert len(refinable_layers) == 0
+
+def test_neuralNetwork_getRefinableLayers_no_refinable():
+    """Test getRefinableLayers method with network containing no refinable layers"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    
+    # Create network with only linear layers
+    layers = [
+        nnLinearLayer(np.array([[1, 2], [3, 4]])),
+        nnLinearLayer(np.array([[1, 0], [0, 1]])),
+        nnLinearLayer(np.array([[1, 1], [1, 1]]))
+    ]
+    
+    nn = NeuralNetwork(layers)
+    
+    # Get refinable layers
+    refinable_layers = nn.getRefinableLayers()
+    
+    # Should return empty list
+    assert isinstance(refinable_layers, list)
+    assert len(refinable_layers) == 0
+
+def test_neuralNetwork_getRefinableLayers_single_refinable():
+    """Test getRefinableLayers method with network containing single refinable layer"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Create network with single sigmoid layer
+    layers = [nnSigmoidLayer()]
+    
+    nn = NeuralNetwork(layers)
+    
+    # Get refinable layers
+    refinable_layers = nn.getRefinableLayers()
+    
+    # Should return list with single layer
+    assert isinstance(refinable_layers, list)
+    assert len(refinable_layers) == 1
+    assert isinstance(refinable_layers[0], nnSigmoidLayer)
+
+def test_neuralNetwork_getRefinableLayers_custom_refinable():
+    """Test getRefinableLayers method with custom refinable layer"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.nnLayer import nnLayer
+    
+    # Create custom refinable layer
+    class CustomRefinableLayer(nnLayer):
+        def __init__(self):
+            super().__init__()
+            self.is_refinable = True
         
-        refinable_layers = self.nn.getRefinableLayers()
-        
-        # Should return all layers (all values are truthy)
-        assert len(refinable_layers) == 3
+        def evaluate(self, input_data, options):
+            return input_data
+    
+    # Create network with custom layer
+    layers = [CustomRefinableLayer()]
+    
+    nn = NeuralNetwork(layers)
+    
+    # Get refinable layers
+    refinable_layers = nn.getRefinableLayers()
+    
+    # Should return list with custom layer
+    assert isinstance(refinable_layers, list)
+    assert len(refinable_layers) == 1
+    assert isinstance(refinable_layers[0], CustomRefinableLayer)

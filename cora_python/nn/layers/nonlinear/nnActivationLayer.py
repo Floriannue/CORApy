@@ -41,7 +41,11 @@ from ..nnLayer import nnLayer
 
 from cora_python.contSet.interval import Interval
 from cora_python.contSet.emptySet import EmptySet
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+from cora_python.nn.nnHelper import leastSquarePolyFunc
+from cora_python.nn.nnHelper import leastSquareRidgePolyFunc
+from cora_python.nn.nnHelper import minMaxDiffOrder
 
 class nnActivationLayer(nnLayer):
     """
@@ -81,6 +85,9 @@ class nnActivationLayer(nnLayer):
         # init function handles
         self.f = lambda x: self.evaluateNumeric(x, {'backprop': False})
         self.df = self.getDf(1)
+        
+        # initialize backprop storage
+        self.backprop = {'store': {}}
     
     # evaluate (element-wise) -------------------------------------------------
     
@@ -113,12 +120,12 @@ class nnActivationLayer(nnLayer):
         if options.get('nn', {}).get('reuse_bounds', False):
             # save bounds
             if (not self.l or not self.u or 
-                not all(size == size_old for size, size_old in zip(bounds.shape, self.l.shape))):
+                not all(size == size_old for size, size_old in zip(bounds.inf.shape, self.l.shape))):
                 self.l = bounds.inf
                 self.u = bounds.sup
                 
                 # set bounds
-            elif (self._representsa_emptySet(bounds, eps=1e-10) and 
+            elif (bounds.representsa_('emptySet', 1e-10) and 
                   any(np.isnan(self.l)) and any(np.isnan(self.u))):
                 bounds = Interval(self.l, self.u)
             
@@ -176,6 +183,56 @@ class nnActivationLayer(nnLayer):
         
         return rc, rG
     
+    def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray, 
+                            id: np.ndarray, id_: np.ndarray, ind: np.ndarray, ind_: np.ndarray, 
+                            options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
+                                                           np.ndarray, np.ndarray, np.ndarray, 
+                                                           np.ndarray, np.ndarray]:
+        """
+        Evaluate polyZonotope input
+        
+        Args:
+            c: Center
+            G: Generators
+            GI: Independent generators
+            E: Exponent matrix
+            id: Identifiers
+            id_: Identifiers
+            ind: Indices
+            ind_: Indices
+            options: Evaluation options
+            
+        Returns:
+            Tuple of evaluation results
+        """
+        # This method needs to be implemented based on MATLAB logic
+        # For now, return placeholders
+        raise CORAerror('CORA:notSupported', 'evaluatePolyZonotope not implemented yet')
+    
+    def evaluatePolyZonotopeNeuron(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray, 
+                                  Es: np.ndarray, order: int, ind: np.ndarray, ind_: np.ndarray, 
+                                  options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+        """
+        Evaluate polyZonotope for a specific neuron
+        
+        Args:
+            c: Center
+            G: Generators
+            GI: Independent generators
+            E: Exponent matrix
+            Es: Exponent matrix
+            order: Polynomial order
+            ind: Indices
+            ind_: Indices
+            options: Evaluation options
+            
+        Returns:
+            Tuple of (c, G, GI, d) results
+        """
+        # This method needs to be implemented based on MATLAB logic
+        # For now, return placeholders
+        raise CORAerror('CORA:notSupported', 'evaluatePolyZonotopeNeuron not implemented yet')
+    
     def evaluateTaylmNeuron(self, input_data: np.ndarray, order: int, options: Dict[str, Any]) -> np.ndarray:
         """
         Evaluate Taylor model for a specific neuron
@@ -206,6 +263,21 @@ class nnActivationLayer(nnLayer):
         
         return r
     
+    def evaluateTaylm(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+        """
+        Evaluate Taylor model input
+        
+        Args:
+            input_data: Input data
+            options: Evaluation options
+            
+        Returns:
+            r: Taylor model evaluation result
+        """
+        # This method needs to be implemented based on MATLAB logic
+        # For now, return placeholder
+        raise CORAerror('CORA:notSupported', 'evaluateTaylm not implemented yet')
+    
     def evaluateConZonotopeNeuron(self, c: np.ndarray, G: np.ndarray, C: np.ndarray, 
                                   d: np.ndarray, l: np.ndarray, u: np.ndarray, 
                                   j: int, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, 
@@ -227,7 +299,30 @@ class nnActivationLayer(nnLayer):
         Returns:
             Tuple of evaluation results
         """
-        raise NotImplementedError("conZonotope not supported for this layer")
+        raise CORAerror('CORA:notSupported', 'conZonotope not supported for this layer')
+    
+    def evaluateConZonotope(self, c: np.ndarray, G: np.ndarray, C: np.ndarray, 
+                           d: np.ndarray, l: np.ndarray, u: np.ndarray, 
+                           options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
+                                                          np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Evaluate constraint zonotope input
+        
+        Args:
+            c: Center
+            G: Generators
+            C: Constraint matrix
+            d: Constraint vector
+            l: Lower bounds
+            u: Upper bounds
+            options: Evaluation options
+            
+        Returns:
+            Tuple of evaluation results
+        """
+        # This method needs to be implemented based on MATLAB logic
+        # For now, return placeholders
+        raise CORAerror('CORA:notSupported', 'evaluateConZonotope not implemented yet')
     
     # backprop ------------------------------------------------------------
     
@@ -345,9 +440,9 @@ class nnActivationLayer(nnLayer):
         Returns:
             df_i: Derivative function
         """
-        # This would require nnHelper.lookupDf
-        # For now, return a placeholder
-        raise NotImplementedError("getDf not implemented in base class")
+        # This is an abstract method that subclasses must implement
+        # In MATLAB, this calls nnHelper.lookupDf(obj,i)
+        raise CORAerror('CORA:notDefined', 'getDf must be implemented in subclasses')
     
     def getNumNeurons(self) -> Tuple[Optional[int], Optional[int]]:
         """
@@ -373,62 +468,6 @@ class nnActivationLayer(nnLayer):
         outputSize = inputSize  # for most activation functions
         return outputSize
     
-    # approximation polynomial + error
-    
-    def computeApproxError(self, l: np.ndarray, u: np.ndarray, coeffs: np.ndarray) -> Tuple[np.ndarray, float]:
-        """
-        Compute approximation error
-        
-        Args:
-            l: Lower bounds
-            u: Upper bounds
-            coeffs: Polynomial coefficients
-            
-        Returns:
-            Tuple of (coeffs, d) updated coefficients and error bound
-        """
-        # bound approximation error according to [1, Sec. 3.2]
-        
-        # compute the difference between activation function and quad. fit
-        df_l, df_u = self.getDerBounds(l, u)
-        # This would require nnHelper.minMaxDiffOrder
-        # For now, use a simplified approach
-        diffl = np.zeros_like(l)
-        diffu = np.zeros_like(u)
-        
-        # change polynomial s.t. lower and upper error are equal
-        diffc = (diffl + diffu) / 2
-        coeffs[-1] = coeffs[-1] + diffc
-        d = diffu - diffc  # error is radius then.
-        
-        return coeffs, d
-    
-    def getFieldStruct(self) -> Dict[str, Any]:
-        """
-        Get field structure for serialization
-        
-        Returns:
-            fieldStruct: Field structure
-        """
-        fieldStruct = {}
-        if self.merged_neurons:
-            fieldStruct['merged_neurons'] = self.merged_neurons
-        return fieldStruct
-    
-    @staticmethod
-    def instantiateFromString(activation: str) -> 'nnActivationLayer':
-        """
-        Instantiate activation layer from string
-        
-        Args:
-            activation: Activation function name
-            
-        Returns:
-            layer: Activation layer instance
-        """
-        # This is a placeholder - subclasses should override
-        raise NotImplementedError("instantiateFromString not implemented in base class")
-    
     @abstractmethod
     def getDerBounds(self, l: np.ndarray, u: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -443,23 +482,37 @@ class nnActivationLayer(nnLayer):
         """
         pass
     
-    def computeApproxPoly(self, l: np.ndarray, u: np.ndarray, **kwargs) -> Tuple[np.ndarray, float]:
+    # approximation polynomial + error
+    
+    def computeApproxError(self, l: np.ndarray, u: np.ndarray, coeffs: np.ndarray) -> Tuple[np.ndarray, float]:
         """
-        Compute approximating polynomial
+        Compute approximation error - match MATLAB exactly
         
         Args:
             l: Lower bounds
             u: Upper bounds
-            **kwargs: Additional arguments
+            coeffs: Polynomial coefficients
             
         Returns:
-            Tuple of (coeffs, d) polynomial coefficients and error bound
+            Tuple of (coeffs, d) updated coefficients and error bound
         """
-        # This is a placeholder - subclasses should override
-        raise NotImplementedError("computeApproxPoly not implemented in base class")
+        # bound approximation error according to [1, Sec. 3.2]
+        
+        # compute the difference between activation function and quad. fit
+        df_l, df_u = self.getDerBounds(l, u)
+        
+        # Use the proper nnHelper function like MATLAB
+        diffl, diffu = minMaxDiffOrder(coeffs, l, u, self.f, df_l, df_u)
+        
+        # change polynomial s.t. lower and upper error are equal
+        diffc = (diffl + diffu) / 2
+        coeffs[-1] = coeffs[-1] + diffc
+        d = diffu - diffc  # error is radius then.
+        
+        return coeffs, d
     
     def findRegionPolys(self, tol: float, order: int, l_max: np.ndarray, u_max: np.ndarray, 
-                        pStart: np.ndarray, dStart: float, pEnd: np.ndarray, dEnd: float) -> np.ndarray:
+                        pStart: np.ndarray, dStart: float, pEnd: np.ndarray, dEnd: float) -> list:
         """
         Find regions with approximating polynomials
         
@@ -474,10 +527,250 @@ class nnActivationLayer(nnLayer):
             dEnd: End error
             
         Returns:
-            coeffs: Polynomial coefficients
+            coeffs: List of dictionaries with polynomial coefficients and regions
         """
-        # This is a placeholder - subclasses should override
-        raise NotImplementedError("findRegionPolys not implemented in base class")
+        # Check magnitude of given approx errors
+        if dStart > tol:
+            # CORAwarning('CORA:nn','nnActivationLayer/findRegionPolys: dStart > tol.')
+            pass
+        if dEnd > tol:
+            # CORAwarning('CORA:nn','nnActivationLayer/findRegionPolys: dEnd > tol.')
+            pass
+        
+        # Remove reg_polys if present
+        if hasattr(self, 'reg_polys'):
+            # CORAwarning('CORA:nn',"Temporarily removing current region polynomials.")
+            reg_polys = self.reg_polys
+            self.reg_polys = []
+        else:
+            reg_polys = None
+        
+        # Init list
+        coeffs = []
+        
+        # Start polynomial
+        coeffs.append({
+            'l': float('-inf'),
+            'u': l_max,
+            'p': pStart,
+            'd': dStart
+        })
+        
+        # Iteratively find approx polynomial
+        l = l_max
+        u = u_max
+        while l < u:
+            print(f"Progress: {((u_max-l_max)-(u-l))/(u_max-l_max) * 100:.2f}%")
+            
+            # Left polynomial
+            u_i = u
+            d = np.inf
+            p = [0, 0]
+            
+            while d > tol:
+                if not np.isinf(d):
+                    # Shorten region
+                    u_i = l + (u_i - l) * 0.5
+                    
+                    if (u_i - l) < tol:
+                        raise CORAerror('CORA:notConverged', 
+                                      f'Unable to find polynomial at [{l:.6f},{u:.6f}]. Reached x={u_i:.6f}.')
+                
+                # Find polynomial + error
+                p, d = self.computeApproxPoly(l, u_i, order, "regression")
+            
+            # Working polynomial found, trying to reduce the order
+            for o in range(order - 1, -1, -1):
+                # Find polynomial + error
+                p_o, d_o = self.computeApproxPoly(l, u_i, o, "regression")
+                
+                if d_o < tol:
+                    # Update with lower-order polynomial
+                    p = p_o
+                    d = d_o
+                else:
+                    # No lower order polynomial will recover d to be below tol
+                    break
+            
+            # Next polynomial
+            coeffs.append({
+                'l': l,
+                'u': u_i,
+                'p': p,
+                'd': d
+            })
+            
+            # Move to next region
+            l = u_i
+            
+            if l == u:
+                # Check if entire domain is covered
+                break
+            
+            print(f"Progress: {((u_max-l_max)-(u-l))/(u_max-l_max) * 100:.2f}%")
+            
+            # Right polynomial
+            l_i = l
+            d = np.inf
+            p = [0, 0]
+            
+            while d > tol:
+                if not np.isinf(d):
+                    # Half region
+                    l_i = u - (u - l_i) / 2
+                    
+                    if (u - l_i) < tol:
+                        raise CORAerror('CORA:notConverged', 
+                                      f'Unable to find polynomial at [{l:.6f},{u:.6f}]. Reached x={l_i:.6f}.')
+                
+                # Find polynomial + error
+                p, d = self.computeApproxPoly(l_i, u, order, "regression")
+                p, d = self.computeApproxError(l_i, u, p)
+            
+            # Next polynomial
+            coeffs.append({
+                'l': l_i,
+                'u': u,
+                'p': p,
+                'd': d
+            })
+            
+            # Move to next region
+            u = l_i
+        
+        print(f"Progress: {((u_max-l_max)-(u-l))/(u_max-l_max) * 100:.2f}%")
+        
+        # End polynomial
+        coeffs.append({
+            'l': u_max,
+            'u': float('inf'),
+            'p': pEnd,
+            'd': dEnd
+        })
+        
+        # Sort coeffs
+        coeffs.sort(key=lambda x: x['l'])
+        
+        print(f"Required {len(coeffs)} polynomials.")
+        
+        # Restore reg_polys
+        if reg_polys is not None:
+            self.reg_polys = reg_polys
+        
+        return coeffs
+    
+
+    
+
+    
+    def computeApproxPoly(self, l: np.ndarray, u: np.ndarray, *args) -> Tuple[np.ndarray, float]:
+        """
+        Compute approximating polynomial
+        
+        Args:
+            l: Lower bounds
+            u: Upper bounds
+            *args: order and poly_method (order defaults to 1, poly_method defaults to 'regression')
+            
+        Returns:
+            Tuple of (coeffs, d) polynomial coefficients and error bound
+        """
+        # parse input validation - match MATLAB exactly
+        if len(args) == 0:
+            order = 1
+            poly_method = 'regression'
+        elif len(args) == 1:
+            order = args[0]
+            poly_method = 'regression'
+        elif len(args) == 2:
+            order = args[0]
+            poly_method = args[1]
+        else:
+            raise CORAerror('CORA:wrongInputInConstructor', 'Too many arguments')
+        
+        # validate inputs - match MATLAB exactly
+        if not isinstance(l, (int, float, np.ndarray)) or not isinstance(u, (int, float, np.ndarray)):
+            raise CORAerror('CORA:wrongInputInConstructor', 'l and u must be numeric scalars')
+        if not isinstance(order, int) or order < 1:
+            raise CORAerror('CORA:wrongInputInConstructor', 'order must be a positive integer')
+        
+        valid_poly_methods = ['regression', 'ridgeregression', 'bernstein', 
+                             'throw-catch', 'taylor', 'singh', 'bounds']
+        if poly_method not in valid_poly_methods:
+            raise CORAerror('CORA:wrongInputInConstructor', f"poly_method must be one of {valid_poly_methods}")
+        
+        # trivial case - match MATLAB exactly
+        if l == u:
+            # compute tangent line in l
+            coeffs = [self.df(l), self.f(l) - self.df(l) * l]
+            d = 0
+            return coeffs, d
+        elif l > u:
+            raise CORAerror('CORA:wrongInputInConstructor', 'l must be <= u')
+        
+        # init
+        coeffs = []
+        d = []
+        
+        # compute approximation polynomial
+        # use at 10 points per coeff within [l, u] for regression
+        # https://en.wikipedia.org/wiki/One_in_ten_rule
+        num_points = 10 * (order + 1)
+        
+        if poly_method == 'regression':
+            x = np.linspace(l, u, num_points)
+            y = self.f(x)
+            
+            # compute polynomial that best fits the activation function
+            coeffs = leastSquarePolyFunc(x, y, order)
+            
+        elif poly_method == 'ridgeregression':
+            x = np.linspace(l, u, num_points)
+            y = self.f(x)
+            
+            coeffs = leastSquareRidgePolyFunc(x, y, order)
+            
+        elif poly_method == 'taylor':
+            # taylor series expansion at middle point
+            c = (l + u) / 2
+            
+            # init
+            P = [1]  # pascal's triangle
+            coeffs = np.zeros(order + 1)
+            
+            # taylor series expansion
+            for i in range(order + 1):
+                df_i = self.getDf(i)
+                coeffs[-(i+1):] = coeffs[-(i+1):] + \
+                    (np.array(P) * (-c) ** np.arange(i+1)) * df_i(c) / np.math.factorial(i)
+                
+                # prepare for next iteration
+                P = [1] + [P[j] + P[j+1] for j in range(len(P)-1)] + [1]
+            
+            # TODO: lagrange remainder
+            # d = ?
+            
+        elif poly_method == 'singh':
+            # call custom implementation
+            coeffs, d = self.computeApproxPolyCustom(l, u, order, poly_method)
+            
+        elif poly_method == 'bounds':
+            coeffs = [(self.f(u) - self.f(l)) / (u - l), 0]
+            
+        else:
+            # other methods not implemented yet
+            coeffs = []
+            d = []
+        
+        # parse coeffs and d - match MATLAB exactly
+        if len(coeffs) == 0:
+            # unable to determine coeffs
+            raise CORAerror('CORA:notSupported', f"'{poly_method}' for polynomial of order={order}")
+        elif len(d) == 0:
+            # compute approx error if not found already
+            coeffs, d = self.computeApproxError(l, u, coeffs)
+        
+        return coeffs, d
     
     def computeApproxPolyCustom(self, l: np.ndarray, u: np.ndarray, order: int, poly_method: str) -> Tuple[np.ndarray, float]:
         """
@@ -495,6 +788,9 @@ class nnActivationLayer(nnLayer):
         # implement custom polynomial computation in subclass
         coeffs = []
         d = 0.0
+        
+        # This method should be overridden in subclasses for specific activation functions
+        # The base implementation returns empty coefficients
         return coeffs, d
     
     def computeExtremePointsBatch(self, m: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
@@ -508,7 +804,7 @@ class nnActivationLayer(nnLayer):
         Returns:
             Tuple of (xs, dxsdm) extreme points and derivatives
         """
-        raise NotImplementedError("computeExtremePointsBatch not implemented in base class")
+        raise CORAerror('CORA:notDefined', 'computeExtremePointsBatch not implemented in base class')
     
     def aux_imgEncBatch(self, f: callable, df: callable, c: np.ndarray, G: np.ndarray, 
                         options: Dict[str, Any], extremePoints: callable) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
@@ -548,7 +844,7 @@ class nnActivationLayer(nnLayer):
         elif options['nn']['poly_method'] == 'singh':
             m = np.minimum(df(l).astype(l.dtype), df(u).astype(u.dtype))
         else:
-            raise ValueError(f"Unsupported 'options.nn.poly_method': {options['nn']['poly_method']}")
+            raise CORAerror('CORA:notSupported', f"Unsupported 'options.nn.poly_method': {options['nn']['poly_method']}")
         
         # evaluate image enclosure
         rc = m * c
@@ -644,7 +940,7 @@ class nnActivationLayer(nnLayer):
                     m_c = ddf(lu[mIdx]) * np.ones_like(c)
                     m_G = np.transpose(-1 * (mIdx == 0).astype(float) * m_c, (1, 2, 0)) * r_G
                 else:
-                    raise ValueError(f"Unsupported 'options.nn.poly_method': {options['nn']['poly_method']}")
+                    raise CORAerror('CORA:notSupported', f"Unsupported 'options.nn.poly_method': {options['nn']['poly_method']}")
                 
                 # Add gradients for interval bounds.
                 if options['nn']['poly_method'] == 'bounds':
@@ -702,9 +998,53 @@ class nnActivationLayer(nnLayer):
         
         return rc, rG, coeffs, d
     
-    # Helper methods for CORA functionality
-    def _representsa_emptySet(self, obj, eps: float = 1e-10) -> bool:
-        """Check if object represents empty set"""
-        if EmptySet is not None:
-            return hasattr(obj, 'representsa_') and obj.representsa_('emptySet', eps)
-        return False
+
+
+    @staticmethod
+    def instantiateFromString(activation: str) -> 'nnActivationLayer':
+        """
+        Instantiate activation layer from string
+        
+        Args:
+            activation: Activation function name
+            
+        Returns:
+            layer: Activation layer instance
+        """
+        # Check input arguments
+        activation = activation.lower()
+        possible_activations = ['relu', 'sigmoid', 'tanh', 'softmax', 'identity', 'none', 'invsqrtroot', 'sqrt']
+        
+        if activation not in possible_activations:
+            raise CORAerror('CORA:wrongValue', 'first', ', '.join(possible_activations))
+        
+        # Import here to avoid circular imports
+        if activation == "relu":
+            from .nnReLULayer import nnReLULayer
+            layer = nnReLULayer()
+        elif activation == "sigmoid":
+            from .nnSigmoidLayer import nnSigmoidLayer
+            layer = nnSigmoidLayer()
+        elif activation == "tanh":
+            from .nnTanhLayer import nnTanhLayer
+            layer = nnTanhLayer()
+        elif activation == "softmax":
+            from .nnSoftmaxLayer import nnSoftmaxLayer
+            layer = nnSoftmaxLayer()
+        elif activation == "identity":
+            # For now, use ReLU as identity (should be nnIdentityLayer when implemented)
+            raise CORAerror('CORA:notSupported', 'identity activation not implemented yet')
+        elif activation == "none":
+            # For now, use ReLU as none (should be nnIdentityLayer when implemented)
+            raise CORAerror('CORA:notSupported', 'none activation not implemented yet')
+        elif activation == "invsqrtroot":
+            # For now, use ReLU as invsqrtroot (should be nnInvSqrtRootLayer when implemented)
+            raise CORAerror('CORA:notSupported', 'invsqrtroot activation not implemented yet')
+        elif activation == "sqrt":
+            # For now, use ReLU as sqrt (should be nnRootLayer when implemented)
+            raise CORAerror('CORA:notSupported', 'sqrt activation not implemented yet')
+        else:
+            # Should not be executed anyway due to inputArgsCheck
+            raise CORAerror('CORA:wrongValue', 'first', ', '.join(possible_activations))
+        
+        return layer

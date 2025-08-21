@@ -1,132 +1,177 @@
 """
-Test file for NeuralNetwork.calcSensitivity method
+Test for neuralNetwork calcSensitivity method
 
-This file tests the sensitivity calculation method of the NeuralNetwork class.
+This test verifies that the calcSensitivity method works correctly with different inputs.
 """
 
 import pytest
 import numpy as np
-from cora_python.nn.neuralNetwork import NeuralNetwork
-from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
-from cora_python.nn.layers.nonlinear.nnReLULayer import nnReLULayer
 
-class TestNeuralNetworkCalcSensitivity:
-    """Test class for NeuralNetwork.calcSensitivity method"""
+def test_neuralNetwork_calcSensitivity_basic():
+    """Test calcSensitivity method with basic network"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    from cora_python.nn.layers.nonlinear.nnSoftmaxLayer import nnSoftmaxLayer
     
-    def setup_method(self):
-        """Set up test fixtures"""
-        # Create a simple neural network
-        W1 = np.array([[1, 2], [3, 4]])
-        b1 = np.array([[0], [0]])
-        W2 = np.array([[1, 0], [0, 1]])
-        b2 = np.array([[0], [0]])
-        
-        layers = [
-            nnLinearLayer(W1, b1),
-            nnReLULayer(),
-            nnLinearLayer(W2, b2)
-        ]
-        
-        self.nn = NeuralNetwork(layers)
+    # Specify number of input and output dimensions
+    n0 = 5
+    nK = 7
     
-    def test_calcSensitivity_basic(self):
-        """Test basic sensitivity calculation"""
-        x = np.array([[1], [2]])
-        options = {}
-        
-        S, y = self.nn.calcSensitivity(x, options=options)
-        
-        # Should return sensitivity matrix and output
-        assert isinstance(S, np.ndarray)
-        assert isinstance(y, np.ndarray)
-        
-        # Check shapes
-        assert S.ndim == 3  # (output_dim, output_dim, batch_size)
-        assert y.shape[0] == 2  # Output dimension
+    # Generate a random neural network
+    np.random.seed(42)
+    W1 = np.random.rand(10, n0) * 2 - 1
+    b1 = np.random.rand(10, 1)
+    W2 = np.random.rand(nK, 10) * 2 - 1
+    b2 = np.random.rand(nK, 1)
     
-    def test_calcSensitivity_with_store_sensitivity_true(self):
-        """Test sensitivity calculation with store_sensitivity=True"""
-        x = np.array([[1], [2]])
-        options = {}
-        
-        S, y = self.nn.calcSensitivity(x, options=options, store_sensitivity=True)
-        
-        # Check that sensitivity was stored in layers
-        for layer in self.nn.layers:
-            assert hasattr(layer, 'sensitivity')
-            assert layer.sensitivity is not None
+    nn = NeuralNetwork([
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2),
+        nnSoftmaxLayer()
+    ])
     
-    def test_calcSensitivity_with_store_sensitivity_false(self):
-        """Test sensitivity calculation with store_sensitivity=False"""
-        x = np.array([[1], [2]])
-        options = {}
-        
-        S, y = self.nn.calcSensitivity(x, options=options, store_sensitivity=False)
-        
-        # Check that sensitivity was not stored in layers
-        for layer in self.nn.layers:
-            if hasattr(layer, 'sensitivity'):
-                assert layer.sensitivity is None
+    # Specify a batch size
+    bSz = 13
     
-    def test_calcSensitivity_with_options(self):
-        """Test sensitivity calculation with various options"""
-        x = np.array([[1], [2]])
-        options = {
-            'nn': {
-                'train': {}
+    # Generate a random input
+    x = np.random.rand(n0, bSz)
+    
+    # Compute the output
+    y = nn.evaluate(x)
+    
+    # Calculate the sensitivity
+    S = nn.calcSensitivity(x, {}, True)
+    
+    # Check the dimensions of the sensitivity matrix
+    assert S.shape == (nK, n0, bSz)
+    
+    # Generate a second random input
+    x_ = np.random.rand(n0, bSz)
+    
+    # Compute the difference between the two inputs
+    dx = x - x_
+    
+    # Compute the new output
+    y_ = nn.evaluate(x + dx)
+    
+    # Compute expected difference based on the sensitivity
+    dy = np.einsum('ijk,ik->jk', S, dx)
+    
+    # Check if the directions of the sensitivity matrix are correct
+    # (This is a basic check - in practice, the sensitivity should be more accurate)
+    assert np.all(np.sign(y + dy) == np.sign(y_))
+    
+    # Extract the sensitivity matrix of the last layer
+    Sk = nn.layers[-2].sensitivity
+    
+    # Check the dimensions of the sensitivity matrix
+    assert Sk.shape == (nK, nK, bSz)
+
+def test_neuralNetwork_calcSensitivity_single_input():
+    """Test calcSensitivity method with single input"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Create a simple network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
+    
+    nn = NeuralNetwork([
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ])
+    
+    # Single input
+    x = np.array([[1], [2]])
+    
+    # Calculate sensitivity
+    S = nn.calcSensitivity(x, {}, False)
+    
+    # Check dimensions
+    assert S.shape == (2, 2, 1)
+
+def test_neuralNetwork_calcSensitivity_with_options():
+    """Test calcSensitivity method with different options"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+    
+    # Create a simple network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
+    
+    nn = NeuralNetwork([
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ])
+    
+    # Input
+    x = np.array([[1], [2]])
+    
+    # Options
+    options = {
+        'nn': {
+            'train': {
+                'backprop': True
             }
         }
-        
-        S, y = self.nn.calcSensitivity(x, options=options)
-        
-        # Should work with options
-        assert isinstance(S, np.ndarray)
-        assert isinstance(y, np.ndarray)
+    }
     
-    def test_calcSensitivity_none_options(self):
-        """Test sensitivity calculation with None options"""
-        x = np.array([[1], [2]])
-        
-        S, y = self.nn.calcSensitivity(x, options=None)
-        
-        # Should work with default options
-        assert isinstance(S, np.ndarray)
-        assert isinstance(y, np.ndarray)
+    # Calculate sensitivity
+    S = nn.calcSensitivity(x, options, True)
     
-    def test_calcSensitivity_empty_network(self):
-        """Test sensitivity calculation with empty network"""
-        empty_nn = NeuralNetwork([])
-        x = np.array([[1], [2]])
-        
-        S, y = empty_nn.calcSensitivity(x)
-        
-        # Should handle empty network gracefully
-        assert isinstance(S, np.ndarray)
-        assert isinstance(y, np.ndarray)
+    # Check dimensions
+    assert S.shape == (2, 2, 1)
+
+def test_neuralNetwork_calcSensitivity_no_backprop():
+    """Test calcSensitivity method without backprop"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.nn.layers.linear.nnLinearLayer import nnLinearLayer
+    from cora_python.nn.layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
     
-    def test_calcSensitivity_single_layer(self):
-        """Test sensitivity calculation with single layer"""
-        W = np.array([[1, 2], [3, 4]])
-        b = np.array([[0], [0]])
-        layer = nnLinearLayer(W, b)
-        
-        single_layer_nn = NeuralNetwork([layer])
-        x = np.array([[1], [2]])
-        
-        S, y = single_layer_nn.calcSensitivity(x)
-        
-        # Should work with single layer
-        assert isinstance(S, np.ndarray)
-        assert isinstance(y, np.ndarray)
+    # Create a simple network
+    W1 = np.array([[1, 2], [3, 4]])
+    b1 = np.array([[0], [0]])
+    W2 = np.array([[1, 0], [0, 1]])
+    b2 = np.array([[0], [0]])
     
-    def test_calcSensitivity_batch_input(self):
-        """Test sensitivity calculation with batch input"""
-        x = np.array([[1, 3], [2, 4]])  # 2 inputs, batch size 2
-        options = {}
-        
-        S, y = self.nn.calcSensitivity(x, options=options)
-        
-        # Should handle batch input
-        assert isinstance(S, np.ndarray)
-        assert isinstance(y, np.ndarray)
-        assert y.shape[1] == 2  # Batch size should be preserved
+    nn = NeuralNetwork([
+        nnLinearLayer(W1, b1),
+        nnSigmoidLayer(),
+        nnLinearLayer(W2, b2)
+    ])
+    
+    # Input
+    x = np.array([[1], [2]])
+    
+    # Calculate sensitivity without backprop
+    S = nn.calcSensitivity(x, {}, False)
+    
+    # Check dimensions
+    assert S.shape == (2, 2, 1)
+
+def test_neuralNetwork_calcSensitivity_empty_network():
+    """Test calcSensitivity method with empty network"""
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    
+    # Create empty network
+    nn = NeuralNetwork([])
+    
+    # Input
+    x = np.array([[1], [2]])
+    
+    # Calculate sensitivity
+    S = nn.calcSensitivity(x, {}, False)
+    
+    # Should return identity matrix for empty network
+    assert S.shape == (2, 2, 1)
+    assert np.allclose(S[:, :, 0], np.eye(2))
