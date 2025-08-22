@@ -13,11 +13,10 @@ Inputs:
     idxLayer - indices of layers that should be evaluated
 
 Outputs:
-    res - output of the neural network
+    res - evaluation result
 
-Other m-files required: none
-Subfunctions: none
-MAT-files required: none
+Example:
+    res = evaluate_(nn, input_data, options)
 
 See also: neuralNetwork/evaluate
 
@@ -29,7 +28,10 @@ Last revision: ---
 """
 
 import numpy as np
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+
+# Import nnHelper methods for proper integration
+from cora_python.nn.nnHelper import conversionConZonoStarSet, conversionStarSetConZono
 
 
 def evaluate_(obj: 'NeuralNetwork', input_data: Any, options: Optional[Dict[str, Any]] = None, 
@@ -269,15 +271,8 @@ def aux_evaluateConZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dict
     Returns:
         Evaluation result
     """
-    # convert constrained zonotope to star set
-    # This would require nnHelper.conversionConZonoStarSet
-    # For now, we'll use a simplified approach
-    c = input_data.center
-    G = input_data.generators
-    C = input_data.C
-    d = input_data.d
-    l = input_data.l
-    u = input_data.u
+    # convert constrained zonotope to star set using nnHelper
+    c, G, C, d, l, u = conversionConZonoStarSet(input_data)
     
     for k in idxLayer:
         if 'nn' not in options:
@@ -287,10 +282,8 @@ def aux_evaluateConZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dict
         c, G, C, d, l, u = layer_k.evaluateConZonotope(c, G, C, d, l, u, options)
         options = aux_updateOptions(obj, options, 'conZonotope', k, layer_k)
     
-    # convert star set back to constrained zonotope
-    # This would require nnHelper.conversionStarSetConZono
-    # For now, return a simplified result
-    r = type(input_data)(c, G, C, d, l, u)
+    # convert star set back to constrained zonotope using nnHelper
+    r = conversionStarSetConZono(c, G, C, d, l, u)
     
     return r
 

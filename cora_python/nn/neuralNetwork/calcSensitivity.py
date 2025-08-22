@@ -30,10 +30,14 @@ Last update:   23-November-2022 (polish)
 import numpy as np
 from typing import Any, Dict, Optional, Tuple
 
+# Import nnHelper methods for proper integration
+from cora_python.nn.nnHelper import validateNNoptions
+
+
 def calcSensitivity(self, x: np.ndarray, **kwargs) -> Tuple[Any, Any]:
     """
     Calculate input-output sensitivity matrix at x
-    rows correspond to output neurons, columns to input neurons
+    rows correspond to output neurons, columns correspond to input neurons
     sensitivity of layer i will be stored in obj.layers[i].sensitivity
     
     Args:
@@ -47,11 +51,8 @@ def calcSensitivity(self, x: np.ndarray, **kwargs) -> Tuple[Any, Any]:
     options = kwargs.get('options', {})
     store_sensitivity = kwargs.get('store_sensitivity', True)
     
-    # validate options (simplified version of nnHelper.validateNNoptions)
-    if 'nn' not in options:
-        options['nn'] = {}
-    if 'train' not in options['nn']:
-        options['nn']['train'] = {}
+    # validate options using nnHelper
+    options = validateNNoptions(options, False)
     
     # forward propagation
     xs = [None] * len(self.layers)

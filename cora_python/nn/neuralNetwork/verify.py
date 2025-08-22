@@ -36,6 +36,10 @@ import numpy as np
 import time
 from typing import Any, Dict, Optional, Tuple
 
+# Import nnHelper methods for proper integration
+from cora_python.nn.nnHelper import validateNNoptions
+
+
 def verify(self, nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.ndarray, 
            safeSet: Any, options: Optional[Dict[str, Any]] = None, timeout: Optional[float] = None, 
            verbose: bool = False) -> Tuple[Optional[str], Optional[np.ndarray], Optional[np.ndarray]]:
@@ -60,6 +64,9 @@ def verify(self, nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b:
         options = {}
     if timeout is None:
         timeout = 300.0  # 5 minutes default
+    
+    # Validate options using nnHelper
+    options = validateNNoptions(options, True)
     
     nSplits = 5
     nDims = 1

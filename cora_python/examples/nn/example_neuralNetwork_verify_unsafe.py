@@ -45,7 +45,11 @@ def example_neuralNetwork_verify_unsafe() -> str:
     Returns:
         res: Verification result string
     """
-    np.random.seed(42)  # rng('default')
+    # Set random seed to default (equivalent to MATLAB's rng('default'))
+    # MATLAB's rng('default') resets to a specific default state
+    # Python's np.random.seed() without arguments uses system time
+    # For reproducibility, we'll use a fixed seed that represents "default"
+    np.random.seed(42)  # This provides consistent behavior similar to MATLAB's default
     
     verbose = True
     # Specify model and specification path.
@@ -56,6 +60,7 @@ def example_neuralNetwork_verify_unsafe() -> str:
     nn, x, r, A, b, safeSet, options = aux_readModelAndSpecs(modelPath, specPath)
     # Do verification.
     timerVal = time.time()
+    # Note: MATLAB uses timeout=10 in the verify call, not the timeout variable
     res, x_, y_ = nn.verify(x, r, A, b, safeSet, options, 10, verbose)
     # Print result.
     if verbose:
@@ -88,10 +93,15 @@ def aux_readModelAndSpecs(modelPath: str, specPath: str) -> Tuple[NeuralNetwork,
     # Load specification.
     X0, specs = vnnlib2cora(specPath)
     # Compute center and radius of the input set.
+    # Note: MATLAB uses 1-based indexing, Python uses 0-based
+    # MATLAB: X0{1}.sup, Python: X0[0].sup
     x = 1/2 * (X0[0].sup + X0[0].inf)
     r = 1/2 * (X0[0].sup - X0[0].inf)
 
     # Extract specification.
+    # MATLAB: isa(specs.set,'halfspace')
+    # Python: Check if it's a halfspace by looking for 'c' and 'd' attributes
+    # This is the most robust way to detect halfspace objects in Python
     if hasattr(specs.set, 'c') and hasattr(specs.set, 'd'):
         # halfspace case
         A = specs.set.c.T
@@ -145,7 +155,7 @@ def aux_writeResults(res: str, x_: Optional[np.ndarray], y_: Optional[np.ndarray
         if y_ is not None:
             for j in range(y_.shape[0]):
                 print(f'(Y_{j} {y_[j]:f})')
-        print(')')
+        print(')', end='')  # Print closing parenthesis without newline to match MATLAB
     else:
         print('unknown')
 

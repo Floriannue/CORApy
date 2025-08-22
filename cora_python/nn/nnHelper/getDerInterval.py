@@ -29,9 +29,10 @@ import numpy as np
 from typing import Union
 from .fpolyder import fpolyder
 
-def getDerInterval(coeffs: np.ndarray, l: Union[float, np.ndarray], u: Union[float, np.ndarray]) -> tuple:
+
+def getDerInterval(coeffs: np.ndarray, l: float, u: float) -> tuple[float, float]:
     """
-    Compute bounds for the derivative of a polynomial
+    Compute the maximum and the minimum derivative of the given polynomial.
     
     Args:
         coeffs: coefficients of polynomial
@@ -39,25 +40,29 @@ def getDerInterval(coeffs: np.ndarray, l: Union[float, np.ndarray], u: Union[flo
         u: upper bound of input domain
         
     Returns:
-        Tuple of (derl, deru) interval bounding the derivative
+        derl, deru: interval bounding the derivative within [l,u]
+        
+    See also: -
     """
-    # compute derivative
-    dp = fpolyder(coeffs)
+    # find extreme points of derivative of polynomial
+    p = coeffs
+    dp = fpolyder(p)
+    dp2 = fpolyder(dp)
     
-    # find roots of derivative
-    roots = np.roots(dp)
+    # Find roots of second derivative (critical points of first derivative)
+    dp2_roots = np.roots(dp2)
+    # Filter imaginary roots (keep only real roots)
+    dp2_roots = dp2_roots[np.imag(dp2_roots) == 0]
     
-    # filter real roots
-    real_roots = roots[np.abs(roots.imag) < 1e-10].real
+    # evaluate extreme points of derivative
+    points = np.concatenate([[l], dp2_roots, [u]])
+    # Filter points within bounds [l, u]
+    points = points[(l <= points) & (points <= u)]
     
-    # add boundary points
-    points = np.concatenate([[l], real_roots, [u]])
+    # Evaluate derivative at these points
+    dp_y = np.polyval(dp, points)
     
-    # evaluate derivative at all points
-    values = np.polyval(dp[::-1], points)  # Reverse for np.polyval
-    
-    # find bounds
-    derl = np.min(values)
-    deru = np.max(values)
+    derl = np.min(dp_y)
+    deru = np.max(dp_y)
     
     return derl, deru
