@@ -18,14 +18,13 @@ if TYPE_CHECKING:
     from cora_python.contSet.contSet.contSet import ContSet
 
 
-def vertices(S: 'ContSet', method: Optional[str] = None, *args, **kwargs) -> np.ndarray:
+def vertices(S: 'ContSet', *args, **kwargs) -> np.ndarray:
     """
     Computes the vertices of a set
     
     Args:
         S: contSet object
-        method: Method for computation of vertices (optional)
-        *args: Additional arguments for specific methods
+        *args: Method and additional arguments for specific methods
         **kwargs: Additional keyword arguments
         
     Returns:
@@ -37,11 +36,13 @@ def vertices(S: 'ContSet', method: Optional[str] = None, *args, **kwargs) -> np.
         >>> # V contains the corner points of the interval
     """
     # Parse input arguments and set default method
-    S, method, addargs = _parse_input(S, method, *args, **kwargs)
+    S, method, addargs = _parse_input(S, *args, **kwargs)
     
+    # Call subclass method with proper error handling
     try:
-        # Call subclass method
-        res = S.vertices_(*addargs) # Removed 'method' from arguments
+        # Always pass method parameter to vertices_ methods
+        # This matches MATLAB behavior and handles test objects that expect method
+        res = S.vertices_(method, *addargs)
     except Exception as ME:
         # Catch empty set case
         if S.representsa_('emptySet', 1e-15):
@@ -56,44 +57,87 @@ def vertices(S: 'ContSet', method: Optional[str] = None, *args, **kwargs) -> np.
     return res
 
 
-def _parse_input(S: 'ContSet', method: Optional[str] = None, *args, **kwargs) -> tuple:
+def _parse_input(S: 'ContSet', *args, **kwargs) -> tuple:
     """
-    Parse input arguments for vertices computation
+    Parse input arguments for vertices computation (matches MATLAB aux_parseInput)
     
     Args:
         S: contSet object
-        method: Method for computation
-        *args: Additional arguments
+        *args: Method and additional arguments
         **kwargs: Additional keyword arguments
         
     Returns:
         tuple: (S, method, additional_args)
     """
-    # Set default method based on set type
-    if method is None:
-        if hasattr(S, '__class__') and S.__class__.__name__ == 'Polytope':
-            method = 'lcon2vert'
-        elif hasattr(S, '__class__') and S.__class__.__name__ == 'ConPolyZono':
-            method = 10  # number of splits
-        elif hasattr(S, '__class__') and S.__class__.__name__ == 'ConZonotope':
-            method = 'default'
-        else:
-            method = 'convHull'
+    from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
+    from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
+    from cora_python.g.macros.CHECKS_ENABLED import CHECKS_ENABLED
     
-    # Validate method based on set type
+    # Convert args to list for processing
+    args_list = list(args)
+    
+    # Handle method keyword argument
+    if 'method' in kwargs:
+        # Insert method at the beginning of args_list
+        args_list.insert(0, kwargs['method'])
+        # Remove method from kwargs to avoid passing it twice
+        kwargs_without_method = {k: v for k, v in kwargs.items() if k != 'method'}
+        # Add remaining kwargs as additional arguments
+        for key, value in kwargs_without_method.items():
+            args_list.append(value)
+    
+    # Initialize remaining as empty list
+    remaining = []
+    
+    # Set default method based on set type (matches MATLAB exactly)
     if hasattr(S, '__class__'):
         class_name = S.__class__.__name__
+        
         if class_name == 'Polytope':
-            if method not in ['cdd', 'lcon2vert']:
-                raise ValueError(f"Invalid method '{method}' for Polytope. Use 'cdd' or 'lcon2vert'.")
+            # Uses different methods
+            method_list, remaining = setDefaultValues(['lcon2vert'], args_list)
+            method = method_list[0]  # Extract first element from list
+            if CHECKS_ENABLED():
+                inputArgsCheck([
+                    [S, 'att', 'Polytope'],
+                    [method, 'str', ['cdd', 'lcon2vert', 'comb']]
+                ])
+            
         elif class_name == 'ConPolyZono':
-            if not isinstance(method, (int, float)) or method <= 0:
-                raise ValueError(f"Method for ConPolyZono must be a positive number (splits), got {method}")
+            # 'method' is number of splits
+            method_list, remaining = setDefaultValues([10], args_list)
+            method = method_list[0]  # Extract first element from list
+            if CHECKS_ENABLED():
+                inputArgsCheck([
+                    [S, 'att', 'ConPolyZono'],
+                    [method, 'att', 'numeric', ['scalar', 'nonnan']]
+                ])
+            
         elif class_name == 'ConZonotope':
-            if method not in ['default', 'template']:
-                raise ValueError(f"Invalid method '{method}' for ConZonotope. Use 'default' or 'template'.")
+            method_list, remaining = setDefaultValues(['default', 1], args_list)
+            method = method_list[0]  # Extract first element from list
+            numDirs = method_list[1]  # Extract second element from list
+            if CHECKS_ENABLED():
+                inputArgsCheck([
+                    [S, 'att', 'ConZonotope'],
+                    [method, 'str', ['default', 'template']],
+                    [numDirs, 'att', 'numeric', 'isscalar']
+                ])
+            # For ConZonotope, we need to pass both method and numDirs
+            remaining = [method, numDirs] + remaining
+            
         else:
-            if method not in ['convHull', 'iterate', 'polytope']:
-                raise ValueError(f"Invalid method '{method}'. Use 'convHull', 'iterate', or 'polytope'.")
+            # General set types
+            method_list, remaining = setDefaultValues(['convHull'], args_list)
+            method = method_list[0]  # Extract first element from list
+            if CHECKS_ENABLED():
+                inputArgsCheck([
+                    [S, 'att', 'ContSet'],
+                    [method, 'str', ['convHull', 'iterate', 'polytope']]
+                ])
+    else:
+        # Fallback for unknown types
+        method_list, remaining = setDefaultValues(['convHull'], args_list)
+        method = method_list[0]  # Extract first element from list
     
-    return S, method, args 
+    return S, method, remaining 

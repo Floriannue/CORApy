@@ -24,8 +24,19 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
     
     # If polytope has V-representation, return it (assume minimal)
     if P.isVRep:
-        print(f"DEBUG vertices_: polytope has V-representation, returning P.V")
-        return P.V
+        print(f"DEBUG vertices_: polytope has V-representation, computing convex hull")
+        # MATLAB computes convex hull for V-representation polytopes
+        # to return only the extreme vertices
+        try:
+            from scipy.spatial import ConvexHull
+            # ConvexHull expects points as (num_points, dim), so transpose
+            hull = ConvexHull(P.V.T)
+            # Extract the extreme vertices from the convex hull
+            V = P.V[:, hull.vertices]
+            return V
+        except Exception as e:
+            print(f"DEBUG vertices_: convex hull failed, returning all vertices: {e}")
+            return P.V
 
     n = P.dim()
     print(f"DEBUG vertices_: n = P.dim() = {n}")
@@ -114,12 +125,14 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
     if not P.isHRep:
         P.constraints()
 
-    if method == 'lcon2vert':
+    if method == 'cdd':
+        V = _aux_vertices_cdd(P, n, c)
+    elif method == 'lcon2vert':
         V = _aux_vertices_lcon2vert(P, n, c)
     elif method == 'comb':
         V = _aux_vertices_comb(P)
     else:
-        raise ValueError(f"Invalid method '{method}'. Allowed: 'lcon2vert', 'comb'.")
+        raise ValueError(f"Invalid method '{method}'. Allowed: 'cdd', 'lcon2vert', 'comb'.")
 
     # Set properties after computation
     P._V = V
@@ -136,6 +149,55 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
         P._fullDim_val = n == np.count_nonzero(~withinTol(S, 0, 1e-12))
 
     return V
+
+
+def _aux_vertices_cdd(P: Polytope, n: int, c: np.ndarray) -> np.ndarray:
+    """
+    Vertex enumeration using cdd (double descriptor method).
+    This is a placeholder implementation that falls back to lcon2vert.
+    
+    Args:
+        P: Polytope object
+        n: Dimension
+        c: Chebyshev center
+        
+    Returns:
+        V: Matrix of vertices
+    """
+    try:
+        # TODO: Implement actual cdd method when cddmex is available
+        # For now, fall back to lcon2vert method
+        print("Warning: cdd method not implemented, falling back to lcon2vert")
+        return _aux_vertices_lcon2vert(P, n, c)
+    except Exception:
+        # If lcon2vert fails, fall back to comb method
+        print("Warning: lcon2vert failed, falling back to comb method")
+        return _aux_vertices_comb(P)
+
+
+def _remove_dependent_equalities(Ae: np.ndarray, be: np.ndarray, k: int, tol: float = 1e-10) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Remove linearly dependent equality constraints to ensure the polytope is full-dimensional.
+    This is crucial for subspace projection to work correctly.
+    """
+    if Ae.size == 0:
+        return Ae, be
+    
+    # Use SVD to find linearly independent rows
+    U, S, Vh = np.linalg.svd(Ae, full_matrices=False)
+    
+    # Find the rank (number of non-zero singular values)
+    rank = np.sum(S > tol)
+    
+    if rank == 0:
+        # All constraints are redundant
+        return np.zeros((0, k)), np.zeros((0, 1))
+    
+    # Keep only the first 'rank' rows (they are linearly independent)
+    Ae_clean = Ae[:rank]
+    be_clean = be[:rank]
+    
+    return Ae_clean, be_clean
 
 
 def _compute_affine_subspace_basis(P: Polytope, tol: float = 1e-10) -> np.ndarray:
@@ -195,6 +257,14 @@ def _aux_vertices_lcon2vert(P: Polytope, n: int, c: np.ndarray, tol_local: float
             # The constraints A*x <= b become A*(X*y + c) <= b, which is A_sub*y <= b - A*c
             b_sub = (b - A @ c).reshape(-1, 1) if A.size > 0 else np.zeros((0, 1))
             be_sub = (be - Ae @ c).reshape(-1, 1) if Ae.size > 0 else np.zeros((0, 1))
+
+            # CRITICAL: Remove redundant constraints that make the subspace polytope degenerate
+            # This is what MATLAB does - it ensures the subspace polytope is full-dimensional
+            if Ae_sub.size > 0:
+                # For equality constraints, remove linearly dependent ones
+                Ae_sub_clean, be_sub_clean = _remove_dependent_equalities(Ae_sub, be_sub, k)
+                Ae_sub = Ae_sub_clean
+                be_sub = be_sub_clean
 
             # Create polytope in subspace coordinates
             P_sub = Polytope(A_sub, b_sub, Ae_sub, be_sub)

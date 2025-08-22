@@ -79,3 +79,96 @@ def test_constraints_hrep_no_change_flags():
     # A, b should be consistent shapes
     assert P.A.shape == (4, 2)
     assert P.b.shape == (4, 1)
+
+
+def test_constraints_3d_unit_cube():
+    """Test 3D unit cube from vertices"""
+    V = np.array([
+        [0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1],
+        [1, 0, 0], [1, 0, 1], [1, 1, 0], [1, 1, 1]
+    ]).T
+    P = Polytope(V)
+    P.constraints()
+    
+    # Should have 6 faces (2 per dimension)
+    assert P.A.shape == (6, 3)
+    assert P.b.shape == (6, 1)
+    
+    # All vertices should satisfy constraints
+    for i in range(V.shape[1]):
+        x = V[:, i:i+1]
+        assert np.all((P.A @ x).flatten() <= P.b.flatten() + 1e-10)
+
+
+def test_constraints_4d_hypercube():
+    """Test 4D hypercube from vertices"""
+    # Generate 4D hypercube vertices
+    from itertools import product
+    vertices_4d = []
+    for coords in product([0, 1], repeat=4):
+        vertices_4d.append(list(coords))
+    V = np.array(vertices_4d).T
+    
+    P = Polytope(V)
+    P.constraints()
+    
+    # Should have 8 faces (2 per dimension)
+    assert P.A.shape == (8, 4)
+    assert P.b.shape == (8, 1)
+    
+    # All vertices should satisfy constraints
+    for i in range(V.shape[1]):
+        x = V[:, i:i+1]
+        assert np.all((P.A @ x).flatten() <= P.b.flatten() + 1e-10)
+
+
+def test_constraints_degenerate_2d_line():
+    """Test degenerate 2D line (1D polytope in 2D space)"""
+    V = np.array([[0, 1, 2], [0, 1, 2]])  # Line y=x from (0,0) to (2,2)
+    P = Polytope(V)
+    P.constraints()
+    
+    # Should have equality constraints for the line
+    assert P.Ae.shape == (1, 2)  # One equality constraint
+    assert P.be.shape == (1, 1)
+    
+    # All vertices should satisfy equality constraint
+    for i in range(V.shape[1]):
+        x = V[:, i:i+1]
+        assert np.allclose((P.Ae @ x).flatten(), P.be.flatten(), atol=1e-10)
+
+
+def test_constraints_empty_polytope():
+    """Test empty polytope handling"""
+    # Create polytope with no vertices
+    V = np.zeros((2, 0))
+    P = Polytope(V)
+    P.constraints()
+    
+    # Should have no constraints
+    assert P.A.shape == (0, 2)
+    assert P.b.shape == (0, 1)
+    assert P.Ae.shape == (0, 2)
+    assert P.be.shape == (0, 1)
+
+
+def test_constraints_high_dimensional():
+    """Test high-dimensional polytope (5D)"""
+    # Create 5D hypercube vertices
+    from itertools import product
+    vertices_5d = []
+    for coords in product([-1, 1], repeat=5):
+        vertices_5d.append(list(coords))
+    V = np.array(vertices_5d).T
+    
+    P = Polytope(V)
+    P.constraints()
+    
+    # Should have 10 faces (2 per dimension)
+    assert P.A.shape == (10, 5)
+    assert P.b.shape == (10, 1)
+    
+    # All vertices should satisfy constraints
+    for i in range(V.shape[1]):
+        x = V[:, i:i+1]
+        assert np.all((P.A @ x).flatten() <= P.b.flatten() + 1e-10)

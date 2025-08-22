@@ -31,13 +31,15 @@ Automatic python translation: Florian Nüssel BA 2025
 
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
-def vertices_(fs, *args):
+def vertices_(fs, method: str = 'convHull', *args, **kwargs):
     """
     Returns the vertices of a full-dimensional space
     
     Args:
         fs: fullspace object
+        method: Method for vertex computation (unused, kept for interface compatibility)
         *args: additional arguments (unused)
+        **kwargs: Additional keyword arguments (unused)
         
     Returns:
         V: vertices

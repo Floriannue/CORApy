@@ -18,12 +18,15 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .interval import Interval
 
-def vertices_(I: 'Interval') -> np.ndarray:
+def vertices_(I: 'Interval', method: str = 'convHull', *args, **kwargs) -> np.ndarray:
     """
     Computes vertices of an interval object
     
     Args:
         I: Interval object
+        method: Method for vertex computation (unused, kept for interface compatibility)
+        *args: Additional arguments (unused)
+        **kwargs: Additional keyword arguments (unused)
         
     Returns:
         np.ndarray: Vertices (each column is a vertex)

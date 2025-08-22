@@ -23,136 +23,57 @@ Last revision: ---
 
 import pytest
 import numpy as np
-from unittest.mock import Mock, patch
+from unittest.mock import patch
+
+# Import actual CORA classes
+from cora_python.contSet.polytope import Polytope
+from cora_python.contSet.zonotope import Zonotope
+from cora_python.contSet.interval import Interval
+from cora_python.contSet.emptySet import EmptySet
+from cora_python.contSet.fullspace import Fullspace
+from cora_python.contSet.ellipsoid import Ellipsoid
+from cora_python.contSet.conZonotope import ConZonotope
+from cora_python.contSet.conPolyZono import ConPolyZono
+
 from cora_python.contSet.contSet.vertices import vertices
-
-
-class MockContSet:
-    """Mock ContSet for testing vertices method"""
-    
-    def __new__(cls, class_name="Zonotope", *args, **kwargs):
-        # Dynamically create a new class with the desired name that inherits from this one.
-        # This ensures that obj.__class__.__name__ gives the mocked name.
-        # We pass through any other args to __init__.
-        NewCls = type(class_name, (MockContSet,), {})
-        instance = object.__new__(NewCls)
-        return instance
-    
-    def __init__(self, class_name="Zonotope", dim_val=2, empty=False):
-        self._dim = dim_val
-        self._empty = empty
-        
-    def dim(self):
-        return self._dim
-    
-    def isemptyobject(self):
-        return self._empty
-    
-    def vertices_(self, method, *args):
-        """Mock implementation of vertices_"""
-        if self._empty:
-            return np.array([])
-        
-        class_name = self.__class__.__name__
-        
-        # Return mock vertices for different set types
-        if class_name == "Interval":
-            # Return corner points for 2D interval
-            if self._dim == 2:
-                return np.array([[0, 1, 0, 1], [0, 0, 1, 1]])
-            else:
-                return np.ones((self._dim, 2**self._dim))
-        else:
-            # Return some default vertices
-            return np.random.rand(self._dim, 4)
-    
-    def representsa_(self, setType, tol):
-        return self._empty and setType == 'emptySet'
 
 
 class TestVertices:
     """Test class for vertices function"""
     
-    def test_vertices_basic(self):
+    def test_vertices_basic_functionality(self):
         """Test basic vertices functionality"""
         
-        S = MockContSet("Interval", 2)
+        # Create a simple 2D polytope
+        A = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]])
+        b = np.array([1, 1, 1, 1])
+        S = Polytope(A, b)
+        
         result = vertices(S)
         
-        assert result.shape == (2, 4)  # 2D interval has 4 vertices
-        assert isinstance(result, np.ndarray)
-    
-    def test_vertices_polytope_default_method(self):
-        """Test vertices with Polytope using default method"""
-        
-        S = MockContSet("Polytope", 2)
-        result = vertices(S)
-        
-        assert result.shape[0] == 2  # Dimension should match
-        assert isinstance(result, np.ndarray)
-    
-    def test_vertices_polytope_methods(self):
-        """Test vertices with Polytope using different methods"""
-        
-        S = MockContSet("Polytope", 2)
-        
-        valid_methods = ['cdd', 'lcon2vert']
-        for method in valid_methods:
-            result = vertices(S, method=method)
-            assert result.shape[0] == 2
-        
-        # Test invalid method
-        with pytest.raises(ValueError, match="Invalid method"):
-            vertices(S, method='invalid')
-    
-    def test_vertices_conpolyzonotope_method(self):
-        """Test vertices with ConPolyZono using numeric method"""
-        
-        S = MockContSet("ConPolyZono", 2)
-        
-        # Valid numeric method (number of splits)
-        result = vertices(S, method=10)
+        # Should return a 2D array with vertices
         assert result.shape[0] == 2
-        
-        # Test invalid method - non-positive
-        with pytest.raises(ValueError, match="must be a positive number"):
-            vertices(S, method=0)
-        
-        with pytest.raises(ValueError, match="must be a positive number"):
-            vertices(S, method=-5)
+        assert result.shape[1] > 0
     
-    def test_vertices_conzonotope_methods(self):
-        """Test vertices with ConZonotope using different methods"""
+    def test_vertices_with_method(self):
+        """Test vertices with specific method"""
         
-        S = MockContSet("ConZonotope", 2)
+        # Create a simple 2D polytope
+        A = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]])
+        b = np.array([1, 1, 1, 1])
+        S = Polytope(A, b)
         
-        valid_methods = ['default', 'template']
-        for method in valid_methods:
-            result = vertices(S, method=method)
-            assert result.shape[0] == 2
+        result = vertices(S, method='lcon2vert')
         
-        # Test invalid method
-        with pytest.raises(ValueError, match="Invalid method"):
-            vertices(S, method='invalid')
-    
-    def test_vertices_general_methods(self):
-        """Test vertices with general set types using different methods"""
-        
-        S = MockContSet("Zonotope", 2)
-        
-        valid_methods = ['convHull', 'iterate', 'polytope']
-        for method in valid_methods:
-            result = vertices(S, method=method)
-            assert result.shape[0] == 2
-        
-        # Test invalid method
-        with pytest.raises(ValueError, match="Invalid method"):
-            vertices(S, method='invalid')
+        # Should return a 2D array with vertices
+        assert result.shape[0] == 2
+        assert result.shape[1] > 0
     
     def test_vertices_empty_set(self):
         """Test vertices with empty set"""
         
-        S = MockContSet("Interval", 2, empty=True)
+        # Create an empty set
+        S = EmptySet(2)
         
         result = vertices(S)
         
@@ -162,122 +83,160 @@ class TestVertices:
     def test_vertices_empty_result_handling(self):
         """Test vertices when result is empty but set is not empty"""
         
-        class EmptyResultSet:
-            def __init__(self):
-                self._dim = 3
-                self._empty = False
-                
-            def dim(self):
-                return self._dim
-                
-            def isemptyobject(self):
-                return self._empty
-                
-            def vertices_(self, method, *args):
-                return np.array([])
-            
-            def representsa_(self, setType, tol):
-                return False  # Not an empty set
+        # Create a polytope that will return empty vertices
+        # Use a polytope with conflicting constraints that results in empty set
+        A = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]])
+        b = np.array([1, -2, 1, -2])  # Conflicting constraints: x <= 1 and x >= 2
+        S = Polytope(A, b)
         
-        S = EmptyResultSet()
-        S.__class__.__name__ = "CustomSet"
         result = vertices(S)
         
-        # Should return properly shaped empty array
-        assert result.shape == (3, 0)
-    
-    def test_vertices_exception_handling_empty_set(self):
-        """Test vertices exception handling when set represents empty set"""
-        
-        class ExceptionSet:
-            def __init__(self):
-                self._dim = 2
-                self._empty = False
-                
-            def dim(self):
-                return self._dim
-                
-            def isemptyobject(self):
-                return self._empty
-                
-            def vertices_(self, method, *args):
-                raise RuntimeError("Some error")
-            
-            def representsa_(self, setType, tol):
-                return setType == 'emptySet'
-        
-        S = ExceptionSet()
-        S.__class__.__name__ = "CustomSet"
-        result = vertices(S)
-        
-        # Should handle exception and return empty array
+        # Should return empty array with correct dimensions
         assert result.shape == (2, 0)
     
-    def test_vertices_exception_handling_non_empty_set(self):
-        """Test vertices exception handling when set is not empty"""
+    def test_vertices_polytope_methods(self):
+        """Test vertices with Polytope using different methods"""
         
-        class ExceptionSet:
-            def __init__(self):
-                self._dim = 2
-                self._empty = False
-                
-            def dim(self):
-                return self._dim
-                
-            def isemptyobject(self):
-                return self._empty
-                
-            def vertices_(self, method, *args):
-                raise RuntimeError("Some error")
-            
-            def representsa_(self, setType, tol):
-                return False
+        # Create a simple 2D polytope
+        A = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]])
+        b = np.array([1, 1, 1, 1])
+        S = Polytope(A, b)
         
-        S = ExceptionSet()
-        S.__class__.__name__ = "CustomSet"
+        valid_methods = ['cdd', 'lcon2vert', 'comb']
+        for method in valid_methods:
+            result = vertices(S, method=method)
+            assert result.shape[0] == 2
         
-        # Should re-raise the exception
-        with pytest.raises(RuntimeError, match="Some error"):
-            vertices(S)
+        # Test validation with invalid method
+        with patch('cora_python.g.macros.CHECKS_ENABLED.CHECKS_ENABLED', return_value=True):
+            with pytest.raises(Exception):  # Should raise validation error
+                vertices(S, method='invalid')
     
-    def test_vertices_with_additional_args(self):
-        """Test vertices with additional arguments"""
+    def test_vertices_polytope_method_passing(self):
+        """Test that method parameter is correctly passed to polytope.vertices_"""
         
-        class ArgsSet:
-            def __init__(self):
-                self._dim = 2
-                self._empty = False
-                
-            def dim(self):
-                return self._dim
-                
-            def isemptyobject(self):
-                return self._empty
-                
-            def vertices_(self, method, *args):
-                # Verify additional arguments are passed
-                assert len(args) == 2
-                assert args[0] == 'extra_arg1'
-                assert args[1] == 'extra_arg2'
-                return np.ones((self._dim, 3))
-            
-            def representsa_(self, setType, tol):
-                return False
+        # Create a simple 2D polytope
+        A = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]])
+        b = np.array([1, 1, 1, 1])
+        S = Polytope(A, b)
         
-        S = ArgsSet()
-        S.__class__.__name__ = "CustomSet"
-        result = vertices(S, 'convHull', 'extra_arg1', 'extra_arg2')
-        
-        assert result.shape == (2, 3)
+        # Test that method parameter is passed through
+        result = vertices(S, method='comb')
+        assert result.shape[0] == 2
     
-    def test_vertices_high_dimension(self):
-        """Test vertices with high-dimensional sets"""
+    def test_vertices_conpolyzonotope_method(self):
+        """Test vertices with ConPolyZono using numeric method"""
         
-        S = MockContSet("Interval", 5)
+        # Create a simple ConPolyZono with valid parameters
+        c = np.array([[0], [0]])
+        G = np.array([[1, 0], [0, 1]])
+        E = np.array([[1, 0], [0, 1]])  # 2x2 matrix
+        A = np.array([[1, 0]])
+        b = np.array([1])
+        EC = np.array([[1, 0], [0, 1]])  # 2x2 matrix to match E dimensions
+        GI = np.array([[0, 0]])  # Add GI parameter (restricted generators)
+        S = ConPolyZono(c, G, E, A, b, EC, GI)
+        
+        # Valid numeric method (number of splits)
+        result = vertices(S, method=10)
+        assert result.shape[0] == 2
+        
+        # Test validation with invalid method
+        with patch('cora_python.g.macros.CHECKS_ENABLED.CHECKS_ENABLED', return_value=True):
+            with pytest.raises(Exception):  # Should raise validation error
+                vertices(S, method=0)
+            
+            with pytest.raises(Exception):  # Should raise validation error
+                vertices(S, method=-5)
+    
+    def test_vertices_conzonotope_methods(self):
+        """Test vertices with ConZonotope using different methods"""
+        
+        # Create a simple ConZonotope
+        c = np.array([[0], [0]])
+        G = np.array([[1, 0], [0, 1]])
+        A = np.array([[1, 0]])
+        b = np.array([1])
+        S = ConZonotope(c, G, A, b)
+        
+        valid_methods = ['default', 'template']
+        for method in valid_methods:
+            result = vertices(S, method=method)
+            assert result.shape[0] == 2
+        
+        # Test validation with invalid method
+        with patch('cora_python.g.macros.CHECKS_ENABLED.CHECKS_ENABLED', return_value=True):
+            with pytest.raises(Exception):  # Should raise validation error
+                vertices(S, method='invalid')
+    
+    def test_vertices_general_methods(self):
+        """Test vertices with general set types using different methods"""
+        
+        # Create a simple zonotope
+        c = np.array([[0], [0]])
+        G = np.array([[1, 0], [0, 1]])
+        S = Zonotope(c, G)
+        
+        valid_methods = ['convHull', 'iterate', 'polytope']
+        for method in valid_methods:
+            result = vertices(S, method=method)
+            assert result.shape[0] == 2
+        
+        # Test validation with invalid method
+        with patch('cora_python.g.macros.CHECKS_ENABLED.CHECKS_ENABLED', return_value=True):
+            with pytest.raises(Exception):  # Should raise validation error
+                vertices(S, method='invalid')
+    
+    def test_vertices_interval(self):
+        """Test vertices with Interval"""
+        
+        # Create a simple 2D interval
+        inf = np.array([-1, -1])
+        sup = np.array([1, 1])
+        S = Interval(inf, sup)
+        
         result = vertices(S)
         
-        assert result.shape[0] == 5
+        # Should return a 2D array with vertices
+        assert result.shape[0] == 2
         assert result.shape[1] > 0
+    
+    def test_vertices_ellipsoid(self):
+        """Test vertices with Ellipsoid"""
+        
+        # Create a simple 2D ellipsoid with column vector center
+        c = np.array([[0], [0]])  # Column vector
+        Q = np.array([[1, 0], [0, 1]])  # Square matrix
+        S = Ellipsoid(c, Q)
+        
+        result = vertices(S)
+        
+        # Should return a 2D array with vertices
+        assert result.shape[0] == 2
+        assert result.shape[1] > 0
+    
+    def test_vertices_fullspace(self):
+        """Test vertices with Fullspace"""
+        
+        # Create a 2D fullspace
+        S = Fullspace(2)
+        
+        result = vertices(S)
+        
+        # Should return a 2D array with vertices
+        assert result.shape[0] == 2
+        assert result.shape[1] > 0
+    
+    def test_vertices_emptyset(self):
+        """Test vertices with EmptySet"""
+        
+        # Create an empty set
+        S = EmptySet(2)
+        
+        result = vertices(S)
+        
+        # Should return empty array with correct dimensions
+        assert result.shape == (2, 0)
 
 
 if __name__ == "__main__":

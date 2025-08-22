@@ -104,6 +104,222 @@ class TestPolytopeVertices:
         V_expected = np.array([[0.4, 1.2], [1, 0], [0, -1], [-4/3, 1/3]]).T
         # Check that vertices match (order may vary)
         assert self._compare_vertex_sets(V, V_expected)
+        
+        # Test comb method
+        V_comb = vertices_(P, 'comb')
+        assert self._compare_vertex_sets(V_comb, V_expected)
+    
+    def test_vertices_2d_vertex_instantiation(self):
+        """Test 2D, vertex instantiation"""
+        V_expected = np.array([[3, 0], [2, 2], [-1, 3], [-2, 0], [0, -1]]).T
+        P = Polytope(V_expected)
+        V = vertices_(P)
+        assert np.allclose(V, V_expected, atol=1e-12)
+        
+        # Test comb method
+        V_comb = vertices_(P, 'comb')
+        assert np.allclose(V_comb, V_expected, atol=1e-12)
+    
+    def test_vertices_2d_bounded_degenerate_single_point(self):
+        """Test 2D, bounded, degenerate (single point)"""
+        A = np.array([[1, 1], [1, -1], [-1, 0]])
+        b = np.zeros((3, 1))
+        P = Polytope(A, b)
+        V = vertices_(P)
+        V_expected = np.array([[0], [0]])
+        assert np.allclose(V, V_expected, atol=1e-12)
+        
+        # Test comb method
+        V_comb = vertices_(P, 'comb')
+        assert np.allclose(V_comb, V_expected, atol=1e-12)
+    
+    def test_vertices_2d_bounded_degenerate_line(self):
+        """Test 2D, bounded, degenerate (line)"""
+        A = np.array([[1, 1], [1, -1], [-1, -1], [-1, 1]])
+        b = np.array([1, 0, 1, 0])
+        P = Polytope(A, b)
+        V = vertices_(P)
+        V_expected = np.array([[0.5, 0.5], [-0.5, -0.5]]).T
+        assert np.allclose(V, V_expected, atol=1e-12)
+        
+        # Test comb method
+        V_comb = vertices_(P, 'comb')
+        assert np.allclose(V_comb, V_expected, atol=1e-12)
+    
+    def test_vertices_3d_degenerate_2d_simplex(self):
+        """Test 3D, degenerate (2D simplex)"""
+        A = np.array([[-1, 0, 0], [0, -1, 0], [1, 1, 0]])
+        b = np.array([0, 0, 2])
+        Ae = np.array([[0, 0, 1]])
+        be = np.array([0])
+        P = Polytope(A, b, Ae, be)
+        V = vertices_(P)
+        V_expected = np.array([[2, 0, 0], [0, 2, 0], [0, 0, 0]]).T
+        assert np.allclose(V, V_expected, atol=1e-12)
+    
+    def test_vertices_3d_unit_box(self):
+        """Test 3D, unit box"""
+        n = 3
+        A = np.vstack([np.eye(n), -np.eye(n)])
+        b = np.ones((2*n, 1))
+        P = Polytope(A, b)
+        V = vertices_(P)
+        V_expected = np.array([
+            [1, 1, 1], [1, 1, -1], [1, -1, 1], [-1, 1, 1],
+            [1, -1, -1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1]
+        ]).T
+        assert np.allclose(V, V_expected, atol=1e-12)
+    
+    def test_vertices_3d_degenerate_unit_box_square(self):
+        """Test 3D, degenerate unit box: square"""
+        n = 3
+        A = np.vstack([np.eye(n), -np.eye(n)])
+        b = np.array([1, 1, 0, 1, 1, 0])
+        P = Polytope(A, b)
+        V = vertices_(P)
+        V_expected = np.array([[1, 1, 0], [-1, 1, 0], [-1, -1, 0], [1, -1, 0]]).T
+        # Check that vertices match (order may vary)
+        assert self._compare_vertex_sets(V, V_expected)
+        
+        # Test comb method
+        V_comb = vertices_(P, 'comb')
+        assert self._compare_vertex_sets(V_comb, V_expected)
+    
+    def test_vertices_4d_degenerate_unit_square(self):
+        """Test 4D, degenerate (unit square)"""
+        A = np.vstack([np.eye(2), -np.eye(2)])
+        A = np.hstack([A, np.zeros((4, 2))])
+        b = np.ones((4, 1))
+        Ae = np.hstack([np.zeros((2, 2)), np.eye(2)])
+        be = np.zeros((2, 1))
+        P = Polytope(A, b, Ae, be)
+        V = vertices_(P)
+        V_expected = np.array([
+            [1, 1, 0, 0], [1, -1, 0, 0], [-1, 1, 0, 0], [-1, -1, 0, 0]
+        ]).T
+        assert np.allclose(V, V_expected, atol=1e-12)
+    
+    def test_vertices_4d_rotated_degenerate_unit_square(self):
+        """Test 4D, degenerate (rotated unit square)"""
+        # Base degenerate unit square
+        A = np.vstack([np.eye(2), -np.eye(2)])
+        A = np.hstack([A, np.zeros((4, 2))])
+        b = np.ones((4, 1))
+        Ae = np.hstack([np.zeros((2, 2)), np.eye(2)])
+        be = np.zeros((2, 1))
+        P = Polytope(A, b, Ae, be)
+        
+        # Rotation matrix
+        M = np.array([
+            [1, 3, -2, 4],
+            [3, -2, 4, -1],
+            [3, -2, -1, 3],
+            [4, -3, -2, 1]
+        ])
+        
+        P_rotated = M @ P
+        V = vertices_(P_rotated)
+        
+        # Check that vertices are correctly transformed
+        V_base = vertices_(P)
+        V_expected = M @ V_base
+        assert np.allclose(V, V_expected, atol=1e-12)
+    
+    def test_vertices_7d_degenerate_subspace(self):
+        """Test 7D degenerate case requiring subspace computation"""
+        A = np.array([
+            [0, 1, 0, 0, 0, 0, 0],
+            [0, -1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, -1, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, -1, 0, 0],
+            [0, 0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0, -1],
+            [np.sqrt(2), 0, -0.5, 0, 0, 0.5, 0],
+            [np.sqrt(2), 0, 0.5, 0, 0, -0.5, 0],
+            [0, 0, 0, 0, 0, 1, 0],
+            [0, 0, -1, 0, 0, 0, 0],
+            [-1, 0, 0, 0, 0, 0, 0]
+        ])
+        b = np.array([0, 0, 1, -1, 0, 0, 0, 0, np.sqrt(2), np.sqrt(2), 0.26, -0.25, -1])
+        P = Polytope(A, b)
+        V = vertices_(P)
+        # Expected: 2 vertices in 7D space
+        assert V.shape == (7, 2)
+        # Check approximate values
+        V_expected = np.array([
+            [1, 0, 0.25, 1, 0, 0.25, 0],
+            [1, 0, 0.26, 1, 0, 0.26, 0]
+        ]).T
+        assert np.allclose(V, V_expected, atol=1e-10)
+    
+    def test_vertices_2d_unbounded_error(self):
+        """Test 2D, unbounded (should throw an error!)"""
+        A = np.array([[1, 0], [-1, 0], [0, -1]])
+        b = np.array([1, 1, 1])
+        P = Polytope(A, b)
+        with pytest.raises(Exception):  # Should throw error for unbounded
+            vertices_(P)
+    
+    def test_vertices_2d_unbounded_axis_aligned_error(self):
+        """Test 2D, unbounded but not axis-aligned (should throw an error!)"""
+        A = np.array([[1, -0.1], [0.1, -1], [-0.1, -1], [-1, -0.1]])
+        b = np.ones((4, 1))
+        P = Polytope(A, b)
+        with pytest.raises(Exception):  # Should throw error for unbounded
+            vertices_(P)
+    
+    def test_vertices_complex_vertex_representation(self):
+        """Test complex vertex representation with many points"""
+        V = np.array([
+            [1.000, 4.000, 4.000, 1.000, 1.000, 4.000, 4.000, 4.000, 4.000, 7.000, 7.000, 4.000, 4.000, 7.000, 7.000, 1.000],
+            [3.000, 3.000, 6.000, 3.000, 3.000, 3.000, 6.000, 0.000, 0.000, 0.000, 3.000, 2.000, 2.000, 2.000, 5.000, 3.000]
+        ])
+        P = Polytope(V)
+        V_result = vertices_(P)
+        
+        # Expected: convex hull should reduce to 5 vertices (like MATLAB)
+        V_expected = np.array([
+            [1, 4, 4, 7, 7],
+            [3, 0, 6, 0, 5]
+        ])
+        # Check that vertices match (order may vary)
+        assert self._compare_vertex_sets(V_result, V_expected, tol=1e-8)
+    
+    def test_vertices_method_comparison(self):
+        """Test that different methods produce consistent results"""
+        A = np.array([[2, 1], [2, -2], [-2, -2], [-1, 2]])
+        b = np.array([2, 2, 2, 2])
+        P = Polytope(A, b)
+        
+        V_lcon2vert = vertices_(P, 'lcon2vert')
+        V_comb = vertices_(P, 'comb')
+        
+        # Both methods should give same result for this case (order may vary)
+        assert self._compare_vertex_sets(V_lcon2vert, V_comb, tol=1e-12)
+    
+    def test_vertices_cdd_method_fallback(self):
+        """Test that cdd method falls back to lcon2vert"""
+        A = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]])
+        b = np.array([1, 1, 1, 1])
+        P = Polytope(A, b)
+        
+        # cdd method should fall back to lcon2vert
+        V_cdd = vertices_(P, 'cdd')
+        V_lcon2vert = vertices_(P, 'lcon2vert')
+        
+        # Results should be the same (order may vary)
+        assert self._compare_vertex_sets(V_cdd, V_lcon2vert, tol=1e-12)
+        
+        # Test with different bounds
+        b_new = np.array([2, 2, 2, 2])
+        P_new = Polytope(A, b_new)
+        V_new = vertices_(P_new)
+        # For bounds [2, 2, 2, 2], the square has vertices at corners [-2, -2], [-2, 2], [2, -2], [2, 2]
+        V_expected = np.array([[-2, -2], [-2, 2], [2, -2], [2, 2]]).T
+        # Check that vertices match (order may vary)
+        assert self._compare_vertex_sets(V_new, V_expected)
     
     def test_vertices_2d_vertex_instantiation(self):
         """Test 2D, vertex instantiation"""
@@ -215,6 +431,7 @@ class TestPolytopeVertices:
         P = Polytope(A, b)
         V = vertices_(P)
         V_expected = np.array([[1, 0, 0.25, 1, 0, 0.25, 0], [1, 0, 0.26, 1, 0, 0.26, 0]]).T
+        # Check that vertices match (order may vary)
         assert self._compare_vertex_sets(V, V_expected, tol=1e-10)
     
     def test_vertices_2d_unbounded_errors(self):

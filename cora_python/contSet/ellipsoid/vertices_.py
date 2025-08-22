@@ -30,11 +30,14 @@ import numpy as np
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
-def vertices_(E):
+def vertices_(E, method: str = 'convHull', *args, **kwargs):
     """
     Computes the vertices of a 1D ellipsoid.
     Args:
         E: ellipsoid object
+        method: Method for vertex computation (unused, kept for interface compatibility)
+        *args: Additional arguments (unused)
+        **kwargs: Additional keyword arguments (unused)
     Returns:
         V: vertices (np.ndarray)
     """
