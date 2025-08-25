@@ -32,15 +32,27 @@ Last update:   23-November-2022 (polish)
                Automatic python translation: Florian Nüssel BA 2025
 """
 
-import numpy as np
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Optional, Tuple, Any, Dict, TYPE_CHECKING
+import numpy as np
 
-# Import nnHelper methods for proper integration
-from cora_python.nn.nnHelper import validateNNoptions
+# Import CORA Python modules
+from ..nnHelper.validateNNoptions import validateNNoptions
+
+# Try to import PyTorch for GPU support
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    print("Warning: PyTorch not available. GPU support will be disabled.")
 
 
-def verify(self, nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.ndarray, 
+if TYPE_CHECKING:
+    from .neuralNetwork import NeuralNetwork
+
+
+def verify(nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.ndarray, 
            safeSet: Any, options: Optional[Dict[str, Any]] = None, timeout: Optional[float] = None, 
            verbose: bool = False) -> Tuple[Optional[str], Optional[np.ndarray], Optional[np.ndarray]]:
     """
@@ -82,16 +94,28 @@ def verify(self, nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b:
     
     # Check if a gpu is used during training.
     useGpu = options.get('nn', {}).get('train', {}).get('use_gpu', False)
-    if useGpu:
+    if useGpu and TORCH_AVAILABLE:
         # Training data is also moved to gpu.
-        # For now, we'll use CPU as GPU support requires additional libraries
+        # In MATLAB: inputDataClass = gpuArray(inputDataClass)
+        # For Python, we'll use PyTorch GPU tensors
+        inputDataClass = 'gpu_float32'
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if device.type == 'cuda':
+            print(f"Using GPU: {torch.cuda.get_device_name(0)}")
+        else:
+            print("CUDA not available, falling back to CPU")
+            useGpu = False
+            inputDataClass = np.float32
+    else:
+        # No GPU support available
+        useGpu = False
         inputDataClass = np.float32
     
     # (potentially) move weights of the network to gpu
     nn.castWeights(inputDataClass)
     
     # Specify indices of layers for propagation.
-    idxLayer = list(range(len(nn.layers)))
+    idxLayer = list(range(len(nn.layers)))  # 0-based indexing like Python
     
     # In each layer, store ids of active generators and identity matrices 
     # for fast adding of approximation errors.
@@ -101,7 +125,7 @@ def verify(self, nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b:
                            np.zeros((x.shape[0], numGen - x.shape[0]), dtype=inputDataClass)], axis=1)
     batchG = np.tile(idMat.reshape(idMat.shape[0], idMat.shape[1], 1), (1, 1, bs))
     
-    # Initialize queue.
+    # Initialize queue - preserve original shapes like MATLAB
     xs = x
     rs = r
     # Obtain number of input dimensions.
@@ -124,21 +148,45 @@ def verify(self, nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b:
             print(f'Queue / Verified / Total: {xs.shape[1]:07d} / {verifiedPatches:07d} / {totalNumSplits:07d} [Avg. radius: {np.mean(rs):.5f}]')
         
         # Pop next batch from the queue.
-        xi, ri, xs, rs = self._aux_pop(xs, rs, bs)
+        xi, ri, xs, rs = _aux_pop(xs, rs, bs)
         # Move the batch to the GPU.
-        xi = xi.astype(inputDataClass)
-        ri = ri.astype(inputDataClass)
+        # In MATLAB: xi = cast(xi,'like',inputDataClass); ri = cast(ri,'like',inputDataClass);
+        if useGpu and TORCH_AVAILABLE:
+            # Convert to PyTorch tensors and move to GPU
+            xi = torch.tensor(xi, dtype=torch.float32, device=device)
+            ri = torch.tensor(ri, dtype=torch.float32, device=device)
+        else:
+            # Use CPU arrays
+            xi = xi.astype(inputDataClass)
+            ri = ri.astype(inputDataClass)
         
         # Falsification -------------------------------------------------------
         # Try to falsification with a FGSM attack.
         # 1. Compute the sensitivity.
         S, _ = nn.calcSensitivity(xi, options=options, store_sensitivity=False)
-        S = np.maximum(S, 1e-3)
-        sens = np.sum(np.abs(S), axis=0)
-        sens = sens.reshape(-1, 1)
+        
+        # Handle GPU vs CPU arrays
+        if useGpu and TORCH_AVAILABLE:
+            # Convert sensitivity to GPU tensor if needed
+            if isinstance(S, np.ndarray):
+                S = torch.tensor(S, dtype=torch.float32, device=device)
+            S = torch.maximum(S, torch.tensor(1e-3, dtype=torch.float32, device=device))
+            sens = torch.sum(torch.abs(S), dim=0)
+            sens = sens.reshape(-1, 1)
+        else:
+            # Use NumPy operations
+            S = np.maximum(S, 1e-3)
+            sens = np.sum(np.abs(S), axis=0)
+            sens = sens.reshape(-1, 1)
+        
         # 2. Compute adversarial attacks. We want to maximze A*yi + b; 
         # therefore, ...
-        zi = xi + ri * np.sign(sens)
+        if useGpu and TORCH_AVAILABLE:
+            # Use PyTorch operations for GPU
+            zi = xi + ri * torch.sign(sens)
+        else:
+            # Use NumPy operations for CPU
+            zi = xi + ri * np.sign(sens)
         # 3. Check adversarial examples.
         yi = nn.evaluate_(zi, options, idxLayer)
         if safeSet:
@@ -153,7 +201,10 @@ def verify(self, nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b:
             x_ = zi[:, id_]
             # Gathering weights from gpu. There is are precision error when 
             # using single gpuArray.
+            # In MATLAB: nn.castWeights(single(1)); y_ = nn.evaluate_(gather(x_),options,idxLayer);
             nn.castWeights(np.float32)
+            # In MATLAB: gather(x_) moves data from GPU to CPU
+            # For Python: x_ is already on CPU, so no gather needed
             y_ = nn.evaluate_(x_, options, idxLayer)
             break
         
@@ -162,37 +213,95 @@ def verify(self, nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b:
         if not options.get('nn', {}).get('interval_center', False):
             cxi = xi
         else:
-            cxi = np.tile(xi.reshape(xi.shape[0], 1, xi.shape[1]), (1, 2, 1))
-        Gxi = np.tile(ri.reshape(ri.shape[0], 1, ri.shape[1]), (1, 1, 1)) * batchG[:, :, :ri.shape[1]]
+            if useGpu and TORCH_AVAILABLE:
+                # Use PyTorch operations for GPU
+                cxi = torch.tile(xi.reshape(xi.shape[0], 1, xi.shape[1]), (1, 2, 1))
+            else:
+                # Use NumPy operations for CPU
+                cxi = np.tile(xi.reshape(xi.shape[0], 1, xi.shape[1]), (1, 2, 1))
+        
+        # Handle batchG creation for GPU vs CPU
+        if useGpu and TORCH_AVAILABLE:
+            # Convert batchG to GPU tensor
+            batchG_gpu = torch.tensor(batchG, dtype=torch.float32, device=device)
+            Gxi = torch.tile(ri.reshape(ri.shape[0], 1, ri.shape[1]), (1, 1, 1)) * batchG_gpu[:, :, :ri.shape[1]]
+        else:
+            # Use NumPy operations for CPU
+            Gxi = np.tile(ri.reshape(ri.shape[0], 1, ri.shape[1]), (1, 1, 1)) * batchG[:, :, :ri.shape[1]]
+        
         yi, Gyi = nn.evaluateZonotopeBatch_(cxi, Gxi, options, idxLayer)
+        
         # 2. Compute logit-difference.
         if not options.get('nn', {}).get('interval_center', False):
-            dyi = A @ yi + b
-            dri = np.sum(np.abs(A @ Gyi), axis=0)
+            if useGpu and TORCH_AVAILABLE:
+                # Use PyTorch operations for GPU
+                dyi = torch.matmul(torch.tensor(A, dtype=torch.float32, device=device), yi) + torch.tensor(b, dtype=torch.float32, device=device)
+                dri = torch.sum(torch.abs(torch.matmul(torch.tensor(A, dtype=torch.float32, device=device), Gyi)), dim=0)
+            else:
+                # Use NumPy operations for CPU
+                dyi = A @ yi + b
+                dri = np.sum(np.abs(A @ Gyi), axis=0)
         else:
             # Compute the center and the radius of the center-interval.
-            yic = 1/2 * (yi[:, 1, :] + yi[:, 0, :])
-            yid = 1/2 * (yi[:, 1, :] - yi[:, 0, :])
-            # Compute the logit difference.
-            dyi = A @ yic + b
-            dri = np.sum(np.abs(A @ Gyi), axis=0) + np.sum(np.abs(A * yid.T), axis=1)
+            if useGpu and TORCH_AVAILABLE:
+                # Use PyTorch operations for GPU
+                yic = 1/2 * (yi[:, 1, :] + yi[:, 0, :])
+                yid = 1/2 * (yi[:, 1, :] - yi[:, 0, :])
+                # Compute the logit difference.
+                dyi = torch.matmul(torch.tensor(A, dtype=torch.float32, device=device), yic) + torch.tensor(b, dtype=torch.float32, device=device)
+                dri = torch.sum(torch.abs(torch.matmul(torch.tensor(A, dtype=torch.float32, device=device), Gyi)), dim=0) + torch.sum(torch.abs(torch.tensor(A, dtype=torch.float32, device=device) * yid.T), dim=1)
+            else:
+                # Use NumPy operations for CPU
+                yic = 1/2 * (yi[:, 1, :] + yi[:, 0, :])
+                yid = 1/2 * (yi[:, 1, :] - yi[:, 0, :])
+                # Compute the logit difference.
+                dyi = A @ yic + b
+                dri = np.sum(np.abs(A @ Gyi), axis=0) + np.sum(np.abs(A * yid.T), axis=1)
         # 3. Check specification.
         if safeSet:
-            checkSpecs = np.any(dyi + dri > 0, axis=0)
+            if useGpu and TORCH_AVAILABLE:
+                # Use PyTorch operations for GPU
+                checkSpecs = torch.any(dyi + dri > 0, dim=0)
+            else:
+                # Use NumPy operations for CPU
+                checkSpecs = np.any(dyi + dri > 0, axis=0)
         else:
-            checkSpecs = np.all(dyi - dri < 0, axis=0)
+            if useGpu and TORCH_AVAILABLE:
+                # Use PyTorch operations for GPU
+                checkSpecs = torch.all(dyi - dri < 0, dim=0)
+            else:
+                # Use NumPy operations for CPU
+                checkSpecs = np.all(dyi - dri < 0, axis=0)
+        
         unknown = checkSpecs
-        xi = xi.astype(np.float64)
-        ri = ri.astype(np.float64)
-        sens = sens.astype(np.float64)
+        
+        # In MATLAB: xi = gather(xi); ri = gather(ri); sens = gather(sens);
+        # For Python: gather() moves data from GPU to CPU
+        if useGpu and TORCH_AVAILABLE:
+            # Move data from GPU to CPU using PyTorch's .cpu() method
+            xi = xi.cpu().numpy().astype(np.float64)
+            ri = ri.cpu().numpy().astype(np.float64)
+            sens = sens.cpu().numpy().astype(np.float64)
+        else:
+            # Data is already on CPU
+            xi = xi.astype(np.float64)
+            ri = ri.astype(np.float64)
+            sens = sens.astype(np.float64)
+        
         # 3. Create new splits.
-        xis, ris = self._aux_split(xi[:, unknown], ri[:, unknown], sens[:, unknown], nSplits, nDims)
+        xis, ris = _aux_split(xi[:, unknown], ri[:, unknown], sens[:, unknown], nSplits, nDims)
         # Add new splits to the queue.
         xs = np.hstack([xis, xs])
         rs = np.hstack([ris, rs])
         
         totalNumSplits += xis.shape[1]
         verifiedPatches += xi.shape[1] - np.sum(unknown)
+        
+        # To save memory, we clear all variables that are no longer used.
+        # This is equivalent to MATLAB's clear(batchVars{:})
+        batchVars = ['xi', 'ri', 'xGi', 'yi', 'Gyi', 'dyi', 'dri']
+        # In Python, we rely on garbage collection, but we can explicitly delete
+        del xi, ri, yi, Gyi, dyi, dri
     
     # Verified.
     if res is None:
@@ -202,7 +311,8 @@ def verify(self, nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b:
     
     return res, x_, y_
 
-def _aux_pop(self, xs: np.ndarray, rs: np.ndarray, bs: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+
+def _aux_pop(xs: np.ndarray, rs: np.ndarray, bs: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Pop elements from the queue"""
     bs = min(bs, xs.shape[1])
     
@@ -217,7 +327,8 @@ def _aux_pop(self, xs: np.ndarray, rs: np.ndarray, bs: int) -> Tuple[np.ndarray,
     
     return xi, ri, xs, rs
 
-def _aux_split(self, xi: np.ndarray, ri: np.ndarray, sens: np.ndarray, nSplits: int, nDims: int) -> Tuple[np.ndarray, np.ndarray]:
+
+def _aux_split(xi: np.ndarray, ri: np.ndarray, sens: np.ndarray, nSplits: int, nDims: int) -> Tuple[np.ndarray, np.ndarray]:
     """Split the input for verification"""
     n, bs = xi.shape
     # Cannot split more than every dimension.

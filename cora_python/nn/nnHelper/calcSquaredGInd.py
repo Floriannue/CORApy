@@ -31,38 +31,34 @@ def calcSquaredGInd(G1: np.ndarray, G2: np.ndarray, isEqual: Optional[bool] = No
     if isEqual is None:
         isEqual = False
     
-    G1_ind = np.array([])
-    G2_ind = np.array([])
-    G1_ind2 = np.array([])
-    G2_ind2 = np.array([])
+    # Create index matrices for G1 and G2
+    tempG1 = np.power(np.arange(len(G1)).reshape(-1, 1), np.ones(len(G2)))  # 0-based indexing like Python
+    tempG2 = np.power(np.arange(len(G2)), np.ones(len(G1)).reshape(-1, 1))  # 0-based indexing like Python
     
-    if G1.size > 0 and G2.size > 0:
-        tempG1 = np.power(np.arange(1, len(G1) + 1).reshape(-1, 1), np.ones(len(G2)))
-        tempG2 = np.power(np.arange(1, len(G2) + 1), np.ones(len(G1)).reshape(-1, 1))
+    if isEqual:
+        # we can ignore the left lower triangle in this case
+        # as it's the same as the right upper triangle
+        # -> double right upper triangle
         
-        if isEqual:
-            # we can ignore the left lower triangle in this case
-            # as it's the same as the right upper triangle
-            # -> double right upper triangle
-            
-            G1_ind = np.arange(1, len(G1) + 1)
-            G2_ind = np.arange(1, len(G2) + 1)
-            
-            # Get upper triangle (excluding diagonal)
-            triu_indices = np.triu_indices(len(G1), k=1)
-            G1_ind2 = tempG1[triu_indices].flatten()
-            G2_ind2 = tempG2[triu_indices].flatten()
-            
-            # Remove zeros
-            G1_ind2 = G1_ind2[G1_ind2 > 0]
-            G2_ind2 = G2_ind2[G2_ind2 > 0]
-            
-        else:
-            # calculate all values
-            G1_ind = tempG1
-            G2_ind = tempG2
-            
-            G1_ind = G1_ind.reshape(1, -1)
-            G2_ind = G2_ind.reshape(1, -1)
+        # Create index vectors for G1 and G2
+        G1_ind = np.arange(len(G1))  # 0-based indexing like Python
+        G2_ind = np.arange(len(G2))  # 0-based indexing like Python
+        
+        # Get upper triangle (excluding diagonal)
+        triu_indices = np.triu_indices(len(G1), k=1)
+        G1_ind2 = tempG1[triu_indices].flatten()
+        G2_ind2 = tempG2[triu_indices].flatten()
+        
+        # Remove zeros
+        G1_ind2 = G1_ind2[G1_ind2 > 0]
+        G2_ind2 = G2_ind2[G2_ind2 > 0]
+        
+    else:
+        # calculate all values
+        G1_ind = tempG1
+        G2_ind = tempG2
+        
+        G1_ind = G1_ind.reshape(1, -1)
+        G2_ind = G2_ind.reshape(1, -1)
     
     return G1_ind, G2_ind, G1_ind2, G2_ind2

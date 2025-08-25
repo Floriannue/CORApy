@@ -1,11 +1,17 @@
 """
-Nonlinear Neural Network Layers Module
+Nonlinear layer module for neural networks.
 
-This module contains nonlinear layer implementations.
+This module provides various nonlinear activation layers.
 """
 
 from .nnActivationLayer import nnActivationLayer
-from .nnLeakyReLULayer import nnLeakyReLULayer
 from .nnReLULayer import nnReLULayer
+from .nnSigmoidLayer import nnSigmoidLayer
+from .nnTanhLayer import nnTanhLayer
 
-__all__ = ['nnActivationLayer', 'nnLeakyReLULayer', 'nnReLULayer']
+__all__ = [
+    'nnActivationLayer',
+    'nnReLULayer', 
+    'nnSigmoidLayer',
+    'nnTanhLayer'
+]

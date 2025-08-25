@@ -28,10 +28,13 @@ Last revision: ---
 """
 
 import numpy as np
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 # Import nnHelper methods for proper integration
 from cora_python.nn.nnHelper import conversionConZonoStarSet, conversionStarSetConZono
+
+if TYPE_CHECKING:
+    from .neuralNetwork import NeuralNetwork
 
 
 def evaluate_(obj: 'NeuralNetwork', input_data: Any, options: Optional[Dict[str, Any]] = None, 
@@ -52,7 +55,7 @@ def evaluate_(obj: 'NeuralNetwork', input_data: Any, options: Optional[Dict[str,
     # parse input
     if idxLayer is None:
         # default: all layers
-        idxLayer = list(range(1, len(obj.layers) + 1))  # MATLAB: 1:length(obj.layers)
+        idxLayer = list(range(len(obj.layers)))  # 0-based indexing like Python
     
     # evaluate ----------------------------------------------------------------
     

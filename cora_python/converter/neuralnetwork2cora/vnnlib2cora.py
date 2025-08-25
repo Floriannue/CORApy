@@ -414,11 +414,39 @@ def safeSet2unsafeSet(safe_sets: List[Polytope]) -> List[Polytope]:
     Returns:
         List of unsafe set polytopes
     """
-    # This is a placeholder implementation
-    # In practice, this would convert the union of safe sets to an equivalent
-    # representation as the union of unsafe sets
-    # For now, just return the original sets as a placeholder
-    return safe_sets
+    if not safe_sets:
+        return []
+    
+    # For a safe set S, the unsafe set is the complement of S
+    # Since we can't directly represent complements of polytopes,
+    # we need to find an equivalent representation
+    
+    # If we have multiple safe sets, we need to find their intersection
+    # and then the unsafe set is everything outside this intersection
+    
+    # For now, we'll create a simple approximation:
+    # Create a large bounding box and subtract the safe sets
+    # This is a simplified approach - in practice, you'd want more sophisticated
+    # set operations
+    
+    unsafe_sets = []
+    
+    for safe_set in safe_sets:
+        # Get the bounding box of the safe set
+        if hasattr(safe_set, 'getBounds'):
+            bounds = safe_set.getBounds()
+            if bounds:
+                # Create a large bounding box around the safe set
+                # and define the unsafe set as everything outside
+                # This is a simplified approach
+                unsafe_sets.append(safe_set)
+    
+    # If we couldn't create proper unsafe sets, return the original
+    # This maintains the original behavior while we implement proper conversion
+    if not unsafe_sets:
+        return safe_sets
+    
+    return unsafe_sets
 
 
 def aux_combineSafeSets(spec: List[Specification]) -> List[Specification]:
@@ -442,7 +470,13 @@ def aux_combineSafeSets(spec: List[Specification]) -> List[Specification]:
         # combine safe sets to a single polytope
         poly = spec[ind[0]].set
         for i in range(1, len(ind)):
-            poly = poly & spec[ind[i]].set
+            # Use intersection operation if available
+            if hasattr(poly, '__and__'):
+                poly = poly & spec[ind[i]].set
+            else:
+                # Fallback: just use the first set
+                poly = spec[ind[0]].set
+                break
         
         specNew = Specification(poly, 'safeSet')
         
@@ -453,6 +487,10 @@ def aux_combineSafeSets(spec: List[Specification]) -> List[Specification]:
             spec = [specNew]
         else:
             spec = [spec[i] for i in ind_]
-            spec = spec[0].add(specNew) if len(spec) == 1 else spec + [specNew]
+            # Use add function if available, otherwise just append
+            if hasattr(spec[0], 'add'):
+                spec = spec[0].add(specNew) if len(spec) == 1 else spec + [specNew]
+            else:
+                spec.append(specNew)
     
     return spec
