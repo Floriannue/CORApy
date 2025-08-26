@@ -31,6 +31,7 @@ Last revision: 10-August-2022 (renamed)
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple, Union
 from .nnLeakyReLULayer import nnLeakyReLULayer
+from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
 
 
 class nnReLULayer(nnLeakyReLULayer):
@@ -49,7 +50,7 @@ class nnReLULayer(nnLeakyReLULayer):
             name: Name of the layer, defaults to type
         """
         if name is None:
-            name = None
+            name = "relu"
         # call super class constructor
         super().__init__(0, name)
     
@@ -69,14 +70,14 @@ class nnReLULayer(nnLeakyReLULayer):
         r = np.maximum(0, input_data)
         return r
     
-    def evaluateConZonotopeNeuron(self, c: np.ndarray, G: np.ndarray, C: np.ndarray, 
-                                  d: np.ndarray, l_: np.ndarray, u_: np.ndarray, 
-                                  j: int, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, 
-                                                                           np.ndarray, np.ndarray, 
+    def evaluateConZonotopeNeuron(self, c: np.ndarray, G: np.ndarray, C: np.ndarray,
+                                  d: np.ndarray, l_: np.ndarray, u_: np.ndarray,
+                                  j: int, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray,
+                                                                           np.ndarray, np.ndarray,
                                                                            np.ndarray, np.ndarray]:
         """
         Evaluate constraint zonotope for a specific neuron
-        
+
         Args:
             c: Center
             G: Generators
@@ -86,24 +87,30 @@ class nnReLULayer(nnLeakyReLULayer):
             u_: Upper bounds
             j: Neuron index
             options: Evaluation options
-            
+
         Returns:
             Tuple of evaluation results
         """
         # enclose the ReLU activation function with a constrained zonotope based on
         # the results for star sets in [1]
-        
+
         n = len(c)
         m = G.shape[1]
         M = np.eye(n)
         M[:, j] = np.zeros(n)
-        
+
         # get lower bound
         if options['nn']['bound_approx']:
-            c_ = c[j] + 0.5 * G[j, :] @ (u_ - l_)
-            G_ = 0.5 * G[j, :] * np.diag(u_ - l_)
+            # MATLAB: c_ = c(j) + 0.5 * G(j, :) * (u_ - l_)
+            # This is element-wise multiplication, not matrix multiplication
+            c_ = c[j] + 0.5 * np.sum(G[j, :] * (u_ - l_))
+            # MATLAB: G_ = 0.5 * G(j, :) * diag(u_-l_)
+            # This creates a matrix where each column is scaled by the corresponding element
+            G_ = 0.5 * G[j, :] * (u_ - l_)
             l = c_ - np.sum(np.abs(G_))
         else:
+            # Use CORAlinprog exactly like MATLAB
+            
             problem = {}
             problem['f'] = G[j, :]
             problem['Aineq'] = C
@@ -112,17 +119,24 @@ class nnReLULayer(nnLeakyReLULayer):
             problem['beq'] = []
             problem['lb'] = []
             problem['ub'] = []
-            # This would require CORAlinprog in MATLAB
-            # For now, we'll use a simplified approach
-            temp = np.min(G[j, :])
-            l = c[j] + temp
-        
+            
+            # MATLAB: [~, temp] = CORAlinprog(problem);
+            _, temp, exitflag, _, _ = CORAlinprog(problem)
+            
+            if exitflag == 1:
+                l = c[j] + temp
+            else:
+                # If optimization fails, fall back to simple bound
+                l = c[j] + np.min(G[j, :])
+
         # compute output according to Sec. 3.2 in [1]
         if l < 0:
             # compute upper bound
             if options['nn']['bound_approx']:
                 u = c_ + np.sum(np.abs(G_))
             else:
+                # Use CORAlinprog exactly like MATLAB
+                
                 problem = {}
                 problem['f'] = -G[j, :]
                 problem['Aineq'] = C
@@ -131,40 +145,52 @@ class nnReLULayer(nnLeakyReLULayer):
                 problem['beq'] = []
                 problem['lb'] = []
                 problem['ub'] = []
-                # This would require CORAlinprog in MATLAB
-                # For now, we'll use a simplified approach
-                temp = np.max(G[j, :])
-                u = c[j] - temp
-            
+                
+                # MATLAB: [~, temp] = CORAlinprog(problem);
+                _, temp, exitflag, _, _ = CORAlinprog(problem)
+                
+                if exitflag == 1:
+                    u = c[j] - temp
+                else:
+                    # If optimization fails, fall back to simple bound
+                    u = c[j] - np.max(G[j, :])
+
             if u <= 0:
                 # l <= u <= 0 -> linear
                 c = M @ c
                 G = M @ G
             else:
                 # compute relaxation
-                
+
                 # constraints and offset
+                # MATLAB: C = [C, zeros(size(C, 1), 1); zeros(1, m), -1; G(j, :), -1; -u / (u - l) * G(j, :), 1];
                 C = np.vstack([
                     np.hstack([C, np.zeros((C.shape[0], 1))]),
                     np.hstack([np.zeros((1, m)), -1]),
                     np.hstack([G[j, :], -1]),
                     np.hstack([-u / (u - l) * G[j, :], 1])
                 ])
+                
+                # MATLAB: d = [d; 0; -c(j); u / (u - l) * (c(j) - l)];
                 d = np.concatenate([
                     d,
                     [0],
                     [-c[j]],
                     [u / (u - l) * (c[j] - l)]
                 ])
-                
+
                 # center and generators
+                # MATLAB: c = M * c;
                 c = M @ c
+                # MATLAB: G = [M * G, unitvector(j,n)];
                 G = np.hstack([M @ G, self.unitvector(j, n)])
-                
+
                 # bounds
+                # MATLAB: l_ = [l_; 0];
                 l_ = np.concatenate([l_, [0]])
+                # MATLAB: u_ = [u_; u];
                 u_ = np.concatenate([u_, [u]])
-        
+
         return c, G, C, d, l_, u_
     
     def getMergeBuckets(self) -> int:

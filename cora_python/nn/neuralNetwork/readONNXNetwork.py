@@ -101,7 +101,29 @@ def readONNXNetwork(file_path: str, *args) -> NeuralNetwork:
     
     # Read ONNX network using the ONNX library
     try:
+        if verbose:
+            print(f"Reading ONNX network from: {file_path}")
         dltoolbox_net = aux_readONNXviaONNX(file_path, inputDataFormats, outputDataFormats, targetNetwork)
+        
+        # Debug: Print what we actually got BEFORE trying to access it
+        print(f"DEBUG: dltoolbox_net type: {type(dltoolbox_net)}")
+        print(f"DEBUG: dltoolbox_net content: {dltoolbox_net}")
+        
+        # Validate the returned structure BEFORE trying to access it
+        if not isinstance(dltoolbox_net, dict):
+            print(f"ERROR: aux_readONNXviaONNX returned {type(dltoolbox_net)}, expected dict")
+            print(f"ERROR: Content: {dltoolbox_net}")
+            raise RuntimeError(f"Expected dictionary from aux_readONNXviaONNX, got {type(dltoolbox_net)}")
+        
+        if 'Layers' not in dltoolbox_net:
+            raise RuntimeError("Missing 'Layers' key in dltoolbox_net")
+        
+        if 'Connections' not in dltoolbox_net:
+            raise RuntimeError("Missing 'Connections' key in dltoolbox_net")
+            
+        if verbose:
+            print(f"Successfully loaded network with {len(dltoolbox_net['Layers'])} layers")
+            
     except Exception as ME:
         if verbose:
             print(f"Error reading ONNX network: {ME}")
@@ -151,7 +173,7 @@ def aux_removeIndentCodeLines(ME):
     pass
 
 
-def aux_readONNXviaONNX(file_path: str, inputDataFormats: str, outputDataFormats: str, targetNetwork: str) -> List[Dict]:
+def aux_readONNXviaONNX(file_path: str, inputDataFormats: str, outputDataFormats: str, targetNetwork: str) -> Dict:
     """
     Read ONNX network using the Python ONNX library.
     
@@ -165,24 +187,36 @@ def aux_readONNXviaONNX(file_path: str, inputDataFormats: str, outputDataFormats
         targetNetwork: Target network type
         
     Returns:
-        List of layer dictionaries representing the network
+        Dictionary with 'Layers' and 'Connections' keys, matching MATLAB's structure
         
     Raises:
         RuntimeError: If ONNX parsing fails
     """
     try:
+        print(f"DEBUG: Loading ONNX model from: {file_path}")
         # Load and parse ONNX model
         model = onnx.load(file_path)
+        print(f"DEBUG: ONNX model loaded successfully")
         
         # Validate the model
+        print(f"DEBUG: Validating ONNX model...")
         onnx.checker.check_model(model)
+        print(f"DEBUG: ONNX model validation passed")
         
         # Extract model metadata
         graph = model.graph
+        print(f"DEBUG: Graph has {len(graph.node)} nodes")
         initializers = {init.name: init for init in graph.initializer}
+        print(f"DEBUG: Found {len(initializers)} initializers")
         
+        # Initialize layers list
         layers = []
         layer_id = 0
+        
+        # Safety check: ensure we have a valid graph
+        if not hasattr(graph, 'node') or not graph.node:
+            print("WARNING: Graph has no nodes, creating empty network")
+            return {'Layers': [], 'Connections': []}
         
         # Process each node in the graph
         for node in graph.node:
@@ -330,6 +364,8 @@ def aux_readONNXviaONNX(file_path: str, inputDataFormats: str, outputDataFormats
             
             layers.append(layer_info)
             layer_id += 1
+            
+        print(f"DEBUG: Processed {len(layers)} layers")
         
         # Add input and output layer placeholders
         if layers:
@@ -349,7 +385,30 @@ def aux_readONNXviaONNX(file_path: str, inputDataFormats: str, outputDataFormats
             }
             layers.append(output_layer)
         
-        return layers
+        # Return the structure expected by the calling code
+        # MATLAB expects a dictionary with 'Layers' and 'Connections' keys
+        result = {
+            'Layers': layers,
+            'Connections': []  # For now, no connections - this can be enhanced later
+        }
+        
+        # Debug: Print the result structure
+        print(f"DEBUG: aux_readONNXviaONNX returning: {type(result)}")
+        print(f"DEBUG: Result keys: {list(result.keys())}")
+        print(f"DEBUG: Layers count: {len(result['Layers'])}")
+        
+        # Ensure we always return a dictionary
+        if not isinstance(result, dict):
+            print(f"ERROR: Result is not a dictionary, converting from {type(result)}")
+            result = {'Layers': layers if isinstance(layers, list) else [], 'Connections': []}
+        
+        # Final safety check
+        if not isinstance(result, dict):
+            print(f"CRITICAL ERROR: Still not a dictionary after conversion, creating fallback")
+            result = {'Layers': [], 'Connections': []}
+        
+        print(f"FINAL DEBUG: Returning {type(result)} with keys: {list(result.keys())}")
+        return result
         
     except Exception as e:
         # Enhanced error handling equivalent to MATLAB's error recovery
@@ -517,32 +576,32 @@ def neuralNetwork_convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool)
             
         elif layer_type in ['relulayer', 'relu']:
             # ReLU activation layer
-            from .layers.nonlinear.nnReLULayer import nnReLULayer
+            from ..layers.nonlinear.nnReLULayer import nnReLULayer
             layer = nnReLULayer(name=layer_info.get('Name', ''))
             layers.append(layer)
             
         elif layer_type in ['sigmoidlayer', 'sigmoid']:
             # Sigmoid activation layer
-            from .layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
+            from ..layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
             layer = nnSigmoidLayer(name=layer_info.get('Name', ''))
             layers.append(layer)
             
         elif layer_type in ['tanhlayer', 'tanh']:
             # Tanh activation layer
-            from .layers.nonlinear.nnTanhLayer import nnTanhLayer
+            from ..layers.nonlinear.nnTanhLayer import nnTanhLayer
             layer = nnTanhLayer(name=layer_info.get('Name', ''))
             layers.append(layer)
             
         elif layer_type in ['reshapelayer', 'reshape', 'flatten']:
             # Reshape layer
-            from .layers.other.nnReshapeLayer import nnReshapeLayer
+            from ..layers.other.nnReshapeLayer import nnReshapeLayer
             shape = layer_info.get('Shape', [-1])
             layer = nnReshapeLayer(shape, name=layer_info.get('Name', ''))
             layers.append(layer)
             
         elif layer_type in ['conv2dlayer', 'conv']:
             # Convolutional layer
-            from .layers.linear.nnConv2DLayer import nnConv2DLayer
+            from ..layers.linear.nnConv2DLayer import nnConv2DLayer
             
             # Extract convolution parameters
             W = layer_info.get('Weight', np.eye(1))
@@ -562,17 +621,17 @@ def neuralNetwork_convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool)
             padding = layer_info.get('Padding', [0, 0])
             
             if pool_type.lower() == 'maxpool':
-                from .layers.other.nnMaxPoolLayer import nnMaxPoolLayer
+                from ..layers.other.nnMaxPoolLayer import nnMaxPoolLayer
                 layer = nnMaxPoolLayer(kernel_size, stride, padding, name=layer_info.get('Name', ''))
             else:  # AveragePool
-                from .layers.other.nnAvgPoolLayer import nnAvgPoolLayer
+                from ..layers.other.nnAvgPoolLayer import nnAvgPoolLayer
                 layer = nnAvgPoolLayer(kernel_size, stride, padding, name=layer_info.get('Name', ''))
             
             layers.append(layer)
             
         elif layer_type in ['elementwiseaffinelayer', 'add', 'mul']:
             # Element-wise affine layer
-            from .layers.linear.nnElementwiseAffineLayer import nnElementwiseAffineLayer
+            from ..layers.linear.nnElementwiseAffineLayer import nnElementwiseAffineLayer
             
             # For Add/Mul operations, we need to determine the scale and offset
             # This is a simplified approach - in practice, we'd need to trace the computation
@@ -584,7 +643,7 @@ def neuralNetwork_convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool)
             
         elif layer_type in ['softmaxlayer', 'softmax']:
             # Softmax layer
-            from .layers.nonlinear.nnSoftmaxLayer import nnSoftmaxLayer
+            from ..layers.nonlinear.nnSoftmaxLayer import nnSoftmaxLayer
             axis = layer_info.get('Axis', -1)
             layer = nnSoftmaxLayer(axis, name=layer_info.get('Name', ''))
             layers.append(layer)

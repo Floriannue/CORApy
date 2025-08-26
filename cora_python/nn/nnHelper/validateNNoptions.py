@@ -277,8 +277,47 @@ def aux_checkFieldClass(options_nn: Dict[str, Any], field: str, admissible_class
         return
     
     # Check if the field type is in admissible classes
-    if not any(isinstance(field_value, cls) if cls != 'type(None)' else field_value is None 
-               for cls in admissible_classes):
+    valid_type = False
+    for cls in admissible_classes:
+        if cls == 'type(None)':
+            if field_value is None:
+                valid_type = True
+                break
+        elif cls == 'bool':
+            if isinstance(field_value, bool):
+                valid_type = True
+                break
+        elif cls == 'str':
+            if isinstance(field_value, str):
+                valid_type = True
+                break
+        elif cls == 'int':
+            if isinstance(field_value, int):
+                valid_type = True
+                break
+        elif cls == 'float':
+            if isinstance(field_value, float):
+                valid_type = True
+                break
+        elif cls == 'list':
+            if isinstance(field_value, list):
+                valid_type = True
+                break
+        elif cls == 'numpy.ndarray':
+            if hasattr(field_value, 'shape'):  # Check if it's a numpy array
+                valid_type = True
+                break
+        else:
+            # Try to use isinstance for other types
+            try:
+                if isinstance(field_value, cls):
+                    valid_type = True
+                    break
+            except TypeError:
+                # Skip this type check if it's not a valid type
+                continue
+    
+    if not valid_type:
         raise ValueError("Field {} has invalid type '{}'. Admissible types: {}".format(
             aux_getName(struct_name, field), field_type, admissible_classes))
 

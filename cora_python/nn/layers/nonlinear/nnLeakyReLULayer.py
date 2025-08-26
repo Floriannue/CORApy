@@ -35,6 +35,7 @@ Last revision: 10-August-2022 (renamed)
 import numpy as np
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from .nnActivationLayer import nnActivationLayer
+from cora_python.nn.nnHelper.minMaxDiffPoly import minMaxDiffPoly
 
 
 class nnLeakyReLULayer(nnActivationLayer):
@@ -102,6 +103,18 @@ class nnLeakyReLULayer(nnActivationLayer):
             df_i = lambda x: 0
         
         return df_i
+    
+    def _df2(self, x: np.ndarray) -> np.ndarray:
+        """
+        Second derivative of LeakyReLU (always 0)
+        
+        Args:
+            x: Input values
+            
+        Returns:
+            Second derivative values (all zeros)
+        """
+        return np.zeros_like(x)
     
     def getDerBounds(self, l: np.ndarray, u: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -176,18 +189,24 @@ class nnLeakyReLULayer(nnActivationLayer):
         # error can be computed exactly by checking each linear part
         # according to [2, Sec. 3.2]
         
+        # Convert coeffs to numpy array if it's a list
+        if isinstance(coeffs, list):
+            coeffs = np.array(coeffs)
+        
+        # Pad shorter polynomials with zeros to match lengths
+        max_len = max(len(coeffs), 2)
+        
         # x < 0: p(x) - alpha*x
-        # This would require minMaxDiffPoly function from CORA
-        # For now, we'll use a simplified approach
-        diffl1 = 0.0
-        diffu1 = 0.0
+        coeffs1 = np.pad(coeffs, (0, max_len - len(coeffs)))
+        coeffs2 = np.pad(np.array([self.alpha, 0]), (0, max_len - 2))
+        diffl1, diffu1 = minMaxDiffPoly(coeffs1, coeffs2, l, 0)
         
         # x > 0: p(x) - 1*x
-        diffl2 = 0.0
-        diffu2 = 0.0
+        coeffs3 = np.pad(np.array([1, 0]), (0, max_len - 2))
+        diffl2, diffu2 = minMaxDiffPoly(coeffs1, coeffs3, 0, u)
         
         # compute final approx error
-        diffl = min(diffl1, diffl2)
+        diffl = min(diffl1, diffu1)
         diffu = max(diffu1, diffu2)
         diffc = (diffu + diffl) / 2
         coeffs[-1] = coeffs[-1] - diffc
@@ -217,8 +236,17 @@ class nnLeakyReLULayer(nnActivationLayer):
         Returns:
             Tuple of (xs, dxsdm) extreme points and derivatives
         """
-        xs = np.zeros_like(m)
-        dxsdm = xs
+        # For ReLU, extreme points are at x = 0 for positive slopes
+        # Return shape: (len(m), 2) where each row has [xl, xu]
+        xs = np.zeros((len(m), 2))
+        dxsdm = np.zeros((len(m), 2))
+        
+        # For ReLU, extreme points are at x = 0 for positive m
+        for i, m_val in enumerate(m):
+            if m_val > 0:
+                xs[i, 0] = 0  # xl = 0
+                xs[i, 1] = 0  # xu = 0
+        
         return xs, dxsdm
     
     def computeApproxPolyCustom(self, l: np.ndarray, u: np.ndarray, order: int, poly_method: str) -> Tuple[np.ndarray, float]:

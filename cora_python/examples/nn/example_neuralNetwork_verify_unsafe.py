@@ -53,8 +53,11 @@ def example_neuralNetwork_verify_unsafe() -> str:
     
     verbose = True
     # Specify model and specification path.
-    modelPath = 'ACASXU_run2a_1_2_batch_2000.onnx'
-    specPath = 'prop_2.vnnlib'
+    # Get the directory where this script is located
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    modelPath = os.path.join(script_dir, 'models', 'ACASXU_run2a_1_2_batch_2000.onnx')
+    specPath = os.path.join(script_dir, 'models', 'prop_2.vnnlib')
     timeout = 2
     # Load model and specification.
     nn, x, r, A, b, safeSet, options = aux_readModelAndSpecs(modelPath, specPath)
@@ -95,8 +98,15 @@ def aux_readModelAndSpecs(modelPath: str, specPath: str) -> Tuple[NeuralNetwork,
     # Compute center and radius of the input set.
     # Note: MATLAB uses 1-based indexing, Python uses 0-based
     # MATLAB: X0{1}.sup, Python: X0[0].sup
+    # X0[0] is already an Interval object, so we can access .sup and .inf directly
     x = 1/2 * (X0[0].sup + X0[0].inf)
     r = 1/2 * (X0[0].sup - X0[0].inf)
+    
+    # Ensure x and r are 2D column vectors (n x 1) as expected by verify function
+    if x.ndim == 1:
+        x = x.reshape(-1, 1)
+    if r.ndim == 1:
+        r = r.reshape(-1, 1)
 
     # Extract specification.
     # MATLAB: isa(specs.set,'halfspace')

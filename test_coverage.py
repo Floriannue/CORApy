@@ -6,10 +6,6 @@ def get_files(directory):#including private
     for dirpath, dirnames, filenames in os.walk(directory):
         if '__pycache__' in dirnames:
             dirnames.remove('__pycache__')
-
-        if dirnames != [] and dirnames != ['private']:
-            print(f"Error: folder '{directory}' has unexpected subfolders: {dirnames}")
-            return None
         
         for filename in filenames:
             if (filename.endswith('.py')) and filename != '__init__.py':
@@ -29,20 +25,20 @@ def compare_files(dir, test_dir):
 
     untested_methods = []
     for file in implementation_files:
-        file = file.lower().replace('_op', '').replace('_', '')
+        file_transformed = file.lower().replace('_op', '').replace('_', '')
         tested = False
         for test in test_files:
-            test = test.lower().replace('_op', '').replace('_', '').replace("constructor","")
+            test_transformed = test.lower().replace('_op', '').replace('_', '').replace("constructor","")
             # Direct match: function.py -> test_function.py
-            if f"test{file}" == test:
+            if f"test{file_transformed}" == test_transformed:
                 tested = True
                 break
             # Class-specific test: method.py -> test_<class>_method.py
-            elif test.endswith(f"{file}"):
+            elif test_transformed.endswith(f"{file_transformed}"):
                 tested = True
                 break
             # Exact filename match (should not happend)
-            elif file == test:
+            elif file_transformed == test_transformed:
                 tested = True 
                 break
                 

@@ -103,15 +103,15 @@ class nnElementwiseAffineLayer(nnLayer):
         """
         return inputSize
     
-    def castWeights(self, x: np.ndarray) -> None:
+    def castWeights(self, target_dtype):
         """
         Callback when data type of learnable parameters was changed
         
         Args:
-            x: reference array for data type
+            target_dtype: numpy dtype to cast parameters to
         """
-        self.scale = self.scale.astype(x.dtype)
-        self.offset = self.offset.astype(x.dtype)
+        self.scale = self.scale.astype(target_dtype)
+        self.offset = self.offset.astype(target_dtype)
     
     def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
         """

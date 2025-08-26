@@ -80,9 +80,10 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
                     nrOutputs = max(nrOutputs, int(temp[2:]))
     
     # +1 due to 0-indexing in vnnlib files
+    # But Python uses 0-based indexing, so we keep the VNNLIB indices as-is
     data = {
-        'nrInputs': nrInputs + 1,
-        'nrOutputs': nrOutputs + 1,
+        'nrInputs': nrInputs + 1,  # Add 1 because VNNLIB uses 0-based indexing (X_0 to X_4 = 5 variables)
+        'nrOutputs': nrOutputs + 1,  # Add 1 because VNNLIB uses 0-based indexing
         'currIn': 0
     }
     
@@ -91,9 +92,13 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
     data['polyOutput'] = []
     while text.strip():
         if text.strip().startswith('(assert'):
+            print(f"DEBUG: Found assert, text before: '{text[:50]}'")
             text = text.strip()[8:]  # Remove '(assert'
+            print(f"DEBUG: Text after removing (assert: '{text[:50]}'")
             len_parsed, data = aux_parseAssert(text, data)
+            print(f"DEBUG: Parsed {len_parsed} characters")
             text = text.strip()[len_parsed + 1:]
+            print(f"DEBUG: Remaining text: '{text[:50]}'")
         else:
             ln = text.find('\n')
             if ln != -1:
@@ -104,17 +109,59 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
     # convert data to polytopes ---
     
     # a) convert input
-    # potentially convert input polytopes to intervals
+    # Create intervals for each input variable
     X0 = []
-    for i in range(len(data['polyInput'])):
-        polyStruct = data['polyInput'][i]
-        P = Polytope(polyStruct['C'], polyStruct['d'])
-        res, I = P.representsa_('interval', eps=1e-10)
+    
+    # For each input variable, create a separate interval
+    for i in range(data['nrInputs']):
+        # Find all constraints for this specific input variable
+        lower_bound = -np.inf
+        upper_bound = np.inf
         
-        if res:
-            X0.append(I)
-        else:
-            raise ValueError("Input set is not an interval.")
+        if data['polyInput']:
+            polyStruct = data['polyInput'][0]
+            C = polyStruct['C']
+            d = polyStruct['d']
+            
+            # Find constraints that involve this specific variable
+            for j in range(C.shape[0]):
+                if abs(C[j, i]) > 1e-10:  # Non-zero coefficient for this variable
+                    coeff = C[j, i]
+                    const = d[j]
+                    
+                    if coeff > 0:  # coeff * x <= const
+                        upper_bound = min(upper_bound, const / coeff)
+                    else:  # coeff * x <= const (coeff < 0)
+                        lower_bound = max(lower_bound, const / coeff)
+            
+            print(f"DEBUG: Variable {i}, constraint {j}: coeff={coeff}, const={const}")
+            if coeff > 0:
+                print(f"DEBUG: Updated upper bound for variable {i}: {upper_bound}")
+            else:
+                print(f"DEBUG: Updated lower bound for variable {i}: {lower_bound}")
+        
+        # Create interval for this variable
+        from cora_python.contSet.interval.interval import Interval
+        I = Interval(lower_bound, upper_bound)
+        print(f"DEBUG: Created interval for variable {i}: [{lower_bound}, {upper_bound}]")
+        print(f"DEBUG: Interval object: {I}")
+        print(f"DEBUG: Interval attributes: sup={getattr(I, 'sup', 'N/A')}, inf={getattr(I, 'inf', 'N/A')}")
+        X0.append(I)
+    
+    # Create a single multi-dimensional interval from all individual intervals
+    # This is what the example script expects
+    if X0:
+        # Extract the bounds from all intervals
+        lower_bounds = np.array([interval.inf for interval in X0])
+        upper_bounds = np.array([interval.sup for interval in X0])
+        
+        # Create a single multi-dimensional interval
+        from cora_python.contSet.interval.interval import Interval
+        multi_dim_interval = Interval(lower_bounds, upper_bounds)
+        print(f"DEBUG: Created multi-dimensional interval: {multi_dim_interval}")
+        
+        # Replace the list with a single multi-dimensional interval
+        X0 = [multi_dim_interval]
     
     # b) convert output
     Y = []
@@ -158,6 +205,7 @@ def aux_parseAssert(text: str, data: Dict[str, Any]) -> Tuple[int, Dict[str, Any
         Tuple of (length_parsed, updated_data)
     """
     if text.strip().startswith('(<=') or text.strip().startswith('(>='):
+        print(f"DEBUG: aux_parseAssert calling aux_parseLinearConstraint with text: '{text[:50]}'")
         return aux_parseLinearConstraint(text, data)
     elif text.strip().startswith('(or'):
         text = text.strip()[4:]  # Remove '(or'
@@ -251,10 +299,13 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
     Returns:
         Tuple of (length_parsed, updated_data)
     """
+    print(f"DEBUG: aux_parseLinearConstraint received text: '{text[:50]}'")
     # extract operator
     op = text[1:3]
-    text = text[5:]
-    len_parsed = 5
+    # Remove the opening parenthesis and operator (e.g., "(<=" -> 4 characters)
+    text = text[4:]
+    len_parsed = 4
+    print(f"DEBUG: aux_parseLinearConstraint after operator extraction: '{text[:50]}'")
     
     # get type of constraint (on inputs X or on output Y)
     constraint_type = aux_getTypeOfConstraint(text)
@@ -284,22 +335,39 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
         C = C2 - C1
         d = d1 - d2
     
+    print(f"DEBUG: Combined constraint: C = {C}, d = {d}")
+    
     # combine the current constraint with previous constraints
     if constraint_type == 'input':
         if not data['polyInput']:
             data['polyInput'] = [aux_createPolytopeStruct(data['nrInputs'])]
         
-        data['currIn'] += 1
+        # Ensure currIn doesn't exceed the matrix bounds
+        if data['currIn'] >= data['polyInput'][0]['C'].shape[0]:
+            raise ValueError(f"Too many input constraints. Expected at most {data['polyInput'][0]['C'].shape[0]} constraints, but got {data['currIn'] + 1}")
+        
+        print(f"DEBUG: Storing constraint {data['currIn']} in polytope: C = {C}, d = {d}")
         
         for i in range(len(data['polyInput'])):
-            data['polyInput'][i]['C'][data['currIn'] - 1, :] = C
-            data['polyInput'][i]['d'][data['currIn'] - 1] = d
+            data['polyInput'][i]['C'][data['currIn'], :] = C.flatten()  # Ensure C is 1D
+            data['polyInput'][i]['d'][data['currIn']] = d
+        
+        print(f"DEBUG: After storing, polytope C[{data['currIn']}, :] = {data['polyInput'][0]['C'][data['currIn'], :]}")
+        
+        data['currIn'] += 1
     
     else:  # output
         if not data['polyOutput']:
-            data['polyOutput'] = [aux_createPolytopeStruct(0)]
+            # Create output polytope structure with proper dimensions
+            data['polyOutput'] = [aux_createPolytopeStruct(data['nrOutputs'])]
         
         for i in range(len(data['polyOutput'])):
+            # Ensure the matrices have compatible dimensions before stacking
+            if data['polyOutput'][i]['C'].shape[1] == 0:
+                # Initialize with proper dimensions
+                data['polyOutput'][i]['C'] = np.zeros((0, data['nrOutputs']))
+                data['polyOutput'][i]['d'] = np.zeros((0, 1))
+            
             data['polyOutput'][i]['C'] = np.vstack([data['polyOutput'][i]['C'], C])
             data['polyOutput'][i]['d'] = np.vstack([data['polyOutput'][i]['d'], d])
     
@@ -308,7 +376,7 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
 
 def aux_parseArgument(text: str, C: np.ndarray, d: float) -> Tuple[np.ndarray, float, int]:
     """
-    Parse next argument.
+    Parse an argument (variable or constant).
     
     Args:
         text: Text to parse
@@ -316,51 +384,46 @@ def aux_parseArgument(text: str, C: np.ndarray, d: float) -> Tuple[np.ndarray, f
         d: Constant term
         
     Returns:
-        Tuple of (updated_C, updated_d, length_parsed)
+        Tuple of (C, d, length_parsed)
     """
-    if text.strip().startswith('X') or text.strip().startswith('Y'):
-        # Find end of variable name
+    text = text.strip()
+    
+    if text.startswith('X_') or text.startswith('Y_'):
+        # Parse variable
         len_parsed = 0
         for i in range(len(text)):
             if text[i] in ' )':
                 len_parsed = i
                 break
         
-        index = int(text[2:len_parsed]) + 1
-        C[0, index - 1] += 1
+        if len_parsed == 0:
+            len_parsed = len(text)
+        
+        # Extract variable name and index
+        var_name = text[:len_parsed]
+        if var_name.startswith('X_'):
+            index_str = var_name[2:]
+            constraint_type = 'input'
+        else:  # Y_
+            index_str = var_name[2:]
+            constraint_type = 'output'
+        
+        try:
+            index = int(index_str)  # Keep 0-based indexing from VNNLIB
+        except ValueError:
+            raise ValueError(f"Invalid variable index in '{text[:len_parsed]}': '{index_str}' is not a valid integer")
+        
+        # Set the coefficient to 1 for this variable (use 0-based indexing)
+        C[0, index] = 1
+        print(f"DEBUG: Parsed variable '{text[:len_parsed]}' -> index {index}")
+        print(f"DEBUG: Setting C[0, {index}] = 1")
+        print(f"DEBUG: After setting, C[0, {index}] = {C[0, index]}")
         return C, d, len_parsed
-    
-    elif text.strip().startswith('(+'):
-        # parse first argument
-        C1, d1, len_parsed = aux_parseArgument(text, C, d)
-        text = text.strip()[len_parsed:]
         
-        # parse second argument
-        C2, d2, len_ = aux_parseArgument(text, C, d)
-        len_parsed += len_
-        
-        # combine both arguments
-        C = C1 + C2
-        d = d1 + d2
-        
-        return C, d, len_parsed
-    
-    elif text.strip().startswith('(-'):
-        # parse first argument
-        C1, d1, len_parsed = aux_parseArgument(text, C, d)
-        text = text.strip()[len_parsed:]
-        
-        # parse second argument
-        C2, d2, len_ = aux_parseArgument(text, C, d)
-        len_parsed += len_
-        
-        # combine both arguments
-        C = C1 - C2
-        d = d1 - d2
-        
-        return C, d, len_parsed
-    
     else:
+        # Skip leading whitespace
+        text = text.strip()
+        
         # Find end of number
         len_parsed = 0
         for i in range(len(text)):
@@ -368,8 +431,22 @@ def aux_parseArgument(text: str, C: np.ndarray, d: float) -> Tuple[np.ndarray, f
                 len_parsed = i
                 break
         
-        d += float(text[:len_parsed])
-        return C, d, len_parsed
+        if len_parsed == 0:
+            len_parsed = len(text)
+        
+        # Parse the number
+        try:
+            number = float(text[:len_parsed])
+            print(f"DEBUG: Trying to parse number from text: '{text[:len_parsed]}' -> '{number}'")
+        except ValueError:
+            raise ValueError(f"Invalid number in '{text[:len_parsed]}'")
+        
+        # For a constant, set d to the number and ensure C is all zeros
+        d = number
+        # Create a new C matrix that is all zeros (this is crucial!)
+        C_constant = np.zeros_like(C)
+        print(f"DEBUG: Parsed constant {number}, setting d = {d}, C = {C_constant}")
+        return C_constant, d, len_parsed
 
 
 def aux_getTypeOfConstraint(text: str) -> str:

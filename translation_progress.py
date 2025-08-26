@@ -6,10 +6,6 @@ def get_files(directory):#including private
     for dirpath, dirnames, filenames in os.walk(directory):
         if '__pycache__' in dirnames:
             dirnames.remove('__pycache__')
-
-        if dirnames != [] and dirnames != ['private']:
-            print(f"Error: folder '{directory}' has unexpected subfolders: {dirnames}")
-            return None
         
         for filename in filenames:
             if (filename.endswith('.m') or filename.endswith('.py')) and filename != '__init__.py':
@@ -26,14 +22,14 @@ def compare_files(dir1, dir2):
 
     missing_files = []
     for matlab_file in files1:
-        matlab_file = matlab_file.lower().replace(".m", "").replace("_", "")
+        matlab_file_transformed = matlab_file.lower().replace(".m", "").replace("_", "")
         translated = False
         for python_file in files2:
-            python_file = python_file.lower().replace(".py", "").replace("_", "")
-            if matlab_file == python_file:
+            python_file_transformed = python_file.lower().replace(".py", "").replace("_", "")
+            if matlab_file_transformed == python_file_transformed:
                 translated = True
                 break
-            elif matlab_file+"op" == python_file:
+            elif matlab_file_transformed+"op" == python_file_transformed:
                 translated = True
                 break
         if not translated:

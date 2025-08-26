@@ -554,8 +554,5 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-Your task is to translate cora_matlab/nn.
+**Your current task** is to ensure the python nn translation can send points, and sets trough the network. basic layer, relu layer, neuralnetwork verify and evaluate for points, interval, zonotope need to be translated fully and working correctly. approximation with at least order 1 polynominals must be there. compare the translation against matlab, you can also run matlab to ensure all this is working.
 
-Punkte, mengen durch netzwerk schicken
-basic layer, relu layer, neural network verify function, neural netwrok evaluate(punkt, interval, zonotope)
-Approximation nur mit grad 1 polyinomen ist okay
