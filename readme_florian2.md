@@ -555,4 +555,5 @@ Start with n=0 (first element)
 
 
 **Your current task** is to ensure the python nn translation can send points, and sets trough the network. basic layer, relu layer, neuralnetwork verify and evaluate for points, interval, zonotope need to be translated fully and working correctly. approximation with at least order 1 polynominals must be there. compare the translation against matlab, you can also run matlab to ensure all this is working.
+the two nn examples cora_python\examples\nn\example_neuralNetwork_verify_safe.py, cora_python\examples\nn\example_neuralNetwork_verify_unsafe.py need to be working. analyze all dependcies and trace the root erros by comparing the logic of the python translation step by step against matlab
 

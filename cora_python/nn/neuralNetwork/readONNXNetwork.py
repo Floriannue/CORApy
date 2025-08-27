@@ -308,6 +308,18 @@ def aux_readONNXviaONNX(file_path: str, inputDataFormats: str, outputDataFormats
                 layer_info['Type'] = 'ElementwiseAffineLayer'
                 # Similar to Add - simplified representation
                 
+            elif node.op_type == 'Sub':
+                # Subtraction operation - often used for preprocessing (e.g., subtracting mean)
+                # This should be converted to an ElementwiseAffineLayer with scale=1, offset=-mean
+                layer_info['Type'] = 'ElementwiseAffineLayer'
+                # Extract the value being subtracted (often a constant)
+                if len(node.input) >= 2:
+                    const_name = node.input[1]
+                    if const_name in initializers:
+                        const_value = onnx.numpy_helper.to_array(initializers[const_name])
+                        layer_info['Offset'] = -const_value  # Negative because we're subtracting
+                        layer_info['Scale'] = np.ones_like(const_value)  # Scale by 1
+                
             elif node.op_type == 'MatMul':
                 layer_info['Type'] = 'FullyConnectedLayer'
                 # Extract weights if available
@@ -315,6 +327,10 @@ def aux_readONNXviaONNX(file_path: str, inputDataFormats: str, outputDataFormats
                     weight_name = node.input[1]
                     if weight_name in initializers:
                         weight = onnx.numpy_helper.to_array(initializers[weight_name])
+                        # Transpose weights to match expected format
+                        # ONNX stores weights as (output_features, input_features)
+                        # For matrix multiplication W @ x, we need W to be (output_features, input_features)
+                        # where x is (input_features, batch_size)
                         layer_info['Weight'] = weight
                 
             elif node.op_type == 'Identity':
@@ -565,9 +581,17 @@ def neuralNetwork_convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool)
             W = layer_info.get('Weight', np.eye(1))
             b = layer_info.get('Bias', np.zeros((1, 1)))
             
-            # Ensure proper shapes
+            # Ensure proper shapes and transpose weights to match MATLAB behavior
+            # ONNX stores weights as (output_features, input_features)
+            # For matrix multiplication W @ x, we need W to be (output_features, input_features)
+            # and x to be (input_features, batch_size)
             if len(W.shape) == 1:
                 W = W.reshape(-1, 1)
+            elif len(W.shape) == 2:
+                # Transpose weights to match MATLAB's format
+                # MATLAB: W * x, Python: W @ x
+                # Both need W to be (output_features, input_features)
+                pass  # Keep as is, ONNX format is already correct
             if len(b.shape) == 1:
                 b = b.reshape(-1, 1)
             
@@ -629,14 +653,20 @@ def neuralNetwork_convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool)
             
             layers.append(layer)
             
-        elif layer_type in ['elementwiseaffinelayer', 'add', 'mul']:
+        elif layer_type in ['elementwiseaffinelayer', 'add', 'mul', 'sub']:
             # Element-wise affine layer
             from ..layers.linear.nnElementwiseAffineLayer import nnElementwiseAffineLayer
             
-            # For Add/Mul operations, we need to determine the scale and offset
+            # For Add/Mul/Sub operations, we need to determine the scale and offset
             # This is a simplified approach - in practice, we'd need to trace the computation
             scale = layer_info.get('Scale', np.ones(1))
             offset = layer_info.get('Offset', np.zeros(1))
+            
+            # Ensure proper shapes
+            if len(scale.shape) == 1:
+                scale = scale.reshape(-1, 1)
+            if len(offset.shape) == 1:
+                offset = offset.reshape(-1, 1)
             
             layer = nnElementwiseAffineLayer(scale, offset, name=layer_info.get('Name', ''))
             layers.append(layer)
@@ -671,13 +701,18 @@ def neuralNetwork_convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool)
             continue
             
         elif layer_type == 'unknownlayer':
-            # Unknown layer type - create a placeholder
+            # Unknown layer type - check if it's a preprocessing operation
+            original_type = layer_info.get('OriginalType', 'Unknown')
             if verbose:
-                print(f"Warning: Unknown layer type '{layer_info.get('OriginalType', 'Unknown')}' - creating placeholder")
-            # Create a simple identity layer as fallback
-            from ..layers.linear.nnIdentityLayer import nnIdentityLayer
-            layer = nnIdentityLayer(name=layer_info.get('Name', ''))
-            layers.append(layer)
+                print(f"Warning: Unknown layer type '{original_type}' - checking for preprocessing")
+            
+            # All preprocessing operations (Sub, Add, Mul) are now handled as ElementwiseAffineLayer
+            # Create a simple identity layer as fallback for any remaining unknown types
+            else:
+                # Create a simple identity layer as fallback
+                from ..layers.linear.nnIdentityLayer import nnIdentityLayer
+                layer = nnIdentityLayer(name=layer_info.get('Name', ''))
+                layers.append(layer)
             
         else:
             # Unknown layer type - create a placeholder

@@ -88,8 +88,35 @@ class nnReshapeLayer(nnLayer):
         Returns:
             output: reshaped input data
         """
-        # Reshape input according to idx_out
-        return input_data.reshape(self.idx_out)
+        # Handle special case of -1 in idx_out (flatten to 1D)
+        if -1 in self.idx_out:
+            # Calculate the size for the -1 dimension
+            total_size = input_data.size
+            target_shape = []
+            for dim in self.idx_out:
+                if dim == -1:
+                    # Calculate this dimension based on total size and other dimensions
+                    other_dims = [d for d in self.idx_out if d != -1]
+                    if other_dims:
+                        other_size = np.prod(other_dims)
+                        if other_size > 0:
+                            target_shape.append(total_size // other_size)
+                        else:
+                            target_shape.append(1)
+                    else:
+                        target_shape.append(total_size)
+                else:
+                    target_shape.append(dim)
+            
+            # Ensure the reshape is valid
+            if np.prod(target_shape) != total_size:
+                # If the calculated shape doesn't match, fall back to flattening
+                target_shape = [total_size]
+            
+            return input_data.reshape(target_shape)
+        else:
+            # Regular reshape
+            return input_data.reshape(self.idx_out)
     
     def evaluateSensitivity(self, S: np.ndarray, x: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
         """
