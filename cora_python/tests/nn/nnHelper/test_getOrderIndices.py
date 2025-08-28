@@ -19,7 +19,7 @@ class TestGetOrderIndicesG:
         G = np.array([[1, 0.5, 0.3], [0.2, 0.8, 0.1]])
         order = 2
         
-        start_idx, end_idx = getOrderIndicesG(G, order)
+        start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesG(G, order)
         
         # Check that results are integers
         assert isinstance(start_idx, int)
@@ -37,15 +37,15 @@ class TestGetOrderIndicesG:
         G = np.array([[1, 0.5], [0.3, 0.8]])
         
         # Test order 1
-        start1, end1 = getOrderIndicesG(G, 1)
+        start1, end1, ext_start1, ext_end1 = getOrderIndicesG(G, 1)
         assert start1 <= end1
         
         # Test order 2
-        start2, end2 = getOrderIndicesG(G, 2)
+        start2, end2, ext_start2, ext_end2 = getOrderIndicesG(G, 2)
         assert start2 <= end2
         
         # Test order 3
-        start3, end3 = getOrderIndicesG(G, 3)
+        start3, end3, ext_start3, ext_end3 = getOrderIndicesG(G, 3)
         assert start3 <= end3
         
         # Higher orders should have larger ranges
@@ -58,7 +58,7 @@ class TestGetOrderIndicesG:
         G = np.array([]).reshape(0, 0)
         order = 1
         
-        start_idx, end_idx = getOrderIndicesG(G, order)
+        start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesG(G, order)
         assert isinstance(start_idx, int)
         assert isinstance(end_idx, int)
         
@@ -66,7 +66,7 @@ class TestGetOrderIndicesG:
         G = np.array([[5]])
         order = 1
         
-        start_idx, end_idx = getOrderIndicesG(G, order)
+        start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesG(G, order)
         assert isinstance(start_idx, int)
         assert isinstance(end_idx, int)
         
@@ -74,7 +74,7 @@ class TestGetOrderIndicesG:
         G = np.array([[1, 0.5], [0.3, 0.8]])
         order = 0
         
-        start_idx, end_idx = getOrderIndicesG(G, order)
+        start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesG(G, order)
         assert isinstance(start_idx, int)
         assert isinstance(end_idx, int)
     
@@ -85,7 +85,7 @@ class TestGetOrderIndicesG:
         G = np.random.rand(10, 20)
         
         for order in [1, 2, 3, 5]:
-            start_idx, end_idx = getOrderIndicesG(G, order)
+            start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesG(G, order)
             
             assert isinstance(start_idx, int)
             assert isinstance(end_idx, int)
@@ -99,8 +99,8 @@ class TestGetOrderIndicesG:
         order = 2
         
         # Call multiple times
-        start1, end1 = getOrderIndicesG(G, order)
-        start2, end2 = getOrderIndicesG(G, order)
+        start1, end1, ext_start1, ext_end1 = getOrderIndicesG(G, order)
+        start2, end2, ext_start2, ext_end2 = getOrderIndicesG(G, order)
         
         # Should be consistent
         assert start1 == start2
@@ -117,7 +117,7 @@ class TestGetOrderIndicesGI:
         G = np.array([[1, 0.5], [0.3, 0.8]])
         order = 2
         
-        start_idx, end_idx = getOrderIndicesGI(GI, G, order)
+        start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesGI(GI, G, order)
         
         # Check that results are integers
         assert isinstance(start_idx, int)
@@ -136,15 +136,15 @@ class TestGetOrderIndicesGI:
         G = np.array([[1, 0.5], [0.3, 0.8]])
         
         # Test order 1
-        start1, end1 = getOrderIndicesGI(GI, G, 1)
+        start1, end1, ext_start1, ext_end1 = getOrderIndicesGI(GI, G, 1)
         assert start1 <= end1
         
         # Test order 2
-        start2, end2 = getOrderIndicesGI(GI, G, 2)
+        start2, end2, ext_start2, ext_end2 = getOrderIndicesGI(GI, G, 2)
         assert start2 <= end2
         
         # Test order 3
-        start3, end3 = getOrderIndicesGI(GI, G, 3)
+        start3, end3, ext_start3, ext_end3 = getOrderIndicesGI(GI, G, 3)
         assert start3 <= end3
         
         # Higher orders should have larger ranges
@@ -158,7 +158,7 @@ class TestGetOrderIndicesGI:
         G = np.array([]).reshape(0, 0)
         order = 1
         
-        start_idx, end_idx = getOrderIndicesGI(GI, G, order)
+        start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesGI(GI, G, order)
         assert isinstance(start_idx, int)
         assert isinstance(end_idx, int)
         
@@ -167,7 +167,7 @@ class TestGetOrderIndicesGI:
         G = np.array([[3]])
         order = 1
         
-        start_idx, end_idx = getOrderIndicesGI(GI, G, order)
+        start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesGI(GI, G, order)
         assert isinstance(start_idx, int)
         assert isinstance(end_idx, int)
         
@@ -176,7 +176,7 @@ class TestGetOrderIndicesGI:
         G = np.array([[1, 0.5], [0.3, 0.8]])
         order = 0
         
-        start_idx, end_idx = getOrderIndicesGI(GI, G, order)
+        start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesGI(GI, G, order)
         assert isinstance(start_idx, int)
         assert isinstance(end_idx, int)
     
@@ -187,7 +187,7 @@ class TestGetOrderIndicesGI:
         G = np.array([[1, 0.5], [0.3, 0.8]])
         order = 2
         
-        start_idx, end_idx = getOrderIndicesGI(GI, G, order)
+        start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesGI(GI, G, order)
         assert isinstance(start_idx, int)
         assert isinstance(end_idx, int)
         assert start_idx <= end_idx
@@ -197,7 +197,7 @@ class TestGetOrderIndicesGI:
         G = np.array([[1, 0.5, 0.2], [0.3, 0.8, 0.1], [0.4, 0.6, 0.3]])
         order = 2
         
-        start_idx, end_idx = getOrderIndicesGI(GI, G, order)
+        start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesGI(GI, G, order)
         assert isinstance(start_idx, int)
         assert isinstance(end_idx, int)
         assert start_idx <= end_idx
@@ -210,7 +210,7 @@ class TestGetOrderIndicesGI:
         G = np.random.rand(5, 15)
         
         for order in [1, 2, 3, 5]:
-            start_idx, end_idx = getOrderIndicesGI(GI, G, order)
+            start_idx, end_idx, ext_start_idx, ext_end_idx = getOrderIndicesGI(GI, G, order)
             
             assert isinstance(start_idx, int)
             assert isinstance(end_idx, int)
@@ -225,8 +225,8 @@ class TestGetOrderIndicesGI:
         order = 2
         
         # Call multiple times
-        start1, end1 = getOrderIndicesGI(GI, G, order)
-        start2, end2 = getOrderIndicesGI(GI, G, order)
+        start1, end1, ext_start1, ext_end1 = getOrderIndicesGI(GI, G, order)
+        start2, end2, ext_start2, ext_end2 = getOrderIndicesGI(GI, G, order)
         
         # Should be consistent
         assert start1 == start2
@@ -245,10 +245,10 @@ class TestGetOrderIndicesIntegration:
         # Test both functions together
         for order in [1, 2, 3]:
             # Get indices for G
-            start_G, end_G = getOrderIndicesG(G, order)
+            start_G, end_G, ext_start_G, ext_end_G = getOrderIndicesG(G, order)
             
             # Get indices for GI
-            start_GI, end_GI = getOrderIndicesGI(GI, G, order)
+            start_GI, end_GI, ext_start_GI, ext_end_GI = getOrderIndicesGI(GI, G, order)    
             
             # All should be valid
             assert isinstance(start_G, int)
@@ -272,8 +272,8 @@ class TestGetOrderIndicesIntegration:
         # since they represent different generator types
         order = 2
         
-        start_G, end_G = getOrderIndicesG(G, order)
-        start_GI, end_GI = getOrderIndicesGI(GI, G, order)
+        start_G, end_G, ext_start_G, ext_end_G = getOrderIndicesG(G, order)
+        start_GI, end_GI, ext_start_GI, ext_end_GI = getOrderIndicesGI(GI, G, order)
         
         # Both should be valid
         assert start_G <= end_G

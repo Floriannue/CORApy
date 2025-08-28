@@ -53,7 +53,7 @@ def validateNNoptions(options: Dict[str, Any], set_train_fields: bool = False) -
         ['bound_approx', True],
         ['poly_method', lambda opts: aux_defaultPolyMethod(opts)],
         ['num_generators', None],
-        ['max_gens_post', lambda opts: opts.get('num_generators', 100) * 100],
+        ['max_gens_post', lambda opts: (opts.get('num_generators') or 100) * 100 if opts else 10000],
         ['add_approx_error_to_GI', False],
         ['plot_multi_layer_approx_info', False],
         ['reuse_bounds', False],

@@ -16,6 +16,7 @@ from .castWeights import castWeights
 from .prepareForZonoBatchEval import prepareForZonoBatchEval
 from .evaluate import evaluate
 from .evaluateZonotopeBatch import evaluateZonotopeBatch
+from .evaluateZonotopeBatch_ import evaluateZonotopeBatch_
 from .backprop import backprop
 from .train import train
 from .initWeights import initWeights
@@ -60,6 +61,7 @@ NeuralNetwork.castWeights = castWeights
 NeuralNetwork.prepareForZonoBatchEval = prepareForZonoBatchEval
 NeuralNetwork.evaluate = evaluate
 NeuralNetwork.evaluateZonotopeBatch = evaluateZonotopeBatch
+NeuralNetwork.evaluateZonotopeBatch_ = evaluateZonotopeBatch_
 NeuralNetwork.backprop = backprop
 NeuralNetwork.train = train
 NeuralNetwork.initWeights = initWeights

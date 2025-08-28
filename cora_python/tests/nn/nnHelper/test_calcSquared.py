@@ -167,7 +167,7 @@ class TestCalcSquaredE:
         E1 = np.array([[1, 0, 3], [0, 1, 1]])
         E2 = np.array([[1, 0, 2], [0, 1, 0]])
         
-        result = calcSquaredE(E1, E2)
+        result = calcSquaredE(E1, E2, False)
         
         # Check result
         assert isinstance(result, np.ndarray)
@@ -178,7 +178,7 @@ class TestCalcSquaredE:
         E1 = np.array([[1, 0], [0, 1], [1, 1]])
         E2 = np.array([[1, 0, 2], [0, 1, 1]])
         
-        result = calcSquaredE(E1, E2)
+        result = calcSquaredE(E1, E2, False)
         
         # Check result
         assert isinstance(result, np.ndarray)
@@ -190,7 +190,7 @@ class TestCalcSquaredE:
         E1 = np.array([]).reshape(0, 0)
         E2 = np.array([]).reshape(0, 0)
         
-        result = calcSquaredE(E1, E2)
+        result = calcSquaredE(E1, E2, False)
         
         # Check result
         assert isinstance(result, np.ndarray)
@@ -199,7 +199,7 @@ class TestCalcSquaredE:
         E1 = np.array([[5]])
         E2 = np.array([[3]])
         
-        result = calcSquaredE(E1, E2)
+        result = calcSquaredE(E1, E2, False)
         
         # Check result
         assert isinstance(result, np.ndarray)

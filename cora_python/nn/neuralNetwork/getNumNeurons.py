@@ -39,17 +39,13 @@ def getNumNeurons(obj: NeuralNetwork) -> List[Union[int, float]]:
     Returns:
         numNeurons: array of number of neurons per layer, or nan if unknown
     """
-    numNeurons = [0] * (len(obj.layers) + 1)
+    numNeurons = np.zeros(len(obj.layers) + 1)
     
     # iterate over all layers
     for i in range(len(obj.layers)):
-        if not hasattr(obj.layers[i], 'inputSize') or obj.layers[i].inputSize is None:
-            # try to set input size for all layers
-            try:
-                if hasattr(obj, 'setInputSize'):
-                    obj.setInputSize()
-            except:
-                pass
+        if not obj.layers[i].inputSize:
+            obj.setInputSize()
+
         
         if not hasattr(obj.layers[i], 'inputSize') or obj.layers[i].inputSize is None:
             # if still empty, use nan

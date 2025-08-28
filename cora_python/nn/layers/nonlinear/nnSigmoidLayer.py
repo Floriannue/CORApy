@@ -5,6 +5,7 @@ This class implements a sigmoid activation layer for neural networks.
 """
 
 import numpy as np
+from typing import Any, Dict
 from .nnActivationLayer import nnActivationLayer
 
 
@@ -41,7 +42,7 @@ class nnSigmoidLayer(nnActivationLayer):
             s = sigmoid(x)
             return s * (1 - s) * (1 - 2*s)
         
-        super().__init__(sigmoid, sigmoid_derivative, name)
+        super().__init__(name)
         
         # Store derivative functions for higher orders
         self._df2 = sigmoid_second_derivative
@@ -57,6 +58,21 @@ class nnSigmoidLayer(nnActivationLayer):
             {'l': 10, 'u': np.inf, 'p': [0.0000000000000000, 0.9999773010656487], 'd': 0.0000226989343513}
         ]
     
+    def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+        """
+        Evaluate numeric input
+        
+        Args:
+            input_data: Input data
+            options: Evaluation options
+            
+        Returns:
+            r: Output after sigmoid activation
+        """
+        # Use tanh for numeric stability
+        r = np.tanh(input_data/2) / 2 + 0.5
+        return r
+    
     def getDf(self, i):
         """
         Get the i-th derivative of the sigmoid function.
@@ -70,7 +86,11 @@ class nnSigmoidLayer(nnActivationLayer):
         if i == 0:
             return self.f
         elif i == 1:
-            return self.df
+            # Return the sigmoid derivative function directly
+            def sigmoid_derivative(x):
+                s = np.tanh(x/2) / 2 + 0.5
+                return s * (1 - s)
+            return sigmoid_derivative
         elif i == 2:
             return self._df2
         else:

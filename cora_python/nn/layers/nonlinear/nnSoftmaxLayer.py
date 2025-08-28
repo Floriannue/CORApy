@@ -36,7 +36,7 @@ class nnSoftmaxLayer(nnActivationLayer):
             # and handled by getDf method
             return np.zeros_like(x)
         
-        super().__init__(softmax, softmax_derivative, name)
+        super().__init__(name)
         
         # Import nnExpLayer for evaluation
         try:

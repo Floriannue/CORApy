@@ -61,39 +61,49 @@ class NeuralNetwork:
     
     def __init__(self, layers: List[Any], name: str = "Neural Network"):
         """
-        Constructor for neural network
+        Constructor for neural network (matches MATLAB exactly)
         
         Args:
             layers: List of neural network layers
             name: Network name
         """
+        # Check inputs (matches MATLAB narginchk(0,1))
+        if layers is None:
+            layers = []
+        
+        # Validate layers (matches MATLAB validation)
+        if not isinstance(layers, list):
+            raise ValueError('First argument should be a list of type nnLayer.')
+        
+        # Check that all layers are nnLayer instances
+        for layer in layers:
+            if not hasattr(layer, '__class__') or not hasattr(layer, 'type'):
+                raise ValueError('All layers must be nnLayer instances.')
+        
         self.layers = layers
         self.name = name
         
-        # Initialize properties
-        self.neurons_in = 0
-        self.neurons_out = 0
-        self.neurons = 0
-        self.connections = 0
-        self.inputSize = None
-        self.options = {}
+        # Initialize properties (matches MATLAB exactly)
+        self.neurons_in = None
+        self.neurons_out = None
+        self.reductionRate = 1  # matches MATLAB property
         
-        # Initialize layer properties
-        if layers:
-            # Get input neurons from first layer
-            if hasattr(layers[0], 'neurons_in'):
-                self.neurons_in = layers[0].neurons_in
-            
-            # Get output neurons from last layer
-            if hasattr(layers[-1], 'neurons_out'):
-                self.neurons_out = layers[-1].neurons_out
-            
-            # Calculate total neurons and connections
-            for layer in layers:
-                if hasattr(layer, 'neurons_out'):
-                    self.neurons += layer.neurons_out
-                if hasattr(layer, 'W') and hasattr(layer, 'b'):
-                    self.connections += layer.W.size + layer.b.size
+        # Simple neurons_in and _out computation (matches MATLAB exactly)
+        for i in range(len(self.layers)):
+            nin, _ = self.layers[i].getNumNeurons()
+            if nin is not None:
+                self.neurons_in = nin
+                break
+        
+        for i in range(len(self.layers) - 1, -1, -1):
+            _, nout = self.layers[i].getNumNeurons()
+            if nout is not None:
+                self.neurons_out = nout
+                break
+        
+
+        self.setInputSize()
+
     
     def __len__(self) -> int:
         """Returns the number of layers"""
@@ -106,4 +116,6 @@ class NeuralNetwork:
     def __str__(self) -> str:
         """String representation of the neural network"""
         return self.__repr__()
+    
+
 

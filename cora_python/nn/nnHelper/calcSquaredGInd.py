@@ -60,5 +60,9 @@ def calcSquaredGInd(G1: np.ndarray, G2: np.ndarray, isEqual: Optional[bool] = No
         
         G1_ind = G1_ind.reshape(1, -1)
         G2_ind = G2_ind.reshape(1, -1)
+        
+        # For non-equal case, no duplicate indices
+        G1_ind2 = np.array([])
+        G2_ind2 = np.array([])
     
     return G1_ind, G2_ind, G1_ind2, G2_ind2

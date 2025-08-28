@@ -38,7 +38,7 @@ class nnTanhLayer(nnActivationLayer):
             t = np.tanh(x)
             return -2 * t * (1 - t**2)
         
-        super().__init__(tanh, tanh_derivative, name)
+        super().__init__(name)
         
         # Store derivative functions for higher orders
         self._df2 = tanh_second_derivative
@@ -67,7 +67,10 @@ class nnTanhLayer(nnActivationLayer):
         if i == 0:
             return self.f
         elif i == 1:
-            return self.df
+            # Return the tanh derivative function directly
+            def tanh_derivative(x):
+                return 1 - np.tanh(x)**2
+            return tanh_derivative
         elif i == 2:
             return self._df2
         else:

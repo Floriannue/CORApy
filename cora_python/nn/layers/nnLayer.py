@@ -60,6 +60,9 @@ class nnLayer(ABC):
         self.name = name
         self.inputSize = []
         
+        # Set type property (matches MATLAB exportAsStruct behavior)
+        self.type = self.__class__.__name__
+        
         # sensitivity of input
         self.sensitivity = []
         
@@ -96,6 +99,28 @@ class nnLayer(ABC):
         # add unique number to name
         name = f"{name}_{nnLayer._getCount()}"
         return name
+    
+    def exportAsStruct(self) -> Dict[str, Any]:
+        """
+        Export layer as dictionary structure (matches MATLAB exportAsStruct)
+        
+        Returns:
+            layerStruct: Dictionary representation of the layer
+        """
+        layerStruct = {}
+        layerStruct['type'] = self.type
+        layerStruct['name'] = self.name
+        layerStruct['fields'] = self.getFieldStruct()
+        return layerStruct
+    
+    def getFieldStruct(self) -> Dict[str, Any]:
+        """
+        Get field structure (matches MATLAB getFieldStruct)
+        
+        Returns:
+            fieldStruct: Dictionary of layer fields
+        """
+        raise NotImplementedError('getFieldStruct not implemented for this layer')
     
     def getLayerInfo(self) -> str:
         """

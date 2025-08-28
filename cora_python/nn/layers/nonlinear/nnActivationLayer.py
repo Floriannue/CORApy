@@ -77,10 +77,6 @@ class nnActivationLayer(nnLayer):
         # call super class constructor
         super().__init__(name)
         
-        # function handles
-        self.f = None  # function
-        self.df = None  # function derivative
-        
         # adaptive refinement
         self.order = [1]  # order of approximation polynomial - should be a list like in MATLAB
         self.refine_heu = None  # heuristic for refinement
@@ -91,7 +87,7 @@ class nnActivationLayer(nnLayer):
         
         self.merged_neurons = []  # network reduction
         
-        # init function handles
+        # init function handles - match MATLAB exactly
         self.f = lambda x: self.evaluateNumeric(x, {'backprop': False})
         self.df = self.getDf(1)
         
@@ -747,7 +743,7 @@ class nnActivationLayer(nnLayer):
     
     def getNumNeurons(self) -> Tuple[Optional[int], Optional[int]]:
         """
-        Get number of input and output neurons
+        Get number of input and output neurons (matches MATLAB exactly)
         
         Returns:
             Tuple of (nin, nout) where each can be None
