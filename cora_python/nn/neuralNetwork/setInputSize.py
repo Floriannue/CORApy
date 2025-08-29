@@ -45,9 +45,9 @@ def setInputSize(obj: NeuralNetwork, inputSize: Optional[List[int]] = None,
     Returns:
         outputSize: output size of the neural network
     """
-    # parse input
+    # parse input (matches MATLAB exactly)
     if inputSize is None:
-        if not hasattr(obj, 'neurons_in') or obj.neurons_in is None:
+        if obj.neurons_in is None or (hasattr(obj.neurons_in, '__len__') and len(obj.neurons_in) == 0):
             raise CORAerror("CORA:specialError", 
                           "Please provide an input size. Unable to determine it from network weights.")
         inputSize = [obj.neurons_in, 1]

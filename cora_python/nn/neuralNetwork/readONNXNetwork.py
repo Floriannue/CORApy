@@ -123,23 +123,51 @@ def readONNXNetwork(file_path: str, *args) -> NeuralNetwork:
             
         if verbose:
             print(f"Successfully loaded network with {len(dltoolbox_net['Layers'])} layers")
+        
+        # Process the network structure
+        if containsCompositeLayers:
+            # Combine multiple layers into blocks to realize residual connections and
+            # parallel computing paths.
+            layers = aux_groupCompositeLayers(dltoolbox_net['Layers'], dltoolbox_net['Connections'])
+        else:
+            layers = dltoolbox_net['Layers']
+        
+        # Extract input size from the ONNX model (matches MATLAB behavior exactly)
+        inputSize = None
+        if layers and len(layers) > 0:
+            # Look for the InputLayer to get the actual input size from ONNX
+            for layer in layers:
+                if layer.get('Type') == 'InputLayer' and 'InputSize' in layer:
+                    inputSize = layer['InputSize']
+                    if verbose:
+                        print(f"DEBUG: Found input size from ONNX: {inputSize}")
+                    break
+        
+        # convert DLT network to CORA network
+        obj = neuralNetwork_convertDLToolboxNetwork(layers, verbose)
+        
+        # Explicitly set input size (matches MATLAB behavior exactly)
+        if inputSize is not None:
+            if verbose:
+                print(f"DEBUG: Setting input size to: {inputSize}")
+            # Convert to the format expected by setInputSize
+            if len(inputSize) == 4:  # BSSC format
+                # For BSSC, we need to compute the total input size
+                # MATLAB does: inputSize = [prod(inputSize), 1]
+                total_input_size = [np.prod(inputSize), 1]
+            else:
+                total_input_size = inputSize
+            
+            if verbose:
+                print(f"DEBUG: Calling setInputSize with: {total_input_size}")
+            obj.setInputSize(total_input_size, verbose)
+        
+        return obj
             
     except Exception as ME:
         if verbose:
             print(f"Error reading ONNX network: {ME}")
         raise
-    
-    if containsCompositeLayers:
-        # Combine multiple layers into blocks to realize residual connections and
-        # parallel computing paths.
-        layers = aux_groupCompositeLayers(dltoolbox_net['Layers'], dltoolbox_net['Connections'])
-    else:
-        layers = dltoolbox_net['Layers']
-    
-    # convert DLT network to CORA network
-    obj = neuralNetwork_convertDLToolboxNetwork(layers, verbose)
-    
-    return obj
 
 
 # Auxiliary functions -----------------------------------------------------
@@ -741,4 +769,38 @@ def neuralNetwork_convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool)
             nnLinearLayer(W2, b2)
         ]
     
-    return NeuralNetwork(layers, name="ONNX_Network")
+    # Create the neural network
+    nn = NeuralNetwork(layers, name="ONNX_Network")
+    
+    # Extract input size from the ONNX model (matches MATLAB behavior exactly)
+    inputSize = None
+    if layers and len(layers) > 0:
+        # Look for the InputLayer to get the actual input size from ONNX
+        for layer in layers:
+            if layer.get('Type') == 'InputLayer' and 'InputSize' in layer:
+                inputSize = layer['InputSize']
+                if verbose:
+                    print(f"DEBUG: Found input size from ONNX: {inputSize}")
+                break
+    
+    # Explicitly set input size (matches MATLAB behavior exactly)
+    if inputSize is not None:
+        if verbose:
+            print(f"Setting input size to: {inputSize}")
+        nn.setInputSize(inputSize, verbose)
+        
+        # Sanity check (matches MATLAB behavior exactly)
+        if verbose:
+            print("Running sanity check...")
+        try:
+            # Create test input with the correct size
+            total_input_size = np.prod(inputSize)
+            x = np.zeros((total_input_size, 1))
+            nn.evaluate(x)
+            if verbose:
+                print("Sanity check passed")
+        except Exception as e:
+            if verbose:
+                print(f"Warning: Sanity check failed: {e}")
+    
+    return nn

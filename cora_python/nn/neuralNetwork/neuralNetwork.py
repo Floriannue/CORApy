@@ -76,9 +76,10 @@ class NeuralNetwork:
             raise ValueError('First argument should be a list of type nnLayer.')
         
         # Check that all layers are nnLayer instances
-        for layer in layers:
+        for i, layer in enumerate(layers):
+            print(f"DEBUG: Layer {i}: {type(layer)}, has __class__: {hasattr(layer, '__class__')}, has type: {hasattr(layer, 'type')}")
             if not hasattr(layer, '__class__') or not hasattr(layer, 'type'):
-                raise ValueError('All layers must be nnLayer instances.')
+                raise ValueError(f'Layer {i} must be nnLayer instance. Got: {type(layer)}')
         
         self.layers = layers
         self.name = name
@@ -89,17 +90,31 @@ class NeuralNetwork:
         self.reductionRate = 1  # matches MATLAB property
         
         # Simple neurons_in and _out computation (matches MATLAB exactly)
+        print(f"DEBUG: Computing neurons_in from {len(self.layers)} layers")
         for i in range(len(self.layers)):
-            nin, _ = self.layers[i].getNumNeurons()
-            if nin is not None:
-                self.neurons_in = nin
-                break
+            try:
+                nin, _ = self.layers[i].getNumNeurons()
+                print(f"DEBUG: Layer {i} getNumNeurons() returned: nin={nin}")
+                if nin is not None and nin != []:  # Check for non-None and non-empty list
+                    self.neurons_in = nin
+                    print(f"DEBUG: Set neurons_in = {nin}")
+                    break
+            except Exception as e:
+                print(f"DEBUG: Layer {i} getNumNeurons() failed: {e}")
+                continue
         
+        print(f"DEBUG: Computing neurons_out from {len(self.layers)} layers")
         for i in range(len(self.layers) - 1, -1, -1):
-            _, nout = self.layers[i].getNumNeurons()
-            if nout is not None:
-                self.neurons_out = nout
-                break
+            try:
+                _, nout = self.layers[i].getNumNeurons()
+                print(f"DEBUG: Layer {i} getNumNeurons() returned: nout={nout}")
+                if nout is not None and nout != []:  # Check for non-None and non-empty list
+                    self.neurons_out = nout
+                    print(f"DEBUG: Set neurons_out = {nout}")
+                    break
+            except Exception as e:
+                print(f"DEBUG: Layer {i} getNumNeurons() failed: {e}")
+                continue
         
 
         self.setInputSize()

@@ -134,7 +134,7 @@ python test_coverage.py "cora_python/contSet/interval" "cora_python/tests/contSe
 - One test file per function - everything must have a unit test
 - Port ALL MATLAB test cases exactly  
 - Add edge cases found in examples and documentation and add missing edge cases by comparing against MATLAB behavior
-- Examples must not have tests
+- Examples must not have tests. run them with `$env:PYTHONPATH = "C:\Bachelorarbeit\Translate_Cora";`
 
 ### Code structure
 - Use zero based indexing -> translate matlab 1 based indexing to 0 based indexing

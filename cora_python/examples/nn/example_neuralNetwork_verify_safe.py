@@ -105,19 +105,17 @@ def aux_readModelAndSpecs(modelPath: str, specPath: str) -> Tuple[NeuralNetwork,
     x = 1/2 * (X0[0].sup + X0[0].inf)
     r = 1/2 * (X0[0].sup - X0[0].inf)
     
-    # For 'BSSC' format, reshape to (1, 1, 1, 5) to match the expected input format
-    # This matches the MATLAB behavior where input data is formatted according to the specified format
+    # Input data should be 2D arrays with shape (n, 1) to match MATLAB behavior
+    # The neural network expects 2D input where the second dimension represents batch size
     if x.ndim == 1:
-        x = x.reshape(1, 1, 1, -1)  # Reshape to BSSC format
-    elif x.ndim == 2:
-        # If already 2D (n x 1), reshape to (1, 1, 1, n)
-        x = x.reshape(1, 1, 1, x.shape[0])
+        x = x.reshape(-1, 1)  # Convert (n,) to (n, 1)
+    elif x.ndim == 2 and x.shape[1] != 1:
+        x = x.reshape(-1, 1)  # Ensure shape is (n, 1)
     
     if r.ndim == 1:
-        r = r.reshape(1, 1, 1, -1)  # Reshape to BSSC format
-    elif r.ndim == 2:
-        # If already 2D (n x 1), reshape to (1, 1, 1, n)
-        r = r.reshape(1, 1, 1, r.shape[0])
+        r = r.reshape(-1, 1)  # Convert (n,) to (n, 1)
+    elif r.ndim == 2 and r.shape[1] != 1:
+        r = r.reshape(-1, 1)  # Ensure shape is (n, 1)
     
     print(f"DEBUG: x type: {type(x)}, shape: {x.shape if hasattr(x, 'shape') else 'no shape'}")
     print(f"DEBUG: r type: {type(r)}, shape: {r.shape if hasattr(r, 'shape') else 'no shape'}")

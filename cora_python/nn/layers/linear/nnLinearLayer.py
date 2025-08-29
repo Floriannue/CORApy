@@ -84,6 +84,7 @@ class nnLinearLayer(nnLayer):
         self.W = W.astype(np.float64)
         self.b = b.astype(np.float64)
         self.d = []  # approx error (additive)
+        self.inputSize = []  # matches MATLAB property
         
         # whether the layer is refinable
         self.is_refinable = False
@@ -584,6 +585,19 @@ class nnLinearLayer(nnLayer):
         mask.flat[keepIdx.flatten()] = 1 / (1 - dropFactor)
         
         return mask, keepIdx, dropIdx
+    
+    def computeSizes(self, inputSize: List[int]) -> List[int]:
+        """
+        Compute and store input size, return output size (matches MATLAB exactly)
+        
+        Args:
+            inputSize: Input dimensions
+            
+        Returns:
+            outputSize: Output dimensions
+        """
+        self.inputSize = inputSize
+        return self.getOutputSize(inputSize)
     
     def getOutputSize(self, inputSize: List[int]) -> List[int]:
         """
