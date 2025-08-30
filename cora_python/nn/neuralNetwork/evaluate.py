@@ -63,6 +63,9 @@ Last revision: 17-July-2023 (improved readability)
 import numpy as np
 from typing import Any, Dict, List, Optional, Union
 from .neuralNetwork import NeuralNetwork
+from ..nnHelper.validateNNoptions import validateNNoptions
+from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
+from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
 
 
 def evaluate(obj: NeuralNetwork, input_data, *args):
@@ -81,66 +84,22 @@ def evaluate(obj: NeuralNetwork, input_data, *args):
     if len(args) > 3:
         raise ValueError("Too many arguments")
     
-    # validate parameters (matches MATLAB setDefaultValues)
-    options = {}
-    idxLayer = list(range(1, len(obj.layers) + 1))  # 1:length(obj.layers)
-    
-    if len(args) >= 1:
-        options = args[0]
-    if len(args) >= 2:
-        idxLayer = args[1]
+    # validate parameters (matches MATLAB setDefaultValues exactly)
+    [options, idxLayer] = setDefaultValues([{}, list(range(1, len(obj.layers) + 1))], list(args))
     
     # validate input (matches MATLAB inputArgsCheck exactly)
-    # MATLAB: {obj, 'att', 'neuralNetwork'}
-    if not hasattr(obj, '__class__') or 'NeuralNetwork' not in str(obj.__class__):
-        raise ValueError("First argument must be of class neuralNetwork")
+    inputArgsCheck([
+        [obj, 'att', 'neuralNetwork'],
+        [input_data, 'att', ['numeric', 'interval', 'zonotope', 'polyZonotope', 'taylm', 'conZonotope', 'gpuArray']],
+        [options, 'att', 'struct'],
+        [idxLayer, 'att', 'numeric', 'vector']
+    ])
     
-    # MATLAB: {input, 'att', {'numeric', 'interval', 'zonotope', 'polyZonotope', 'taylm', 'conZonotope','gpuArray'}}
-    # For now, accept any input type like MATLAB does
-    # TODO: Implement proper type checking for different CORA set types
-    
-    # MATLAB: {options, 'att', 'struct'}
-    if not isinstance(options, dict):
-        raise ValueError("Options must be a struct/dict")
-    
-    # MATLAB: {idxLayer, 'att', 'numeric', 'vector'}
-    if not isinstance(idxLayer, (list, np.ndarray)):
-        raise ValueError("idxLayer must be numeric vector")
-    
-    # MATLAB: options = nnHelper.validateNNoptions(options);
-    # TODO: Implement validateNNoptions when available
+    # validate options (matches MATLAB exactly)
+    options = validateNNoptions(options)
     
     # evaluate (matches MATLAB evaluate_ call exactly)
-    r = evaluate_(obj, input_data, options, idxLayer)
+    r = obj.evaluate_(input_data, options, idxLayer)
     
     return r
 
-
-def evaluate_(obj: NeuralNetwork, input_data, options: Dict[str, Any], 
-             idxLayer: List[int]):
-    """
-    Internal evaluate function (matches MATLAB evaluate_ exactly)
-    
-    Args:
-        obj: neural network object
-        input_data: input data
-        options: evaluation options
-        idxLayer: layer indices to evaluate (1-based like MATLAB)
-        
-    Returns:
-        Output of the neural network
-    """
-    # MATLAB uses 1-based indexing, convert to 0-based for Python
-    # MATLAB: idxLayer = 1:length(obj.layers) means [1, 2, 3, ...]
-    # Python needs [0, 1, 2, ...]
-    python_idxLayer = [i - 1 for i in idxLayer]
-    
-    current_input = input_data
-    
-    # Evaluate only the specified layers
-    for i in python_idxLayer:
-        if 0 <= i < len(obj.layers):
-            layer = obj.layers[i]
-            current_input = layer.evaluateNumeric(current_input, options)
-    
-    return current_input

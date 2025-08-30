@@ -12,6 +12,7 @@ from .explain import explain
 from .getRefinableLayers import getRefinableLayers
 from .getInputNeuronOrder import getInputNeuronOrder
 from .readONNXNetwork import readONNXNetwork
+from .convertDLToolboxNetwork import convertDLToolboxNetwork
 from .castWeights import castWeights
 from .prepareForZonoBatchEval import prepareForZonoBatchEval
 from .evaluate import evaluate
@@ -55,6 +56,7 @@ NeuralNetwork.explain = explain
 NeuralNetwork.getRefinableLayers = getRefinableLayers
 NeuralNetwork.getInputNeuronOrder = getInputNeuronOrder
 NeuralNetwork.readONNXNetwork = staticmethod(readONNXNetwork)
+NeuralNetwork.convertDLToolboxNetwork = staticmethod(convertDLToolboxNetwork)
 
 # Attach all the new methods
 NeuralNetwork.castWeights = castWeights
