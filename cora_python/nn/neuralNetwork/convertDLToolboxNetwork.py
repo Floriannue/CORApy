@@ -173,14 +173,11 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
         
         # Input layer itself is just metadata, don't add to computational layers
         # Only normalization layers (if any) are added above
-        # The currentSize should be the flattened input size that the network expects
+                # The currentSize should be the flattened input size that the network expects
         # For input [1, 1, 1, 5], the network expects flattened input of size [5]
         if len(inputSize) > 1:
             # Flatten the input dimensions for the network
-            flattened_size = [np.prod(inputSize), 1]
-            currentSize = flattened_size
-            if verbose:
-                print(f"    Flattened input size for network: {flattened_size}")
+            currentSize = [np.prod(inputSize), 1]
         else:
             currentSize = inputSize
             

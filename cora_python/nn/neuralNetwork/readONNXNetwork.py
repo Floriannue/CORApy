@@ -68,7 +68,7 @@ def readONNXNetwork(file_path: str, *args) -> NeuralNetwork:
         raise ValueError("Too many arguments")
     
     # Set default values (matches MATLAB setDefaultValues exactly)
-    [verbose, inputDataFormats, outputDataFormats, targetNetwork, containsCompositeLayers], _ = setDefaultValues(
+    [verbose, inputDataFormats, outputDataFormats, targetNetwork, containsCompositeLayers] = setDefaultValues(
         [False, 'BC', 'BC', 'dagnetwork', False], list(args)
     )
     

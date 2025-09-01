@@ -165,23 +165,26 @@ class nnLinearLayer(nnLayer):
         Returns:
             S: Updated sensitivity matrix
         """
-        # S = S * obj.W;
-        # use pagemtimes to compute sensitivity simultaneously for an
-        # entire batch.
+        # MATLAB: S = pagemtimes(S,obj.W);
+        # This computes S @ W for each batch element
+        # S has shape (nK, nK, bSz) initially, then transforms to (nK, input_dim, bSz)
+        # W has shape (output_dim, input_dim)
+        # Result: S @ W gives (nK, input_dim, bSz)
+        
         if S.ndim == 3:
-            # Handle batch case: S is (batch_size, input_dim, input_dim)
-            # Need to compute S @ W.T for each batch element
-            # Result should be (batch_size, input_dim, output_dim)
-            result = np.zeros((S.shape[0], S.shape[1], self.W.shape[0]))
-            for i in range(S.shape[0]):
-                # S[i] is (input_dim, input_dim), W is (output_dim, input_dim)
-                # We need S[i] @ W.T to get (input_dim, output_dim)
-                # This computes how input sensitivity propagates through the weight matrix
-                result[i] = S[i] @ self.W.T
+            # S is (nK, nK, bSz) or (nK, input_dim, bSz)
+            # W is (output_dim, input_dim)
+            # MATLAB: S = pagemtimes(S,obj.W) computes S @ W for each batch element
+            # Result: (nK, input_dim, bSz)
+            result = np.zeros((S.shape[0], self.W.shape[1], S.shape[2]))
+            for i in range(S.shape[2]):  # iterate over batch dimension
+                # S[:, :, i] is (nK, input_dim), W is (output_dim, input_dim)
+                # We need S[:, :, i] @ W to get (nK, input_dim)
+                result[:, :, i] = S[:, :, i] @ self.W
             return result
         else:
-            # Handle single case: S @ W.T
-            return S @ self.W.T
+            # Handle single case: S @ W (matching MATLAB)
+            return S @ self.W
     
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 
                             E: np.ndarray, id_: List[int], id_2: List[int], 

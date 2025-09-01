@@ -103,7 +103,8 @@ def explain(self, x: np.ndarray, target: Any, epsilon: float, **kwargs) -> Tuple
         print('All features can be freed.')
         idxFreedFeats = featOrder
         timesPerFeat = [0.0] * len(featOrder)
-        return idxFreedFeats, featOrder, timesPerFeat
+        # Convert to numpy arrays to match MATLAB behavior
+        return np.array(idxFreedFeats), np.array(featOrder), np.array(timesPerFeat)
     
     # init abstract network (used for some methods)
     nn_abs = None
@@ -138,4 +139,5 @@ def explain(self, x: np.ndarray, target: Any, epsilon: float, **kwargs) -> Tuple
                 print(f'Error freeing feature {featOrder[i]}: {e}')
             break
     
-    return idxFreedFeats, featOrder, timesPerFeat
+    # Convert to numpy arrays to match MATLAB behavior
+    return np.array(idxFreedFeats), np.array(featOrder), np.array(timesPerFeat)

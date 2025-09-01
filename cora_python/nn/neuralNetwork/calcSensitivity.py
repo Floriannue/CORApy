@@ -34,7 +34,7 @@ from typing import Any, Dict, Optional, Tuple
 from cora_python.nn.nnHelper import validateNNoptions
 
 
-def calcSensitivity(self, x: np.ndarray, **kwargs) -> Tuple[Any, Any]:
+def calcSensitivity(self, x: np.ndarray, varargin=None, store_sensitivity: bool = True) -> Tuple[Any, Any]:
     """
     Calculate input-output sensitivity matrix at x
     rows correspond to output neurons, columns correspond to input neurons
@@ -42,17 +42,18 @@ def calcSensitivity(self, x: np.ndarray, **kwargs) -> Tuple[Any, Any]:
     
     Args:
         x: Input point
-        **kwargs: Additional arguments including options and store_sensitivity
+        varargin: Options for neural network evaluation (stored in options.nn)
+        store_sensitivity: Whether to store sensitivity in each layer (default: True)
         
     Returns:
         Tuple of (S, y) results
     """
-    # parse input
-    options = kwargs.get('options', {})
-    store_sensitivity = kwargs.get('store_sensitivity', True)
+    # parse input - match MATLAB signature
+    if varargin is None:
+        varargin = {}
     
     # validate options using nnHelper
-    options = validateNNoptions(options, False)
+    options = validateNNoptions(varargin, False)
     
     # forward propagation
     xs = [None] * len(self.layers)
@@ -67,6 +68,8 @@ def calcSensitivity(self, x: np.ndarray, **kwargs) -> Tuple[Any, Any]:
     nK, bSz = y.shape
     
     # Initialize the sensitivity in for the output, i.e., identity matrix.
+    # MATLAB: S = repmat(eye(nK,'like',y),1,1,bSz)
+    # This creates (nK, nK, bSz) - identity matrices for each batch element
     S = np.tile(np.eye(nK, dtype=y.dtype).reshape(nK, nK, 1), (1, 1, bSz))
     
     # backward propagation

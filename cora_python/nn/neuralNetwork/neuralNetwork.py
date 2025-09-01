@@ -117,7 +117,13 @@ class NeuralNetwork:
                 continue
         
 
-        self.setInputSize()
+        # Set input size automatically if possible (matches MATLAB exactly)
+        try:
+            self.setInputSize()
+        except Exception as e:
+            # This is allowed - empty networks or networks without clear input size
+            # MATLAB handles this gracefully, so we should too
+            pass
 
     
     def __len__(self) -> int:

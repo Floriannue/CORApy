@@ -117,10 +117,48 @@ class nnSoftmaxLayer(nnActivationLayer):
         Returns:
             Updated sensitivity matrix
         """
-        sx = np.transpose(self.evaluateNumeric(x, options), [0, 2, 1])
-        # compute Jacobian of softmax
-        J = -np.einsum('ijk,ilk->ijl', sx, sx) + sx * np.eye(sx.shape[0])[:, :, np.newaxis]
-        S = np.einsum('ijk,ilk->ijl', S, J)
+        # MATLAB: sx = permute(obj.evaluateNumeric(x, options),[1 3 2]);
+        # MATLAB: J = -pagemtimes(sx,'none',sx,'transpose') + sx.*eye(size(x,1));
+        # MATLAB: S = pagemtimes(S,J);
+
+        # Get softmax output and reshape to match MATLAB permute
+        sx = self.evaluateNumeric(x, options)  # Shape: (num_neurons, batch_size)
+        sx = sx[:, np.newaxis, :]  # Shape: (num_neurons, 1, batch_size)
+        
+        # Compute Jacobian of softmax using pagemtimes equivalent
+        # J should be (num_neurons, num_neurons, batch_size)
+        # First term: -pagemtimes(sx,'none',sx,'transpose') = -sx @ sx^T for each batch
+        J = -np.matmul(sx, np.transpose(sx, (0, 2, 1)))  # Shape: (num_neurons, num_neurons, batch_size)
+        
+        # Second term: sx.*eye(size(x,1)) = sx * identity matrix for each batch
+        # eye(size(x,1)) should be (num_neurons, num_neurons)
+        identity = np.eye(sx.shape[0])  # Shape: (num_neurons, num_neurons)
+        # Reshape identity to (num_neurons, num_neurons, 1) for broadcasting
+        identity = identity[:, :, np.newaxis]  # Shape: (num_neurons, num_neurons, 1)
+        # Add the identity term: sx * identity for each batch
+        J = J + sx * identity  # Shape: (num_neurons, num_neurons, batch_size)
+        
+        # Apply Jacobian to sensitivity matrix using pagemtimes equivalent
+        # S is (nK, input_dim, bSz), J is (output_dim, output_dim, bSz)
+        # We need S @ J for each batch element, preserving batch dimension
+        
+        # Debug: print dimensions to understand what's happening
+        print(f"DEBUG: Softmax evaluateSensitivity - S shape: {S.shape}, J shape: {J.shape}")
+        print(f"DEBUG: Softmax evaluateSensitivity - sx shape: {sx.shape}")
+        
+        # Use batch matrix multiplication equivalent to MATLAB's pagemtimes
+        # For 3D tensors, we need to handle each batch element separately
+        if S.ndim == 3 and J.ndim == 3:
+            # S is (nK, input_dim, bSz), J is (output_dim, output_dim, bSz)
+            # Result should be (nK, output_dim, bSz)
+            result = np.zeros((S.shape[0], J.shape[1], S.shape[2]))
+            for i in range(S.shape[2]):  # iterate over batch dimension
+                result[:, :, i] = S[:, :, i] @ J[:, :, i]
+            S = result
+        else:
+            # Fallback to regular matmul for non-3D cases
+            S = np.matmul(S, J)
+        
         return S
     
     def evaluateNumeric(self, input_data, options):

@@ -108,7 +108,29 @@ class nnActivationLayer(nnLayer):
         Returns:
             S: Updated sensitivity matrix
         """
-        S = S * self.df(x).transpose(2, 0, 1)
+        # MATLAB: S = S.*permute(obj.df(x),[3 1 2]);
+        # This means: S = S .* df(x) where df(x) is reshaped to match S dimensions
+        # S has shape (nK, input_dim, bSz)
+        # df(x) has shape (input_dim, bSz)
+        # We need to reshape df(x) to (1, input_dim, bSz) for broadcasting
+        
+        df_x = self.df(x)  # Shape: (input_dim, bSz)
+        
+        # Reshape df_x to (1, input_dim, bSz) for broadcasting with S (nK, input_dim, bSz)
+        if df_x.ndim == 2:
+            df_x = df_x.reshape(1, df_x.shape[0], df_x.shape[1])
+        
+        # Element-wise multiplication: S .* df_x
+        # Ensure S and df_x have compatible shapes for broadcasting
+        if S.shape[1:] != df_x.shape[1:]:
+            # If dimensions don't match, we need to handle this case
+            # This can happen if the sensitivity matrix has unexpected dimensions
+            print(f"Warning: S shape {S.shape} vs df_x shape {df_x.shape}")
+            # Try to reshape df_x to match S dimensions
+            if S.ndim == 3 and df_x.ndim == 2:
+                df_x = df_x.reshape(1, df_x.shape[0], df_x.shape[1])
+        
+        S = S * df_x
         return S
     
     def evaluateInterval(self, bounds: 'Interval', options: Dict[str, Any]) -> 'Interval':

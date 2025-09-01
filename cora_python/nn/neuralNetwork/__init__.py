@@ -45,6 +45,7 @@ from .readYMLNetwork import readYMLNetwork
 from .getFromCellArray import getFromCellArray
 from .propagateBounds import propagateBounds
 
+
 # Import the main class to attach methods to
 from .neuralNetwork import NeuralNetwork
 
@@ -91,6 +92,7 @@ NeuralNetwork.readSherlockNetwork = staticmethod(readSherlockNetwork)
 NeuralNetwork.readYMLNetwork = staticmethod(readYMLNetwork)
 NeuralNetwork.getFromCellArray = staticmethod(getFromCellArray)
 NeuralNetwork.propagateBounds = propagateBounds
+
 
 # Export the class with attached methods
 __all__ = ['NeuralNetwork']
