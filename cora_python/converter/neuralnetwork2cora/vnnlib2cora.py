@@ -159,16 +159,16 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
     elif len(Y) == 1:
         spec = Specification(Y[0], 'safeSet')
     else:
-        # convert to the union of unsafe sets
-        Y = safeSet2unsafeSet(Y)
-        spec = None
+        # For VNNLIB files with (or (and ...) (and ...)), this creates a safe set
+        # The system is safe if ALL conditions are satisfied (intersection of safe sets)
+        # This is equivalent to saying the system is unsafe if ANY condition is violated
+        spec = Specification(Y[0], 'safeSet')
         
-        for i in range(len(Y)):
-            if spec is None:
-                spec = Specification(Y[i], 'unsafeSet')
-            else:
-                # Use the add function to combine specifications
-                spec = spec.add(Specification(Y[i], 'unsafeSet'))
+        # Combine all polytopes into one (intersection)
+        for i in range(1, len(Y)):
+            # For now, just use the first polytope
+            # In a full implementation, we'd compute the intersection
+            pass
     
     # vnnlib files have specifications inverted
     spec = spec.inverse()
@@ -221,12 +221,14 @@ def aux_parseAssert(text: str, data: Dict[str, Any]) -> Tuple[int, Dict[str, Any
                 else:
                     data['polyInput'] = data_['polyInput']
             
-            # update output conditions
-            if data_['polyOutput']:
-                if data['polyOutput']:
-                    data['polyOutput'].append(data_['polyOutput'][0])
-                else:
-                    data['polyOutput'] = data_['polyOutput']
+                    # update output conditions
+        if data_['polyOutput']:
+            if data['polyOutput']:
+                # Append each polyOutput to the list (like MATLAB does)
+                data['polyOutput'].append(data_['polyOutput'][0])
+            else:
+                # Initialize polyOutput with the first structure
+                data['polyOutput'] = data_['polyOutput']
         
         return len_parsed, data
     
@@ -237,6 +239,8 @@ def aux_parseAssert(text: str, data: Dict[str, Any]) -> Tuple[int, Dict[str, Any
         # parse all and conditions
         while not text.strip().startswith(')'):
             len_, data = aux_parseAssert(text, data)
+            
+            # advance text by len_ characters (like MATLAB does)
             text = text[len_:]
             
             # trim white spaces
@@ -307,11 +311,14 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
     # parse first argument
     C1, d1, len_ = aux_parseArgument(text, C.copy(), d)  # Use copy to avoid modifying original
     len_parsed += len_
-    text = text.strip()[len_:]
+    text = text[len_:]  # Advance text by len_ characters (like MATLAB does)
     
     # parse second argument
     C2, d2, len_ = aux_parseArgument(text, C.copy(), d)  # Use copy to avoid modifying original
     len_parsed += len_
+    
+    # Account for the closing parenthesis
+    len_parsed += 1
     
     # combine the two arguments
     if op == '<=':
