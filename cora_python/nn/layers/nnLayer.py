@@ -274,7 +274,7 @@ class nnLayer(ABC):
         """
         raise NotImplementedError(f"Zonotope batch evaluation not supported for {self.__class__.__name__}")
     
-    def evaluateTaylm(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateTaylm(self, input_data: Any, options: Dict[str, Any]) -> Any:
         """
         Evaluate Taylor model (default implementation throws error)
         

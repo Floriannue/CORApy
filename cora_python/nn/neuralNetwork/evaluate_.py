@@ -65,13 +65,13 @@ def evaluate_(obj: 'NeuralNetwork', input_data: Any, options: Optional[Dict[str,
     elif hasattr(input_data, 'inf') and hasattr(input_data, 'sup'):  # interval ---
         r = aux_evaluateInterval(obj, input_data, options, idxLayer)
     
-    elif hasattr(input_data, 'center') and hasattr(input_data, 'generators'):  # zonotope/polyZonotope ---
+    elif hasattr(input_data, 'c') and hasattr(input_data, 'G'):  # zonotope/polyZonotope ---
         r = aux_evaluatePolyZonotope(obj, input_data, options, idxLayer)
     
-    elif hasattr(input_data, 'monomials'):  # taylm ---
+    elif hasattr(input_data, 'coefficients'):  # taylm ---
         r = aux_evaluateTaylm(obj, input_data, options, idxLayer)
     
-    elif hasattr(input_data, 'C') and hasattr(input_data, 'd'):  # conZonotope ---
+    elif hasattr(input_data, 'c') and hasattr(input_data, 'A'):  # conZonotope ---
         r = aux_evaluateConZonotope(obj, input_data, options, idxLayer)
     
     else:  # other ---
@@ -163,13 +163,18 @@ def aux_evaluatePolyZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dic
         Evaluation result
     """
     # we only use polyZonotopes internally
-    isZonotope = hasattr(input_data, 'center') and hasattr(input_data, 'generators') and not hasattr(input_data, 'E')
+    isZonotope = hasattr(input_data, 'c') and hasattr(input_data, 'G') and not hasattr(input_data, 'E')
     
     if isZonotope:
-        # transform to polyZonotope
+        # transform to polyZonotope (matches MATLAB exactly)
         # and only use independent generators
-        # This would require PolyZonotope import
-        # For now, we'll work with the original input
+        from cora_python.contSet.polyZonotope.polyZonotope import PolyZonotope
+        # Create proper 2D empty arrays to match MATLAB behavior
+        n = input_data.c.shape[0]  # number of dimensions
+        input_data = PolyZonotope(input_data.c, input_data.G, 
+                                 np.zeros((n, 0)),  # GI: n x 0 matrix
+                                 np.zeros((0, 0), dtype=int),  # E: 0 x 0 matrix  
+                                 np.zeros((0, 1), dtype=int))  # id: 0 x 1 vector
         if 'nn' not in options:
             options['nn'] = {}
         options['nn']['add_approx_error_to_GI'] = True
@@ -177,27 +182,34 @@ def aux_evaluatePolyZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dic
     
     try:
         # prepare propagation
+        print(f"DEBUG: aux_evaluatePolyZonotope - input_data.c shape: {input_data.c.shape}")
+        print(f"DEBUG: aux_evaluatePolyZonotope - input_data.G shape: {input_data.G.shape}")
+        print(f"DEBUG: aux_evaluatePolyZonotope - input_data.GI shape: {input_data.GI.shape}")
+        print(f"DEBUG: aux_evaluatePolyZonotope - input_data.E shape: {input_data.E.shape}")
+        
         c = input_data.c
         G = input_data.G
         GI = input_data.GI
         E = input_data.E
         id_ = input_data.id
-        id_max = max(id_) if id_ else 0
+        
+        print(f"DEBUG: aux_evaluatePolyZonotope - After extraction: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}, E shape: {E.shape}")
         
         # make sure all properties have correct size
-        if len(G) == 0:
+        if G.size == 0:
             G = np.zeros((c.shape[0], 0))
             E = np.zeros((0, 0))
-            id_ = []
+            id_ = np.array([])
             id_max = 1
-        if len(GI) == 0:
+        else:
+            id_max = int(np.max(id_)) if id_.size > 0 else 0
+            
+        if GI.size == 0:
             GI = np.zeros((c.shape[0], 0))
-        if id_max == 0:
-            id_max = 0
         
         # find all even exponents, also save others
         # (TL: this was done for speed, not sure how important it really is...)
-        if len(E) > 0:
+        if E.size > 0:
             ind = np.where(np.prod(np.ones_like(E) - (E % 2), axis=0) == 1)[0]
             ind_ = np.setdiff1d(np.arange(E.shape[1]), ind)
         else:
@@ -214,22 +226,23 @@ def aux_evaluatePolyZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dic
                 options['nn'] = {}
             options['nn']['layer_k'] = k
             layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
+            print(f"DEBUG: aux_evaluatePolyZonotope - Before layer {k}: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
             c, G, GI, E, id_, id_max, ind, ind_ = layer_k.evaluatePolyZonotope(
                 c, G, GI, E, id_, id_max, ind, ind_, options)
+            print(f"DEBUG: aux_evaluatePolyZonotope - After layer {k}: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
             options = aux_updateOptions(obj, options, 'polyZonotope', k, layer_k)
         
         # build result
-        # This would require PolyZonotope constructor
-        # For now, return a simplified result
-        r = type(input_data)(c, G, GI, E, id_)
+        from cora_python.contSet.polyZonotope.polyZonotope import PolyZonotope
+        r = PolyZonotope(c, G, GI, E, id_)
         
     except MemoryError:
         raise MemoryError("Out of memory while processing layer. Try to set options.nn.num_generators to a lower value.")
     
     if isZonotope:
-        # transform back to zonotope
-        # This would require Zonotope constructor
-        r = type(input_data)(r.c, r.G)
+        # transform back to zonotope (matches MATLAB exactly)
+        from cora_python.contSet.zonotope.zonotope import Zonotope
+        r = Zonotope(r.c, r.G)
     
     return r
 

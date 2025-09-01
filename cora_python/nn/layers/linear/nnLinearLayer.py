@@ -206,18 +206,37 @@ class nnLinearLayer(nnLayer):
         Returns:
             Tuple of evaluation results
         """
-        c = self.W @ c + self.b
+        print(f"DEBUG: nnLinearLayer.evaluatePolyZonotope - Input: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
+        print(f"DEBUG: nnLinearLayer.evaluatePolyZonotope - W shape: {self.W.shape}, b shape: {self.b.shape}")
+        print(f"DEBUG: nnLinearLayer.evaluatePolyZonotope - c content: {c}")
+        print(f"DEBUG: nnLinearLayer.evaluatePolyZonotope - W content: {self.W}")
+        print(f"DEBUG: nnLinearLayer.evaluatePolyZonotope - b content: {self.b}")
+        
+        print(f"DEBUG: nnLinearLayer.evaluatePolyZonotope - About to do: W @ c")
+        temp_c = self.W @ c
+        print(f"DEBUG: nnLinearLayer.evaluatePolyZonotope - W @ c result: {temp_c}, shape: {temp_c.shape}")
+        
+        c = temp_c + self.b
+        print(f"DEBUG: nnLinearLayer.evaluatePolyZonotope - After adding bias: c = {c}, shape: {c.shape}")
+        
         G = self.W @ G
         GI = self.W @ GI
         
-        if not self._representsa_emptySet(self.d, eps=1e-10):
-            c = c + self._center(self.d)
+        print(f"DEBUG: nnLinearLayer.evaluatePolyZonotope - After multiplication: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
+        
+        if not self._representsa_emptySet(self.d, eps=1e-10) and self.d:
+            # Only process if d is not empty and not representing empty set
+            d_center = self._center(self.d)
+            if hasattr(d_center, 'size') and d_center.size > 0:
+                c = c + d_center
             # Handle case where d might be empty or have wrong shape
             d_rad = self._rad(self.d)
             if d_rad.size > 0 and d_rad.shape[0] > 0:
                 # Only add diagonal if d_rad has valid dimensions
                 if d_rad.shape[0] == c.shape[0]:
                     GI = np.hstack([GI, np.diag(d_rad)])
+        
+        print(f"DEBUG: nnLinearLayer.evaluatePolyZonotope - Final output: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
         
         return c, G, GI, E, id_, id_2, ind, ind_2
     
@@ -250,7 +269,7 @@ class nnLinearLayer(nnLayer):
         
         return c, G
     
-    def evaluateTaylm(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateTaylm(self, input_data: Any, options: Dict[str, Any]) -> Any:
         """
         Evaluate Taylor model
         

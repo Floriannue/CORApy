@@ -23,18 +23,16 @@ Python translation: 2025
 from typing import List, Any, Optional, Tuple
 
 
-def set_default_values(defaults: List[Any], *args: Any) -> Tuple[List[Any], List[Any]]:
+def set_default_values(defaults: List[Any], *args: Any) -> List[Any]:
     """
-    Set default values for function arguments
+    Set default values for function arguments (matches MATLAB exactly)
     
     Args:
         defaults: List of default values
         *args: Input arguments list (can be None or empty)
         
     Returns:
-        Tuple containing:
-        - List of processed values with defaults applied
-        - List of remaining arguments
+        List of processed values with defaults applied (matches MATLAB varargout)
     """
     # Ensure defaults is a list to allow item assignment
     defaults_list = list(defaults)
@@ -48,15 +46,15 @@ def set_default_values(defaults: List[Any], *args: Any) -> Tuple[List[Any], List
         else:
             args_list.append(arg)
             
-    # Override with provided arguments
-    num_defaults = len(defaults_list) # Use the length of the list version
-    for i in range(num_defaults):
-        if i < len(args_list):
-            result[i] = args_list[i]
-        else:
-            break  # No more args to process for defaults
-            
-    # Get remaining args
-    remaining_args = args_list[num_defaults:]
+    # Override with provided arguments (matches MATLAB exactly)
+    num_given = len(args_list)
+    num_defaults = len(defaults_list)
     
-    return result, remaining_args 
+    # assign default values if corresponding values are not provided
+    # matches MATLAB: varargout = [givenValues(1:n_given), defaultValues(n_given+1:n_default)];
+    for i in range(num_defaults):
+        if i < num_given:
+            result[i] = args_list[i]
+        # else: keep default value (already in result)
+    
+    return result 

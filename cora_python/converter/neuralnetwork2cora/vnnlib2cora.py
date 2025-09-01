@@ -80,10 +80,9 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
                     nrOutputs = max(nrOutputs, int(temp[2:]))
     
     # +1 due to 0-indexing in vnnlib files
-    # But Python uses 0-based indexing, so we keep the VNNLIB indices as-is
     data = {
         'nrInputs': nrInputs + 1,  # Add 1 because VNNLIB uses 0-based indexing (X_0 to X_4 = 5 variables)
-        'nrOutputs': nrOutputs + 1,  # Add 1 because VNNLIB uses 0-based indexing
+        'nrOutputs': nrOutputs + 1,  # Add 1 because VNNLIB uses 0-based indexing (Y_0 to Y_4 = 5 variables)
         'currIn': 0
     }
     
@@ -92,13 +91,9 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
     data['polyOutput'] = []
     while text.strip():
         if text.strip().startswith('(assert'):
-            print(f"DEBUG: Found assert, text before: '{text[:50]}'")
             text = text.strip()[8:]  # Remove '(assert'
-            print(f"DEBUG: Text after removing (assert: '{text[:50]}'")
             len_parsed, data = aux_parseAssert(text, data)
-            print(f"DEBUG: Parsed {len_parsed} characters")
             text = text.strip()[len_parsed + 1:]
-            print(f"DEBUG: Remaining text: '{text[:50]}'")
         else:
             ln = text.find('\n')
             if ln != -1:
@@ -133,19 +128,10 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
                         upper_bound = min(upper_bound, const / coeff)
                     else:  # coeff * x <= const (coeff < 0)
                         lower_bound = max(lower_bound, const / coeff)
-            
-            print(f"DEBUG: Variable {i}, constraint {j}: coeff={coeff}, const={const}")
-            if coeff > 0:
-                print(f"DEBUG: Updated upper bound for variable {i}: {upper_bound}")
-            else:
-                print(f"DEBUG: Updated lower bound for variable {i}: {lower_bound}")
         
         # Create interval for this variable
         from cora_python.contSet.interval.interval import Interval
         I = Interval(lower_bound, upper_bound)
-        print(f"DEBUG: Created interval for variable {i}: [{lower_bound}, {upper_bound}]")
-        print(f"DEBUG: Interval object: {I}")
-        print(f"DEBUG: Interval attributes: sup={getattr(I, 'sup', 'N/A')}, inf={getattr(I, 'inf', 'N/A')}")
         X0.append(I)
     
     # Create a single multi-dimensional interval from all individual intervals
@@ -158,7 +144,6 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
         # Create a single multi-dimensional interval
         from cora_python.contSet.interval.interval import Interval
         multi_dim_interval = Interval(lower_bounds, upper_bounds)
-        print(f"DEBUG: Created multi-dimensional interval: {multi_dim_interval}")
         
         # Replace the list with a single multi-dimensional interval
         X0 = [multi_dim_interval]
@@ -205,7 +190,6 @@ def aux_parseAssert(text: str, data: Dict[str, Any]) -> Tuple[int, Dict[str, Any
         Tuple of (length_parsed, updated_data)
     """
     if text.strip().startswith('(<=') or text.strip().startswith('(>='):
-        print(f"DEBUG: aux_parseAssert calling aux_parseLinearConstraint with text: '{text[:50]}'")
         return aux_parseLinearConstraint(text, data)
     elif text.strip().startswith('(or'):
         text = text.strip()[4:]  # Remove '(or'
@@ -262,13 +246,17 @@ def aux_parseAssert(text: str, data: Dict[str, Any]) -> Tuple[int, Dict[str, Any
             
             # move overall length counter to current position
             len_parsed += len_
-            if text.startswith('('):
-                # multiple terms in and; correct len
+            
+            # Check if there are multiple terms in and; correct len (like MATLAB does)
+            if text.strip().startswith('('):
                 len_parsed -= 1
         
         return len_parsed, data
     
     else:
+        # Initialize len_parsed if it hasn't been set yet
+        if 'len_parsed' not in locals():
+            len_parsed = 0
         raise ValueError(f"Failed to parse vnnlib file. Parsed up to line {len_parsed}.")
 
 
@@ -299,13 +287,11 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
     Returns:
         Tuple of (length_parsed, updated_data)
     """
-    print(f"DEBUG: aux_parseLinearConstraint received text: '{text[:50]}'")
     # extract operator
     op = text[1:3]
     # Remove the opening parenthesis and operator (e.g., "(<=" -> 4 characters)
     text = text[4:]
     len_parsed = 4
-    print(f"DEBUG: aux_parseLinearConstraint after operator extraction: '{text[:50]}'")
     
     # get type of constraint (on inputs X or on output Y)
     constraint_type = aux_getTypeOfConstraint(text)
@@ -319,12 +305,12 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
         d = 0
     
     # parse first argument
-    C1, d1, len_ = aux_parseArgument(text, C, d)
+    C1, d1, len_ = aux_parseArgument(text, C.copy(), d)  # Use copy to avoid modifying original
     len_parsed += len_
     text = text.strip()[len_:]
     
     # parse second argument
-    C2, d2, len_ = aux_parseArgument(text, C, d)
+    C2, d2, len_ = aux_parseArgument(text, C.copy(), d)  # Use copy to avoid modifying original
     len_parsed += len_
     
     # combine the two arguments
@@ -335,8 +321,6 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
         C = C2 - C1
         d = d1 - d2
     
-    print(f"DEBUG: Combined constraint: C = {C}, d = {d}")
-    
     # combine the current constraint with previous constraints
     if constraint_type == 'input':
         if not data['polyInput']:
@@ -346,13 +330,9 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
         if data['currIn'] >= data['polyInput'][0]['C'].shape[0]:
             raise ValueError(f"Too many input constraints. Expected at most {data['polyInput'][0]['C'].shape[0]} constraints, but got {data['currIn'] + 1}")
         
-        print(f"DEBUG: Storing constraint {data['currIn']} in polytope: C = {C}, d = {d}")
-        
         for i in range(len(data['polyInput'])):
             data['polyInput'][i]['C'][data['currIn'], :] = C.flatten()  # Ensure C is 1D
             data['polyInput'][i]['d'][data['currIn']] = d
-        
-        print(f"DEBUG: After storing, polytope C[{data['currIn']}, :] = {data['polyInput'][0]['C'][data['currIn'], :]}")
         
         data['currIn'] += 1
     
@@ -413,11 +393,8 @@ def aux_parseArgument(text: str, C: np.ndarray, d: float) -> Tuple[np.ndarray, f
         except ValueError:
             raise ValueError(f"Invalid variable index in '{text[:len_parsed]}': '{index_str}' is not a valid integer")
         
-        # Set the coefficient to 1 for this variable (use 0-based indexing)
-        C[0, index] = 1
-        print(f"DEBUG: Parsed variable '{text[:len_parsed]}' -> index {index}")
-        print(f"DEBUG: Setting C[0, {index}] = 1")
-        print(f"DEBUG: After setting, C[0, {index}] = {C[0, index]}")
+        # Add 1 to the coefficient for this variable (like MATLAB does)
+        C[0, index] += 1
         return C, d, len_parsed
         
     else:
@@ -437,7 +414,6 @@ def aux_parseArgument(text: str, C: np.ndarray, d: float) -> Tuple[np.ndarray, f
         # Parse the number
         try:
             number = float(text[:len_parsed])
-            print(f"DEBUG: Trying to parse number from text: '{text[:len_parsed]}' -> '{number}'")
         except ValueError:
             raise ValueError(f"Invalid number in '{text[:len_parsed]}'")
         
@@ -445,7 +421,6 @@ def aux_parseArgument(text: str, C: np.ndarray, d: float) -> Tuple[np.ndarray, f
         d = number
         # Create a new C matrix that is all zeros (this is crucial!)
         C_constant = np.zeros_like(C)
-        print(f"DEBUG: Parsed constant {number}, setting d = {d}, C = {C_constant}")
         return C_constant, d, len_parsed
 
 

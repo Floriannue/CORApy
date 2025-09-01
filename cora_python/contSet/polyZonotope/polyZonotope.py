@@ -121,7 +121,9 @@ class PolyZonotope(ContSet):
         _aux_checkInputArgs(c, G, GI, E, id, len(varargin))
 
         # 4. compute properties
+        print(f"DEBUG: PolyZonotope constructor - Before _aux_computeProperties: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}, E shape: {E.shape}")
         c, G, GI, E, id = _aux_computeProperties(c, G, GI, E, id)
+        print(f"DEBUG: PolyZonotope constructor - After _aux_computeProperties: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}, E shape: {E.shape}")
 
         # 5. assign properties
         self.c = c
@@ -182,7 +184,7 @@ def _aux_parseInputArgs(*varargin) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
     
     # set default values
     defaults = [np.array([]) for _ in range(5)]
-    result, _ = setDefaultValues(defaults, list(varargin))
+    result = setDefaultValues(defaults, list(varargin))
     c, G, GI, E, id_ = result
 
     # Ensure all are numpy arrays, even if empty from setDefaultValues

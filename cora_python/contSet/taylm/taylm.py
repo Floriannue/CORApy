@@ -159,6 +159,40 @@ class Taylm:
 
         # 4. compute object
         self = _aux_computeObject(self, func, int_obj, max_order, names, opt_method, eps, tolerance, varname)
+    
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        """Handle numpy universal functions"""
+        if ufunc == np.add:
+            if method == '__call__':
+                # Handle addition with numpy arrays
+                if len(inputs) == 2:
+                    if inputs[0] is self:
+                        return self.__add__(inputs[1])
+                    else:
+                        return self.__radd__(inputs[0])
+        elif ufunc == np.multiply:
+            if method == '__call__':
+                # Handle multiplication with numpy arrays - element-wise
+                if len(inputs) == 2:
+                    if inputs[0] is self:
+                        return self.__mul__(inputs[1])
+                    else:
+                        return self.__rmul__(inputs[0])
+        elif ufunc == np.matmul:
+            if method == '__call__':
+                # Handle matrix multiplication with numpy arrays
+                if len(inputs) == 2:
+                    if inputs[0] is self:
+                        return self.__matmul__(inputs[1])
+                    else:
+                        return self.__rmatmul__(inputs[0])
+        
+        # For other ufuncs, return NotImplemented to let numpy handle it
+        return NotImplemented
+    
+
+    
+
 
 
 # Auxiliary functions -----------------------------------------------------

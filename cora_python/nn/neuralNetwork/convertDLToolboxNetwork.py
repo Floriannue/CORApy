@@ -87,12 +87,33 @@ def convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool = False) -> Ne
         if np.isscalar(inputSize):
             inputSize = [inputSize, 1]
         
-        # set input size
-        obj.setInputSize(inputSize, False)
+        # For ONNX networks with reshape/flatten layers, we need to set the input size
+        # to what the computational layers actually expect, not the original ONNX shape
+        # The network will handle the reshaping internally
+        
+        # Check if we have a ReshapeLayer that flattens the input
+        if layers and hasattr(layers[0], 'idx_out') and layers[0].idx_out == [-1]:
+            # First layer is a flatten layer, so the network expects flattened input
+            flattened_input_size = [np.prod(inputSize), 1]
+            if verbose:
+                print(f"Original ONNX input size: {inputSize}")
+                print(f"Setting network input size to flattened size: {flattened_input_size}")
+            obj.setInputSize(flattened_input_size, False)
+        else:
+            # No flatten layer, use original input size
+            if verbose:
+                print(f"Setting network input size to: {inputSize}")
+            obj.setInputSize(inputSize, False)
         
         # sanity check (should not fail) - matches MATLAB
         try:
-            x = np.zeros(inputSize).reshape(-1, 1)
+            # Create test input with the correct size for evaluation
+            if layers and hasattr(layers[0], 'idx_out') and layers[0].idx_out == [-1]:
+                # Use flattened size for test
+                x = np.zeros(flattened_input_size)
+            else:
+                # Use original size for test
+                x = np.zeros(inputSize).reshape(-1, 1)
             obj.evaluate(x)
             if verbose:
                 print("Sanity check passed")
@@ -151,9 +172,18 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
             layers.append(nnElementwiseAffineLayer(1/sigma, -mu/sigma, dlt_layer.get('Name', '')))
         
         # Input layer itself is just metadata, don't add to computational layers
-        # The actual input size will be determined from the first layer's weights
         # Only normalization layers (if any) are added above
-        currentSize = inputSize
+        # The currentSize should be the flattened input size that the network expects
+        # For input [1, 1, 1, 5], the network expects flattened input of size [5]
+        if len(inputSize) > 1:
+            # Flatten the input dimensions for the network
+            flattened_size = [np.prod(inputSize), 1]
+            currentSize = flattened_size
+            if verbose:
+                print(f"    Flattened input size for network: {flattened_size}")
+        else:
+            currentSize = inputSize
+            
         return layers, inputSize, currentSize
     
     # Check for FullyConnectedLayer (matches MATLAB exactly)
@@ -234,6 +264,22 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
             else:
                 # No current size info, use dynamic shape
                 shape = [-1]
+        
+        # Ensure the shape is valid for the ReshapeLayer
+        if shape and -1 not in shape:
+            # We have a concrete shape, use it
+            pass
+        elif shape == [-1]:
+            # Dynamic shape - this means flatten to 1D
+            # For the network to work properly, we need to ensure the ReshapeLayer
+            # can handle the input transformation correctly
+            if verbose:
+                print(f"    Using dynamic shape [-1] for ReshapeLayer")
+        else:
+            # Fallback to flattening
+            shape = [-1]
+            if verbose:
+                print(f"    Fallback to flattening with shape: {shape}")
         
         layer = nnReshapeLayer(shape, name=dlt_layer.get('Name', ''))
         layers.append(layer)

@@ -190,9 +190,9 @@ class Zonotope(ContSet):
             if G.size == 0 and c.size > 0:
                 G = np.zeros((len(c), 0))
             elif G.size > 0:
-                # Ensure G is 2D
-                if G.ndim == 1:
-                    G = G.reshape(-1, 1)
+                # G should already be a 2D matrix where each column represents a generator
+                # No reshaping needed - this matches MATLAB behavior
+                pass
         
         return c, G
     

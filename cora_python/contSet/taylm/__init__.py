@@ -17,11 +17,27 @@ from .isemptyobject import isemptyobject
 from .empty import empty
 from .origin import origin
 from .generateRandom import generateRandom
+from .mtimes import mtimes
+from .plus import plus
+from .times import times
 
 # Attach methods to the Taylm class
 # dim and isemptyobject are required by parent class (but Taylm doesn't inherit from ContSet)
 Taylm.dim = dim
 Taylm.isemptyobject = isemptyobject
+
+# Attach arithmetic methods
+Taylm.mtimes = mtimes
+Taylm.plus = plus
+Taylm.times = times
+
+# Attach magic methods for Python operators using lambdas
+Taylm.__matmul__ = lambda self, other: mtimes(other, self)
+Taylm.__rmatmul__ = lambda self, other: mtimes(self, other)
+Taylm.__add__ = lambda self, other: plus(self, other)
+Taylm.__radd__ = lambda self, other: plus(other, self)
+Taylm.__mul__ = lambda self, other: times(self, other)
+Taylm.__rmul__ = lambda self, other: times(other, self)
 
 # Attach static methods
 Taylm.empty = staticmethod(empty)
@@ -36,4 +52,7 @@ __all__ = [
     'empty',
     'origin',
     'generateRandom',
+    'mtimes',
+    'plus',
+    'times',
 ] 

@@ -188,14 +188,14 @@ class nnActivationLayer(nnLayer):
         
         return rc, rG
     
-    def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray, 
-                            id: np.ndarray, id_: np.ndarray, ind: np.ndarray, ind_: np.ndarray, 
-                            options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
-                                                           np.ndarray, np.ndarray, np.ndarray, 
+    def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
+                            id: np.ndarray, id_: np.ndarray, ind: np.ndarray, ind_: np.ndarray,
+                            options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray,
+                                                           np.ndarray, np.ndarray, np.ndarray,
                                                            np.ndarray, np.ndarray]:
         """
         Evaluate polyZonotope input - matches MATLAB exactly
-        
+
         Args:
             c: Center
             G: Generators
@@ -204,17 +204,20 @@ class nnActivationLayer(nnLayer):
             id: Identifiers
             id_: Identifiers
             ind: Indices
-            ind_: Indices
             options: Evaluation options
-            
+
         Returns:
             Tuple of evaluation results
         """
+        print(f"DEBUG: evaluatePolyZonotope - Input: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
+        
         # Get dimensions
         n = c.shape[0]
         
         # Pre-order reduction using nnHelper
         c, G, GI, E, id, id_, ind, ind_ = self._aux_preOrderReduction(c, G, GI, E, id, id_, ind, ind_, options)
+        
+        print(f"DEBUG: evaluatePolyZonotope - After preOrderReduction: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
         
         # Get max order
         maxOrder = max(self.order)
@@ -234,14 +237,22 @@ class nnActivationLayer(nnLayer):
         E_out = self._aux_computeE_out(E, maxOrder, G_start, G_end)
         d = np.zeros((n, 1))
         
+        print(f"DEBUG: evaluatePolyZonotope - Before loop: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
+        print(f"DEBUG: evaluatePolyZonotope - n={n}, G_end[-1]={G_end[-1]}, GI_end[-1]={GI_end[-1]}")
+        
         # Loop over all neurons
         for i in range(n):
             options['nn']['neuron_i'] = i
             order_i = self.order[i] if i < len(self.order) else self.order[0]
             
+            print(f"DEBUG: evaluatePolyZonotope - Loop i={i}: c[{i}, 0] = {c[i, 0]}, G[{i}, :] shape: {G[i, :].shape}")
+            
             c_out[i], G_out_i, GI_out_i, d[i] = self.evaluatePolyZonotopeNeuron(
-                c[i], G[i, :], GI[i, :], E, E_out, order_i, ind, ind_, options
+                c[i, 0], G[i:i+1, :], GI[i:i+1, :], E, E_out, order_i, ind, ind_, options
             )
+            
+            print(f"DEBUG: evaluatePolyZonotope - G_out_i shape: {G_out_i.shape}, G_out[i, :len(G_out_i)] shape: {G_out[i, :len(G_out_i)].shape}")
+            print(f"DEBUG: evaluatePolyZonotope - G_out_i content: {G_out_i}")
             
             G_out[i, :len(G_out_i)] = G_out_i
             GI_out[i, :len(GI_out_i)] = GI_out_i
@@ -279,9 +290,14 @@ class nnActivationLayer(nnLayer):
         n, h = G.shape
         q = GI.shape[1]
         
+        print(f"DEBUG: _aux_preOrderReduction - Input: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
+        print(f"DEBUG: _aux_preOrderReduction - h={h}, q={q}, h+q={h+q}")
+        
         # Read max number of generators
         nrMaxGen = options.get('nn', {}).get('num_generators', float('inf'))
         nrMaxGen = min(h + q, nrMaxGen)
+        
+        print(f"DEBUG: _aux_preOrderReduction - nrMaxGen: {nrMaxGen}")
         
         if (options.get('nn', {}).get('do_pre_order_reduction', False) and 
             options.get('nn', {}).get('max_gens_post') is not None):
@@ -289,8 +305,12 @@ class nnActivationLayer(nnLayer):
             max_order = max(self.order)
             nrMaxGenOrderRed = int(np.power(options['nn']['max_gens_post'], 1/max_order))
             nrMaxGen = min(nrMaxGen, nrMaxGenOrderRed)
+            print(f"DEBUG: _aux_preOrderReduction - After order reduction: nrMaxGen: {nrMaxGen}")
+        
+        print(f"DEBUG: _aux_preOrderReduction - h+q > nrMaxGen: {h+q} > {nrMaxGen} = {h+q > nrMaxGen}")
         
         if h + q > nrMaxGen:
+            print(f"DEBUG: _aux_preOrderReduction - CALLING reducePolyZono!")
             # Reduce using nnHelper
             c, G, GI, E, id, d = reducePolyZono(c, G, GI, E, id, nrMaxGen, self.sensitivity)
             
@@ -306,6 +326,21 @@ class nnActivationLayer(nnLayer):
             id_ = max(np.max(id), id_)
             if id_ is None:
                 id_ = np.max(id)
+        else:
+            print(f"DEBUG: _aux_preOrderReduction - NOT calling reducePolyZono")
+        
+        print(f"DEBUG: _aux_preOrderReduction - Output: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
+        
+        # Update auxiliary variables (matches MATLAB exactly)
+        id_ = max(np.max(id), id_)
+        if id_ is None:
+            id_ = 0
+        
+        # Compute indices of all-even exponents (for zonotope encl.)
+        ind = np.where(np.prod(np.ones_like(E) - np.mod(E, 2), axis=0) == 1)[0]
+        ind_ = np.setdiff1d(np.arange(E.shape[1]), ind)
+        
+        print(f"DEBUG: _aux_preOrderReduction - Final: ind shape: {ind.shape}, ind_ shape: {ind_.shape}")
         
         return c, G, GI, E, id, id_, ind, ind_
     
@@ -411,16 +446,16 @@ class nnActivationLayer(nnLayer):
         
         return G, GI, E, id, id_
     
-    def evaluatePolyZonotopeNeuron(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray, 
+    def evaluatePolyZonotopeNeuron(self, c: float, G: np.ndarray, GI: np.ndarray, E: np.ndarray, 
                                   Es: np.ndarray, order: int, ind: np.ndarray, ind_: np.ndarray, 
-                                  options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+                                  options: Dict[str, Any]) -> Tuple[float, np.ndarray, np.ndarray, float]:
         """
         Evaluate polyZonotope for a specific neuron - matches MATLAB exactly
         
         Args:
-            c: Center
-            G: Generators
-            GI: Independent generators
+            c: Center (scalar)
+            G: Generators (2D row vector with shape (1, h))
+            GI: Independent generators (2D row vector with shape (1, q))
             E: Exponent matrix
             Es: Exponent matrix
             order: Polynomial order
@@ -431,21 +466,27 @@ class nnActivationLayer(nnLayer):
         Returns:
             Tuple of (c, G, GI, d) results
         """
-        # Get bounds for the input domain using nnHelper
+        # G and GI are already 2D row vectors from the caller (G[i:i+1, :], GI[i:i+1, :])
+        # No need to reshape them
+        
         l, u = compBoundsPolyZono(c, G, GI, E, ind, ind_, True)
         
+        # Extract scalar bounds for this specific neuron
+        l_scalar = float(l[0, 0]) if l.size > 0 else 0.0
+        u_scalar = float(u[0, 0]) if u.size > 0 else 0.0
+        
         # Compute polynomial approximation
-        coeffs, d = self.computeApproxPoly(l, u, order)
+        coeffs, d = self.computeApproxPoly(l_scalar, u_scalar, order)
         
         # Compute derivative bounds
-        df_l, df_u = self.getDerBounds(l, u)
+        df_l, df_u = self.getDerBounds(l_scalar, u_scalar)
         
         # Use nnHelper to compute polynomial evaluation
         if order == 1:
             # Linear case - direct evaluation
             c_out = coeffs[0] + coeffs[1] * c
-            G_out = coeffs[1] * G
-            GI_out = coeffs[1] * GI
+            G_out = coeffs[1] * G.flatten()  # Ensure 1D row vector output
+            GI_out = coeffs[1] * GI.flatten()  # Ensure 1D row vector output
         else:
             # Higher order case - use nnHelper methods
             # Compute polynomial terms using calcSquared
@@ -456,34 +497,34 @@ class nnActivationLayer(nnLayer):
             GI_start, GI_end, GI_ext_start, GI_ext_end = getOrderIndicesGI(GI, G, order)
             
             # Initialize output arrays
-            c_out = np.zeros_like(c)
-            G_out = np.zeros((G.shape[0], G_ext_end[-1]))
-            GI_out = np.zeros((GI.shape[0], GI_ext_end[-1]))
+            c_out = 0.0  # scalar output
+            G_out = np.zeros(G_ext_end[-1])  # row vector output
+            GI_out = np.zeros(GI_ext_end[-1])  # row vector output
             
             # Compute polynomial terms for each order
             for i in range(order):  # 0-based indexing like Python
                 if G_start[i + 1] < G_end[i + 1]:  # +1 because G_start/G_end store 1-based indices
                     # Get generators for this order
-                    G_i = G[:, G_start[i + 1]:G_end[i + 1]]
-                    GI_i = GI[:, GI_start[i + 1]:GI_end[i + 1]]
+                    G_i = G[G_start[i + 1]:G_end[i + 1]]
+                    GI_i = GI[GI_start[i + 1]:GI_end[i + 1]]
                     
                     # Compute polynomial coefficients for this order
                     coeff_i = coeffs[i] if i < len(coeffs) else 0
                     
                     # Add contribution
-                    c_out += coeff_i * np.sum(G_i, axis=1)
-                    G_out[:, G_start[i + 1]:G_end[i + 1]] = coeff_i * G_i
-                    GI_out[:, GI_start[i + 1]:GI_end[i + 1]] = coeff_i * GI_i
+                    c_out += coeff_i * np.sum(G_i)
+                    G_out[G_start[i + 1]:G_end[i + 1]] = coeff_i * G_i
+                    GI_out[GI_start[i + 1]:GI_end[i + 1]] = coeff_i * GI_i
         
         return c_out, G_out, GI_out, d
     
-    def _computePolynomialTerms(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
-                               coeffs: np.ndarray, order: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _computePolynomialTerms(self, c: float, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
+                               coeffs: np.ndarray, order: int) -> Tuple[float, np.ndarray, np.ndarray]:
         """Compute polynomial terms using nnHelper methods"""
         # Initialize
-        c_out = np.zeros_like(c)
-        G_out = np.zeros_like(G)
-        GI_out = np.zeros_like(GI)
+        c_out = 0.0  # scalar output
+        G_out = np.zeros_like(G)  # row vector output
+        GI_out = np.zeros_like(GI)  # row vector output
         
         # For each order, compute the contribution
         for i in range(order):  # 0-based indexing like Python
