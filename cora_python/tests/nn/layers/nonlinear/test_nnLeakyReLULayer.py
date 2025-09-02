@@ -1,3 +1,4 @@
+
 """
 Tests for nnLeakyReLULayer class.
 """
@@ -13,23 +14,23 @@ class TestNnLeakyReLULayer:
     def test_nnLeakyReLULayer_constructor_default_alpha(self):
         """Test constructor with default alpha"""
         layer = nnLeakyReLULayer()
-        assert layer.name == "leakyrelu"
-        assert layer.type == "leakyrelu"
+        assert layer.name.startswith("leakyrelu_")
+        assert layer.type == "nnLeakyReLULayer"
         assert layer.alpha == 0.01
     
     def test_nnLeakyReLULayer_constructor_custom_alpha(self):
         """Test constructor with custom alpha"""
         alpha = 0.1
         layer = nnLeakyReLULayer(alpha)
-        assert layer.name == "leakyrelu"
-        assert layer.type == "leakyrelu"
+        assert layer.name.startswith("leakyrelu_")
+        assert layer.type == "nnLeakyReLULayer"
         assert layer.alpha == alpha
     
     def test_nnLeakyReLULayer_constructor_custom_name(self):
         """Test constructor with custom name"""
         layer = nnLeakyReLULayer(0.05, "custom_leakyrelu")
         assert layer.name == "custom_leakyrelu"
-        assert layer.type == "leakyrelu"
+        assert layer.type == "nnLeakyReLULayer"
         assert layer.alpha == 0.05
     
     def test_nnLeakyReLULayer_function_values_positive(self):
@@ -110,8 +111,8 @@ class TestNnLeakyReLULayer:
         x = np.array([[0]])
         y_prime = layer.df(x)
         
-        # At zero, we use the positive derivative (1)
-        assert np.isclose(y_prime[0, 0], 1)
+        # At zero, we use the negative derivative (alpha) since x <= 0
+        assert np.isclose(y_prime[0, 0], 0.01)
     
     def test_nnLeakyReLULayer_second_derivative(self):
         """Test LeakyReLU second derivative"""
@@ -194,18 +195,18 @@ class TestNnLeakyReLULayer:
         """Test computeApproxError edge cases for order 1"""
         layer = nnLeakyReLULayer(0.01)
         
-        # Test with m >= 1 (should return d = 0)
+        # Test with m >= 1 - even with slope 1, there's still error in negative region
         l, u = -1, 1
         coeffs = [1.0, 0.0]  # m = 1.0
         
         new_coeffs, d = layer.computeApproxError(l, u, coeffs)
-        assert d == 0
+        assert d > 0  # Should have error because negative region has slope 0.01, not 1
         
-        # Test with m <= 0 (should return d = 0)
+        # Test with m <= 0 - should have error because LeakyReLU is always increasing
         coeffs = [-0.1, 0.0]  # m = -0.1 < 0
         
         new_coeffs, d = layer.computeApproxError(l, u, coeffs)
-        assert d == 0
+        assert d > 0  # Should have error because LeakyReLU is increasing, not decreasing
     
     def test_nnLeakyReLULayer_computeApproxError_higher_order(self):
         """Test computeApproxError for higher orders"""
@@ -246,16 +247,18 @@ class TestNnLeakyReLULayer:
     
     def test_nnLeakyReLULayer_computeApproxPoly_validation(self):
         """Test computeApproxPoly input validation"""
+        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+        
         layer = nnLeakyReLULayer(0.01)
         
         l, u = -1, 1
         
         # Test invalid order
-        with pytest.raises(ValueError):
+        with pytest.raises(CORAerror):
             layer.computeApproxPoly(l, u, 0, "regression")
         
         # Test invalid method
-        with pytest.raises(ValueError):
+        with pytest.raises(CORAerror):
             layer.computeApproxPoly(l, u, 1, "invalid_method")
     
     def test_nnLeakyReLULayer_computeApproxPoly_containment(self):
@@ -271,6 +274,8 @@ class TestNnLeakyReLULayer:
                 # Test containment at several points
                 x_test = np.linspace(l, u, 10)
                 y_true = layer.f(x_test)
+                
+                # Evaluate polynomial using np.polyval (coefficients in descending order)
                 y_approx = np.polyval(coeffs, x_test)
                 
                 # Check that approximation is within error bounds

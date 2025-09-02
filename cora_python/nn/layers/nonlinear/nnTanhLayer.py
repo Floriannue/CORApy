@@ -22,8 +22,7 @@ class nnTanhLayer(nnActivationLayer):
         Args:
             name: name of the layer, defaults to type
         """
-        if name is None:
-            name = "tanh"
+
         
         # Define the tanh function and its derivative
         def tanh(x):

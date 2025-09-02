@@ -13,14 +13,15 @@ class TestNnSoftmaxLayer:
     def test_nnSoftmaxLayer_constructor_default_name(self):
         """Test constructor with default name"""
         layer = nnSoftmaxLayer()
-        assert layer.name == "softmax"
-        assert layer.type == "softmax"
+        # Default name should be generated with unique number (matches MATLAB behavior)
+        assert layer.name.startswith("softmax_")
+        assert layer.type == "nnSoftmaxLayer"
     
     def test_nnSoftmaxLayer_constructor_custom_name(self):
         """Test constructor with custom name"""
         layer = nnSoftmaxLayer("custom_softmax")
         assert layer.name == "custom_softmax"
-        assert layer.type == "softmax"
+        assert layer.type == "nnSoftmaxLayer"
     
     def test_nnSoftmaxLayer_function_values(self):
         """Test softmax function values"""

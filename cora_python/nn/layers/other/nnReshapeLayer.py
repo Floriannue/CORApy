@@ -89,6 +89,10 @@ class nnReshapeLayer(nnLayer):
         Returns:
             output: reshaped input data
         """
+        # Debug output
+        if hasattr(options, 'debug') and options.get('debug', False):
+            print(f"DEBUG ReshapeLayer: input_data shape: {input_data.shape}, idx_out: {self.idx_out}")
+        
         # Handle special case of -1 in idx_out (flatten to 1D)
         if -1 in self.idx_out:
             # Calculate the size for the -1 dimension
@@ -118,10 +122,15 @@ class nnReshapeLayer(nnLayer):
         else:
             # Use idx_out as indices to reorder input (like MATLAB)
             # MATLAB: r = input(idx_vec, :, :);
-            idx_vec = np.array(self.idx_out).flatten()
+            # Convert MATLAB's column-major idx_out to Python's row-major representation
+            # MATLAB idx_out(:) gives column-major order, but we want to maintain C-order in Python
+            # So we need to transpose idx_out first, then flatten to get the correct order
+            idx_out_transposed = np.array(self.idx_out).T  # Transpose to convert to row-major
+            idx_vec = idx_out_transposed.flatten()  # Now flatten in C-order
             # Convert to 0-based indexing for Python
             idx_vec = idx_vec - 1
             
+
             # Handle multi-dimensional input
             if input_data.ndim > 1:
                 # For multi-dimensional input, apply indexing to first dimension
@@ -145,8 +154,49 @@ class nnReshapeLayer(nnLayer):
         Returns:
             S: reshaped sensitivity matrix
         """
-        # Reshape sensitivity according to idx_out
-        return S.reshape(self.idx_out)
+        # Handle special case of -1 in idx_out (flatten to 1D)
+        if -1 in self.idx_out:
+            # Calculate the size for the -1 dimension
+            total_size = S.size
+            target_shape = []
+            for dim in self.idx_out:
+                if dim == -1:
+                    # Calculate this dimension based on total size and other dimensions
+                    other_dims = [d for d in self.idx_out if d != -1]
+                    if other_dims:
+                        other_size = np.prod(other_dims)
+                        if other_size > 0:
+                            target_shape.append(total_size // other_size)
+                        else:
+                            target_shape.append(1)
+                    else:
+                        target_shape.append(total_size)
+                else:
+                    target_shape.append(dim)
+            
+            # Ensure the reshape is valid
+            if np.prod(target_shape) != total_size:
+                # If the calculated shape doesn't match, fall back to flattening
+                target_shape = [total_size]
+            
+            return S.reshape(target_shape)
+        else:
+            # Use idx_out as indices to reorder input (like MATLAB)
+            # MATLAB: S = pagetranspose(obj.aux_reshape(pagetranspose(S)));
+            idx_vec = np.array(self.idx_out).flatten()
+            # Convert to 0-based indexing for Python
+            idx_vec = idx_vec - 1
+            
+            # Handle multi-dimensional input
+            if S.ndim > 1:
+                # For multi-dimensional input, apply indexing to first dimension
+                # and preserve other dimensions
+                result = S[idx_vec]
+            else:
+                # For 1D input, just apply indexing
+                result = S[idx_vec]
+            
+            return result
     
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 
                             E: np.ndarray, id: np.ndarray, id_: np.ndarray, 

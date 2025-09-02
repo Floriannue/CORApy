@@ -36,16 +36,22 @@ def minMaxDiffPoly(coeffs1: np.ndarray, coeffs2: np.ndarray,
     Compute the maximum and the minimum difference between two polynomials
     
     Args:
-        coeffs1: coefficients of first polynomial
-        coeffs2: coefficients of second polynomial
+        coeffs1: coefficients of first polynomial (ascending order like MATLAB)
+        coeffs2: coefficients of second polynomial (ascending order like MATLAB)
         l: lower bound of input domain
         u: upper bound of input domain
         
     Returns:
         Tuple of (diffl, diffu) interval bounding the lower and upper error
     """
-    # compute difference polynomial
-    p = coeffs1 - coeffs2
+    # MATLAB style: pad to same length, subtract
+    # MATLAB: p = zeros(1,max(length(coeffs1),length(coeffs2)));
+    #         p(end-length(coeffs1)+1:end) = coeffs1;
+    #         p(end-length(coeffs2)+1:end) = p(end-length(coeffs2)+1:end)-coeffs2;
+    max_len = max(len(coeffs1), len(coeffs2))
+    p = np.zeros(max_len)
+    p[-len(coeffs1):] = coeffs1
+    p[-len(coeffs2):] = p[-len(coeffs2):] - coeffs2
     
     # compute derivative
     dp = fpolyder(p)
@@ -56,11 +62,15 @@ def minMaxDiffPoly(coeffs1: np.ndarray, coeffs2: np.ndarray,
     # filter real roots
     real_roots = roots[np.abs(roots.imag) < 1e-10].real
     
+    # filter roots within domain
+    real_roots = real_roots[(real_roots > l) & (real_roots < u)]
+    
     # add boundary points
     points = np.concatenate([[l], real_roots, [u]])
     
     # evaluate difference at all points
-    values = np.polyval(p[::-1], points)  # Reverse for np.polyval
+    # p is in ascending order (like MATLAB), and np.polyval handles this correctly
+    values = np.polyval(p, points)
     
     # find bounds
     diffl = np.min(values)

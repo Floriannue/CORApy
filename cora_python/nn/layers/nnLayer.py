@@ -93,8 +93,11 @@ class nnLayer(ABC):
         # get name from class name 
         name = self.__class__.__name__
         if name.startswith('nn'):
-            name = name[3:]
+            name = name[2:]  # Remove 'nn' (2 characters), not 3
         name = name.replace('Layer', '')
+        
+        # convert to lowercase to match MATLAB behavior
+        name = name.lower()
         
         # add unique number to name
         name = f"{name}_{nnLayer._getCount()}"

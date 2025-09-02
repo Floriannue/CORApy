@@ -13,14 +13,14 @@ class TestNnReLULayer:
     def test_nnReLULayer_constructor_default(self):
         """Test constructor with default parameters"""
         layer = nnReLULayer()
-        assert layer.name == "relu"
+        assert layer.name.startswith("relu_")
         assert layer.alpha == 0.0
     
     def test_nnReLULayer_constructor_custom_alpha(self):
         """Test constructor with custom alpha"""
         # ReLU layer always has alpha = 0, cannot be customized
         layer = nnReLULayer()
-        assert layer.name == "relu"
+        assert layer.name.startswith("relu_")
         assert layer.alpha == 0.0
     
     def test_nnReLULayer_constructor_custom_name(self):

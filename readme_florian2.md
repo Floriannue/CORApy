@@ -186,6 +186,13 @@ np.array([[0, 1, 0], [0, 0, 1]])  # 2×3 matrix
 np.array([1, 0])                  # vector
 ```
 
+### Array flattening differences
+- **MATLAB uses column-major order by default**: `A(:)` flattens column-wise
+- **Python/NumPy uses row-major order by default**: `A.flatten()` flattens row-wise
+- **When translating MATLAB's `A(:)` to Python**: Maintain C-order by transposing first, then flattening
+- **Example**: MATLAB `[1,2;3,4](:)` → `[1,3,2,4]`, Python `[[1,2],[3,4]].T.flatten()` → `[1,3,2,4]`
+- **Principle**: Always use C-order (row-major) in Python for consistency, handle MATLAB compatibility at interface level
+
 ### Testing requirements
 - Examples must **must** execute correctly but not have tests
 - For testing plotting functions, save output as PNG and verify visually

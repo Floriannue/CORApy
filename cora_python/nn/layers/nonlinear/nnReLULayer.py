@@ -49,8 +49,7 @@ class nnReLULayer(nnLeakyReLULayer):
         Args:
             name: Name of the layer, defaults to type
         """
-        if name is None:
-            name = "relu"
+
         # call super class constructor
         super().__init__(0, name)
     

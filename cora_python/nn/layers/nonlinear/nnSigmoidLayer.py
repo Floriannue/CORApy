@@ -24,8 +24,6 @@ class nnSigmoidLayer(nnActivationLayer):
         Args:
             name: name of the layer, defaults to type
         """
-        if name is None:
-            name = "sigmoid"
         
         # Define the sigmoid function and its derivative
         def sigmoid(x):

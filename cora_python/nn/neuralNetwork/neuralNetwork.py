@@ -59,12 +59,12 @@ class NeuralNetwork:
         options: Network options
     """
     
-    def __init__(self, layers: List[Any], name: str = "Neural Network"):
+    def __init__(self, layers: Optional[List[Any]] = None, name: str = "Neural Network"):
         """
         Constructor for neural network (matches MATLAB exactly)
         
         Args:
-            layers: List of neural network layers
+            layers: List of neural network layers (optional, defaults to empty list)
             name: Network name
         """
         # Check inputs (matches MATLAB narginchk(0,1))

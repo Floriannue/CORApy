@@ -22,8 +22,7 @@ class nnSoftmaxLayer(nnActivationLayer):
         Args:
             name: name of the layer, defaults to type
         """
-        if name is None:
-            name = "softmax"
+
         
         # Define the softmax function and its derivative
         def softmax(x):

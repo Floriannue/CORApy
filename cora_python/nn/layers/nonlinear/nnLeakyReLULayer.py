@@ -54,11 +54,6 @@ class nnLeakyReLULayer(nnActivationLayer):
             alpha: Slope of the LeakyReLU for x<0, defaults to 0.01
             name: Name of the layer, defaults to type
         """
-        if alpha is None:
-            alpha = 0.01
-        if name is None:
-            name = None
-        
         # Validate input arguments
         if not isinstance(alpha, (int, float)) or not np.isscalar(alpha):
             raise ValueError("alpha must be a numeric scalar")
@@ -159,18 +154,21 @@ class nnLeakyReLULayer(nnActivationLayer):
         
         # check if ReLU can be computed exactly
         if u <= 0:
-            coeffs = [self.alpha, 0]
+            coeffs = [0, self.alpha]  # [constant, linear] - descending order
             d = 0  # no approximation error!
             
         elif 0 <= l:
             # identity
-            coeffs = [1, 0]
+            coeffs = [0, 1]  # [constant, linear] - descending order
             d = 0  # no approximation error!
             
         else:  # l < 0 < u
             # This calls the parent class method in MATLAB
             # We need to call the parent method with the correct signature
             coeffs, d = super().computeApproxPoly(l, u, *args)
+            
+            # Keep coefficients in descending order (as returned by parent class)
+            # This matches MATLAB behavior where polyval expects descending order
         
         return coeffs, d
     
@@ -206,7 +204,7 @@ class nnLeakyReLULayer(nnActivationLayer):
         diffl2, diffu2 = minMaxDiffPoly(coeffs1, coeffs3, 0, u)
         
         # compute final approx error
-        diffl = min(diffl1, diffu1)
+        diffl = min(diffl1, diffl2)
         diffu = max(diffu1, diffu2)
         diffc = (diffu + diffl) / 2
         coeffs[-1] = coeffs[-1] - diffc

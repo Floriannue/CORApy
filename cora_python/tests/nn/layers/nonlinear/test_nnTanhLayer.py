@@ -13,14 +13,15 @@ class TestNnTanhLayer:
     def test_nnTanhLayer_constructor_default_name(self):
         """Test constructor with default name"""
         layer = nnTanhLayer()
-        assert layer.name == "tanh"
-        assert layer.type == "tanh"
+        # Default name should be generated with unique number (matches MATLAB behavior)
+        assert layer.name.startswith("tanh_")
+        assert layer.type == "nnTanhLayer"
     
     def test_nnTanhLayer_constructor_custom_name(self):
         """Test constructor with custom name"""
         layer = nnTanhLayer("custom_tanh")
         assert layer.name == "custom_tanh"
-        assert layer.type == "tanh"
+        assert layer.type == "nnTanhLayer"
     
     def test_nnTanhLayer_function_values(self):
         """Test tanh function values"""

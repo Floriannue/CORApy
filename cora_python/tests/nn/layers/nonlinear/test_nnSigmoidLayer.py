@@ -13,14 +13,15 @@ class TestNnSigmoidLayer:
     def test_nnSigmoidLayer_constructor_default_name(self):
         """Test constructor with default name"""
         layer = nnSigmoidLayer()
-        assert layer.name == "sigmoid"
-        assert layer.type == "sigmoid"
+        # Default name should be generated with unique number (matches MATLAB behavior)
+        assert layer.name.startswith("sigmoid_")
+        assert layer.type == "nnSigmoidLayer"  # type is the full class name
     
     def test_nnSigmoidLayer_constructor_custom_name(self):
         """Test constructor with custom name"""
         layer = nnSigmoidLayer("custom_sigmoid")
         assert layer.name == "custom_sigmoid"
-        assert layer.type == "sigmoid"
+        assert layer.type == "nnSigmoidLayer"  # type is the full class name
     
     def test_nnSigmoidLayer_function_values(self):
         """Test sigmoid function values"""
