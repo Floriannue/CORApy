@@ -101,7 +101,7 @@ All of them apply always
 
 #### Conditional Actions:
 - **IF** MATLAB is available: generate results from MATLAB method and compare against Python method
-- **IF** tests fail: Investigate root cause and compare against MATLAB source code and create debug scripts if needed. No simplifications. No cheap workarounds.
+- **IF** tests fail: Investigate root cause and compare against MATLAB source code and create debug scripts if needed. Checkout all the dependencies. No simplifications. No cheap workarounds.
 - **IF** uncertain: Search manual and MATLAB source code
 
 

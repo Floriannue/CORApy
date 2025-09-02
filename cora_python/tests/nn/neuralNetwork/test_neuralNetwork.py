@@ -56,16 +56,17 @@ class TestNeuralNetwork:
     def test_neuralNetwork_constructor_wrong_input(self):
         """Test that constructor fails with wrong input - matches MATLAB test exactly"""
         # matches MATLAB: assertThrowsAs(@neuralNetwork,'CORA:wrongInputInConstructor',nnSigmoidLayer());
-        # Test with non-layer input (should fail)
-        with pytest.raises(Exception):
-            NeuralNetwork([nnSigmoidLayer()])  # This should fail as it's not a list of layers
+        # Test with non-list input (should fail) 
+        with pytest.raises(ValueError, match="First argument should be a list of type nnLayer"):
+            NeuralNetwork(nnSigmoidLayer())  # This should fail as it's not a list
     
     def test_neuralNetwork_constructor_empty(self):
         """Test constructor with empty layers list"""
-        # MATLAB throws an error when calling setInputSize() with empty layers
-        # because neurons_in and neurons_out are empty
-        with pytest.raises(Exception):
-            nn = NeuralNetwork([])
+        # MATLAB allows empty layers list - it just doesn't set neurons_in/out
+        nn = NeuralNetwork([])
+        assert nn.neurons_in is None
+        assert nn.neurons_out is None
+        assert len(nn.layers) == 0
     
     def test_neuralNetwork_constructor_custom_name(self):
         """Test constructor with custom name"""

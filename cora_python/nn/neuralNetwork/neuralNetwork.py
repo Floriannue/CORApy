@@ -90,35 +90,26 @@ class NeuralNetwork:
         self.reductionRate = 1  # matches MATLAB property
         
         # Simple neurons_in and _out computation (matches MATLAB exactly)
-        print(f"DEBUG: Computing neurons_in from {len(self.layers)} layers")
         for i in range(len(self.layers)):
             try:
                 nin, _ = self.layers[i].getNumNeurons()
-                print(f"DEBUG: Layer {i} getNumNeurons() returned: nin={nin}")
                 if nin is not None and nin != []:  # Check for non-None and non-empty list
                     self.neurons_in = nin
-                    print(f"DEBUG: Set neurons_in = {nin}")
                     break
             except Exception as e:
-                print(f"DEBUG: Layer {i} getNumNeurons() failed: {e}")
                 continue
         
-        print(f"DEBUG: Computing neurons_out from {len(self.layers)} layers")
         for i in range(len(self.layers) - 1, -1, -1):
             try:
                 _, nout = self.layers[i].getNumNeurons()
-                print(f"DEBUG: Layer {i} getNumNeurons() returned: nout={nout}")
                 if nout is not None and nout != []:  # Check for non-None and non-empty list
                     self.neurons_out = nout
-                    print(f"DEBUG: Set neurons_out = {nout}")
                     break
             except Exception as e:
-                print(f"DEBUG: Layer {i} getNumNeurons() failed: {e}")
                 continue
-        
 
-        # Set input size automatically if possible (matches MATLAB exactly)
-        try:
+        try:            
+            # to automatically determine input sizes of all layers
             self.setInputSize()
         except Exception as e:
             # This is allowed - empty networks or networks without clear input size

@@ -75,7 +75,8 @@ class nnReshapeLayer(nnLayer):
             outputSize: output size based on idx_out
         """
         self.inputSize = inputSize
-        return self.idx_out
+        # MATLAB: outputSize = size(obj.idx_out);
+        return list(np.array(self.idx_out).shape)
     
     def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
         """
@@ -115,8 +116,22 @@ class nnReshapeLayer(nnLayer):
             
             return input_data.reshape(target_shape)
         else:
-            # Regular reshape
-            return input_data.reshape(self.idx_out)
+            # Use idx_out as indices to reorder input (like MATLAB)
+            # MATLAB: r = input(idx_vec, :, :);
+            idx_vec = np.array(self.idx_out).flatten()
+            # Convert to 0-based indexing for Python
+            idx_vec = idx_vec - 1
+            
+            # Handle multi-dimensional input
+            if input_data.ndim > 1:
+                # For multi-dimensional input, apply indexing to first dimension
+                # and preserve other dimensions
+                result = input_data[idx_vec]
+            else:
+                # For 1D input, just apply indexing
+                result = input_data[idx_vec]
+            
+            return result
     
     def evaluateSensitivity(self, S: np.ndarray, x: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
         """

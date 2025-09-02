@@ -57,6 +57,8 @@ def setInputSize(obj: NeuralNetwork, inputSize: Optional[List[int]] = None,
         print("Computing in-/out sizes of all layers...")
     
     obj.neurons_in = np.prod(inputSize)
+    if verbose:
+        print(f"setInputSize: inputSize = {inputSize}, neurons_in = {obj.neurons_in}")
     
     for i in range(len(obj.layers)):
         # iterate through all layers

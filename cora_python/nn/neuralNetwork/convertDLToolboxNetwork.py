@@ -64,12 +64,8 @@ def convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool = False) -> Ne
         if isinstance(dlt_layer, list):
             # We need to construct a composite layer.
             # Each dlt_layer is already a list like [layer] from readONNXNetwork
-            layers_, _, currentSize_ = aux_convertLayer(layers, 
+            layers_, _, currentSize = aux_convertLayer(layers, 
                 dlt_layer[0], currentSize, verbose)
-            
-            # Update current size
-            if layers_ and len(layers_) > len(layers):
-                currentSize = layers_[-1].getOutputSize(currentSize) if hasattr(layers_[-1], 'getOutputSize') else currentSize
         else:
             # Just append a regular layer.
             layers, inputSize_, currentSize = aux_convertLayer(layers, 
@@ -91,29 +87,18 @@ def convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool = False) -> Ne
         # to what the computational layers actually expect, not the original ONNX shape
         # The network will handle the reshaping internally
         
-        # Check if we have a ReshapeLayer that flattens the input
-        if layers and hasattr(layers[0], 'idx_out') and layers[0].idx_out == [-1]:
-            # First layer is a flatten layer, so the network expects flattened input
-            flattened_input_size = [np.prod(inputSize), 1]
-            if verbose:
-                print(f"Original ONNX input size: {inputSize}")
-                print(f"Setting network input size to flattened size: {flattened_input_size}")
-            obj.setInputSize(flattened_input_size, False)
-        else:
-            # No flatten layer, use original input size
-            if verbose:
-                print(f"Setting network input size to: {inputSize}")
-            obj.setInputSize(inputSize, False)
+        # Use the processed input size after going through all layers (like MATLAB)
+        # MATLAB processes the inputSize through the layers and uses the final processed size
+        if verbose:
+            print(f"Setting network input size to processed input size: {inputSize}")
+        obj.setInputSize(inputSize, False)
+        if verbose:
+            print(f"After setInputSize, neurons_in = {obj.neurons_in}")
         
         # sanity check (should not fail) - matches MATLAB
         try:
-            # Create test input with the correct size for evaluation
-            if layers and hasattr(layers[0], 'idx_out') and layers[0].idx_out == [-1]:
-                # Use flattened size for test
-                x = np.zeros(flattened_input_size)
-            else:
-                # Use original size for test
-                x = np.zeros(inputSize).reshape(-1, 1)
+            # Create test input with the original ONNX input size
+            x = np.zeros(inputSize).reshape(-1, 1)
             obj.evaluate(x)
             if verbose:
                 print("Sanity check passed")
@@ -159,6 +144,9 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
         elif len(inputSize) == 3:
             # channel dimension should be last: [h,w,c] (like MATLAB)
             pass
+        elif len(inputSize) == 4:
+            # 4D input like [1, 1, 1, 5] - keep as is (like MATLAB)
+            pass
             
         if verbose:
             print(f"    Found input size: {inputSize}")
@@ -173,13 +161,8 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
         
         # Input layer itself is just metadata, don't add to computational layers
         # Only normalization layers (if any) are added above
-                # The currentSize should be the flattened input size that the network expects
-        # For input [1, 1, 1, 5], the network expects flattened input of size [5]
-        if len(inputSize) > 1:
-            # Flatten the input dimensions for the network
-            currentSize = [np.prod(inputSize), 1]
-        else:
-            currentSize = inputSize
+        # The currentSize should be the original input size - reshape layers handle flattening
+        currentSize = inputSize
             
         return layers, inputSize, currentSize
     
@@ -189,8 +172,22 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
         from ..layers.linear.nnLinearLayer import nnLinearLayer
         
         # Extract weights and biases - ensure consistent access
+        if verbose:
+            print(f"    DEBUG: dlt_layer keys: {list(dlt_layer.keys())}")
+        
         W = dlt_layer.get('Weight', np.eye(1))
         b = dlt_layer.get('Bias', np.zeros((1, 1)))
+        
+        if verbose:
+            print(f"    DEBUG: Weight shape before transpose: {W.shape}, Bias shape: {b.shape}")
+            print(f"    DEBUG: currentSize before: {currentSize}")
+        
+        # Transpose weights to match MATLAB convention
+        # MATLAB stores weights as [outputs, inputs], but ONNX stores them as [inputs, outputs]
+        W = W.T
+        
+        if verbose:
+            print(f"    DEBUG: Weight shape after transpose: {W.shape}")
         
         # Ensure proper shapes
         if len(W.shape) == 1:
@@ -205,6 +202,9 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
         if not currentSize:
             currentSize = [W.shape[1], 1]  # input features from weights
         currentSize = [W.shape[0], 1]  # output features
+        
+        if verbose:
+            print(f"    DEBUG: currentSize after: {currentSize}")
         
     # Check for ReLULayer (matches MATLAB exactly)
     elif isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'ReLULayer':
@@ -242,22 +242,42 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
             if verbose:
                 print(f"    Converting Flatten layer with axis {flatten_axis}")
             
-            # For Flatten layers, we need to determine the target shape based on the input
-            # Since we know the input shape from the InputLayer, we can calculate the target
+            # For Flatten layers, we need to determine the output shape dynamically
+            # This matches MATLAB's approach of creating a test input and running it through the layer
+            if verbose:
+                print(f"    DEBUG: currentSize = {currentSize}")
             if currentSize and len(currentSize) > 0:
-                # Calculate what the flatten should produce
-                # For input [1, 1, 1, 5] and axis=1, we keep dims 0 and flatten the rest
-                # This means: [1, 1*1*5] = [1, 5]
-                # But since the next layer expects 5 input features, we want [5]
-                if flatten_axis == 1:  # This is the case in our ONNX model
-                    # Flatten everything after dimension 0
-                    target_size = currentSize[0] * np.prod(currentSize[1:]) if len(currentSize) > 1 else currentSize[0]
-                    shape = [target_size]
-                    if verbose:
-                        print(f"    Flatten target shape calculated: {shape}")
+                # Create a test input with the current size (like MATLAB does)
+                # MATLAB: idx = dlarray(1:prod(currentSize)); idx = reshape(idx, currentSize);
+                test_input = np.arange(1, np.prod(currentSize) + 1).reshape(currentSize)
+                
+                # Apply the flatten operation based on the axis
+                if flatten_axis == 1:
+                    # Flatten from dimension 1 onwards (like MATLAB)
+                    # For input [1, 1, 1, 5], this should result in [1, 5]
+                    if len(currentSize) > 1:
+                        # Keep the first dimension, flatten the rest
+                        output_shape = [currentSize[0], np.prod(currentSize[1:])]
+                    else:
+                        output_shape = currentSize
                 else:
-                    # For other axes, use the default -1 (dynamic)
-                    shape = [-1]
+                    # Default flatten behavior
+                    output_shape = [np.prod(currentSize)]
+                
+                # Create the output indices like MATLAB does
+                # MATLAB: idx_out = dlt_layer.predict(idx); idx_out = double(extractdata(idx_out));
+                # For CORA, we need to create the output indices that represent the reshape mapping
+                # The key insight: MATLAB creates indices that map input positions to output positions
+                # For a flatten operation, we need to create the mapping from input to output
+                
+                # Create the output indices by reshaping the test input to the output shape
+                # This gives us the mapping from input positions to output positions
+                output_indices = test_input.reshape(output_shape)
+                shape = output_indices.flatten().tolist()  # Convert to 1D list like MATLAB
+                
+                if verbose:
+                    print(f"    Flatten output shape: {output_shape}")
+                    print(f"    Output indices: {shape}")
             else:
                 # No current size info, use dynamic shape
                 shape = [-1]

@@ -78,6 +78,13 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.nd
         timeout = 300.0  # 5 minutes default
     
     # Validate options using nnHelper
+    # When training fields are enabled, poly_method must be one of ['bounds', 'singh', 'center']
+    # because 'regression' is not supported for training
+    if 'nn' not in options:
+        options['nn'] = {}
+    if 'poly_method' not in options['nn']:
+        options['nn']['poly_method'] = 'bounds'  # Default to 'bounds' for training
+    
     options = validateNNoptions(options, True)
     
     nSplits = 5
@@ -163,21 +170,27 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.nd
         # Falsification -------------------------------------------------------
         # Try to falsification with a FGSM attack.
         # 1. Compute the sensitivity.
-        S, _ = nn.calcSensitivity(xi, options=options, store_sensitivity=False)
+        S, _ = nn.calcSensitivity(xi, options, store_sensitivity=False)
         
-        # Handle GPU vs CPU arrays
+        # Handle GPU vs CPU arrays - match MATLAB exactly
         if useGpu and TORCH_AVAILABLE:
             # Convert sensitivity to GPU tensor if needed
             if isinstance(S, np.ndarray):
                 S = torch.tensor(S, dtype=torch.float32, device=device)
             S = torch.maximum(S, torch.tensor(1e-3, dtype=torch.float32, device=device))
-            sens = torch.sum(torch.abs(S), dim=0)
-            sens = sens.reshape(-1, 1)
+            # MATLAB: sens = permute(sum(abs(S)),[2 1 3]); sens = sens(:,:);
+            # sum(abs(S)) sums over output dimension (dim=0), giving (input_dim, batch_size)
+            sens = torch.sum(torch.abs(S), dim=0)  # shape: (input_dim, batch_size)
+            # permute([2 1 3]) swaps dims 1 and 2, but since we only have 2 dims, this is identity
+            # sens(:,:) reshapes to 2D, which is already 2D
         else:
-            # Use NumPy operations
+            # Use NumPy operations - match MATLAB exactly
             S = np.maximum(S, 1e-3)
-            sens = np.sum(np.abs(S), axis=0)
-            sens = sens.reshape(-1, 1)
+            # MATLAB: sens = permute(sum(abs(S)),[2 1 3]); sens = sens(:,:);
+            # sum(abs(S)) sums over output dimension (axis=0), giving (input_dim, batch_size)
+            sens = np.sum(np.abs(S), axis=0)  # shape: (input_dim, batch_size)
+            # permute([2 1 3]) swaps dims 1 and 2, but since we only have 2 dims, this is identity
+            # sens(:,:) reshapes to 2D, which is already 2D
         
         # 2. Compute adversarial attacks. We want to maximze A*yi + b; 
         # therefore, ...
