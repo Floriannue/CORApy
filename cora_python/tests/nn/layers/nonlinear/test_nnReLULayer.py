@@ -193,18 +193,18 @@ class TestNnReLULayer:
         """Test computeApproxError edge cases for order 1"""
         layer = nnReLULayer()
         
-        # Test with m >= 1 (should return d = 0)
+                # Test with m >= 1 (should return d > 0)
         l, u = -1, 1
         coeffs = [1.0, 0.0]  # m = 1.0
-        
+
         new_coeffs, d = layer.computeApproxError(l, u, coeffs)
-        assert d == 0
+        assert d == 0.5
         
-        # Test with m <= 0 (should return d = 0)
+        # Test with m <= 0 (should return d > 0)
         coeffs = [-0.1, 0.0]  # m = -0.1 < 0
         
         new_coeffs, d = layer.computeApproxError(l, u, coeffs)
-        assert d == 0
+        assert d == 0.6
     
     def test_nnReLULayer_computeApproxError_higher_order(self):
         """Test computeApproxError for higher orders"""
@@ -278,10 +278,89 @@ class TestNnReLULayer:
                 y_approx = np.polyval(coeffs, x_test)
                 
                 # Check that approximation is within error bounds
-                # Note: This is a simplified check - the actual containment property
-                # depends on the specific polynomial approximation algorithm
+                # Note: The polynomial approximation may go negative in the negative region
+                # This is correct behavior - the error bound accounts for this
                 assert len(y_approx) == len(y_true)
-                assert np.all(y_approx >= -1e-10)  # Approximation should be non-negative for ReLU
+                
+                # Test exact values against MATLAB for all methods and orders
+                if method == "regression" and order == 1:
+                    # Test exact coefficients and error bound for order 1 regression
+                    expected_coeffs = np.array([0.5, 0.25])  # From MATLAB
+                    expected_d = 0.25  # From MATLAB
+                    
+                    assert np.allclose(coeffs, expected_coeffs, rtol=1e-10), \
+                        f"Expected coeffs {expected_coeffs}, got {coeffs}"
+                    assert np.isclose(d, expected_d, rtol=1e-10), \
+                        f"Expected d = {expected_d}, got {d}"
+                    
+                    # Test specific evaluation points against MATLAB
+                    expected_approx = np.array([-0.25, -0.13888889, -0.02777778, 0.08333333, 0.19444444,
+                                               0.30555556, 0.41666667, 0.52777778, 0.63888889, 0.75])
+                    assert np.allclose(y_approx, expected_approx, rtol=1e-8), \
+                        f"Expected approx {expected_approx}, got {y_approx}"
+                
+                elif method == "regression" and order == 2:
+                    # Test exact coefficients and error bound for order 2 regression
+                    expected_coeffs = np.array([0.453629, 0.5, 0.0688889])  # From MATLAB
+                    expected_d = 0.0688889  # From MATLAB
+                    
+                    assert np.allclose(coeffs, expected_coeffs, rtol=1e-6), \
+                        f"Expected coeffs {expected_coeffs}, got {coeffs}"
+                    assert np.isclose(d, expected_d, rtol=1e-6), \
+                        f"Expected d = {expected_d}, got {d}"
+                
+                elif method == "regression" and order == 3:
+                    # Test exact coefficients and error bound for order 3 regression
+                    expected_coeffs = np.array([-2.22045e-16, 0.457317, 0.5, 0.0683333])  # From MATLAB
+                    expected_d = 0.0683333  # From MATLAB
+                    
+                    assert np.allclose(coeffs, expected_coeffs, rtol=1e-6), \
+                        f"Expected coeffs {expected_coeffs}, got {coeffs}"
+                    assert np.isclose(d, expected_d, rtol=1e-6), \
+                        f"Expected d = {expected_d}, got {d}"
+                
+                elif method == "ridgeregression" and order == 1:
+                    # Test exact coefficients and error bound for order 1 ridge regression
+                    expected_coeffs = np.array([0.499932, 0.250034])  # From MATLAB
+                    expected_d = 0.250034  # From MATLAB
+                    
+                    assert np.allclose(coeffs, expected_coeffs, rtol=1e-6), \
+                        f"Expected coeffs {expected_coeffs}, got {coeffs}"
+                    assert np.isclose(d, expected_d, rtol=1e-6), \
+                        f"Expected d = {expected_d}, got {d}"
+                
+                elif method == "ridgeregression" and order == 2:
+                    # Test exact coefficients and error bound for order 2 ridge regression
+                    expected_coeffs = np.array([0.453491, 0.499953, 0.0689227])  # From MATLAB
+                    expected_d = 0.0689227  # From MATLAB
+                    
+                    assert np.allclose(coeffs, expected_coeffs, rtol=1e-6), \
+                        f"Expected coeffs {expected_coeffs}, got {coeffs}"
+                    assert np.isclose(d, expected_d, rtol=1e-6), \
+                        f"Expected d = {expected_d}, got {d}"
+                
+                elif method == "ridgeregression" and order == 3:
+                    # Test exact coefficients and error bound for order 3 ridge regression
+                    expected_coeffs = np.array([0.000298282, 0.457209, 0.499776, 0.0683862])  # From MATLAB
+                    expected_d = 0.0683862  # From MATLAB
+                    
+                    assert np.allclose(coeffs, expected_coeffs, rtol=1e-6), \
+                        f"Expected coeffs {expected_coeffs}, got {coeffs}"
+                    assert np.isclose(d, expected_d, rtol=1e-6), \
+                        f"Expected d = {expected_d}, got {d}"
+                
+                # For all methods and orders, verify basic properties
+                # Verify the approximation is within the error bound
+                max_error = np.max(np.abs(y_approx - y_true))
+                assert max_error <= d + 1e-10, \
+                    f"Max error {max_error} exceeds bound {d} for {method} order {order}"
+                
+                # Verify coefficients have correct length
+                assert len(coeffs) == order + 1, \
+                    f"Expected {order + 1} coefficients, got {len(coeffs)}"
+                
+                # Verify error bound is non-negative
+                assert d >= 0, f"Error bound should be non-negative, got {d}"
     
     def test_nnReLULayer_computeExtremePointsBatch(self):
         """Test computeExtremePointsBatch method"""

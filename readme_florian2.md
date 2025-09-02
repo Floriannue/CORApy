@@ -98,10 +98,16 @@ All of them apply always
 - **NEVER** modify tests to accommodate broken implementations
 - **NEVER** use silent failure patterns
 - **NEVER** import methods as standalone functions. All methods are attached to classes in `__init__.py`
+- **NEVER** do a simplified translation
+- **NEVER** do cheap workarounds to avoid fixing errors
+
 
 #### Conditional Actions:
 - **IF** MATLAB is available: generate results from MATLAB method and compare against Python method
-- **IF** tests fail: Investigate root cause and compare against MATLAB source code and create debug scripts if needed. Checkout all the dependencies. No simplifications. No cheap workarounds.
+- **IF** tests fail: 
+    1. Investigate root cause and compare against MATLAB source code
+    2. Create debug scripts in python and matlab. (also usefuel to figure out correct excepted test values)
+    3. Check out all the dependencies, ensure they are fully translated and work flawlessly like matlab
 - **IF** uncertain: Search manual and MATLAB source code
 
 

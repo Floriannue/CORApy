@@ -200,13 +200,19 @@ class TestNnLeakyReLULayer:
         coeffs = [1.0, 0.0]  # m = 1.0
         
         new_coeffs, d = layer.computeApproxError(l, u, coeffs)
-        assert d > 0  # Should have error because negative region has slope 0.01, not 1
+        assert np.isclose(d, 0.495)  # Should have error because negative region has slope 0.01, not 1
         
         # Test with m <= 0 - should have error because LeakyReLU is always increasing
         coeffs = [-0.1, 0.0]  # m = -0.1 < 0
         
         new_coeffs, d = layer.computeApproxError(l, u, coeffs)
-        assert d > 0  # Should have error because LeakyReLU is increasing, not decreasing
+        assert np.isclose(d, 0.605) # Should have error because LeakyReLU is increasing, not decreasing
+        
+        # Test with m = alpha - should have error because positive region has slope 1, not alpha
+        coeffs = [0.01, 0.0]  # m = 0.01 = alpha
+        
+        new_coeffs, d = layer.computeApproxError(l, u, coeffs)
+        assert np.isclose(d, 0.495) # Should have error because positive region has slope 1, not alpha
     
     def test_nnLeakyReLULayer_computeApproxError_higher_order(self):
         """Test computeApproxError for higher orders"""
@@ -218,13 +224,10 @@ class TestNnLeakyReLULayer:
         
         # This should call the parent class method
         # For now, we'll just test that it doesn't crash
-        try:
-            new_coeffs, d = layer.computeApproxError(l, u, coeffs)
-            assert len(new_coeffs) == 3
-            assert d >= 0
-        except NotImplementedError:
-            # Parent method might not be implemented yet
-            pass
+        new_coeffs, d = layer.computeApproxError(l, u, coeffs)
+        assert len(new_coeffs) == 3
+        assert d >= 0
+
     
     def test_nnLeakyReLULayer_computeApproxPoly(self):
         """Test computeApproxPoly method"""
