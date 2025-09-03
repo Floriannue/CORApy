@@ -33,8 +33,10 @@ def compBoundsPolyZono(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarr
     """
     if approx:
         # using zonotope over-approximation
+        # MATLAB: c_ = c + 0.5 * sum(G(:, ind), 2);
         c_ = c + 0.5 * np.sum(G[:, ind], axis=1, keepdims=True)
         
+        # MATLAB: l = c_ - sum(abs(0.5*G(:, ind)), 2) - sum(abs(G(:, ind_)), 2) - sum(abs(GI), 2);
         l = c_ - np.sum(np.abs(0.5 * G[:, ind]), axis=1, keepdims=True) - \
               np.sum(np.abs(G[:, ind_]), axis=1, keepdims=True) - \
               np.sum(np.abs(GI), axis=1, keepdims=True)

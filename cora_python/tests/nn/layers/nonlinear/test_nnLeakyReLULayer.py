@@ -295,15 +295,14 @@ class TestNnLeakyReLULayer:
         
         xs, dxsdm = layer.computeExtremePointsBatch(m, options)
         
-        # Check shapes
-        assert xs.shape == (3, 2)  # 3 slopes, 2 extreme points each
-        assert dxsdm.shape == (3, 2)
+        # Check shapes - matches MATLAB implementation
+        assert xs.shape == (3,)  # 3 slopes, 1 extreme point each
+        assert dxsdm.shape == (3,)
         
         # For LeakyReLU, extreme points should be at x = 0 for positive m
         for i, m_val in enumerate(m):
             if m_val > 0:
-                assert np.isclose(xs[i, 0], 0)  # xl = 0
-                assert np.isclose(xs[i, 1], 0)  # xu = 0
+                assert np.isclose(xs[i], 0)  # x = 0
     
     def test_nnLeakyReLULayer_computeExtremePointsBatch_edge_cases(self):
         """Test computeExtremePointsBatch edge cases"""
@@ -316,8 +315,8 @@ class TestNnLeakyReLULayer:
         xs, dxsdm = layer.computeExtremePointsBatch(m, options)
         
         # All m values should give same result
-        assert np.allclose(xs[0, :], xs[1, :])
-        assert np.allclose(xs[1, :], xs[2, :])
+        assert np.allclose(xs[0], xs[1])
+        assert np.allclose(xs[1], xs[2])
     
     def test_nnLeakyReLULayer_evaluateNumeric(self):
         """Test evaluateNumeric method"""

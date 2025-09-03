@@ -63,13 +63,16 @@ def test_neuralNetwork_getInputNeuronOrder_sensitivity():
     # Test sensitivity method
     neuronOrder = nn.getInputNeuronOrder('sensitivity', x)
     
+
     # Should return order based on sensitivity
-    S = nn.calcSensitivity(x, {}, False)
-    expected_order = np.argsort(np.mean(np.abs(S), axis=(0, 2))) + 1  # 1-based indexing
+    S, _ = nn.calcSensitivity(x, {}, False)
     
     # Check that the order matches (may be different due to numerical precision)
     assert len(neuronOrder) == 16
     assert np.all(neuronOrder >= 1) and np.all(neuronOrder <= 16)
+    
+    # Check that all values are unique (no duplicates)
+    assert len(set(neuronOrder)) == 16
 
 def test_neuralNetwork_getInputNeuronOrder_snake():
     """Test getInputNeuronOrder method with snake method"""

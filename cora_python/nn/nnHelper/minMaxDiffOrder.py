@@ -57,7 +57,7 @@ def minMaxDiffOrder(coeffs: np.ndarray, l: Union[float, np.ndarray], u: Union[fl
     if l == u:
         # compute exact result directly
         diff = f(l)
-        yp = np.polyval(coeffs[::-1], l)  # Reverse for np.polyval
+        yp = np.polyval(coeffs, l)  # coeffs already in descending order
         diff = diff - yp
         diffl = diff
         diffu = diff
@@ -86,7 +86,7 @@ def minMaxDiffOrder(coeffs: np.ndarray, l: Union[float, np.ndarray], u: Union[fl
     # sample points
     x = np.linspace(l, u, numPoints)
     x = np.concatenate([[l], x, [u]])  # add l, u in case x is empty (der = 0)
-    diff = f(x) - np.polyval(coeffs[::-1], x)  # Reverse for np.polyval
+    diff = f(x) - np.polyval(coeffs, x)  # coeffs already in descending order
     
     # find bounds
     diffl = np.min(diff) - tol

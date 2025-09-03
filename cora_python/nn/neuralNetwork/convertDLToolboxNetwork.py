@@ -61,50 +61,45 @@ def convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool = False) -> Ne
         if verbose:
             print(f"#{i+1}: {type(dlt_layer).__name__}")
         
-        if isinstance(dlt_layer, list):
-            # We need to construct a composite layer.
-            # Each dlt_layer is already a list like [layer] from readONNXNetwork
-            layers_, _, currentSize = aux_convertLayer(layers, 
-                dlt_layer[0], currentSize, verbose)
-        else:
-            # Just append a regular layer.
-            layers, inputSize_, currentSize = aux_convertLayer(layers, 
-                dlt_layer, currentSize, verbose)
-            if not inputSize:
-                inputSize = inputSize_
+        # All layers are dicts now (flat list). Convert directly in order (like MATLAB)
+        layers, inputSize_, currentSize = aux_convertLayer(layers, dlt_layer, currentSize, verbose)
+        if not inputSize:
+            inputSize = inputSize_
         
         i += 1
     
     # instantiate neural network
     obj = NeuralNetwork(layers)
     
+    # Debug: print layer shapes to trace dimensions
+    if verbose:
+        print("DEBUG: Converted layers summary (type and shapes):")
+        for li, lay in enumerate(obj.layers):
+            lay_type = type(lay).__name__
+            if hasattr(lay, 'W') and hasattr(lay, 'b'):
+                try:
+                    w_shape = tuple(lay.W.shape) if hasattr(lay.W, 'shape') else None
+                    b_shape = tuple(lay.b.shape) if hasattr(lay.b, 'shape') else None
+                except Exception:
+                    w_shape = None
+                    b_shape = None
+                print(f"  [{li}] {lay_type}: W{w_shape} b{b_shape}")
+            else:
+                print(f"  [{li}] {lay_type}")
+    
     # Set input size from inputSize variable (matches MATLAB exactly)
     if inputSize:
         if np.isscalar(inputSize):
             inputSize = [inputSize, 1]
-        
-        # For ONNX networks with reshape/flatten layers, we need to set the input size
-        # to what the computational layers actually expect, not the original ONNX shape
-        # The network will handle the reshaping internally
-        
-        # Use the processed input size after going through all layers (like MATLAB)
-        # MATLAB processes the inputSize through the layers and uses the final processed size
+        # MATLAB: setInputSize with flattened feature dimension for non-BC inputs
+        final_input_size = [np.prod(inputSize), 1] if len(inputSize) > 1 else inputSize
         if verbose:
-            print(f"Setting network input size to processed input size: {inputSize}")
-        obj.setInputSize(inputSize, False)
+            print(f"DEBUG: Original inputSize: {inputSize}")
+            print(f"DEBUG: Final currentSize: {currentSize}")
+            print(f"DEBUG: Setting network input size to final processed size: {final_input_size}")
+        obj.setInputSize(final_input_size, False)
         if verbose:
             print(f"After setInputSize, neurons_in = {obj.neurons_in}")
-        
-        # sanity check (should not fail) - matches MATLAB
-        try:
-            # Create test input with the original ONNX input size
-            x = np.zeros(inputSize).reshape(-1, 1)
-            obj.evaluate(x)
-            if verbose:
-                print("Sanity check passed")
-        except Exception as e:
-            if verbose:
-                print(f"Warning: Sanity check failed: {e}")
     
     return obj
 
@@ -170,41 +165,45 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
     elif isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'FullyConnectedLayer':
         # Linear layer (matches MATLAB exactly)
         from ..layers.linear.nnLinearLayer import nnLinearLayer
-        
+
         # Extract weights and biases - ensure consistent access
-        if verbose:
-            print(f"    DEBUG: dlt_layer keys: {list(dlt_layer.keys())}")
-        
         W = dlt_layer.get('Weight', np.eye(1))
         b = dlt_layer.get('Bias', np.zeros((1, 1)))
-        
-        if verbose:
-            print(f"    DEBUG: Weight shape before transpose: {W.shape}, Bias shape: {b.shape}")
-            print(f"    DEBUG: currentSize before: {currentSize}")
-        
-        # Transpose weights to match MATLAB convention
-        # MATLAB stores weights as [outputs, inputs], but ONNX stores them as [inputs, outputs]
+
+        # Keep weights as they are - ONNX format matches what we need
+        # ONNX stores weights as [inputs, outputs]
+        # For matrix multiplication W @ input, we need [outputs, inputs]
+        # So we need to transpose
         W = W.T
-        
-        if verbose:
-            print(f"    DEBUG: Weight shape after transpose: {W.shape}")
-        
+
         # Ensure proper shapes
         if len(W.shape) == 1:
             W = W.reshape(-1, 1)
         if len(b.shape) == 1:
             b = b.reshape(-1, 1)
-        
+
         layer = nnLinearLayer(W, b, name=dlt_layer.get('Name', ''))
         layers.append(layer)
-        
+
         # Update sizes (matches MATLAB exactly)
         if not currentSize:
             currentSize = [W.shape[1], 1]  # input features from weights
         currentSize = [W.shape[0], 1]  # output features
         
-        if verbose:
-            print(f"    DEBUG: currentSize after: {currentSize}")
+    # Elementwise affine layers (offset/scale) from ONNX Sub/Add/Mul fusion
+    elif isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'ElementwiseAffineLayer':
+        from ..layers.linear.nnElementwiseAffineLayer import nnElementwiseAffineLayer
+        scale = dlt_layer.get('Scale', 1)
+        offset = dlt_layer.get('Offset', 0)
+        # Follow MATLAB strictly: use given tensors as-is but flatten feature dimension
+        scale = np.array(scale).astype(float).reshape(-1, 1)
+        offset = np.array(offset).astype(float).reshape(-1, 1)
+        # If they are scalar, shapes become (1,1). Layer will broadcast with input
+        layer = nnElementwiseAffineLayer(scale, offset, name=dlt_layer.get('Name', ''))
+        layers.append(layer)
+        # size does not change
+        if not currentSize:
+            currentSize = [scale.shape[0], 1]
         
     # Check for ReLULayer (matches MATLAB exactly)
     elif isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'ReLULayer':
@@ -303,7 +302,30 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
         
         # Update size based on reshape
         if shape and -1 not in shape:
-            currentSize = [np.prod(shape), 1]
+            # For flatten operations, the shape contains mapping indices, not output dimensions
+            # We need to determine the actual output size from the reshape operation
+            if 'FlattenAxis' in dlt_layer:
+                # This was a flatten operation - calculate the actual output size
+                flatten_axis = dlt_layer['FlattenAxis']
+                if flatten_axis == 1 and len(currentSize) > 1:
+                    # Flatten from dimension 1 onwards: [1, 1, 1, 5] -> [1, 5]
+                    output_size = [currentSize[0], np.prod(currentSize[1:])]
+                    currentSize = [output_size[1], 1]  # Use the flattened dimension size
+                    if verbose:
+                        print(f"    DEBUG: Flatten operation - input: {currentSize} -> output: {output_size} -> currentSize: {currentSize}")
+                else:
+                    # Default flatten behavior
+                    currentSize = [np.prod(currentSize), 1]
+                    if verbose:
+                        print(f"    DEBUG: Default flatten - currentSize: {currentSize}")
+            else:
+                # Regular reshape operation
+                currentSize = [np.prod(shape), 1]
+                if verbose:
+                    print(f"    DEBUG: Regular reshape - currentSize: {currentSize}")
+        else:
+            if verbose:
+                print(f"    DEBUG: No size update - shape: {shape}, currentSize: {currentSize}")
         
     # Check for Convolution2DLayer (matches MATLAB exactly)
     elif (hasattr(dlt_layer, '__class__') and 'Convolution2DLayer' in str(dlt_layer.__class__)):

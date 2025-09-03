@@ -144,6 +144,7 @@ python test_coverage.py "cora_python/contSet/interval" "cora_python/tests/contSe
 
 ### Code structure
 - Use zero based indexing -> translate matlab 1 based indexing to 0 based indexing
+- be aware of inplace modifications of for example arrays. use array.copy() if not wanted.
 - Classes start with capital letter: `zonotope` → `Zonotope`
 - Ensure keyword arguments and positional arguments are supported
 - Test files naming: `test_class_method` → test for class.method, `test_class` → class (constructor) test, `test_function` → standalone function test
@@ -567,7 +568,7 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-**Your current task** is to ensure the two nn examples cora_python\examples\nn\example_neuralNetwork_verify_safe.py, cora_python\examples\nn\example_neuralNetwork_verify_unsafe.py need to be working. analyze all dependcies and trace the root erros by comparing the logic of the python translation step by step against matlab. run matlab debug script and python debug scripts if you cant figure it out by looking at the code.
+**Your current task** is to ensure all examples are working! in case of error compare all dependencies and every methode involved against matlab and create python-matlab debug scripts (you can execute matlab code)
 
 
 t

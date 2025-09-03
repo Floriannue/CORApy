@@ -30,7 +30,7 @@ Last revision: 01-August-2023
 import numpy as np
 from typing import Any, List
 from .neuralNetwork import NeuralNetwork
-from ...g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def getNormalForm(obj: NeuralNetwork) -> NeuralNetwork:

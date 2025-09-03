@@ -91,7 +91,7 @@ def aux_readModelAndSpecs(modelPath: str, specPath: str) -> Tuple[NeuralNetwork,
         Tuple of (nn, x, r, A, b, safeSet, options)
     """
     # Load the model.
-    nn = NeuralNetwork.readONNXNetwork(modelPath, False, 'BSSC')
+    nn = NeuralNetwork.readONNXNetwork(modelPath, True, 'BSSC')
     # Load specification.
     X0, specs = vnnlib2cora(specPath)
     # Compute center and radius of the input set.
@@ -172,12 +172,14 @@ def aux_writeResults(res: str, x_: Optional[np.ndarray], y_: Optional[np.ndarray
         print('(')
         # Write input values.
         if x_ is not None:
-            for j in range(x_.shape[0]):
-                print(f'(X_{j} {x_[j]:f})')
+            x_flat = x_.reshape(-1)
+            for j in range(x_flat.shape[0]):
+                print(f'(X_{j} {float(x_flat[j]):f})')
         # Write output values.
         if y_ is not None:
-            for j in range(y_.shape[0]):
-                print(f'(Y_{j} {y_[j]:f})')
+            y_flat = y_.reshape(-1)
+            for j in range(y_flat.shape[0]):
+                print(f'(Y_{j} {float(y_flat[j]):f})')
         print(')', end='')  # Print closing parenthesis without newline to match MATLAB
     else:
         print('unknown')

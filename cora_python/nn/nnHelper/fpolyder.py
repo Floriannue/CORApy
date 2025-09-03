@@ -28,20 +28,30 @@ from typing import Union
 
 def fpolyder(p: Union[list, np.ndarray]) -> np.ndarray:
     """
-    Differentiate polynomial
+    Differentiate polynomial - same as polyder but faster
     
     Args:
-        p: coefficients of polynomial
+        p: coefficients of polynomial (highest degree first)
         
     Returns:
         dp: coefficients of derivative polynomial
     """
-    if len(p) <= 1:
+    if p is None:
         return np.array([0])
     
-    # p = [a_n, a_{n-1}, ..., a_1, a_0]
+    p = np.array(p, dtype=float)
+    
+    # Handle edge cases
+    if len(p) == 0:
+        return np.array([0])
+    
+    if len(p) == 1:
+        return np.array([0])
+    
+    # MATLAB: order = length(p)-1; dp = (order:-1:1) .* p(1:end-1);
+    # p = [a_n, a_{n-1}, ..., a_1, a_0] (highest degree first)
     # dp = [n*a_n, (n-1)*a_{n-1}, ..., 1*a_1]
-    n = len(p) - 1
-    dp = np.array([(n - i) * p[i] for i in range(n)])
+    order = len(p) - 1
+    dp = np.array([(order - i) * p[i] for i in range(order)])
     
     return dp

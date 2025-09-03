@@ -266,9 +266,20 @@ class nnLinearLayer(nnLayer):
             c_result = self.evaluateInterval(Interval(cl, cu), options)
             c = np.stack([c_result.inf, c_result.sup], axis=1)
         else:
-            c = self.W @ c + self.b
+            # MATLAB: c = obj.W*c + obj.b; (matrix multiplication with 3D array)
+            # For 3D arrays, we need to use proper broadcasting or reshape
+            if c.ndim == 3:
+                # c is (n_in, 1, batch), W is (n_out, n_in), result should be (n_out, 1, batch)
+                c = np.transpose(self.W @ c.transpose(2, 0, 1), (1, 2, 0)) + self.b
+            else:
+                c = self.W @ c + self.b
         
-        G = self.W @ G
+        # MATLAB: G = pagemtimes(obj.W,G); (page-wise matrix multiplication)
+        if G.ndim == 3:
+            # G is (n_in, q, batch), W is (n_out, n_in), result should be (n_out, q, batch)
+            G = np.transpose(self.W @ G.transpose(2, 0, 1), (1, 2, 0))
+        else:
+            G = self.W @ G
         
         return c, G
     

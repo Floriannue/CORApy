@@ -2,6 +2,7 @@
 Test for nnHelper.getDerInterval function
 
 This test verifies that the getDerInterval function works correctly for computing derivative intervals.
+Based on MATLAB test: test_nn_nnHelper_gerDerInterval.m
 """
 
 import pytest
@@ -13,239 +14,184 @@ class TestGetDerInterval:
     """Test class for getDerInterval function"""
     
     def test_getDerInterval_basic(self):
-        """Test basic getDerInterval functionality"""
-        # Test with simple case
-        f = lambda x: x**2
-        l, u = 0, 1
-        order = 1
+        """Test basic getDerInterval functionality - matches MATLAB test"""
+        l = -1
+        u = 3
         
-        result = getDerInterval(f, l, u, order)
+        # Linear case: 2x + 3
+        coeffs = np.array([2, 3])
+        derl, deru = getDerInterval(coeffs, l, u)
         
-        # Check that result is tuple
-        assert isinstance(result, tuple)
-        assert len(result) == 2
+        # Derivative of 2x + 3 is 2 (constant)
+        assert np.isclose(derl, 2)
+        assert np.isclose(deru, 2)
         
-        # Check that bounds are real numbers
-        assert np.isreal(result[0])
-        assert np.isreal(result[1])
+        # Linear case: -5x + 1
+        coeffs = np.array([-5, 1])
+        derl, deru = getDerInterval(coeffs, l, u)
         
-        # Check that lower bound <= upper bound
-        assert result[0] <= result[1]
+        # Derivative of -5x + 1 is -5 (constant)
+        assert np.isclose(derl, -5)
+        assert np.isclose(deru, -5)
     
     def test_getDerInterval_different_orders(self):
-        """Test getDerInterval with different derivative orders"""
-        f = lambda x: x**2
-        l, u = 0, 1
+        """Test getDerInterval with different polynomial orders"""
+        l = -1
+        u = 3
         
-        # Test different orders
-        for order in [1, 2, 3]:
-            result = getDerInterval(f, l, u, order)
-            
-            # Check result structure
-            assert isinstance(result, tuple)
-            assert len(result) == 2
-            assert result[0] <= result[1]
+        # Quadratic case: x^2 + 2
+        coeffs = np.array([1, 0, 2])
+        derl, deru = getDerInterval(coeffs, l, u)
+        
+        # Derivative of x^2 + 2 is 2x, so derivative ranges from -2 to 6
+        assert np.isclose(derl, -2, atol=1e-10)
+        assert np.isclose(deru, 6, atol=1e-10)
+        
+        # Quadratic case: x^2 + 6x + 2
+        coeffs = np.array([1, 6, 2])
+        derl, deru = getDerInterval(coeffs, l, u)
+        
+        # Derivative of x^2 + 6x + 2 is 2x + 6, so derivative ranges from 4 to 12
+        assert np.isclose(derl, 4, atol=1e-10)
+        assert np.isclose(deru, 12, atol=1e-10)
+        
+        # Quadratic case: -x^2 + 7x + 2
+        coeffs = np.array([-1, 7, 2])
+        derl, deru = getDerInterval(coeffs, l, u)
+        
+        # Derivative of -x^2 + 7x + 2 is -2x + 7, so derivative ranges from 1 to 9
+        assert np.isclose(derl, 1, atol=1e-10)
+        assert np.isclose(deru, 9, atol=1e-10)
     
     def test_getDerInterval_different_intervals(self):
         """Test getDerInterval with different intervals"""
-        f = lambda x: x**2
-        order = 1
+        # Test with symmetric interval
+        coeffs = np.array([1, 0, 0])  # x^2
+        derl, deru = getDerInterval(coeffs, -2, 2)
         
-        # Test different intervals
-        test_intervals = [
-            (0, 1),
-            (-1, 1),
-            (0, 2),
-            (-2, 2),
-            (1, 3)
-        ]
+        # Derivative of x^2 is 2x, so derivative ranges from -4 to 4
+        assert np.isclose(derl, -4, atol=1e-10)
+        assert np.isclose(deru, 4, atol=1e-10)
         
-        for l, u in test_intervals:
-            result = getDerInterval(f, l, u, order)
-            
-            # Check result structure
-            assert isinstance(result, tuple)
-            assert len(result) == 2
-            assert result[0] <= result[1]
-    
-    def test_getDerInterval_different_functions(self):
-        """Test getDerInterval with different functions"""
-        l, u = 0, 1
-        order = 1
+        # Test with positive interval
+        derl, deru = getDerInterval(coeffs, 0, 3)
         
-        # Test different functions
-        test_functions = [
-            lambda x: x**2,           # Quadratic
-            lambda x: x**3,           # Cubic
-            lambda x: np.sin(x),      # Sine
-            lambda x: np.exp(x),      # Exponential
-            lambda x: 1,              # Constant
-            lambda x: x,              # Linear
-        ]
+        # Derivative ranges from 0 to 6
+        assert np.isclose(derl, 0, atol=1e-10)
+        assert np.isclose(deru, 6, atol=1e-10)
         
-        for f in test_functions:
-            try:
-                result = getDerInterval(f, l, u, order)
-                
-                # Check result structure
-                assert isinstance(result, tuple)
-                assert len(result) == 2
-                assert result[0] <= result[1]
-                
-            except Exception as e:
-                # Some functions might fail due to domain issues
-                # This is acceptable for testing
-                pass
+        # Test with negative interval
+        derl, deru = getDerInterval(coeffs, -3, 0)
+        
+        # Derivative ranges from -6 to 0
+        assert np.isclose(derl, -6, atol=1e-10)
+        assert np.isclose(deru, 0, atol=1e-10)
     
     def test_getDerInterval_edge_cases(self):
         """Test getDerInterval edge cases"""
-        f = lambda x: x**2
+        # Constant polynomial
+        coeffs = np.array([5])
+        derl, deru = getDerInterval(coeffs, 0, 1)
         
-        # Test with order 0
-        result = getDerInterval(f, 0, 1, 0)
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        assert result[0] <= result[1]
+        # Derivative of constant is 0
+        assert np.isclose(derl, 0)
+        assert np.isclose(deru, 0)
         
-        # Test with very small interval
-        result = getDerInterval(f, 0, 0.001, 1)
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        assert result[0] <= result[1]
+        # Single point interval
+        coeffs = np.array([1, 2, 3])  # x^2 + 2x + 3
+        derl, deru = getDerInterval(coeffs, 1, 1)
         
-        # Test with very large interval
-        result = getDerInterval(f, 0, 1000, 1)
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        assert result[0] <= result[1]
+        # At x=1, derivative is 2x + 2 = 4
+        assert np.isclose(derl, 4)
+        assert np.isclose(deru, 4)
     
     def test_getDerInterval_accuracy(self):
-        """Test accuracy of derivative interval computation"""
-        # For f(x) = x² on [0,1]:
-        # df/dx = 2x, so df/dx ∈ [0, 2]
-        f = lambda x: x**2
-        l, u = 0, 1
-        order = 1
+        """Test getDerInterval accuracy with cubic polynomial"""
+        l = -1
+        u = 3
         
-        result = getDerInterval(f, l, u, order)
+        # Cubic case: x^3 + 0.1x^2 + 2
+        coeffs = np.array([1, 0.1, 0, 2])
+        derl, deru = getDerInterval(coeffs, l, u)
         
-        # Should be approximately [0, 2]
-        assert np.isclose(result[0], 0, atol=1e-6)
-        assert np.isclose(result[1], 2, atol=1e-6)
-        
-        # For f(x) = x³ on [0,1]:
-        # df/dx = 3x², so df/dx ∈ [0, 3]
-        f = lambda x: x**3
-        result = getDerInterval(f, l, u, order)
-        
-        # Should be approximately [0, 3]
-        assert np.isclose(result[0], 0, atol=1e-6)
-        assert np.isclose(result[1], 3, atol=1e-6)
+        # Derivative is 3x^2 + 0.2x
+        # At x=-1: 3 - 0.2 = 2.8
+        # At x=3: 27 + 0.6 = 27.6
+        # Minimum occurs at x = -0.2/6 = -1/30 ≈ -0.0333
+        # At x=-1/30: 3*(1/900) + 0.2*(-1/30) = 1/300 - 2/300 = -1/300
+        assert np.isclose(derl, -1/300, atol=1e-10)
+        assert np.isclose(deru, 27.6, atol=1e-10)
     
     def test_getDerInterval_constant_function(self):
         """Test getDerInterval with constant function"""
-        f = lambda x: 5.0  # Constant function
-        l, u = 0, 1
-        order = 1
+        coeffs = np.array([7])
+        derl, deru = getDerInterval(coeffs, -5, 5)
         
-        result = getDerInterval(f, l, u, order)
-        
-        # For constant function, derivative should be 0
-        assert np.isclose(result[0], 0, atol=1e-10)
-        assert np.isclose(result[1], 0, atol=1e-10)
+        # Derivative of constant is 0
+        assert np.isclose(derl, 0)
+        assert np.isclose(deru, 0)
     
     def test_getDerInterval_linear_function(self):
         """Test getDerInterval with linear function"""
-        f = lambda x: 2*x + 1  # Linear function
-        l, u = 0, 1
-        order = 1
+        coeffs = np.array([3, 4])  # 3x + 4
+        derl, deru = getDerInterval(coeffs, -2, 2)
         
-        result = getDerInterval(f, l, u, order)
-        
-        # For linear function, derivative should be constant
-        assert np.isclose(result[0], 2, atol=1e-10)
-        assert np.isclose(result[1], 2, atol=1e-10)
+        # Derivative of 3x + 4 is 3 (constant)
+        assert np.isclose(derl, 3)
+        assert np.isclose(deru, 3)
     
     def test_getDerInterval_negative_interval(self):
         """Test getDerInterval with negative interval"""
-        f = lambda x: x**2
-        l, u = -1, 0
-        order = 1
+        coeffs = np.array([1, 0, 0])  # x^2
+        derl, deru = getDerInterval(coeffs, -5, -1)
         
-        result = getDerInterval(f, l, u, order)
-        
-        # Check result structure
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        assert result[0] <= result[1]
-        
-        # For f(x) = x² on [-1,0]:
-        # df/dx = 2x, so df/dx ∈ [-2, 0]
-        assert result[0] <= 0
-        assert result[1] >= -2
+        # Derivative of x^2 is 2x, so derivative ranges from -10 to -2
+        assert np.isclose(derl, -10, atol=1e-10)
+        assert np.isclose(deru, -2, atol=1e-10)
     
     def test_getDerInterval_large_order(self):
-        """Test getDerInterval with large order"""
-        f = lambda x: x**2
-        l, u = 0, 1
-        order = 10  # Large order
+        """Test getDerInterval with large polynomial order"""
+        # 4th degree polynomial: x^4 - 2x^2 + 1
+        coeffs = np.array([1, 0, -2, 0, 1])
+        derl, deru = getDerInterval(coeffs, -2, 2)
         
-        result = getDerInterval(f, l, u, order)
-        
-        # Check result structure
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        assert result[0] <= result[1]
-        
-        # For high order derivatives, should still be finite
-        assert np.isfinite(result[0])
-        assert np.isfinite(result[1])
+        # Derivative is 4x^3 - 4x = 4x(x^2 - 1)
+        # Critical points at x = -1, 0, 1
+        # At x=-2: 4(-8) - 4(-2) = -32 + 8 = -24
+        # At x=-1: 4(-1) - 4(-1) = -4 + 4 = 0
+        # At x=0: 0
+        # At x=1: 4(1) - 4(1) = 4 - 4 = 0
+        # At x=2: 4(8) - 4(2) = 32 - 8 = 24
+        assert np.isclose(derl, -24, atol=1e-10)
+        assert np.isclose(deru, 24, atol=1e-10)
     
     def test_getDerInterval_consistency(self):
-        """Test that getDerInterval produces consistent results"""
-        f = lambda x: x**2
-        l, u = 0, 1
-        order = 1
+        """Test getDerInterval consistency"""
+        coeffs = np.array([1, 2, 3])  # x^2 + 2x + 3
+        l, u = -1, 1
         
-        # Call multiple times
-        result1 = getDerInterval(f, l, u, order)
-        result2 = getDerInterval(f, l, u, order)
+        # Multiple calls should give same results
+        derl1, deru1 = getDerInterval(coeffs, l, u)
+        derl2, deru2 = getDerInterval(coeffs, l, u)
         
-        # Should be consistent
-        assert np.isclose(result1[0], result2[0], atol=1e-10)
-        assert np.isclose(result1[1], result2[1], atol=1e-10)
+        assert np.isclose(derl1, derl2)
+        assert np.isclose(deru1, deru2)
     
     def test_getDerInterval_error_handling(self):
         """Test getDerInterval error handling"""
-        f = lambda x: x**2
+        coeffs = np.array([1, 2, 3])
         
-        # Test with invalid interval (l >= u)
+        # Invalid interval (l > u)
         with pytest.raises(ValueError):
-            getDerInterval(f, 1, 0, 1)
-        
-        with pytest.raises(ValueError):
-            getDerInterval(f, 0, 0, 1)
-        
-        # Test with negative order
-        with pytest.raises(ValueError):
-            getDerInterval(f, 0, 1, -1)
-        
-        # Test with non-integer order
-        with pytest.raises(ValueError):
-            getDerInterval(f, 0, 1, 2.5)
+            getDerInterval(coeffs, 1, 0)
     
     def test_getDerInterval_numerical_stability(self):
-        """Test numerical stability"""
-        # Test with function that might cause numerical issues
-        f = lambda x: np.exp(x) * np.sin(x)
-        l, u = 0, 10
-        order = 1
+        """Test getDerInterval numerical stability"""
+        # Test with very small coefficients
+        coeffs = np.array([1e-10, 1e-12, 1e-15])
+        derl, deru = getDerInterval(coeffs, -1, 1)
         
-        result = getDerInterval(f, l, u, order)
-        
-        # Should be finite
-        assert np.isfinite(result[0])
-        assert np.isfinite(result[1])
-        
-        # Should maintain proper bounds
-        assert result[0] <= result[1]
+        # Should still return finite values
+        assert np.isfinite(derl)
+        assert np.isfinite(deru)
+        assert derl <= deru

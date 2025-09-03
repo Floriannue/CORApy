@@ -1,50 +1,44 @@
-% Debug MATLAB minMaxDiffPoly step by step
+% Debug MATLAB polynomial representation
 clear; clc;
 
-% Test case
-coeffs1 = [-0.1, 0];  % p1(x) = -0.1*x + 0
-coeffs2 = [0.01, 0];  % p2(x) = 0.01*x + 0
-l = -1;
-u = 0;
+% Test what [1, 2] represents in MATLAB
+p = [1, 2];
+fprintf('Polynomial [1, 2] represents: ');
+fprintf('%g + %g*x\n', p(2), p(1));
 
-fprintf('MATLAB minMaxDiffPoly debug:\n');
-fprintf('coeffs1 = [%g, %g]\n', coeffs1(1), coeffs1(2));
-fprintf('coeffs2 = [%g, %g]\n', coeffs2(1), coeffs2(2));
-fprintf('l = %g, u = %g\n', l, u);
+% Test evaluation
+x = 0;
+y = polyval(p, x);
+fprintf('At x=0: %g\n', y);
 
-% MATLAB implementation step by step
-% compute difference polynomial: p_1(x) - p_2(x)
-p = zeros(1,max(length(coeffs1),length(coeffs2)));
-p(end-length(coeffs1)+1:end) = coeffs1;
-p(end-length(coeffs2)+1:end) = p(end-length(coeffs2)+1:end)-coeffs2;
+x = 1;
+y = polyval(p, x);
+fprintf('At x=1: %g\n', y);
 
-fprintf('\nStep by step:\n');
-fprintf('max_len = %d\n', max(length(coeffs1),length(coeffs2)));
-fprintf('p (after padding coeffs1) = [%g, %g]\n', p(1), p(2));
-fprintf('p (after subtracting coeffs2) = [%g, %g]\n', p(1), p(2));
-
-% determine extreme points
+% Test derivative
 dp = fpolyder(p);
-fprintf('dp (derivative) = %g\n', dp);
+fprintf('Derivative [%s] represents: ', num2str(dp));
+if length(dp) == 1
+    fprintf('%g\n', dp(1));
+else
+    fprintf('%g + %g*x\n', dp(2), dp(1));
+end
 
-dp_roots = roots(dp);
-fprintf('dp_roots = %g\n', dp_roots);
+% Test derivative evaluation at x=0
+y_der = polyval(dp, 0);
+fprintf('Derivative at x=0: %g\n', y_der);
 
-dp_roots = dp_roots(imag(dp_roots) == 0); % filter imaginary roots
-fprintf('dp_roots (real only) = %g\n', dp_roots);
+% Test with [2, 3, 4, 5]
+fprintf('\n--- Testing [2, 3, 4, 5] ---\n');
+p2 = [2, 3, 4, 5];
+fprintf('Polynomial [2, 3, 4, 5] represents: ');
+fprintf('%g + %g*x + %g*x^2 + %g*x^3\n', p2(4), p2(3), p2(2), p2(1));
 
-dp_roots = dp_roots(l < dp_roots & dp_roots < u);
-fprintf('dp_roots (in domain) = %g\n', dp_roots);
+dp2 = fpolyder(p2);
+fprintf('Derivative [%s]\n', num2str(dp2));
 
-extrema = [l, dp_roots', u]; % extrema or boundary
-fprintf('extrema = [%g, %g]\n', extrema(1), extrema(2));
+% Test derivative evaluation at x=0
+y_der2 = polyval(dp2, 0);
+fprintf('Derivative at x=0: %g\n', y_der2);
 
-diff = polyval(p, extrema);
-fprintf('diff values = [%g, %g]\n', diff(1), diff(2));
-
-% compute final approx error
-diffl = min(diff);
-diffu = max(diff);
-
-fprintf('\nFinal result:\n');
-fprintf('diffl = %g, diffu = %g\n', diffl, diffu);
+fprintf('\nMATLAB polynomial debug completed!\n');

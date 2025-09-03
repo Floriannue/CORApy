@@ -36,6 +36,7 @@ import numpy as np
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from .nnActivationLayer import nnActivationLayer
 from cora_python.nn.nnHelper.minMaxDiffPoly import minMaxDiffPoly
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class nnLeakyReLULayer(nnActivationLayer):
@@ -149,6 +150,11 @@ class nnLeakyReLULayer(nnActivationLayer):
         Returns:
             Tuple of (coeffs, d) polynomial coefficients and error bound
         """
+        # First validate inputs using parent class validation
+        # This ensures consistent validation across all activation layers
+        if l > u:
+            raise CORAerror('CORA:wrongInputInConstructor', 'l must be <= u')
+        
         # computes an approximating polynomial and respective error bound
         # exploit piecewise linearity of nnLeakyReLULayer
         
@@ -191,17 +197,16 @@ class nnLeakyReLULayer(nnActivationLayer):
         if isinstance(coeffs, list):
             coeffs = np.array(coeffs)
         
-        # Pad shorter polynomials with zeros to match lengths
-        max_len = max(len(coeffs), 2)
+        # Make a copy to avoid modifying original
+        coeffs = coeffs.copy()
         
         # x < 0: p(x) - alpha*x
-        coeffs1 = np.pad(coeffs, (0, max_len - len(coeffs)))
-        coeffs2 = np.pad(np.array([self.alpha, 0]), (0, max_len - 2))
-        diffl1, diffu1 = minMaxDiffPoly(coeffs1, coeffs2, l, 0)
+        # MATLAB: minMaxDiffPoly(coeffs,[obj.alpha,0],l,0)
+        diffl1, diffu1 = minMaxDiffPoly(coeffs, np.array([self.alpha, 0]), l, 0)
         
         # x > 0: p(x) - 1*x
-        coeffs3 = np.pad(np.array([1, 0]), (0, max_len - 2))
-        diffl2, diffu2 = minMaxDiffPoly(coeffs1, coeffs3, 0, u)
+        # MATLAB: minMaxDiffPoly(coeffs,[1,0],0,u)
+        diffl2, diffu2 = minMaxDiffPoly(coeffs, np.array([1, 0]), 0, u)
         
         # compute final approx error
         diffl = min(diffl1, diffl2)
@@ -234,17 +239,9 @@ class nnLeakyReLULayer(nnActivationLayer):
         Returns:
             Tuple of (xs, dxsdm) extreme points and derivatives
         """
-        # For ReLU, extreme points are at x = 0 for positive slopes
-        # Return shape: (len(m), 2) where each row has [xl, xu]
-        xs = np.zeros((len(m), 2))
-        dxsdm = np.zeros((len(m), 2))
-        
-        # For ReLU, extreme points are at x = 0 for positive m
-        for i, m_val in enumerate(m):
-            if m_val > 0:
-                xs[i, 0] = 0  # xl = 0
-                xs[i, 1] = 0  # xu = 0
-        
+        # MATLAB: xs = zeros(size(m),'like',m); dxsdm = xs;
+        xs = np.zeros_like(m)
+        dxsdm = np.zeros_like(m)
         return xs, dxsdm
     
     def computeApproxPolyCustom(self, l: np.ndarray, u: np.ndarray, order: int, poly_method: str) -> Tuple[np.ndarray, float]:

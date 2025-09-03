@@ -22,7 +22,17 @@ def isemptyobject(t: 'Taylm') -> bool:
     """Checks whether a Taylor model contains any information"""
     
     # Check if monomials exist and have content
-    if not hasattr(t, 'monomials') or t.monomials.size == 0:
+    if not hasattr(t, 'monomials'):
+        return True
+    
+    # Handle both list and numpy array cases
+    if isinstance(t.monomials, list):
+        if len(t.monomials) == 0:
+            return True
+    elif isinstance(t.monomials, np.ndarray):
+        if t.monomials.size == 0:
+            return True
+    else:
         return True
     
     # Check dimension

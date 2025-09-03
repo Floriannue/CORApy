@@ -5,6 +5,7 @@ Tests for nnActivationLayer class using nnLeakyReLULayer as concrete implementat
 import pytest
 import numpy as np
 from cora_python.nn.layers.nonlinear.nnLeakyReLULayer import nnLeakyReLULayer
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestNnActivationLayer:
@@ -120,16 +121,16 @@ class TestNnActivationLayer:
 
         # Test with invalid bounds (l > u)
         l, u = 1, -1
-        with pytest.raises(ValueError, match="l must be <= u"):
+        with pytest.raises(CORAerror, match="l must be <= u"):
             layer.computeApproxPoly(l, u, 1, 'regression')
 
         # Test with invalid order
         l, u = -1, 1
-        with pytest.raises(ValueError, match="order must be a positive integer"):
+        with pytest.raises(CORAerror, match="order must be a positive integer"):
             layer.computeApproxPoly(l, u, 0, 'regression')
 
         # Test with invalid poly_method
-        with pytest.raises(ValueError, match="poly_method must be one of"):
+        with pytest.raises(CORAerror, match="poly_method must be one of"):
             layer.computeApproxPoly(l, u, 1, 'invalid_method')
 
     def test_nnActivationLayer_computeApproxPoly_containment(self):

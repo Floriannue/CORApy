@@ -66,17 +66,16 @@ class nnReshapeLayer(nnLayer):
     
     def getOutputSize(self, inputSize: List[int]) -> List[int]:
         """
-        Get output size for given input size
-        
-        Args:
-            inputSize: input size
-            
-        Returns:
-            outputSize: output size based on idx_out
+        Get output size for given input size (MATLAB parity)
+        - For flatten (idx_out contains -1): return [prod(inputSize), 1]
+        - For index-based reshape: return [num_indices, 1]
         """
         self.inputSize = inputSize
-        # MATLAB: outputSize = size(obj.idx_out);
-        return list(np.array(self.idx_out).shape)
+        if isinstance(self.idx_out, list) and (-1 in self.idx_out):
+            return [int(np.prod(inputSize)), 1]
+        idx = np.array(self.idx_out)
+        num = int(idx.size)
+        return [num, 1]
     
     def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
         """
@@ -198,6 +197,42 @@ class nnReshapeLayer(nnLayer):
             
             return result
     
+    def evaluateZonotopeBatch(self, c: np.ndarray, G: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Evaluate reshape for a batch of zonotopes (centers c and generators G).
+        MATLAB behavior: for Flatten, pass through; for index-based reshape, reorder feature rows.
+        Shapes: typically c in R^{n x 1 x b} (or n x 1), G in R^{n x q x b} (or n x q)
+        """
+        # Flatten case (dynamic -1): ACASXU uses this right after input; no feature reordering needed
+        if isinstance(self.idx_out, list) and (-1 in self.idx_out):
+            return c, G
+
+        # Normalize shapes to 3D for uniform indexing (MATLAB uses n x 1 x b and n x q x b)
+        if c.ndim == 2:
+            c = c[:, :, np.newaxis]
+        if G.ndim == 2:
+            G = G[:, :, np.newaxis]
+
+        # Index-based mapping: build 0-based flat index vector
+        idx_vec = np.array(self.idx_out)
+        # If idx_out is multi-dimensional, flatten in column-major like MATLAB
+        if idx_vec.ndim > 1:
+            idx_vec = idx_vec.T.reshape(-1, order='C')
+        else:
+            idx_vec = idx_vec.reshape(-1)
+        # Convert to 0-based
+        idx0 = idx_vec - 1
+
+        # Bounds check (defensive)
+        max_n = c.shape[0]
+        idx0 = np.clip(idx0, 0, max_n - 1)
+
+        # Apply to feature axis
+        c = c[idx0, :, :]
+        G = G[idx0, :, :]
+
+        return c, G
+
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 
                             E: np.ndarray, id: np.ndarray, id_: np.ndarray, 
                             ind: np.ndarray, ind_: np.ndarray, 

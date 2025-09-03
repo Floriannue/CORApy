@@ -101,7 +101,8 @@ def aux_evaluateNumeric(obj: 'NeuralNetwork', input_data: np.ndarray, options: D
         if 'nn' not in options:
             options['nn'] = {}
         options['nn']['layer_k'] = k
-        layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
+        # Use 0-based indexing (Python). MATLAB uses 1-based: layers{k}.
+        layer_k = obj.layers[k]
         # Store input for backpropgation
         if options['nn'].get('train', {}).get('backprop', False):
             if not hasattr(layer_k, 'backprop'):

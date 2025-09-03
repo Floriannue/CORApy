@@ -27,7 +27,7 @@ Last revision: ---
 import os
 from typing import Any, List, Optional
 from .neuralNetwork import NeuralNetwork
-from ...g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def readNetwork(file_path: str, *args) -> NeuralNetwork:

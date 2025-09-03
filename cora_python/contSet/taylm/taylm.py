@@ -129,7 +129,7 @@ class Taylm:
             self.tolerance = other.tolerance
             return
 
-        # 2.a special constructor form: (monomials, coefficients, remainder Interval)
+        # 2.a special constructor form: (monomials, coefficients, remainder)
         remainder_arg_is_interval = False
         if len(varargin) == 3:
             rem = varargin[2]
@@ -141,11 +141,19 @@ class Taylm:
             # Fallback duck-typing for Interval
             if not remainder_arg_is_interval:
                 remainder_arg_is_interval = hasattr(rem, 'inf') and hasattr(rem, 'sup')
-        if len(varargin) == 3 and remainder_arg_is_interval:
+        
+        # Special case: (monomials, coefficients, remainder) constructor
+        if len(varargin) == 3 and (remainder_arg_is_interval or isinstance(varargin[2], np.ndarray)):
             monomials, coefficients, remainder = varargin
             self.monomials = monomials
             self.coefficients = np.asarray(coefficients).reshape(-1)
             self.remainder = remainder
+            # Set default properties for empty constructor
+            self.max_order = 6
+            self.opt_method = 'int'
+            self.eps = 0.001
+            self.tolerance = 1e-8
+            self.names_of_var = []
             return
 
         # 2. parse input arguments: varargin -> vars
@@ -213,6 +221,13 @@ def _aux_parseInputArgs(*varargin) -> Tuple[Any, Any, int, List[str], str, float
     tolerance = 1e-8
     
     if len(varargin) == 0:
+        return func, int_obj, max_order, names, opt_method, eps, tolerance
+    
+    # Special case: if we have exactly 3 arguments and the first is a numpy array,
+    # this is likely (monomials, coefficients, remainder) constructor
+    if len(varargin) == 3 and isinstance(varargin[0], np.ndarray) and isinstance(varargin[1], np.ndarray):
+        # This is the (monomials, coefficients, remainder) constructor
+        # We don't need to parse max_order in this case
         return func, int_obj, max_order, names, opt_method, eps, tolerance
     
     # Handle different input patterns
@@ -285,16 +300,29 @@ def _aux_computeObject(obj: Taylm, func: Any, int_obj: Any, max_order: int, name
         names = [names]
     obj.names_of_var = names
     
-    # Initialize with simple values for now
-    # Full implementation would require symbolic computation capabilities
-    obj.coefficients = np.array([1.0])  # Constant term
-    obj.monomials = [np.array([0])]     # Constant monomial
+    # Check if we're creating from (monomials, coefficients, remainder) constructor
+    # This happens when func is None and int_obj is a numpy array (coefficients)
+    if func is None and isinstance(int_obj, np.ndarray) and len(int_obj) == 0:
+        # This is the empty constructor case - don't override the values
+        # The monomials, coefficients, and remainder should already be set
+        pass
+    elif func is None and hasattr(int_obj, 'dim'):
+        # This is interval construction - create proper monomials based on interval dimension
+        n = int_obj.dim()
+        # Create identity monomials for each variable
+        obj.monomials = [np.eye(n, dtype=int)]
+        obj.coefficients = np.ones(n)
+    else:
+        # Initialize with simple values for now
+        # Full implementation would require symbolic computation capabilities
+        obj.coefficients = np.array([1.0])  # Constant term
+        obj.monomials = [np.array([0])]     # Constant monomial
     
     # Set remainder based on interval if provided
-    if int_obj is not None:
+    if int_obj is not None and not isinstance(int_obj, np.ndarray):
         # Use the interval as the remainder for now
         obj.remainder = int_obj
-    else:
+    elif not hasattr(obj, 'remainder'):
         from cora_python.contSet.interval.interval import Interval
         obj.remainder = Interval(0, 0)
     

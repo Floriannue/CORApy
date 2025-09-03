@@ -23,17 +23,25 @@ from .mtimes import mtimes
 from .plus import plus
 from .enclose import enclose
 from .randPoint_ import randPoint_
+from .interval import interval
+from .supportFunc_ import supportFunc_
+from .splitLongestGen import splitLongestGen
+from .splitDepFactor import splitDepFactor
 
 # Attach methods to the PolyZonotope class
 # dim and isemptyobject are required by ContSet
 PolyZonotope.dim = dim
 PolyZonotope.isemptyobject = isemptyobject
+PolyZonotope.interval = interval
 PolyZonotope.representsa_ = representsa_
 PolyZonotope.polytope = polytope
 PolyZonotope.mtimes = mtimes
 PolyZonotope.plus = plus
 PolyZonotope.enclose = enclose
 PolyZonotope.randPoint_ = randPoint_
+PolyZonotope.supportFunc_ = supportFunc_
+PolyZonotope.splitLongestGen = splitLongestGen
+PolyZonotope.splitDepFactor = splitDepFactor
 
 # Attach static methods
 PolyZonotope.empty = staticmethod(empty)
@@ -49,4 +57,8 @@ __all__ = [
     'origin',
     'generateRandom',
     'representsa_',
+    'interval',
+    'supportFunc_',
+    'splitLongestGen',
+    'splitDepFactor',
 ] 

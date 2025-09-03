@@ -224,7 +224,8 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.nd
         # Verification --------------------------------------------------------
         # 1. Use batch-evaluation.
         if not options.get('nn', {}).get('interval_center', False):
-            cxi = xi
+            # Ensure 3D shape (n,1,batch) to match MATLAB
+            cxi = np.reshape(xi, (xi.shape[0], 1, xi.shape[1]))
         else:
             if useGpu and TORCH_AVAILABLE:
                 # Use PyTorch operations for GPU
@@ -239,7 +240,7 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.nd
             batchG_gpu = torch.tensor(batchG, dtype=torch.float32, device=device)
             Gxi = torch.tile(ri.reshape(ri.shape[0], 1, ri.shape[1]), (1, 1, 1)) * batchG_gpu[:, :, :ri.shape[1]]
         else:
-            # Use NumPy operations for CPU
+            # Use NumPy operations for CPU; ensure (n,q,batch)
             Gxi = np.tile(ri.reshape(ri.shape[0], 1, ri.shape[1]), (1, 1, 1)) * batchG[:, :, :ri.shape[1]]
         
         yi, Gyi = nn.evaluateZonotopeBatch_(cxi, Gxi, options, idxLayer)

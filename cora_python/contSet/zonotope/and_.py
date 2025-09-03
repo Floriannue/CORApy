@@ -29,7 +29,7 @@ Last update: 02-September-2019 (MATLAB), 28-September-2024 (MATLAB)
 
 import numpy as np
 from typing import Any, Optional
-from ...g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 from .zonotope import Zonotope
 

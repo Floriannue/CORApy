@@ -103,7 +103,8 @@ def readONNXNetwork(file_path: str, *args) -> NeuralNetwork:
         layers = aux_groupCompositeLayers(dltoolbox_net['Layers'], dltoolbox_net['Connections'])
     else:
         # Convert to cell array format like MATLAB's num2cell(dltoolbox_net.Layers)
-        layers = [[layer] for layer in dltoolbox_net['Layers']]
+        # Use flat list of layer dicts like MATLAB (no nested list wrappers)
+        layers = dltoolbox_net['Layers']
     
     # convert DLT network to CORA network (matches MATLAB exactly)
     obj = NeuralNetwork.convertDLToolboxNetwork(layers, verbose)
@@ -145,7 +146,12 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
         layer_id = 0
         
         # Process each node in the graph
-        for node in graph.node:
+        skip_next = False
+        for i, node in enumerate(graph.node):
+            if skip_next:
+                skip_next = False
+                continue
+            matched = False
             layer_info = {
                 'Name': f'Layer_{layer_id}',
                 'Type': node.op_type,
@@ -158,6 +164,7 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
             if node.op_type == 'Gemm':
                 # Fully connected layer
                 layer_info['Type'] = 'FullyConnectedLayer'
+                matched = True
                 
                 # Extract weights and bias
                 if len(node.input) >= 2:
@@ -174,15 +181,19 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                 
             elif node.op_type == 'Relu':
                 layer_info['Type'] = 'ReLULayer'
+                matched = True
                 
             elif node.op_type == 'Sigmoid':
                 layer_info['Type'] = 'SigmoidLayer'
+                matched = True
                 
             elif node.op_type == 'Tanh':
                 layer_info['Type'] = 'TanhLayer'
+                matched = True
                 
             elif node.op_type == 'Reshape':
                 layer_info['Type'] = 'ReshapeLayer'
+                matched = True
                 # Extract shape information from attributes or input tensor
                 shape_found = False
                 for attr in node.attribute:
@@ -210,6 +221,7 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                 
             elif node.op_type == 'Conv':
                 layer_info['Type'] = 'Conv2DLayer'
+                matched = True
                 # Extract convolution parameters
                 for attr in node.attribute:
                     if attr.name == 'kernel_shape':
@@ -234,6 +246,7 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                 
             elif node.op_type == 'MaxPool' or node.op_type == 'AveragePool':
                 layer_info['Type'] = 'PoolingLayer'
+                matched = True
                 layer_info['PoolType'] = node.op_type
                 # Extract pooling parameters
                 for attr in node.attribute:
@@ -246,13 +259,28 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                 
             elif node.op_type == 'Add':
                 layer_info['Type'] = 'ElementwiseAffineLayer'
+                matched = True
+                # Try to extract bias/offset if second input is an initializer
+                if len(node.input) >= 2:
+                    bias_name = node.input[1]
+                    if bias_name in initializers:
+                        bias = onnx.numpy_helper.to_array(initializers[bias_name])
+                        layer_info['Offset'] = bias
                 
             elif node.op_type == 'Mul':
                 layer_info['Type'] = 'ElementwiseAffineLayer'
+                matched = True
+                # Try to extract scale if second input is an initializer
+                if len(node.input) >= 2:
+                    scale_name = node.input[1]
+                    if scale_name in initializers:
+                        scale = onnx.numpy_helper.to_array(initializers[scale_name])
+                        layer_info['Scale'] = scale
                 
             elif node.op_type == 'Sub':
                 # Subtraction operation - often used for preprocessing
                 layer_info['Type'] = 'ElementwiseAffineLayer'
+                matched = True
                 # Extract the value being subtracted
                 if len(node.input) >= 2:
                     const_name = node.input[1]
@@ -263,50 +291,50 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                 
             elif node.op_type == 'MatMul':
                 layer_info['Type'] = 'FullyConnectedLayer'
+                matched = True
                 # Extract weights if available
                 if len(node.input) >= 2:
                     weight_name = node.input[1]
                     if weight_name in initializers:
                         weight = onnx.numpy_helper.to_array(initializers[weight_name])
                         layer_info['Weight'] = weight
-                
+                # Fuse following Add as bias like MATLAB/DLT does
+                if i + 1 < len(graph.node):
+                    next_node = graph.node[i + 1]
+                    if next_node.op_type == 'Add' and next_node.input[0] == node.output[0]:
+                        if len(next_node.input) >= 2:
+                            bias_name = next_node.input[1]
+                            if bias_name in initializers:
+                                bias = onnx.numpy_helper.to_array(initializers[bias_name])
+                                layer_info['Bias'] = bias
+                                layer_info['SkipNext'] = True
             elif node.op_type == 'Identity':
                 layer_info['Type'] = 'IdentityLayer'
-                
+                matched = True
             elif node.op_type == 'Flatten':
                 layer_info['Type'] = 'ReshapeLayer'
-                # For Flatten nodes, we need to calculate the target shape
-                # The axis attribute determines where flattening starts
-                axis = 1  # Default axis
+                matched = True
+                axis = 1
                 for attr in node.attribute:
                     if attr.name == 'axis':
                         axis = attr.i
-                
-                # Calculate target shape based on input shape and axis
-                # For input shape [1, 1, 1, 5] and axis=1, we flatten from dimension 1 onwards
-                # This means we keep dimensions 0, and flatten the rest
-                # Result: [1, 5] (flattening dimensions 1,2,3 into one dimension)
-                layer_info['Shape'] = [-1]  # Will be determined dynamically based on input
-                layer_info['FlattenAxis'] = axis  # Store the axis for later processing
-                
+                layer_info['Shape'] = [-1]
+                layer_info['FlattenAxis'] = axis
                 print(f"DEBUG: Flatten layer '{layer_info.get('Name', 'unnamed')}' axis: {axis}")
-                
             elif node.op_type == 'Softmax':
                 layer_info['Type'] = 'SoftmaxLayer'
-                # Extract axis information
+                matched = True
                 for attr in node.attribute:
                     if attr.name == 'axis':
                         layer_info['Axis'] = attr.i
-                
             elif node.op_type == 'BatchNormalization':
                 layer_info['Type'] = 'BatchNormLayer'
-                # Extract batch normalization parameters
+                matched = True
                 if len(node.input) >= 3:
                     scale_name = node.input[1]
                     bias_name = node.input[2]
                     mean_name = node.input[3]
                     var_name = node.input[4]
-                    
                     if scale_name in initializers:
                         scale = onnx.numpy_helper.to_array(initializers[scale_name])
                         layer_info['Scale'] = scale
@@ -319,15 +347,18 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                     if var_name in initializers:
                         var = onnx.numpy_helper.to_array(initializers[var_name])
                         layer_info['Variance'] = var
-                
-            else:
-                # Unknown layer type - create a placeholder
+            # Unknown fallback only if no known mapping matched
+            if not matched:
                 layer_info['Type'] = 'UnknownLayer'
                 layer_info['OriginalType'] = node.op_type
-                # Try to extract any available parameters
                 for attr in node.attribute:
                     layer_info[f'Attr_{attr.name}'] = onnx.helper.get_attribute_value(attr)
+            # consume fused Add if present
+            if 'SkipNext' in layer_info and layer_info['SkipNext']:
+                skip_next = True
             
+            # Optional: debug mapping of ONNX op to Type
+            print(f"DEBUG ONNX: {node.op_type} -> {layer_info['Type']}")
             layers.append(layer_info)
             layer_id += 1
         

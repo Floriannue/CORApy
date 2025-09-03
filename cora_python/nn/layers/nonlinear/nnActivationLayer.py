@@ -316,7 +316,9 @@ class nnActivationLayer(nnLayer):
         print(f"DEBUG: _aux_preOrderReduction - h={h}, q={q}, h+q={h+q}")
         
         # Read max number of generators
-        nrMaxGen = options.get('nn', {}).get('num_generators', float('inf'))
+        nrMaxGen = options.get('nn', {}).get('num_generators', None)
+        if nrMaxGen is None:
+            nrMaxGen = float('inf')
         nrMaxGen = min(h + q, nrMaxGen)
         
         print(f"DEBUG: _aux_preOrderReduction - nrMaxGen: {nrMaxGen}")
@@ -435,7 +437,9 @@ class nnActivationLayer(nnLayer):
         q = GI.shape[1]
         
         # Read max number of generators
-        nrMaxGen = options.get('nn', {}).get('num_generators', float('inf'))
+        nrMaxGen = options.get('nn', {}).get('num_generators', None)
+        if nrMaxGen is None:
+            nrMaxGen = float('inf')
         nrMaxGen = min(h + q, nrMaxGen)
         
         if h + q > nrMaxGen:
@@ -454,8 +458,10 @@ class nnActivationLayer(nnLayer):
             error_G = np.zeros((G.shape[0], np.sum(error_mask)))
             error_E = np.zeros((E.shape[0], np.sum(error_mask)))
             
-            # Set error values
-            error_G[error_mask, np.arange(np.sum(error_mask))] = d[error_mask]
+            # Set error values - use indices where mask is True
+            error_indices = np.where(error_mask)[0]
+            for i, idx in enumerate(error_indices):
+                error_G[idx, i] = d[idx]
             
             # Add to GI
             GI = np.hstack([GI, error_G])
@@ -858,6 +864,9 @@ class nnActivationLayer(nnLayer):
         """
         # bound approximation error according to [1, Sec. 3.2]
         
+        # Make a copy to avoid modifying original
+        coeffs = coeffs.copy()
+        
         # compute the difference between activation function and quad. fit
         df_l, df_u = self.getDerBounds(l, u)
         
@@ -1184,8 +1193,28 @@ class nnActivationLayer(nnLayer):
         """
         # obtain indices of active generators
         genIds = self.backprop['store'].get('genIds', slice(None))
-        # compute bounds
-        r = np.reshape(np.sum(np.abs(G[:, genIds, :]), axis=1), c.shape)
+        # Ensure batch dimensions of c and G match (MATLAB keeps both as n x 1 x b and n x q x b)
+        n_c, _, b_c = c.shape
+        n_g, _, b_g = G.shape
+        if b_c != b_g:
+            if b_c == 1 and b_g > 1:
+                c = np.repeat(c, b_g, axis=2)
+                b_c = b_g
+            elif b_g == 1 and b_c > 1:
+                G = np.repeat(G, b_c, axis=2)
+                b_g = b_c
+        
+        # Ensure c has the correct shape (n, 1, b) to match MATLAB
+        print(f"DEBUG aux_imgEncBatch: c.shape={c.shape}")
+        if c.ndim == 3 and c.shape[1] != 1:
+            # If c has wrong middle dimension, reshape it to (n, 1, b)
+            c = c[:, :1, :]  # Take only first column
+            print(f"DEBUG aux_imgEncBatch: Corrected c.shape={c.shape}")
+        
+        # compute bounds: radius per feature and batch; shape (n,1,b)
+        r_raw = np.sum(np.abs(G[:, genIds, :]), axis=1)
+        r = r_raw.reshape((c.shape[0], 1, c.shape[-1]))
+        print(f"DEBUG aux_imgEncBatch: r.shape={r.shape}")
         # r = max(eps('like',c),r); % prevent numerical instabilities
         l = c - r
         u = c + r
@@ -1206,10 +1235,16 @@ class nnActivationLayer(nnLayer):
         else:
             raise CORAerror('CORA:notSupported', f"Unsupported 'options.nn.poly_method': {options['nn']['poly_method']}")
         
+        print(f"DEBUG aux_imgEncBatch: After recompute - l.shape={l.shape}, u.shape={u.shape}, m.shape={m.shape}, G.shape={G.shape}")
+        
         # evaluate image enclosure
         rc = m * c
-        # rG(:,genIds,:) = permute(m,[1 3 2]).*G(:,genIds,:);
-        rG = np.transpose(m, (1, 2, 0)) * G
+        
+        if m.ndim == 3 and G.ndim == 3:
+            # m is (n,1,b), G is (n,q,b) - should broadcast properly
+            rG = m * G  # This should work with proper broadcasting
+        else:
+            rG = np.transpose(m, (0, 2, 1)) * G
         
         if options['nn'].get('use_approx_error', False):
             # Compute extreme points.
@@ -1220,16 +1255,19 @@ class nnActivationLayer(nnLayer):
             if options['nn']['poly_method'] == 'bounds':
                 # the approximation error at l and u are equal, thus we only
                 # consider the upper bound u.
-                xs = np.concatenate([xs, l.reshape(l.shape[0], l.shape[1], 1)], axis=2)
+                xs = np.concatenate([xs, l], axis=2)
             else:
-                xs = np.concatenate([xs, l.reshape(l.shape[0], l.shape[1], 1), 
-                                   u.reshape(u.shape[0], u.shape[1], 1)], axis=2)
+                xs = np.concatenate([xs, l, u], axis=2)
             ys = f(xs)
             # Compute approximation error at candidates.
-            ds = ys - m.reshape(m.shape[0], m.shape[1], 1) * xs
+            # m needs to be broadcast to match xs shape in the last dimension
+            m_expanded = np.tile(m, (1, 1, xs.shape[2] // m.shape[2]))
+            ds = ys - m_expanded * xs
             # We only consider candidate extreme points within boundaries.
-            notInBoundsIdx = (xs < l.reshape(l.shape[0], l.shape[1], 1) | 
-                             xs > u.reshape(u.shape[0], u.shape[1], 1))
+            # Expand l and u to match xs shape
+            l_expanded = np.tile(l, (1, 1, xs.shape[2] // l.shape[2]))
+            u_expanded = np.tile(u, (1, 1, xs.shape[2] // u.shape[2]))
+            notInBoundsIdx = (xs < l_expanded) | (xs > u_expanded)
             ds[notInBoundsIdx] = np.inf
             dl = np.min(ds, axis=2)
             dlIdx = np.argmin(ds, axis=2)

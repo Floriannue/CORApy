@@ -34,10 +34,10 @@ def test_neuralNetwork_explain_standard():
     verbose = False
     epsilon = 0.2
     
-    # Method: standard
+        # Method: standard
     method = 'standard'
-    idxFreedFeatsStandard = nn.explain(x, label, epsilon, InputSize=[3, 1, 1], 
-                                       Method=method, Verbose=verbose)
+    idxFreedFeatsStandard, _, _ = nn.explain(x, label, epsilon, InputSize=[3, 1, 1],
+                                           Method=method, Verbose=verbose)
     
     # Check expected output
     assert np.array_equal(idxFreedFeatsStandard, np.array([3, 2]))
@@ -69,10 +69,10 @@ def test_neuralNetwork_explain_abstract_refine():
     verbose = False
     epsilon = 0.2
     
-    # Method: abstract+refine
+        # Method: abstract+refine
     method = 'abstract+refine'
-    idxFreedFeatsStandard = nn.explain(x, label, epsilon, InputSize=[3, 1, 1], 
-                                       Method=method, Verbose=verbose)
+    idxFreedFeatsStandard, _, _ = nn.explain(x, label, epsilon, InputSize=[3, 1, 1],
+                                           Method=method, Verbose=verbose)
     
     # Check expected output
     assert np.array_equal(idxFreedFeatsStandard, np.array([3, 2]))
@@ -97,11 +97,11 @@ def test_neuralNetwork_explain_different_epsilon():
     x = np.array([[1], [2]])
     label = 0
     
-    # Test with different epsilon values
+            # Test with different epsilon values
     for epsilon in [0.1, 0.2, 0.5]:
-        result = nn.explain(x, label, epsilon, InputSize=[2, 1, 1], 
-                           Method='standard', Verbose=False)
-        
+        result, _, _ = nn.explain(x, label, epsilon, InputSize=[2, 1, 1],
+                            Method='standard', Verbose=False)
+
         # Should return array of indices
         assert isinstance(result, np.ndarray)
         assert result.ndim == 1
@@ -127,12 +127,12 @@ def test_neuralNetwork_explain_different_methods():
     label = 0
     epsilon = 0.2
     
-    # Test with different methods
+            # Test with different methods
     methods = ['standard', 'abstract+refine']
     for method in methods:
-        result = nn.explain(x, label, epsilon, InputSize=[2, 1, 1], 
-                           Method=method, Verbose=False)
-        
+        result, _, _ = nn.explain(x, label, epsilon, InputSize=[2, 1, 1],
+                            Method=method, Verbose=False)
+
         # Should return array of indices
         assert isinstance(result, np.ndarray)
         assert result.ndim == 1
@@ -158,10 +158,10 @@ def test_neuralNetwork_explain_verbose():
     label = 0
     epsilon = 0.2
     
-    # Test with verbose output
-    result = nn.explain(x, label, epsilon, InputSize=[2, 1, 1], 
-                       Method='standard', Verbose=True)
-    
+            # Test with verbose output
+    result, _, _ = nn.explain(x, label, epsilon, InputSize=[2, 1, 1],
+                        Method='standard', Verbose=True)
+
     # Should return array of indices
     assert isinstance(result, np.ndarray)
     assert result.ndim == 1

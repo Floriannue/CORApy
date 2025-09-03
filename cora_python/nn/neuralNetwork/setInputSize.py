@@ -29,7 +29,7 @@ Last revision: 17-August-2022
 import numpy as np
 from typing import Any, List, Optional, Union
 from .neuralNetwork import NeuralNetwork
-from ...g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def setInputSize(obj: NeuralNetwork, inputSize: Optional[List[int]] = None, 

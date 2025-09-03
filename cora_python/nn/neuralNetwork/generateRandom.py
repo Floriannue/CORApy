@@ -41,7 +41,7 @@ import random
 import numpy as np
 from typing import Any, Dict, List, Optional, Union
 from .neuralNetwork import NeuralNetwork
-from ...g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def generateRandom(*args) -> NeuralNetwork:
