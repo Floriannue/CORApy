@@ -28,7 +28,7 @@ Last revision: ---
 
 import numpy as np
 from typing import Union
-from .fpolyder import fpolyder
+from cora_python.g.functions.matlab.polynomial.fpolyder import fpolyder
 
 def minMaxDiffPoly(coeffs1: np.ndarray, coeffs2: np.ndarray, 
                    l: Union[float, np.ndarray], u: Union[float, np.ndarray]) -> tuple:

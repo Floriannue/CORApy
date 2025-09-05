@@ -27,7 +27,7 @@ Last revision: ---
 
 import numpy as np
 from typing import Union
-from .fpolyder import fpolyder
+from cora_python.g.functions.matlab.polynomial.fpolyder import fpolyder
 
 
 def getDerInterval(coeffs: np.ndarray, l: float, u: float) -> tuple[float, float]:

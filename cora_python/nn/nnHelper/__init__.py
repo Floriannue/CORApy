@@ -7,7 +7,6 @@ from .leastSquarePolyFunc import leastSquarePolyFunc
 from .leastSquareRidgePolyFunc import leastSquareRidgePolyFunc
 from .minMaxDiffOrder import minMaxDiffOrder
 from .getDerInterval import getDerInterval
-from .fpolyder import fpolyder
 from .minMaxDiffPoly import minMaxDiffPoly
 from .getOrderIndicesG import getOrderIndicesG
 from .getOrderIndicesGI import getOrderIndicesGI
@@ -32,7 +31,6 @@ __all__ = [
     'leastSquareRidgePolyFunc', 
     'minMaxDiffOrder',
     'getDerInterval',
-    'fpolyder',
     'minMaxDiffPoly',
     'validateNNoptions',
     'getOrderIndicesG',
