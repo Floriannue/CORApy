@@ -125,7 +125,9 @@ def _aux_randPoint_gaussian(Z: 'Zonotope', N: int) -> np.ndarray:
         N = 1
     
     # Take random values for factors from a standard normal distribution
+    # CRITICAL FIX: Clip factors to [-1, 1] to ensure points stay within zonotope bounds
     factors = np.random.randn(Z.G.shape[1], N)
+    factors = np.clip(factors, -1, 1)  # Keep within zonotope bounds
     # Sample points
     p = Z.c.reshape(-1, 1) + Z.G @ factors
     return p

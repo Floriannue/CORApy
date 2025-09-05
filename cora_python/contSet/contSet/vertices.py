@@ -95,8 +95,9 @@ def _parse_input(S: 'ContSet', *args, **kwargs) -> tuple:
         
         if class_name == 'Polytope':
             # Uses different methods
-            method_list, remaining = setDefaultValues(['lcon2vert'], args_list)
+            method_list = setDefaultValues(['lcon2vert'], args_list)
             method = method_list[0]  # Extract first element from list
+            remaining = []
             if CHECKS_ENABLED():
                 inputArgsCheck([
                     [S, 'att', 'Polytope'],
@@ -105,8 +106,9 @@ def _parse_input(S: 'ContSet', *args, **kwargs) -> tuple:
             
         elif class_name == 'ConPolyZono':
             # 'method' is number of splits
-            method_list, remaining = setDefaultValues([10], args_list)
+            method_list = setDefaultValues([10], args_list)
             method = method_list[0]  # Extract first element from list
+            remaining = []
             if CHECKS_ENABLED():
                 inputArgsCheck([
                     [S, 'att', 'ConPolyZono'],
@@ -114,9 +116,10 @@ def _parse_input(S: 'ContSet', *args, **kwargs) -> tuple:
                 ])
             
         elif class_name == 'ConZonotope':
-            method_list, remaining = setDefaultValues(['default', 1], args_list)
+            method_list = setDefaultValues(['default', 1], args_list)
             method = method_list[0]  # Extract first element from list
             numDirs = method_list[1]  # Extract second element from list
+            remaining = []
             if CHECKS_ENABLED():
                 inputArgsCheck([
                     [S, 'att', 'ConZonotope'],
@@ -128,8 +131,9 @@ def _parse_input(S: 'ContSet', *args, **kwargs) -> tuple:
             
         else:
             # General set types
-            method_list, remaining = setDefaultValues(['convHull'], args_list)
+            method_list = setDefaultValues(['convHull'], args_list)
             method = method_list[0]  # Extract first element from list
+            remaining = []
             if CHECKS_ENABLED():
                 inputArgsCheck([
                     [S, 'att', 'ContSet'],
@@ -137,7 +141,8 @@ def _parse_input(S: 'ContSet', *args, **kwargs) -> tuple:
                 ])
     else:
         # Fallback for unknown types
-        method_list, remaining = setDefaultValues(['convHull'], args_list)
+        method_list = setDefaultValues(['convHull'], args_list)
         method = method_list[0]  # Extract first element from list
+        remaining = []
     
     return S, method, remaining 

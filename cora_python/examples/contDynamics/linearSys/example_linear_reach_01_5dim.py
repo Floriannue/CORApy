@@ -26,6 +26,8 @@ Python translation: 2025
 import sys
 import os
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import time
 
@@ -41,31 +43,15 @@ plt.rcParams['axes.linewidth'] = 0.8
 plt.rcParams['grid.linewidth'] = 0.5
 plt.rcParams['patch.linewidth'] = 0.5
 
-# Add the cora_python directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
+# Add the project root directory to the path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(current_dir, '../../../..')
+sys.path.insert(0, project_root)
 
-# Try multiple import approaches
-try:
-    # Try as module import
-    from cora_python.contDynamics.linearSys import LinearSys
-    from cora_python.contSet.zonotope import Zonotope
-    from cora_python.contSet.interval import Interval
-except ImportError:
-    try:
-        # Try relative import
-        from contDynamics.linearSys import LinearSys
-        from contSet.zonotope import Zonotope
-        from contSet.interval import Interval
-    except ImportError:
-        # Final fallback
-        import sys
-        import os
-        # Add parent directories to path
-        parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        sys.path.insert(0, parent_dir)
-        from cora_python.contDynamics.linearSys import LinearSys
-        from cora_python.contSet.zonotope import Zonotope
-        from cora_python.contSet.interval import Interval
+# Import the required modules
+from cora_python.contDynamics.linearSys import LinearSys
+from cora_python.contSet.zonotope import Zonotope
+from cora_python.contSet.interval import Interval
 
 
 def example_linear_reach_01_5dim():
@@ -155,8 +141,13 @@ def example_linear_reach_01_5dim():
         plt.ylabel(f'$x_{{{projDims[1]+1}}}$')
         plt.legend(loc='upper left')  # Position legend outside plot area
         plt.tight_layout()  # Adjust layout to prevent overlap
+        
+        # Save plot instead of showing it
+        plt.savefig(f'example_5dim_projection_{projDims[0]+1}_{projDims[1]+1}.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f'Saved plot for projection [{projDims[0]+1}, {projDims[1]+1}]')
     
-    plt.show()
+    print("Plots saved successfully!")
     
     # Example completed
     print("\n=== Example completed successfully! ===")

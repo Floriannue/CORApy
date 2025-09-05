@@ -198,7 +198,7 @@ def _validateOptions(linsys, params: Dict[str, Any], options: Dict[str, Any]) ->
     
     # Set default noise set if not provided
     if 'V' not in params:
-        params['V'] = Zonotope.origin(linsys.nr_of_outputs)
+        params['V'] = Zonotope.origin(linsys.nr_of_noises)
     
     return params, options
 

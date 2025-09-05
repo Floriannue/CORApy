@@ -86,7 +86,7 @@ def _parse_input(S, args, kwargs):
     args_list = list(args)
     
     # Set default values - dims defaults to [0, 1] (Python 0-based indexing)
-    defaults, _ = setDefaultValues([[0, 1]], [args_list[0]] if args_list else [])
+    defaults = setDefaultValues([[0, 1]], [args_list[0]] if args_list else [])
     dims = defaults[0]
     
     # Convert MATLAB 1-based indexing to Python 0-based if needed

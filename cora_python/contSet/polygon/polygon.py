@@ -280,4 +280,16 @@ class Polygon(ContSet):
         if self._V.size > 0:
             return f"Polygon(vertices={self._V.shape[1]})"
         else:
-            return "Polygon(empty)" 
+            return "Polygon(empty)"
+    
+    def vertices_(self, method='convHull'):
+        """
+        Compute vertices of the polygon
+        
+        Args:
+            method: string - method for vertex computation (currently ignored for polygons)
+            
+        Returns:
+            np.ndarray: 2×n matrix with vertices as columns
+        """
+        return self._V 

@@ -186,6 +186,7 @@ def project(P: 'Polytope', dims: List[int], method: str = 'default') -> 'Polytop
 
     elif method_chosen == 'fourier_jones':
         # Try pycddlib; if it fails at runtime, fall back to Fourier-Motzkin
+        # https://pycddlib.readthedocs.io/en/latest/examples.html
         import cdd
 
         # Convert constraints to cdd format (b - A*x >= 0, i.e., [-A | b])

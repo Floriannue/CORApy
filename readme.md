@@ -19,4 +19,8 @@ git submodule update
 # 3. Install Python dependencies using Poetry (recommended)
 #pip install poetry if not available
 poetry install #(or pip install .)
+
+# 4. run example
+#use $env:PYTHONPATH = "C:\Bachelorarbeit\Translate_Cora" if not installed as package
+python cora_python/examples/nn/example_neuralNetwork_verify_safe.py
 ```

@@ -107,6 +107,9 @@ def simulate(linsys, params: Dict[str, Any], options: Optional[Dict[str, Any]] =
     ind = None
     y = np.array([])
     x0 = params['x0'].copy()
+    # Ensure x0 is 1D for scipy solve_ivp
+    if x0.ndim > 1:
+        x0 = x0.flatten()
     
     # Computation of output set desired / possible  
     # MATLAB: comp_y = nargout == 4 && ~isempty(linsys.C);
