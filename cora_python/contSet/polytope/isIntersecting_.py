@@ -157,7 +157,7 @@ def isIntersecting_(P: Polytope,
                 A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
                 A, b, Ae, be, _, _ = priv_compact_all(A, b, Ae, be, PP.dim(), tol)
                 PP._A, PP._b, PP._Ae, PP._be = A, b, Ae, be
-                PP._isHRep = True
+                PP.isHRep = True
             return _aux_isIntersecting_poly_poly(P1, P2, tol)
         
         elif S.__class__.__name__ == 'ConZonotope':

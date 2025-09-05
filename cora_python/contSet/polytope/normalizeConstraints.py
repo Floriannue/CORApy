@@ -44,7 +44,7 @@ def normalizeConstraints(P, *varargin):
                        'Halfspace representation not computed... nothing to normalize!')
     
     # Set default type
-    defaults, _ = setDefaultValues(['b'], list(varargin))
+    defaults = setDefaultValues(['b'], list(varargin))
     type_ = defaults[0]
     
     # Check input arguments

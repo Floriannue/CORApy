@@ -9,7 +9,7 @@ from .interval import Interval
 def supportFunc_(I: Interval,
                  direction: np.ndarray,
                  type_: str = 'upper',
-                 *args) -> Union[float, Tuple[float, np.ndarray]]:
+                 *args, **kwargs) -> Union[float, Tuple[float, np.ndarray]]:
     """
     supportFunc_ - calculates the upper or lower bound of an interval along a
     certain direction

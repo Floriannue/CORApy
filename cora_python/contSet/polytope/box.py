@@ -74,7 +74,7 @@ def _aux_box_V(P: 'Polytope') -> 'Polytope':
         P._bounded_val = True
         P._fullDim_val = False
         P._V = np.zeros((P.dim(), 0))
-        P._isVRep = True
+        P.isVRep = True
         P._minVRep_val = True
         # output empty polytope
         P_out = Polytope.empty(P.dim())
@@ -109,7 +109,7 @@ def _aux_box_H(P: 'Polytope') -> 'Polytope':
         P._bounded_val = True
         P._fullDim_val = False
         P._V = np.zeros((P.dim(), 0))
-        P._isVRep = True
+        P.isVRep = True
         P._minVRep_val = True
         # output empty polytope
         P_out = Polytope.empty(P.dim())

@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 def supportFunc_(pZ, dir_vec: np.ndarray, type_: str = 'range', method: str = 'interval', 
-                maxOrderOrSplits: int = 8, tol: float = 1e-3) -> Union['Interval', float]:
+                maxOrderOrSplits: int = 8, tol: float = 1e-3, **kwargs) -> Union['Interval', float]:
     from cora_python.contSet.interval.interval import Interval
     from cora_python.contSet.zonotope.zonotope import Zonotope
     """
@@ -46,10 +46,13 @@ def supportFunc_(pZ, dir_vec: np.ndarray, type_: str = 'range', method: str = 'i
         val: interval object specifying the upper and lower bound along the direction
     """
     
+    # Accept keyword arguments used in tests: 'splits', 'maxOrder'
+    splits = kwargs.get('splits', None)
+    maxOrder = kwargs.get('maxOrder', None)
     if method == 'split':
-        splits = maxOrderOrSplits
+        splits = maxOrderOrSplits if splits is None else splits
     elif method in ['bnb', 'bnbAdv', 'globOpt']:
-        maxOrder = maxOrderOrSplits
+        maxOrder = maxOrderOrSplits if maxOrder is None else maxOrder
     
     # Different methods to evaluate the support function
     if method == 'interval':
@@ -88,7 +91,9 @@ def supportFunc_(pZ, dir_vec: np.ndarray, type_: str = 'range', method: str = 'i
         
     elif method == 'quadProg':
         val = _aux_supportFuncQuadProg(pZ, dir_vec, type_)
-    
+    else:
+        raise ValueError(f"Unknown supportFunc_ method '{method}' for polyZonotope")
+
     return val
 
 

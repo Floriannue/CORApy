@@ -47,7 +47,7 @@ from cora_python.contSet.interval.interval import Interval
 def supportFunc_(Z: Zonotope, 
                  direction: np.ndarray, 
                  type_: str = 'upper',
-                 *args) -> Tuple[Union[float, Interval], np.ndarray, np.ndarray]:
+                 *args, **kwargs) -> Tuple[Union[float, Interval], np.ndarray, np.ndarray]:
     """
     Calculates the upper or lower bound of a zonotope along a certain direction.
     """

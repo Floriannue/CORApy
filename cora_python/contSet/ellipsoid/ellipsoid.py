@@ -178,7 +178,7 @@ class Ellipsoid(ContSet):
 
         # Pass q_passed directly to setDefaultValues; let it handle None or empty arrays.
         # This removes the complex logic for q_args_for_set_default.
-        parsed_q, _ = setDefaultValues([default_q], [q_passed] if q_passed is not None else [])
+        parsed_q = setDefaultValues([default_q], [q_passed] if q_passed is not None else [])
         q = parsed_q[0]
 
         # Ensure q is a column vector (d x 1) before returning (redundant with earlier check, but harmless)

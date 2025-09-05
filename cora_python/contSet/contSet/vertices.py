@@ -40,9 +40,12 @@ def vertices(S: 'ContSet', *args, **kwargs) -> np.ndarray:
     
     # Call subclass method with proper error handling
     try:
-        # Always pass method parameter to vertices_ methods
-        # This matches MATLAB behavior and handles test objects that expect method
-        res = S.vertices_(method, *addargs)
+        # Always pass method parameter first; if subclass expects fewer args,
+        # fall back to calling without method
+        try:
+            res = S.vertices_(method, *addargs)
+        except TypeError:
+            res = S.vertices_(*addargs)
     except Exception as ME:
         # Catch empty set case
         if S.representsa_('emptySet', 1e-15):

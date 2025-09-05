@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from typing import Tuple, Union
 
 
-def get_unbounded_axis_limits(V: np.ndarray) -> Union[Tuple[np.ndarray, np.ndarray], 
+def get_unbounded_axis_limits(V: np.ndarray = None) -> Union[Tuple[np.ndarray, np.ndarray], 
                                                     Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """
     Get reasonable axis limits for plotting unbounded sets
@@ -38,6 +38,15 @@ def get_unbounded_axis_limits(V: np.ndarray) -> Union[Tuple[np.ndarray, np.ndarr
     Returns:
         Axis limits for plotting
     """
+    # Allow being called without V (tests call with missing arg). When V is None,
+    # fall back to current axis limits; if none, use default ranges.
+    if V is None:
+        ax = plt.gca()
+        if hasattr(ax, 'get_zlim'):
+            return np.array(ax.get_xlim()), np.array(ax.get_ylim()), np.array(ax.get_zlim())
+        else:
+            return np.array(ax.get_xlim()), np.array(ax.get_ylim())
+
     n, m = V.shape
     
     # Get current axis limits if they exist

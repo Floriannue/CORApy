@@ -50,7 +50,7 @@ def cartProd_(E, S, mode: Optional[str] = None):
     """
 
     # default mode
-    (mode_val,), _ = setDefaultValues(['outer'], mode)
+    mode_val = setDefaultValues(['outer'], mode)[0]
     mode = mode_val
 
     # Only 'outer' is supported for Ellipsoid per MATLAB

@@ -10,7 +10,7 @@ def printMatrix(M, *varargin):
     in the workspace, this matrix would be created
     """
 
-    defaults, _ = setDefaultValues(['%4.3f', False, True], varargin)
+    defaults = setDefaultValues(['%4.3f', False, True], varargin)
     accuracy, do_compact, clear_line = defaults
     if isinstance(accuracy, str) and accuracy == 'high':
         accuracy = '%16.16f'
@@ -36,7 +36,9 @@ def printMatrix(M, *varargin):
 
     if M.size == 1:
         item = M.item()
-        if round(item) == item:
+        if np.isinf(item) or np.isnan(item):
+            print(str(item), end='')
+        elif round(item) == item:
             print(f'{int(item)}', end='')
         else:
             print(accuracy % item, end='')

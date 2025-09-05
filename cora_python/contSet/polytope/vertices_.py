@@ -46,7 +46,7 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
         print(f"DEBUG vertices_: polytope is known empty set (cache)")
         V = np.zeros((n, 0))
         P._V = V
-        P._isVRep = True
+        P.isVRep = True
         P._minVRep_val = True
         P._bounded_val = True
         P._fullDim_val = False
@@ -76,7 +76,7 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
         if empty or V.size == 0:
             V_out = np.zeros((1, 0))
             P._V = V_out
-            P._isVRep = True
+            P.isVRep = True
             P._minVRep_val = True
             P._emptySet_val = True
             P._bounded_val = True
@@ -93,7 +93,7 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
             P._fullDim_val = V.shape[1] > 1
         # Set V-representation
         P._V = V
-        P._isVRep = True
+        P.isVRep = True
         return V
 
     # Detect unboundedness early (MATLAB throws error for unbounded vertex enumeration)
@@ -109,7 +109,7 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
         # Empty
         V = np.zeros((n, 0))
         P._V = V
-        P._isVRep = True
+        P.isVRep = True
         P._minVRep_val = True
         P._emptySet_val = True
         P._bounded_val = True
@@ -136,7 +136,7 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
 
     # Set properties after computation
     P._V = V
-    P._isVRep = True
+    P.isVRep = True
     P._minVRep_val = True
     P._emptySet_val = False
     P._bounded_val = True
@@ -301,7 +301,7 @@ def _aux_vertices_lcon2vert(P: Polytope, n: int, c: np.ndarray, tol_local: float
         print(f"DEBUG: Single point detected via isFullDim, returning center")
         V = c.reshape(-1, 1)
         P._V = V
-        P._isVRep = True
+        P.isVRep = True
         P._minVRep = True
         P._emptySet_val = False
         P._bounded_val = True

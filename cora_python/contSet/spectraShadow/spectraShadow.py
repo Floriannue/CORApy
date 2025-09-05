@@ -157,7 +157,7 @@ def _aux_parseInputArgs(*varargin) -> Tuple[Union[np.ndarray, List], np.ndarray,
     """Parse input arguments from user and assign to variables"""
     
     # Set default values
-    defaults, _ = setDefaultValues([0, [], []], list(varargin))
+    defaults = setDefaultValues([0, [], []], list(varargin))
     A, c, G = defaults
     
     # Identify if initialization is made via just A or the existential sum

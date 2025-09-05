@@ -60,7 +60,7 @@ def isequal(fs, S, *args):
         raise ValueError("Too many arguments")
     
     # default values
-    tol_values, _ = set_default_values([np.finfo(float).eps], args)
+    tol_values = set_default_values([np.finfo(float).eps], args)
     tol = tol_values[0]
     
     # check input arguments

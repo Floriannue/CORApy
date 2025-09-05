@@ -75,10 +75,10 @@ def plus(factor1, factor2, *args):
     
     # Default values
     if hasattr(S, '__class__') and S.__class__.__name__ == 'Ellipsoid':
-        defaults, _ = setDefaultValues(['outer:halder', np.zeros((E.dim(), 0))], args)
+        defaults = setDefaultValues(['outer:halder', np.zeros((E.dim(), 0))], args)
         mode, L = defaults
     else:
-        defaults, _ = setDefaultValues(['outer', np.zeros((E.dim(), 0))], args)
+        defaults = setDefaultValues(['outer', np.zeros((E.dim(), 0))], args)
         mode, L = defaults
     
     # Check input arguments

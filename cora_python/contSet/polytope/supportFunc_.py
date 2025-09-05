@@ -57,7 +57,8 @@ def supportFunc_(P: 'Polytope',
                 type_: str = 'upper',
                 method: str = 'interval',
                 max_order_or_splits: int = 8,
-                tol: float = 1e-3) -> Union[float, Tuple[float, np.ndarray]]:
+                tol: float = 1e-3,
+                **kwargs) -> Union[float, Tuple[float, np.ndarray]]:
     """
     Calculate the upper or lower bound of a polytope object along a certain direction
     
@@ -85,7 +86,8 @@ def supportFunc_(P: 'Polytope',
         return _aux_supportFunc_fullspace(dir, type_)
 
     # Normalize direction to 2D column
-    d = dir.reshape(-1, 1) if dir.ndim == 2 else dir.reshape(-1, 1)
+    dir = np.asarray(dir)
+    d = dir.reshape(-1, 1) if dir.ndim <= 2 else dir.reshape(-1, 1)
     n = P.dim()
 
     # If V-representation available, compute directly

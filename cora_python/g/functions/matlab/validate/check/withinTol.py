@@ -33,6 +33,7 @@ Python translation: 2025
 
 import numpy as np
 from typing import Union
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 def withinTol(a: Union[float, int, np.ndarray], b: Union[float, int, np.ndarray], tol: float = 1e-8) -> Union[bool, np.ndarray]:
@@ -62,7 +63,6 @@ def withinTol(a: Union[float, int, np.ndarray], b: Union[float, int, np.ndarray]
     Last revision: 20-July-2023 (TL, speed up input parsing)
                    Automatic python translation: Florian Nüssel BA 2025
     """
-    from ..postprocessing.CORAerror import CORAerror
     is_scalar_input = np.isscalar(a) and np.isscalar(b)
 
     # direct check for speed reasons - handle numpy scalars and arrays

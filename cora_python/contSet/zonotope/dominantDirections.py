@@ -64,7 +64,7 @@ def dominantDirections(Z: Zonotope, filterLength1: Optional[int] = None,
     # Parse input arguments
     defaults = [n+5, n+3]
     args = [filterLength1, filterLength2]
-    result, _ = setDefaultValues(defaults, args)
+    result = setDefaultValues(defaults, args)
     filterLength1, filterLength2 = result
     
     # Check input arguments

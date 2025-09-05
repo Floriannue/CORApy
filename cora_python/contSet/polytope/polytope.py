@@ -82,7 +82,8 @@ class Polytope(ContSet):
     _fullDim_val: Optional[bool]
     _bounded_val: Optional[bool]
 
-    # Public flags (initially set directly in constructor)
+    # Hidden flags (initially set directly in constructor)
+    # public isHRep and isVRep are setters and getters
     _isHRep: bool
     _isVRep: bool
 

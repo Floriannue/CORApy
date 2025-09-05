@@ -112,7 +112,7 @@ class StlInterval(ContSet):
         rc = True
         
         # Use setDefaultValues to handle argument parsing
-        defaults, _ = setDefaultValues([lb, ub, lc, rc], list(args))
+        defaults = setDefaultValues([lb, ub, lc, rc], list(args))
         lb, ub, lc, rc = defaults
         
         # Handle special cases

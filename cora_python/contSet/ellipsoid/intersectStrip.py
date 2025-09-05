@@ -27,7 +27,7 @@ from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 def intersectStrip(E: Ellipsoid, C: np.ndarray, phi: Union[np.ndarray, object], y: np.ndarray, *varargin) -> Tuple[Ellipsoid, float]:
     # parse input
-    (sigma_sq_prev, method), _ = setDefaultValues([0, 'Gollamudi1996'], list(varargin))
+    sigma_sq_prev, method = setDefaultValues([0, 'Gollamudi1996'], list(varargin))
     if not isinstance(sigma_sq_prev, (int, float, np.floating)):
         method = sigma_sq_prev
         sigma_sq_prev = 0

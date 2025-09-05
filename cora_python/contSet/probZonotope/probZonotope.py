@@ -102,6 +102,9 @@ class ProbZonotope(ContSet):
         self.cov = self.sigma()
         self.gauss = True
 
+    def __repr__(self):
+        return f"ProbZonotope(Z={self.Z.shape}, g={self.g.shape}, gamma={self.gamma})"
+
 
 # Auxiliary functions -----------------------------------------------------
 

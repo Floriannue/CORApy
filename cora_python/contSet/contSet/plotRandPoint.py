@@ -27,7 +27,7 @@ def plotRandPoint(S, *varargin):
     # default values for the optional input arguments
     # In python, dimension indices start at 0
     defaults = [[0, 1], 1000, '.k']
-    defaults, _ = setDefaultValues(defaults, varargin)
+    defaults = setDefaultValues(defaults, varargin)
     dims, N, type_ = defaults
 
     # input argument check

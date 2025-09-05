@@ -66,7 +66,8 @@ def projVertices(S, *varargin):
         return type(S).projVertices(S, *varargin)
 
     # --- Primary Method Body ---
-    defaults, _ = setDefaultValues([[1, 2]], varargin)
+    # setDefaultValues returns only the parsed defaults list in Python
+    defaults = setDefaultValues([[1, 2]], varargin)
     dims = defaults[0]
     dims_0_indexed = [d - 1 for d in dims]
 

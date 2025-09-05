@@ -98,4 +98,4 @@ def representsa(S: 'ContSet', set_type: str, *args, **kwargs):
     # We need to ensure that the method representsa_ of the specific class can handle these arguments.
     # For now, we will pass only set_type and tol to avoid TypeError, as most implementations only expect those.
     # When conPolyZono is implemented, this logic will need to be refined based on `S`'s type.
-    return S.representsa_(set_type, tol) 
+    return S.representsa_(set_type, tol, method, iter_val, splits) 

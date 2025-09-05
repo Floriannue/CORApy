@@ -69,18 +69,18 @@ def and_op(S1: 'ContSet', S2: Union['ContSet', np.ndarray], *varargin) -> 'ContS
     # handle different default types based on class
     if S1.__class__.__name__ == 'Ellipsoid':
         # parse input arguments
-        defaults, _ = set_default_values(['outer'], varargin)
+        defaults = set_default_values(['outer'], varargin)
         type_ = defaults[0]
         # check additional input arguments
         input_args_check([[type_, 'str', ['inner', 'outer']]])
     elif S1.__class__.__name__ == 'Zonotope':
         # parse input arguments  
-        defaults, _ = set_default_values(['conZonotope'], varargin)
+        defaults = set_default_values(['conZonotope'], varargin)
         type_ = defaults[0]
         # check additional input arguments
         input_args_check([[type_, 'str', ['conZonotope', 'averaging']]])
     else:
-        defaults, _ = set_default_values(['exact'], varargin)
+        defaults = set_default_values(['exact'], varargin)
         type_ = defaults[0]
     
     # check dimension mismatch

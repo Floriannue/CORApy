@@ -74,7 +74,7 @@ def polytope(Z: Zonotope, method: str = 'exact') -> Union['Polytope', Tuple['Pol
     tol = 1e-12
     
     # Parse input arguments (matching MATLAB)
-    method_values, _ = set_default_values(['exact'], [method])
+    method_values = set_default_values(['exact'], [method])
     method = method_values[0]
     
     # Check input arguments (matching MATLAB)

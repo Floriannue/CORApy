@@ -19,8 +19,8 @@ class TestOrigin:
         assert P.dim() == 2
         
         # Check that it's in both representations
-        assert P._isHRep
-        assert P._isVRep  # Should also be V-rep (line 42 in MATLAB)
+        assert P.isHRep
+        assert P.isVRep  # Should also be V-rep (line 42 in MATLAB)
         
         # Test cache values are set correctly like MATLAB (lines 36-40)
         assert P._emptySet_val == False      # P.emptySet.val = false;
@@ -37,7 +37,7 @@ class TestOrigin:
         
         # Trigger vertex computation and check the result
         V = P.vertices()
-        assert P._isVRep
+        assert P.isVRep    
         assert V.shape == (2, 1)
         assert np.allclose(V, np.array([[0], [0]]))
 
@@ -49,8 +49,8 @@ class TestOrigin:
         assert P.dim() == 3
         
         # Check that both representations are available like MATLAB origin.m
-        assert P._isHRep
-        assert P._isVRep
+        assert P.isHRep
+        assert P.isVRep
 
         # Check halfspace representation
         expected_A = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, -1, -1]])
@@ -60,7 +60,7 @@ class TestOrigin:
 
         # Trigger vertex computation and check the result
         V = P.vertices()
-        assert P._isVRep
+        assert P.isVRep
         assert V.shape == (3, 1)
         assert np.allclose(V, np.array([[0], [0], [0]]))
 

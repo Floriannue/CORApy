@@ -34,7 +34,7 @@ def get_print_set_info(P: Polytope) -> Tuple[str, List[str]]:
     """
 
     abbrev = 'P'
-    if P._is_h_rep.val:
+    if P.isHRep:
         property_order = ['A', 'b', 'Ae', 'be']
     else:  # is_v_rep
         property_order = ['V']

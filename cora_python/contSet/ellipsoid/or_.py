@@ -49,7 +49,7 @@ def or_(E, S, mode=None):
     """
     if mode is None:
         mode = 'outer'
-    mode = setDefaultValues(['outer'], [mode])[0][0]
+    mode = setDefaultValues(['outer'], [mode])[0]
 
     # Ensure that numeric is second input argument
     E, S = reorderNumeric(E, S)

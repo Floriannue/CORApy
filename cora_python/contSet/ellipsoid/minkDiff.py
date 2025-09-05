@@ -24,7 +24,8 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 
 
 def minkDiff(E: Ellipsoid, S, mode: str = None, L: np.ndarray | None = None):
-    (mode_val, L_val), _ = setDefaultValues(['outer', np.zeros((E.dim(), 0))], mode, L)
+    # setDefaultValues returns only the parsed values list in Python
+    mode_val, L_val = setDefaultValues(['outer', np.zeros((E.dim(), 0))], mode, L)
     mode = mode_val
     L = L_val
 
