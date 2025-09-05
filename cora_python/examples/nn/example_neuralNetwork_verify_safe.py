@@ -134,6 +134,7 @@ def aux_readModelAndSpecs(modelPath: str, specPath: str) -> Tuple[NeuralNetwork,
         b = -specs.set.b
     
     safeSet = (specs.type == 'safeSet')
+    print(f"DEBUG: specs.type='{specs.type}', safeSet={safeSet}")
 
     # Create evaluation options.
     options = {}

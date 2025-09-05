@@ -125,6 +125,13 @@ class nnElementwiseAffineLayer(nnLayer):
             r: scaled and offset input data
         """
         scale, offset = self._aux_getScaleAndOffset()
+        
+        # Fix broadcasting: ensure scale and offset have same shape as input_data for element-wise operation
+        # scale and offset should be (n, 1) to match input_data (n, batch_size)
+        if input_data.ndim == 2 and scale.ndim == 1:
+            scale = scale.reshape(-1, 1)
+            offset = offset.reshape(-1, 1)
+        
         r = scale * input_data + offset
         return r
     
@@ -141,7 +148,33 @@ class nnElementwiseAffineLayer(nnLayer):
             S: updated sensitivity matrix
         """
         scale, offset = self._aux_getScaleAndOffset()
-        S = scale * S
+        
+        # MATLAB: S = scale(:)' .* S;
+        # scale(:)' creates a row vector that broadcasts along the first dimension of S
+        # This should work universally for any S shape and batch size
+        
+        # Convert scale to column vector first (like MATLAB's scale(:))
+        scale_col = scale.reshape(-1, 1) if scale.ndim == 1 else scale
+        
+        # Then transpose to row vector (like MATLAB's scale(:)')
+        # and reshape to broadcast properly with S along first dimension
+        if S.ndim == 1:
+            # S is 1D: (output_dim,)
+            S = scale_col.flatten() * S
+        elif S.ndim == 2:
+            # S is 2D: (output_dim, input_dim) 
+            scale_broadcast = scale_col.reshape(-1, 1)  # (output_dim, 1)
+            S = scale_broadcast * S
+        elif S.ndim == 3:
+            # S is 3D: (output_dim, input_dim, batch_size)
+            scale_broadcast = scale_col.reshape(-1, 1, 1)  # (output_dim, 1, 1)
+            S = scale_broadcast * S
+        else:
+            # Higher dimensions - general case
+            shape = [-1] + [1] * (S.ndim - 1)
+            scale_broadcast = scale_col.reshape(shape)
+            S = scale_broadcast * S
+            
         return S
     
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 
@@ -203,6 +236,14 @@ class nnElementwiseAffineLayer(nnLayer):
             c, G: updated zonotope batch
         """
         scale, offset = self._aux_getScaleAndOffset()
+        
+        # Reshape scale and offset to match c and G dimensions for proper broadcasting
+        # c has shape (n, 1, batch), G has shape (n, generators, batch)
+        # scale and offset should be (n, 1, 1) to avoid expanding batch dimension
+        if c.ndim == 3:
+            scale = scale.reshape(-1, 1, 1)
+            offset = offset.reshape(-1, 1, 1)
+        
         if options.get('nn', {}).get('interval_center', False):
             # Flip bounds in case the scale is negative
             mask = scale < 0

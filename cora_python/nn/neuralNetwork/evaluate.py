@@ -85,7 +85,8 @@ def evaluate(obj: NeuralNetwork, input_data, *args):
         raise ValueError("Too many arguments")
     
     # validate parameters (matches MATLAB setDefaultValues exactly)
-    [options, idxLayer] = setDefaultValues([{}, list(range(1, len(obj.layers) + 1))], list(args))
+    # Note: MATLAB uses 1-based indexing, Python uses 0-based indexing
+    [options, idxLayer] = setDefaultValues([{}, list(range(0, len(obj.layers)))], list(args))
     
     # validate input (matches MATLAB inputArgsCheck exactly)
     inputArgsCheck([

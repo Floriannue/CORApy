@@ -270,7 +270,13 @@ class nnLinearLayer(nnLayer):
             # For 3D arrays, we need to use proper broadcasting or reshape
             if c.ndim == 3:
                 # c is (n_in, 1, batch), W is (n_out, n_in), result should be (n_out, 1, batch)
-                c = np.transpose(self.W @ c.transpose(2, 0, 1), (1, 2, 0)) + self.b
+                # c is (n_in, 1, batch), W is (n_out, n_in), result should be (n_out, 1, batch)
+                c_transposed = c.transpose(2, 0, 1)  # (batch, n_in, 1)
+                matmul_result = self.W @ c_transposed  # (batch, n_out, 1)  
+                c = np.transpose(matmul_result, (1, 2, 0))  # (n_out, 1, batch)
+                # Reshape bias to (n_out, 1, 1) for correct broadcasting with (n_out, 1, batch)
+                bias_reshaped = self.b.reshape(self.b.shape[0], self.b.shape[1], 1)
+                c = c + bias_reshaped
             else:
                 c = self.W @ c + self.b
         

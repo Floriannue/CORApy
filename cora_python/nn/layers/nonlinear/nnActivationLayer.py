@@ -1205,16 +1205,13 @@ class nnActivationLayer(nnLayer):
                 b_g = b_c
         
         # Ensure c has the correct shape (n, 1, b) to match MATLAB
-        print(f"DEBUG aux_imgEncBatch: c.shape={c.shape}")
         if c.ndim == 3 and c.shape[1] != 1:
             # If c has wrong middle dimension, reshape it to (n, 1, b)
             c = c[:, :1, :]  # Take only first column
-            print(f"DEBUG aux_imgEncBatch: Corrected c.shape={c.shape}")
         
         # compute bounds: radius per feature and batch; shape (n,1,b)
         r_raw = np.sum(np.abs(G[:, genIds, :]), axis=1)
         r = r_raw.reshape((c.shape[0], 1, c.shape[-1]))
-        print(f"DEBUG aux_imgEncBatch: r.shape={r.shape}")
         # r = max(eps('like',c),r); % prevent numerical instabilities
         l = c - r
         u = c + r
@@ -1235,7 +1232,6 @@ class nnActivationLayer(nnLayer):
         else:
             raise CORAerror('CORA:notSupported', f"Unsupported 'options.nn.poly_method': {options['nn']['poly_method']}")
         
-        print(f"DEBUG aux_imgEncBatch: After recompute - l.shape={l.shape}, u.shape={u.shape}, m.shape={m.shape}, G.shape={G.shape}")
         
         # evaluate image enclosure
         rc = m * c
@@ -1291,18 +1287,39 @@ class nnActivationLayer(nnLayer):
             dDimsIdx = np.ravel_multi_index([dDims, np.tile(np.arange(batchSize), (n, 1))], (n, batchSize))
             notdDimsIdx = dDimsIdx[dn:, :]
             # set not considered approx. error to 0
-            dl[notdDimsIdx] = f(c[notdDimsIdx]) - m[notdDimsIdx] * c[notdDimsIdx]
-            du[notdDimsIdx] = dl[notdDimsIdx]
+            # Convert linear indices back to 2D indices for dl, du (n, 1) arrays
+            # and 3D indices for c, m (n, 1, b) arrays
+            notd_i, notd_b = np.unravel_index(notdDimsIdx.flatten(), (n, batchSize))
+            dl[notd_i, 0] = f(c[notd_i, 0, notd_b]) - m[notd_i, 0, notd_b] * c[notd_i, 0, notd_b]
+            du[notd_i, 0] = dl[notd_i, 0]
             # shift y-intercept by center of approximation errors
-            t = 1/2 * (du + dl)
-            d = 1/2 * (du - dl)
+            # t should have same shape as c (n, 1, b), but du and dl are (n, 1)
+            # We need to broadcast du and dl to match c's batch dimension
+            # In MATLAB, this computation preserves all dimensions
+            # We need to broadcast du and dl to match the batch dimension of c
+            if du.shape != c.shape:
+                # Broadcast du and dl to match c's shape
+                du_expanded = np.broadcast_to(du[:, :, np.newaxis], c.shape)
+                dl_expanded = np.broadcast_to(dl[:, :, np.newaxis], c.shape)
+                t = 1/2 * (du_expanded + dl_expanded)
+                d = 1/2 * (du_expanded - dl_expanded)
+            else:
+                t = 1/2 * (du + dl)
+                d = 1/2 * (du - dl)
             
             # Compute indices for approximation errors in the generator
             # matrix.
-            GdIdx = np.ravel_multi_index([np.tile(np.arange(n), (1, batchSize)), 
-                                        np.reshape(dDims[:dn, :], -1),
-                                        np.tile(approxErrGenIds, (1, batchSize)),
-                                        np.repeat(np.arange(batchSize), n)], (n, p, batchSize))
+            if dn > 0 and len(approxErrGenIds) > 0:
+                # MATLAB: sub2ind([n p batchSize], repmat(1:n,1,batchSize), reshape(dDims(1:dn,:),1,[]), repmat(approxErrGenIds,1,batchSize), repelem(1:batchSize,1,n))
+                # Convert to 0-based indexing and fix parameter order
+                GdIdx = np.ravel_multi_index([
+                    np.tile(np.arange(n, dtype=int), batchSize),  # repmat(1:n,1,batchSize) -> 0-based
+                    np.tile(np.array(approxErrGenIds, dtype=int) - 1, batchSize),  # repmat(approxErrGenIds,1,batchSize) -> 0-based  
+                    np.repeat(np.arange(batchSize, dtype=int), n)  # repelem(1:batchSize,1,n) -> 0-based
+                ], (n, p, batchSize))
+                GdIdx = GdIdx.reshape(dn, batchSize)
+            else:
+                GdIdx = np.array([], dtype=int).reshape(0, batchSize)
             # Store indices of approximation error in generator matrix.
             self.backprop['store']['GdIdx'] = GdIdx
             dDimsIdx = dDimsIdx[:dn, :]
@@ -1384,13 +1401,25 @@ class nnActivationLayer(nnLayer):
                 
         else:
             # compute y-intercept
-            t = f(c) - m * c
+            # In MATLAB: t = f(c) - m.*c; where both f(c) and m.*c have same shape as c
+            fc = f(c)  # f(c) should preserve c's shape
+            mc = m * c  # m.*c in MATLAB
+            
+            # Ensure fc has same shape as c (batch dimension preserved)
+            if fc.shape != c.shape:
+                # If f(c) collapsed the batch dimension, broadcast it back
+                if fc.ndim == 2 and c.ndim == 3:
+                    fc = np.broadcast_to(fc[:, :, np.newaxis], c.shape)
+            
+            t = fc - mc
             # approximation errors are 0
             d = 0
         
         # return coefficients
-        coeffs = np.transpose(np.concatenate([m.reshape(m.shape[0], m.shape[1], 1), 
-                                            t.reshape(t.shape[0], t.shape[1], 1)], axis=2), (0, 2, 1))
+        # MATLAB: coeffs = permute(cat(3,m,t),[1 3 2]);
+        # cat(3,m,t) concatenates along dimension 3 (axis=2 in Python)
+        # permute([1 3 2]) rearranges from (dim1, dim2, dim3) to (dim1, dim3, dim2)
+        coeffs = np.transpose(np.concatenate([m, t], axis=2), (0, 2, 1))
         # Add y-intercept.
         rc = rc + t
         

@@ -458,6 +458,7 @@ pytest [path_to__tests] -args > test_output.txt
 `read_file cora_matlab/contSet/@interval/plus.m` and `read_file cora_python/contSet/interval/plus.py` and compare them
 
 **(If MATLAB available):**
+Create matlab debug script to compare against python (also use to verify excpeted values for tests)
 ```matlab
 % Create matlab_test.m, for example:
 i1 = interval([1, 2]);

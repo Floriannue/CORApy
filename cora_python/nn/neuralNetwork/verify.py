@@ -135,6 +135,9 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.nd
     # Initialize queue - preserve original shapes like MATLAB
     xs = x
     rs = r
+    
+    if verbose:
+        print(f"Initial radius: min={np.min(rs):.6f}, max={np.max(rs):.6f}")
     # Obtain number of input dimensions.
     n0 = x.shape[0]
     
@@ -172,33 +175,38 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.nd
         # 1. Compute the sensitivity.
         S, _ = nn.calcSensitivity(xi, options, store_sensitivity=False)
         
-        # Handle GPU vs CPU arrays - match MATLAB exactly
+        # Handle GPU vs CPU arrays - match MATLAB exactly if size erros fixed could try specification-aware sensitivity
         if useGpu and TORCH_AVAILABLE:
             # Convert sensitivity to GPU tensor if needed
             if isinstance(S, np.ndarray):
                 S = torch.tensor(S, dtype=torch.float32, device=device)
             S = torch.maximum(S, torch.tensor(1e-3, dtype=torch.float32, device=device))
             # MATLAB: sens = permute(sum(abs(S)),[2 1 3]); sens = sens(:,:);
-            # sum(abs(S)) sums over output dimension (dim=0), giving (input_dim, batch_size)
-            sens = torch.sum(torch.abs(S), dim=0)  # shape: (input_dim, batch_size)
-            # permute([2 1 3]) swaps dims 1 and 2, but since we only have 2 dims, this is identity
-            # sens(:,:) reshapes to 2D, which is already 2D
+            # sum(abs(S)) sums over output dimension (dim=0): (5,5,1) -> (5,1)
+            sens_sum = torch.sum(torch.abs(S), dim=0)  # (5,1) = (input, batch)
+            # permute([2 1 3]) swaps first two dims: (5,1) -> (1,5) = (batch, input)
+            # But for batch=1, this is still (1,5), and sens(:,:) flattens it
+            # Since we have batch=1, keep as (5,1) to match xi, ri shapes
+            sens = sens_sum  # (5,1) to match xi, ri for element-wise multiplication
         else:
             # Use NumPy operations - match MATLAB exactly
             S = np.maximum(S, 1e-3)
             # MATLAB: sens = permute(sum(abs(S)),[2 1 3]); sens = sens(:,:);
-            # sum(abs(S)) sums over output dimension (axis=0), giving (input_dim, batch_size)
-            sens = np.sum(np.abs(S), axis=0)  # shape: (input_dim, batch_size)
-            # permute([2 1 3]) swaps dims 1 and 2, but since we only have 2 dims, this is identity
-            # sens(:,:) reshapes to 2D, which is already 2D
+            # sum(abs(S)) sums over output dimension (axis=0): (5,5,1) -> (5,1)
+            sens_sum = np.sum(np.abs(S), axis=0)  # (5,1) = (input, batch)
+            # permute([2,1,3]) swaps first two dims: (5,1) -> (1,5) = (batch, input)
+            # But for batch=1, this is still (1,5), and sens(:,:) flattens it
+            # Since we have batch=1, keep as (5,1) to match xi, ri shapes
+            sens = sens_sum  # (5,1) to match xi, ri for element-wise multiplication
         
-        # 2. Compute adversarial attacks. We want to maximze A*yi + b; 
+        # 2. Compute adversarial attacks. We want to maximize A*yi + b; 
         # therefore, ...
         if useGpu and TORCH_AVAILABLE:
             # Use PyTorch operations for GPU
             zi = xi + ri * torch.sign(sens)
         else:
             # Use NumPy operations for CPU
+            # MATLAB: zi = xi + ri.*sign(sens); where sens has same shape as xi, ri
             zi = xi + ri * np.sign(sens)
         # 3. Check adversarial examples.
         yi = nn.evaluate_(zi, options, idxLayer)
@@ -206,12 +214,51 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.nd
             checkSpecs = np.any(A @ yi + b >= 0, axis=0)
         else:
             checkSpecs = np.all(A @ yi + b <= 0, axis=0)
+        
+        # Debug adversarial attack results
+        if verbose:
+            attack_result = A @ yi + b
+            print(f"DEBUG Adversarial: safeSet={safeSet}, attack range=[{np.min(attack_result):.6f}, {np.max(attack_result):.6f}], counterexamples found: {np.sum(checkSpecs)}")
+            print(f"DEBUG Adversarial: checkSpecs={checkSpecs}")
+            print(f"DEBUG Adversarial: xi.shape={xi.shape}, ri.shape={ri.shape}, sens.shape={sens.shape}")
+            print(f"DEBUG Adversarial: zi.shape={zi.shape}, yi.shape={yi.shape}")
+            print(f"DEBUG Adversarial: zi={zi.flatten()}")
+            print(f"DEBUG Adversarial: yi={yi.flatten()}")
+            
+            # Test MATLAB counterexample and debug layer by layer
+            matlab_x = np.array([[0.679858], [0.100000], [0.500000], [0.500000], [-0.450000]], dtype=np.float32)
+            print(f"DEBUG MATLAB counterexample: x={matlab_x.flatten()}")
+            
+            # Debug ALL layers to find where outputs get squashed
+            layer_input = matlab_x
+            for i in range(len(nn.layers)):
+                layer = nn.layers[i]
+                layer_output = layer.evaluateNumeric(layer_input, options)
+                input_stats = f"[{np.min(layer_input):.3f}, {np.max(layer_input):.3f}]"
+                output_stats = f"[{np.min(layer_output):.3f}, {np.max(layer_output):.3f}]"
+                print(f"DEBUG Layer {i} ({type(layer).__name__}): {input_stats} -> {output_stats}")
+                
+                # Show actual values for key layers
+                if i < 5 or i >= len(nn.layers) - 2:
+                    print(f"  Input: {layer_input.flatten()[:5]}...")
+                    print(f"  Output: {layer_output.flatten()[:5]}...")
+                
+                layer_input = layer_output
+            
+            matlab_y = nn.evaluate_(matlab_x, options, idxLayer)
+            matlab_result = A @ matlab_y + b
+            print(f"DEBUG MATLAB counterexample: final y={matlab_y.flatten()}")  
+            print(f"DEBUG MATLAB counterexample: A@y+b={matlab_result.flatten()}")
+            print(f"DEBUG MATLAB counterexample: all <= 0? {np.all(matlab_result <= 0)}")
+            
+            if np.sum(checkSpecs) == 0:
+                print(f"DEBUG Adversarial: ri range=[{np.min(ri):.6f}, {np.max(ri):.6f}], sens range=[{np.min(sens):.6f}, {np.max(sens):.6f}]")
         if np.any(checkSpecs):
             # Found a counterexample.
             res = 'COUNTEREXAMPLE'
             idNzEntry = np.where(checkSpecs)[0]
             id_ = idNzEntry[0]
-            x_ = zi[:, id_]
+            x_ = zi[:, id_].reshape(-1, 1)  # Ensure x_ is (5, 1) not (5,)
             # Gathering weights from gpu. There is are precision error when 
             # using single gpuArray.
             # In MATLAB: nn.castWeights(single(1)); y_ = nn.evaluate_(gather(x_),options,idxLayer);
@@ -235,26 +282,50 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.nd
                 cxi = np.tile(xi.reshape(xi.shape[0], 1, xi.shape[1]), (1, 2, 1))
         
         # Handle batchG creation for GPU vs CPU
+
+        actual_batch_size = ri.shape[1]  # This is the actual batch size after _aux_pop
+        
         if useGpu and TORCH_AVAILABLE:
             # Convert batchG to GPU tensor
             batchG_gpu = torch.tensor(batchG, dtype=torch.float32, device=device)
-            Gxi = torch.tile(ri.reshape(ri.shape[0], 1, ri.shape[1]), (1, 1, 1)) * batchG_gpu[:, :, :ri.shape[1]]
+            # Take all generators but only actual_batch_size batches
+            Gxi = torch.tile(ri.reshape(ri.shape[0], 1, ri.shape[1]), (1, numGen, 1)) * batchG_gpu[:, :, :actual_batch_size]
         else:
             # Use NumPy operations for CPU; ensure (n,q,batch)
-            Gxi = np.tile(ri.reshape(ri.shape[0], 1, ri.shape[1]), (1, 1, 1)) * batchG[:, :, :ri.shape[1]]
+            # Take all generators but only actual_batch_size batches  
+            Gxi = np.tile(ri.reshape(ri.shape[0], 1, ri.shape[1]), (1, numGen, 1)) * batchG[:, :, :actual_batch_size]
         
         yi, Gyi = nn.evaluateZonotopeBatch_(cxi, Gxi, options, idxLayer)
         
         # 2. Compute logit-difference.
         if not options.get('nn', {}).get('interval_center', False):
+            # yi has shape (n_out, 1, batch) - squeeze center dimension to get (n_out, batch)
+            # Gyi has shape (n_out, n_generators, batch) - keep as is for batch matrix multiplication
+            yi_squeezed = yi.squeeze(axis=1) if yi.ndim == 3 and yi.shape[1] == 1 else yi  # (n_out, batch)
+            
             if useGpu and TORCH_AVAILABLE:
                 # Use PyTorch operations for GPU
-                dyi = torch.matmul(torch.tensor(A, dtype=torch.float32, device=device), yi) + torch.tensor(b, dtype=torch.float32, device=device)
-                dri = torch.sum(torch.abs(torch.matmul(torch.tensor(A, dtype=torch.float32, device=device), Gyi)), dim=0)
+                dyi = torch.matmul(torch.tensor(A, dtype=torch.float32, device=device), yi_squeezed) + torch.tensor(b, dtype=torch.float32, device=device)
+                # For Gyi: A @ Gyi gives (11, n_generators, batch), then sum over generators
+                AGyi = torch.matmul(torch.tensor(A, dtype=torch.float32, device=device), Gyi)  # (11, n_generators, batch)
+                dri = torch.sum(torch.abs(AGyi), dim=1)  # (11, batch)
+                dyi = dyi.cpu().numpy()
+                dri = dri.cpu().numpy()
             else:
                 # Use NumPy operations for CPU
-                dyi = A @ yi + b
-                dri = np.sum(np.abs(A @ Gyi), axis=0)
+                dyi = A @ yi_squeezed + b  # Shape: (11, batch)
+                
+                # For Gyi: Need to handle batch dimension explicitly
+                # Gyi has shape (n_out, n_generators, batch)
+                # We want: for each batch i, compute A @ Gyi[:, :, i] to get (11, n_generators)
+                # Then sum over generators and stack results
+                batch_size = Gyi.shape[2]
+                dri_list = []
+                for i in range(batch_size):
+                    AGyi_i = A @ Gyi[:, :, i]  # (11, 5) @ (5, 5) → (11, 5)
+                    dri_i = np.sum(np.abs(AGyi_i), axis=1, keepdims=True)  # (11, 1)
+                    dri_list.append(dri_i)
+                dri = np.concatenate(dri_list, axis=1)  # (11, batch)
         else:
             # Compute the center and the radius of the center-interval.
             if useGpu and TORCH_AVAILABLE:
@@ -275,18 +346,29 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: float, A: np.ndarray, b: np.nd
         if safeSet:
             if useGpu and TORCH_AVAILABLE:
                 # Use PyTorch operations for GPU
-                checkSpecs = torch.any(dyi + dri > 0, dim=0)
+                # MATLAB: checkSpecs = any(dyi(:,:) + dri(:,:) > 0,1);
+                checkSpecs = torch.any(dyi + dri > 0, dim=0)  # MATLAB logic: any spec violation per batch
             else:
                 # Use NumPy operations for CPU
-                checkSpecs = np.any(dyi + dri > 0, axis=0)
+                # MATLAB: checkSpecs = any(dyi(:,:) + dri(:,:) > 0,1);
+                # For each batch (column), check if ANY spec (row) is violated
+                # dyi + dri has shape (num_specs, num_batches), we want (num_batches,)
+                checkSpecs = np.any(dyi + dri > 0, axis=0)  # MATLAB logic: any spec violation per batch
         else:
             if useGpu and TORCH_AVAILABLE:
                 # Use PyTorch operations for GPU
-                checkSpecs = torch.all(dyi - dri < 0, dim=0)
+                # MATLAB: checkSpecs = all(dyi(:,:) - dri(:,:) < 0,1);
+                checkSpecs = torch.all(dyi - dri < 0, dim=0)  # MATLAB logic: all specs must be satisfied per batch
             else:
                 # Use NumPy operations for CPU
-                checkSpecs = np.all(dyi - dri < 0, axis=0)
+                # MATLAB: checkSpecs = all(dyi(:,:) - dri(:,:) < 0,1);
+                # For each batch (column), check if ALL specs (rows) satisfy the condition
+                # dyi - dri has shape (num_specs, num_batches), we want (num_batches,)
+                checkSpecs = np.all(dyi - dri < 0, axis=0)  # MATLAB logic: all specs must be satisfied per batch
         
+        # In MATLAB: unknown = checkSpecs
+        # For safeSet=True: checkSpecs=true means violation found (needs splitting)
+        # For safeSet=False: checkSpecs=true means all specs satisfied (needs splitting to find counterexample)
         unknown = checkSpecs
         
         # In MATLAB: xi = gather(xi); ri = gather(ri); sens = gather(sens);

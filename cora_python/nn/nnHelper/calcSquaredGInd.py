@@ -40,8 +40,8 @@ def calcSquaredGInd(G1: np.ndarray, G2: np.ndarray, isEqual: Optional[bool] = No
     if G1.size > 0 and G2.size > 0:
         # MATLAB: tempG1 = (1:length(G1))'.^(ones(size(G2)));
         # MATLAB: tempG2 = (1:length(G2)).^(ones(size(G1))');
-        # This creates matrices where tempG1[i,j] = i+1 and tempG2[i,j] = j+1
-        # But we need 0-based indexing for Python
+        # This creates matrices where tempG1[i,j] = i+1 and tempG2[i,j] = j+1 (MATLAB 1-based)
+        # For array indexing in Python, we need to convert to 0-based later
         tempG1 = np.tile(np.arange(1, len(G1) + 1).reshape(-1, 1), (1, len(G2)))
         tempG2 = np.tile(np.arange(1, len(G2) + 1).reshape(1, -1), (len(G1), 1))
         
@@ -50,10 +50,11 @@ def calcSquaredGInd(G1: np.ndarray, G2: np.ndarray, isEqual: Optional[bool] = No
             # as it's the same as the right upper triangle
             # -> double right upper triangle
             
-            # MATLAB: G1_ind = 1:length(G1);
+                    # MATLAB: G1_ind = 1:length(G1);
             # MATLAB: G2_ind = 1:length(G2);
-            G1_ind = np.arange(1, len(G1) + 1)  # 1-based indexing like MATLAB
-            G2_ind = np.arange(1, len(G2) + 1)  # 1-based indexing like MATLAB
+            # Convert to 0-based indexing for Python array access
+            G1_ind = np.arange(0, len(G1))  # 0-based indexing for Python
+            G2_ind = np.arange(0, len(G2))  # 0-based indexing for Python
             
             # MATLAB: G1_ind2 = reshape(triu(tempG1, 1)', 1, []);
             # MATLAB: G2_ind2 = reshape(triu(tempG2, 1)', 1, []);
@@ -67,6 +68,10 @@ def calcSquaredGInd(G1: np.ndarray, G2: np.ndarray, isEqual: Optional[bool] = No
             G1_ind2 = G1_ind2[G1_ind2 > 0]
             G2_ind2 = G2_ind2[G2_ind2 > 0]
             
+            # Convert to 0-based indexing for Python array access
+            G1_ind2 = G1_ind2 - 1
+            G2_ind2 = G2_ind2 - 1
+            
         else:
             # calculate all values
             # MATLAB: G1_ind = tempG1;
@@ -78,5 +83,9 @@ def calcSquaredGInd(G1: np.ndarray, G2: np.ndarray, isEqual: Optional[bool] = No
             # MATLAB: G2_ind = reshape(G2_ind, 1, []);
             G1_ind = G1_ind.reshape(1, -1)
             G2_ind = G2_ind.reshape(1, -1)
+            
+            # Convert to 0-based indexing for Python array access
+            G1_ind = G1_ind - 1
+            G2_ind = G2_ind - 1
     
     return G1_ind, G2_ind, G1_ind2, G2_ind2

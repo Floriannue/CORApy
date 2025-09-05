@@ -1,0 +1,156 @@
+Claude-4-Sonnet
+Et debug/tryout scripts to dig  deep for error cause
+Sometimes ignores one func per file or structure a little bit (needs this and somethimes puts them wrongly all in one file
+except if there are multiple functions in one file in matlab they all should also be in one file in python!)
+If multiple files are translated sometimes only tests for main file
+Good at trying different bug fixing strategies when tests fail
+Very modular and detailed analysis of failed tests
+Sometimes wrong terminal command syntax and probelm with paths (test path location)
+Sometimes cursor doesn't return from executing terminal command
+Needs hints to use powershell syntax correctly
+Correcting structural mistakes is hard - makes new ones, ignores readme, does not fix all
+Sometimes simplifies translated methodes - hard to make full later
+Give the llm hints in the fixing for example dont increase tolaerance in the tests for numerical results - check why the function is so ungenau compare against matlab code
+Kommt manchmal nicht auf die idee mit manual, matlab zu vergleichen bei problemen, würde sowas von Kommilitonen erwarten
+Braucht supervising für intutuion, consitency
+Create a script to fix a "replace" error in all files
+Also needs hint to compare images
+Importiert function anstatt obj.func zu nutzen-> brachte deswegen Patterns für polymorphic dispatch und lazy imports 
+Typing for type hints, lazy imports for actual cirular imports, but most not there if functions attached in init and not class.py and not function imported as standalone
+Trusted to much with func and func_ understanding
+Numpy __ufunc__ not overloaded, sometimes not correct attached but rarely
+Do not implement silent fails or simplifications(check returned immer true, assume something if contains fails etc)
+Some functions have created internal duplicated of other functions (contDynamocs has its own _randPoint inside that ist just calling obj.randpoint)
+Terminal return get cutoff -> write in file
+Manually implemented count_lines and count_files to aid the model in counting
+Manually added compare_translated_files to compare what files per folder have already been translated
+Little debug scripts it uses to analyse bugs are great
+Tests fails - checks multiple things, all are fine - wants to run test again to see if it passes now without changing anything
+-0.5 is not in [-2,1]
+Paths in g wrong
+Todolist greate new feature
+Geminiflash and auto didnt understand there are different ways how repesenta_ returns stuff and that representa_ has a bug there that leads to a wrong distance of always zero. But nice that i spend hours with the two shitty models doing changes everywhere and nothing was actually getting done
+Cursor not returning console commands worked around by copying return and telling model command finished with this output
+Polytope lazy compuation analyzed by hand and descibe to ai since did it alawys wrong
+Forgets changes from before p.emptyset -> p.isemptyobject due to lazy compution restructure to be more like matlab/rest
+
+
+Gemini 2.5 pro (2options, faster, but claude-4-sonnet is the better translator(more robuts/fully/consistent/rule following bzw interpreting), less reliable, more likely to ignore or misinterprete instructions)
+"powershell -Command "Remove-Item -Recurse -Force cora_python" when changes suggestes by the model where not applied
+Copy recursion due to explict polymopric dispatch code that should be there since no copy_ 
+Assumes center.m is called chebyshevCenter.m because it implements the chebyshev Center - > cant fix it by himself gets confused comments out everything dependent on polytope.center
+Does not fully translated functionlity, ignores some paths with not implemented
+Overengeeniered polytope mtimes to include interval conversion and operations instead of using the existing functions
+Does not abstract well from matlab idoms to python (_is_v_rep.val instead of the Python flags _has_v_rep)
+Gets annoyed/probelms when the user not instantly confirms changes
+Tells me the plot is fine when it is plotted but doesn#t look at it, needs hint to save it as png
+Basic import errors between scipy and numpy (imported from wrong module)
+Uncreative error solving - in ellipsoid.distance matrix multiplication error but does not check mtimes
+Good when emphassing certain points in the chat again, like to compare against matlab, no shortcuts, no tolerance changes, full translation
+Seems to improve with time, time in chat and also in general google updates fast
+Surprisingly better at error fixing now but still needs jump ins
+I belive they have gemini pro to the planning and a cheap model to the execution because sometimes gemini says stuff like the edits made by the model are not quite what i intended
+Like a little kid with a manual. It reads once what it has do and then never looks back at it again an assums just everything
+
+
+Auto-Model worked surprisingly good in one try, but short sessions
+Added returs to pytests that resulted in error
+From .polytope import isbounded und polytope.isbounded ist das gleiche
+Polytope created by Inf has wrong dimensions, instead of fixing the constructor it tries to apply changes to the created object in Inf
+Probelm in contset.supportFunc with nargout (variable amount of return values), solved with extra parameter to enable second return value
+Found loophole in rules to import methodes "import helpers here"(argued as internal helper) needed to be fixed into "import helpers from cora_python/g"
+Failed to get ellipsoid or_, priv_orEllipsoidOA running. Sayes solver cant solve outer-approximation of the union of non-empty ellipsoids. Use dual problem, specialised mvee algo, cvxopt or commercial solver
+Stuck in command, no matter > or not, have to intercept and manually tell to read the file
+Fixing ellipsoid bug, Model says well an empty polytope is always contained but then says the contains function return true for an empty polytope which needs to be changed? No vertices gives wrongfuly empty vertices
+Oh and terminal commands is complety broken, freezes always
+Stuck multiple times repeating these textes: 
+Let me check if there's a different issue. The problem might be that the representsa_ method is not properly attached to the Polytope class, or there's a different version being called.
+Actually, let me check if there's a different issue. The problem might be that the method is not properly attached to the Polytope class.
+…
+Tries to run python -m pytest tests/contSet/polytope/test_polytope_ellipsoid.py::test_ellipsoid_2d_degenerate_point -v -s without the cora_python part ( not tests collected)
+Tell model to go down dependency chain and not only stay with one function, tell model there actually is a dependency chain
+ for all models, constant reminder to compare against matlab and to translate stuff fully and not simplified
+Polytope.isemptyobject proeblms test, function descrption contradicting for model
+Try ecept silent fails and tries other (in his view easier) soltution first that fail than (it shozuld just translate the matlab approach)
+Best way is to tell to compare against matlab, compare tests also, if the error could be in isbounded instead of the current isfulldim or you now it calls this and there are errors tell the model to actually check it out
+Sometimes good at creating debug scripts, comparing, thinking about logic
+Stuck at polytope.center matlab difference ouput expectations in the tests of another function (but center still works and the other methode is fixed with isbounded)
+Cd cora_python && pytests -m tests/ instead of just using python -m pytest cora_pthon/tests/
+Insane many gpt5 errors to fix
+Always probelms with isemptyobject because description and tests are contradicting
+New class puts everything in one file, needs to be reminded of readme2
+Lies in summarie about having finished everything at 100%
+Says it fixed something but only added comments test_nnlinearLayer # Result should be (batch_size, input_dim, output_dim) = (2, 2, 3)
+Neural network hard time understand methode per file
+Told to compare nnactivationlayer against matlab. Deletes 3 methodes just to add them back when told to compare again since that seems off (methodes looked valid)
+Does not check what is translates and assumes stuff isnt there/isnt translated and simplifies then due to that
+Le mkdir diddnt return, no kodel but cursor problem in sessions longer then 3 commands
+from ..neuralNetwork import NeuralNetwork instead of .neuralNetwork, leading to cirucal import probelms
+Runs commands multiple times even though he gets the correct return values, needs pasting out of terminal even when commands run correctly and return now
+Tells me nn.verify done 100% after translating and comparing, i tell to compare again now only 70%
+Szuddenlly introduced 1 based indexing in a lot of nn methodes - readme says use 0 based
+I tell to check for fully translation, does so partly then continues translating new methodes simplified
+Claims methods needs for example that i dont belive are need, importfromstruct missing
+Summarizes often and always looses important stuff from readme
+Now somehow doesnt wait for comments to finish and then always says error happend when running -> suddenly doesnt happen anymore in same chat
+Weird: I'll check the reshape layer implementation and fix the issue:<invoke name="read_file"><parameter name="target_file">cora_python/nn/layers/other/nnReshapeLayer.py</parameter><parameter name="should_read_entire_file">false</parameter><parameter name="start_line_one_indexed">1</parameter><parameter name="end_line_one_indexed">100</parameter><parameter name="explanation">I need to check the current reshape layer implementation to see how it handles the -1 case</parameter></invoke> -> chat forever like this
+Claims 16 lines added and 15 removed but reality +4 -3
+Adds debug prints but forgots to add code lines, then goes in circles removing a part in nn, adding it again, morge debug prints, less debug prints, round and round. 
+Does no file edits
+Now I can see the issue! The MATLAB implementation has a typo: storeSensitivty instead of storeSensitivity. This means the sensitivity is never stored at the layers because the condition if storeSensitivty will always be false (the variable is undefined).This explains why all layers show "no sensitivity stored" in our MATLAB test. The MATLAB implementation has a bug! In calsSensitifity.m in nn
+Imports zonotope as lowercase instead of uppercase
+Probelm with matrix representation and flattening, row vs colnm major matlab and python -> added readme entry
+Interrupts commands to early (KeyboardInterrupt in the middle of python running or ERROR: MATLAB error Exit Status: 0x00000001 suddenly in matlab)  and interpretes it then as either run successful (very bad) or coulndt run command (does the samething again and again interrupts to early)
+For 40 hours i had the same erro of input size 50 and 5 dont match. I tried fix everything for the nn examples. Run the tests for all dependencies. Compare this methode against matlab (found missing/simmplifed code and helpers). Once error was gone but the fix was wrong so it came back. Final fix was row-majro(py) vs column-major matlab order and flattening(python row wise, matlab column wise) and then transformation problem-> added specially for this an addtional readme entry (python format was already specified before, but this was special constalation)-> error again there but with output layer not input layer (or nearly input/output)
+At firest told me this we equal
+MATLAB:
+m >= 1 case: d = 0.495000
+m <= 0 case: d = 0.605000
+m = alpha case: d = 0.495000
+Python:
+m >= 1 case: d = 0.495000
+m <= 0 case: d = 0.495000
+m = alpha case: d = 0.495000
+Improved tests, especially accuracy of checked values by creating matlab script that runs the matlab function with the tests values andd then makes the python values with the matlab returns
+Bug in nnActivationlayer and nnLeakyReluLayer since coeffs got modifed inplace in computeApproxError ->  fixed with array.copy()
+
+
+
+Gemini flash
+Stuck in fixing loops
+Makes large weird edits (polytope,ellipsoid) updates constructor according to new readme if said to implement missing (checking what is there problem?
+Does not understand parts 
+The large edits fixed ellipsoid or_, priv_orEllipsoidOA to work with cvxpy - maybe they are actually a cleanup with the new compare instructions
+Then stuck again in fixing loop(long 30min) for random points tests for ellipsoid or_, after big redo while comparing step by step suddenly works
+Got or fix only after multiple compares, was often sure everything is fine and solver is bad, but discoverd randpoint, norm, radius bugs
+Somethimes forgets parts, unused computed variable, rule part, code snipped to translate
+Probelms if user does not accept suggest edits istantly - says apply model did not do the changes, file cant be edited, tries to retranslated complete file, sometimes doesn't read if file contents
+Tried to read manual.pdf instead of as specified manual.txt -> delete manual.pdf
+Overwrites ellipsoid.representa_ and does not even recognize on request that it overwrote already existing function
+Wants to add debug to ellipsoid but keeps editing the whole file no matter what and always changes the translation completly
+Change empty ellispsoid q=zero(n,1)) instead of n x 0 just to change it back now. Both times it assure me this is how it is done in matlab. Changes back and forht trying to fix priv_andhyperplane
+Failed to copy docstring/author block from matlab to python - lacks the unserstand of to replace the instruction with the docstring
+Told to translate easy functions - translates priv_andpolytope - pain
+Can understand pytest output probelm even with extensive hints on amount of tests producing to large output and how it should use parameters and >. Must be told to always use >
+New cursor update made large terminal outputs more likly to return but sometimes not matter of the size no return at all
+Never really checks what is already done
+Gets hung up on empty ellipsoid
+Creates way to much mocks in tests since it never looks for real functions
+When using > sometimes not waits for command to finish and is then surpised by empty file
+
+
+GPT5
+Used gpt5-fast mostly. When stuck at nn switcht to gpt high for more thinking but didnt really help because it took very longer to get code so switchted to sonnet (gpt5 only worth in tryut phase)
+Task fix the last 13 failing ellipsoid tests, some hard, some easy. It is reading every related file for 15 minutes now propbably trieng to understand everything/fixing everyting at once than. Planning, thinking about the issue, than a lof of file reading, repated again and again. 10 more minutes, definitly trieing to figure out all the probelms first by looking before editing or testing. Hopefully gets the assignement right. Really gets stuck on the wrong test comparing I.dim == 2 instead of I.dim() == 2, thinks about crazy ways to fix it. For every issues considers how i can and is affecting everything else. But has always probelms with I.dim when coming back to it.thinking about adding a fake property to make the test pass, creating a childclass just for the test to make it pass, implement dim() and dim. Redefine __getattribute__, 
+Did great work-sometimes for the dim case for example gives to much weight to the test and not the matlab comparison. High quality edits that actually do what they are supposed to do. claimed it updated tests but didn't. created workaround (did not translate missing methode but got results elsewhere. Sometimes foregets tasks like compare your workaround against the actual translation. Doesn't run tests to check work at the end after a while. Doubles code(if else inefficent code writing). For the last two test tried weird sient failing try except with worse results to fix test (didnt't work) then to search root cause. (behaviour changed from first task to now (no long search, no test run after fix etc). Didn't compare against matlab and dind't understand probelm when tasked to look into the past probelm (already told to read readme again), but does so now when teask expicitly again. Changes file, leaves unused helpers at the end, doesn't see probelm with it, stuck in trying to remove these-> restart session and translate ellipsoid. Lots of reading. Imported methode instaf obusing interval.cartprod_(). Ignored complain about shot convhull tests. Sometimes function imports, other classes imported outside of function/ numpy imported inside function (bad). Used silent fail(=bad/cheap solution) try except again. Priv_helper import logic from function that should import them (the function has a wrong helper function that equals the priv function). Writes really bad tests that only check if output is an ellipsoid. Does not understand test structure of one testfile per methode
+Is said continue and it only told me it is running the tests and exited but didnt do anything
+I told them it shoudl add ist tests cases to the existing files(i bet it didn't understand testing schema with one file per methode), it didn't add all tests cases and didn't delete the wrong files, but it told me it did both -> not as reliable as sonnet but smarter
+Does not initilaize correctly(same as rest) -> told to do so and remove none guards etc
+Fixing the erros due to bad desgin decision(by prior llms) is most time exstensive so maybe try to specific as much as possible and be on the lockout for them
+Does not use debug/test scripts, but reads a lot of files and thinks very long about them
+Terminal works suspiciasly good
+Import volumen.py bruh
+Likes try ecept hididng , but on demand replces with explict degeneracy handling
+Forgot is equal __eq__ and __ne__ overloading
+Sometimes really looks at all realted files and tries to get a full picture of the error, does this sometimes in translation to if explictly asked (otherwise mostly tries to shorten translation at first)
+For nn thought very long and fixed very little

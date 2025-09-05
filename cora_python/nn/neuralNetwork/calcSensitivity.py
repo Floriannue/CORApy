@@ -57,6 +57,8 @@ def calcSensitivity(self, x: np.ndarray, varargin=None, store_sensitivity: bool 
     
     # forward propagation
     xs = [None] * len(self.layers)
+    original_batch_size = x.shape[1] if x.ndim > 1 else 1
+    
     for i in range(len(self.layers)):
         xs[i] = x
         layer_i = self.layers[i]
@@ -65,7 +67,9 @@ def calcSensitivity(self, x: np.ndarray, varargin=None, store_sensitivity: bool 
     y = x
     
     # Obtain number of output dimensions and batch size.
-    nK, bSz = y.shape
+    # Use original batch size instead of inferring from potentially wrong y.shape
+    nK = y.shape[0]
+    bSz = original_batch_size
     
     # Initialize the sensitivity in for the output, i.e., identity matrix.
     # MATLAB: S = repmat(eye(nK,'like',y),1,1,bSz)

@@ -1,5 +1,5 @@
 """
-vnnlib2cora - import specifications from .vnnlib files
+vnnlib2cora - import specifications from .vnnlib files (MATLAB-faithful translation)
 
 Description:
     Import specifications from .vnnlib files and convert them to CORA format
@@ -16,12 +16,6 @@ Outputs:
 
 Reference:
     - https://www.vnnlib.org/
-
-Other m-files required: none
-Subfunctions: none
-MAT-files required: none
-
-See also: specification
 
 Authors:       Niklas Kochdumper, Tobias Ladner
 Written:       23-November-2021
@@ -81,19 +75,19 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
     
     # +1 due to 0-indexing in vnnlib files
     data = {
-        'nrInputs': nrInputs + 1,  # Add 1 because VNNLIB uses 0-based indexing (X_0 to X_4 = 5 variables)
-        'nrOutputs': nrOutputs + 1,  # Add 1 because VNNLIB uses 0-based indexing (Y_0 to Y_4 = 5 variables)
-        'currIn': 0
+        'nrInputs': nrInputs + 1,
+        'nrOutputs': nrOutputs + 1,
+        'currIn': 0,
+        'polyInput': [],
+        'polyOutput': []
     }
     
     # parse file
-    data['polyInput'] = []
-    data['polyOutput'] = []
     while text.strip():
         if text.strip().startswith('(assert'):
-            text = text.strip()[8:]  # Remove '(assert'
+            text = text.strip()[7:].strip()  # Remove '(assert' and trim
             len_parsed, data = aux_parseAssert(text, data)
-            text = text.strip()[len_parsed + 1:]
+            text = text.strip()[len_parsed:].strip()
         else:
             ln = text.find('\n')
             if ln != -1:
@@ -104,49 +98,19 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
     # convert data to polytopes ---
     
     # a) convert input
-    # Create intervals for each input variable
+    # potentially convert input polytopes to intervals
     X0 = []
-    
-    # For each input variable, create a separate interval
-    for i in range(data['nrInputs']):
-        # Find all constraints for this specific input variable
-        lower_bound = -np.inf
-        upper_bound = np.inf
+    for i in range(len(data['polyInput'])):
+        polyStruct = data['polyInput'][i]
+        P = Polytope(polyStruct['C'], polyStruct['d'])
         
-        if data['polyInput']:
-            polyStruct = data['polyInput'][0]
-            C = polyStruct['C']
-            d = polyStruct['d']
-            
-            # Find constraints that involve this specific variable
-            for j in range(C.shape[0]):
-                if abs(C[j, i]) > 1e-10:  # Non-zero coefficient for this variable
-                    coeff = C[j, i]
-                    const = d[j]
-                    
-                    if coeff > 0:  # coeff * x <= const
-                        upper_bound = min(upper_bound, const / coeff)
-                    else:  # coeff * x <= const (coeff < 0)
-                        lower_bound = max(lower_bound, const / coeff)
-        
-        # Create interval for this variable
-        from cora_python.contSet.interval.interval import Interval
-        I = Interval(lower_bound, upper_bound)
-        X0.append(I)
-    
-    # Create a single multi-dimensional interval from all individual intervals
-    # This is what the example script expects
-    if X0:
-        # Extract the bounds from all intervals
-        lower_bounds = np.array([interval.inf for interval in X0])
-        upper_bounds = np.array([interval.sup for interval in X0])
-        
-        # Create a single multi-dimensional interval
-        from cora_python.contSet.interval.interval import Interval
-        multi_dim_interval = Interval(lower_bounds, upper_bounds)
-        
-        # Replace the list with a single multi-dimensional interval
-        X0 = [multi_dim_interval]
+        # Check if polytope can be represented as interval
+        try:
+            # Try to convert to interval representation
+            I = P.interval()
+            X0.append(I)
+        except:
+            raise ValueError('Input set is not an interval.')
     
     # b) convert output
     Y = []
@@ -157,18 +121,18 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
     if not Y:
         raise ValueError(f"Unable to convert file: {file_path}")
     elif len(Y) == 1:
+        # MATLAB: spec = specification(Y{1}, 'safeSet');
         spec = Specification(Y[0], 'safeSet')
     else:
-        # For VNNLIB files with (or (and ...) (and ...)), this creates a safe set
-        # The system is safe if ALL conditions are satisfied (intersection of safe sets)
-        # This is equivalent to saying the system is unsafe if ANY condition is violated
-        spec = Specification(Y[0], 'safeSet')
-        
-        # Combine all polytopes into one (intersection)
-        for i in range(1, len(Y)):
-            # For now, just use the first polytope
-            # In a full implementation, we'd compute the intersection
-            pass
+        # MATLAB: Y = safeSet2unsafeSet(Y); spec = []; for i = 1:length(Y) spec = add(spec, specification(Y{i}, 'unsafeSet')); end
+        Y_unsafe = safeSet2unsafeSet(Y)
+        spec = None
+        for i in range(len(Y_unsafe)):
+            spec_i = Specification(Y_unsafe[i], 'unsafeSet')
+            if spec is None:
+                spec = spec_i
+            else:
+                spec = spec.add(spec_i)
     
     # vnnlib files have specifications inverted
     spec = spec.inverse()
@@ -176,43 +140,101 @@ def vnnlib2cora(file_path: str) -> Tuple[List[Interval], Specification]:
     return X0, spec
 
 
-# Auxiliary functions -----------------------------------------------------
-
-def aux_parseAssert(text: str, data: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+def safeSet2unsafeSet(S: List[Polytope]) -> List[Polytope]:
     """
-    Parse one assert statement.
+    Convert the union of safe sets to an equivalent representation as the union of unsafe sets.
     
     Args:
-        text: Text to parse
-        data: Data structure to update
+        S: List of safe sets (Polytope objects)
         
     Returns:
-        Tuple of (length_parsed, updated_data)
+        List of equivalent unsafe sets represented as Polytope objects
     """
-    if text.strip().startswith('(<=') or text.strip().startswith('(>='):
+    # represent first safe set by the union of unsafe sets
+    F = aux_getUnsafeSets(S[0])
+    nrTotalSets = len(F)
+    
+    # loop over all safe sets
+    for i in range(1, len(S)):
+        # represent current safe set by the union of unsafe sets
+        F_i = aux_getUnsafeSets(S[i])
+        nrAddSets = len(F_i)
+        
+        # compute the intersection with the previous unsafe sets
+        F_ = []
+        for j in range(nrTotalSets):
+            for k in range(nrAddSets):
+                # Compute intersection F[j] & F_i[k]
+                try:
+                    intersection = F[j].and_(F_i[k])
+                    if not intersection.isemptyobject():
+                        F_.append(intersection)
+                except:
+                    # If intersection fails, skip
+                    pass
+        
+        # Update F with non-empty polytopes
+        F = F_
+        nrTotalSets = len(F)
+    
+    return F
+
+
+def aux_getUnsafeSets(S: Polytope) -> List[Polytope]:
+    """
+    Represent the safe set S as a union of unsafe sets.
+    
+    Args:
+        S: Safe set as Polytope
+        
+    Returns:
+        List of unsafe sets
+    """
+    # convert to polytope (already is one)
+    P = S
+    
+    # loop over all polytope halfspaces and invert them
+    nrCon = P.A.shape[0]
+    F = []
+    
+    for i in range(nrCon):
+        # Create complement of halfspace P.A[i,:] * x <= P.b[i]
+        # Complement is P.A[i,:] * x > P.b[i], which is -P.A[i,:] * x < -P.b[i]
+        A_neg = -P.A[i:i+1, :]  # Keep as 2D array
+        b_neg = -P.b[i:i+1]     # Keep as 2D array
+        F.append(Polytope(A_neg, b_neg))
+    
+    return F
+
+
+# Auxiliary functions (matching MATLAB exactly) -----------------------------------------------------
+
+def aux_parseAssert(text: str, data: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+    """Parse one assert statement."""
+    
+    if text.startswith('(<=') or text.startswith('(>='):
         return aux_parseLinearConstraint(text, data)
-    elif text.strip().startswith('(or'):
-        text = text.strip()[4:]  # Remove '(or'
+    
+    elif text.startswith('(or'):
+        text = text[3:].strip()
         data_ = {
             'spec': [],
-            'nrOutputs': data['nrOutputs']
+            'nrOutputs': data['nrOutputs'],
+            'nrInputs': data['nrInputs'],
+            'polyInput': [],
+            'polyOutput': [],
+            'currIn': 0
         }
-        len_parsed = 5
+        len_total = 4  # for '(or '
         
         # parse all or conditions
-        while not text.strip().startswith(')'):
+        while not text.startswith(')'):
             # parse one or condition
-            data_['nrInputs'] = data['nrInputs']
-            data_['nrOutputs'] = data['nrOutputs']
-            data_['polyInput'] = []
-            data_['polyOutput'] = []
-            data_['currIn'] = 0
-            
-            len_, data_ = aux_parseAssert(text, data_)
+            len_parsed, data_ = aux_parseAssert(text, data_)
             
             # update remaining text
-            text = text.strip()[len_:]
-            len_parsed += len_
+            text = text[len_parsed:].strip()
+            len_total += len_parsed
             
             # update input conditions
             if data_['polyInput']:
@@ -221,81 +243,54 @@ def aux_parseAssert(text: str, data: Dict[str, Any]) -> Tuple[int, Dict[str, Any
                 else:
                     data['polyInput'] = data_['polyInput']
             
-                    # update output conditions
-        if data_['polyOutput']:
-            if data['polyOutput']:
-                # Append each polyOutput to the list (like MATLAB does)
-                data['polyOutput'].append(data_['polyOutput'][0])
-            else:
-                # Initialize polyOutput with the first structure
-                data['polyOutput'] = data_['polyOutput']
+            # update output conditions
+            if data_['polyOutput']:
+                if data['polyOutput']:
+                    data['polyOutput'].append(data_['polyOutput'][0])
+                else:
+                    data['polyOutput'] = data_['polyOutput']
         
-        return len_parsed, data
+        return len_total + 1, data  # +1 for closing ')'
     
-    elif text.strip().startswith('(and'):
-        text = text.strip()[5:]  # Remove '(and'
-        len_parsed = 6
+    elif text.startswith('(and'):
+        text = text[4:].strip()
+        len_total = 5  # for '(and '
         
         # parse all and conditions
-        while not text.strip().startswith(')'):
-            len_, data = aux_parseAssert(text, data)
-            
-            # advance text by len_ characters (like MATLAB does)
-            text = text[len_:]
+        while not text.startswith(')'):
+            len_parsed, data = aux_parseAssert(text, data)
+            text = text[len_parsed:]
             
             # trim white spaces
-            text_ = text.strip()
-            len_ += (len(text) - len(text_))
-            text = text_
+            text_stripped = text.strip()
+            len_total += len_parsed + (len(text) - len(text_stripped))
+            text = text_stripped
             
-            # move overall length counter to current position
-            len_parsed += len_
-            
-            # Check if there are multiple terms in and; correct len (like MATLAB does)
-            if text.strip().startswith('('):
-                len_parsed -= 1
+            if text.startswith('('):
+                # multiple terms in and; correct len
+                len_total -= 1
         
-        return len_parsed, data
+        return len_total + 1, data  # +1 for closing ')'
     
     else:
-        # Initialize len_parsed if it hasn't been set yet
-        if 'len_parsed' not in locals():
-            len_parsed = 0
-        raise ValueError(f"Failed to parse vnnlib file. Parsed up to line {len_parsed}.")
+        raise ValueError(f'Failed to parse vnnlib file. Unknown assert format: {text[:50]}')
 
 
 def aux_createPolytopeStruct(n: int) -> Dict[str, np.ndarray]:
-    """
-    Create a polytope structure.
-    
-    Args:
-        n: Number of dimensions
-        
-    Returns:
-        Polytope structure dictionary
-    """
+    """Create empty polytope structure."""
     return {
-        'C': np.zeros((2 * n, n)),
-        'd': np.zeros((2 * n, 1))
+        'C': np.zeros((2*n, n)),
+        'd': np.zeros((2*n, 1))
     }
 
 
 def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
-    """
-    Parse a linear constraint.
+    """Parse a linear constraint."""
     
-    Args:
-        text: Text to parse
-        data: Data structure to update
-        
-    Returns:
-        Tuple of (length_parsed, updated_data)
-    """
     # extract operator
-    op = text[1:3]
-    # Remove the opening parenthesis and operator (e.g., "(<=" -> 4 characters)
-    text = text[4:]
-    len_parsed = 4
+    op = text[1:3]  # '<=' or '>='
+    text = text[4:].strip()
+    len_total = 4
     
     # get type of constraint (on inputs X or on output Y)
     constraint_type = aux_getTypeOfConstraint(text)
@@ -303,28 +298,25 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
     # initialization
     if constraint_type == 'input':
         C = np.zeros((1, data['nrInputs']))
-        d = 0
+        d = 0.0
     else:
         C = np.zeros((1, data['nrOutputs']))
-        d = 0
+        d = 0.0
     
     # parse first argument
-    C1, d1, len_ = aux_parseArgument(text, C.copy(), d)  # Use copy to avoid modifying original
-    len_parsed += len_
-    text = text[len_:]  # Advance text by len_ characters (like MATLAB does)
+    C1, d1, len_parsed = aux_parseArgument(text, C.copy(), d)
+    len_total += len_parsed
+    text = text[len_parsed:].strip()
     
     # parse second argument
-    C2, d2, len_ = aux_parseArgument(text, C.copy(), d)  # Use copy to avoid modifying original
-    len_parsed += len_
-    
-    # Account for the closing parenthesis
-    len_parsed += 1
+    C2, d2, len_parsed = aux_parseArgument(text, C.copy(), d)
+    len_total += len_parsed
     
     # combine the two arguments
     if op == '<=':
         C = C1 - C2
         d = d2 - d1
-    else:
+    else:  # op == '>='
         C = C2 - C1
         d = d1 - d2
     
@@ -333,114 +325,85 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
         if not data['polyInput']:
             data['polyInput'] = [aux_createPolytopeStruct(data['nrInputs'])]
         
-        # Ensure currIn doesn't exceed the matrix bounds
-        if data['currIn'] >= data['polyInput'][0]['C'].shape[0]:
-            raise ValueError(f"Too many input constraints. Expected at most {data['polyInput'][0]['C'].shape[0]} constraints, but got {data['currIn'] + 1}")
+        data['currIn'] += 1
         
         for i in range(len(data['polyInput'])):
-            data['polyInput'][i]['C'][data['currIn'], :] = C.flatten()  # Ensure C is 1D
-            data['polyInput'][i]['d'][data['currIn']] = d
-        
-        data['currIn'] += 1
+            data['polyInput'][i]['C'][data['currIn']-1, :] = C
+            data['polyInput'][i]['d'][data['currIn']-1] = d
     
     else:  # output
         if not data['polyOutput']:
-            # Create output polytope structure with proper dimensions
-            data['polyOutput'] = [aux_createPolytopeStruct(data['nrOutputs'])]
+            data['polyOutput'] = [aux_createPolytopeStruct(0)]
         
         for i in range(len(data['polyOutput'])):
-            # Ensure the matrices have compatible dimensions before stacking
-            if data['polyOutput'][i]['C'].shape[1] == 0:
-                # Initialize with proper dimensions
-                data['polyOutput'][i]['C'] = np.zeros((0, data['nrOutputs']))
-                data['polyOutput'][i]['d'] = np.zeros((0, 1))
+            # Append to existing constraints
+            current_C = data['polyOutput'][i]['C']
+            current_d = data['polyOutput'][i]['d']
             
-            data['polyOutput'][i]['C'] = np.vstack([data['polyOutput'][i]['C'], C])
-            data['polyOutput'][i]['d'] = np.vstack([data['polyOutput'][i]['d'], d])
+            # Resize arrays if needed
+            if current_C.shape[1] == 0:
+                data['polyOutput'][i]['C'] = C
+                data['polyOutput'][i]['d'] = np.array([[d]])
+            else:
+                data['polyOutput'][i]['C'] = np.vstack([current_C, C])
+                data['polyOutput'][i]['d'] = np.vstack([current_d, [[d]]])
     
-    return len_parsed, data
+    return len_total, data
 
 
 def aux_parseArgument(text: str, C: np.ndarray, d: float) -> Tuple[np.ndarray, float, int]:
-    """
-    Parse an argument (variable or constant).
+    """Parse next argument."""
     
-    Args:
-        text: Text to parse
-        C: Coefficient matrix
-        d: Constant term
-        
-    Returns:
-        Tuple of (C, d, length_parsed)
-    """
-    text = text.strip()
-    
-    if text.startswith('X_') or text.startswith('Y_'):
-        # Parse variable
-        len_parsed = 0
-        for i in range(len(text)):
-            if text[i] in ' )':
-                len_parsed = i
+    if text.startswith('X') or text.startswith('Y'):
+        # Find end of variable name
+        end_idx = 1
+        for i in range(1, len(text)):
+            if text[i] in [' ', ')']:
+                end_idx = i
                 break
         
-        if len_parsed == 0:
-            len_parsed = len(text)
+        index = int(text[2:end_idx])  # Convert X_0 -> 0, Y_1 -> 1, etc.
+        C[0, index] += 1.0
         
-        # Extract variable name and index
-        var_name = text[:len_parsed]
-        if var_name.startswith('X_'):
-            index_str = var_name[2:]
-            constraint_type = 'input'
-        else:  # Y_
-            index_str = var_name[2:]
-            constraint_type = 'output'
+        return C, d, end_idx
+    
+    elif text.startswith('(+'):
+        # parse first argument
+        C1, d1, len1 = aux_parseArgument(text[2:].strip(), C.copy(), d)
+        text = text[len1+2:].strip()
         
-        try:
-            index = int(index_str)  # Keep 0-based indexing from VNNLIB
-        except ValueError:
-            raise ValueError(f"Invalid variable index in '{text[:len_parsed]}': '{index_str}' is not a valid integer")
+        # parse second argument
+        C2, d2, len2 = aux_parseArgument(text, C.copy(), d)
         
-        # Add 1 to the coefficient for this variable (like MATLAB does)
-        C[0, index] += 1
-        return C, d, len_parsed
+        # combine both arguments
+        return C1 + C2, d1 + d2, len1 + len2 + 2
+    
+    elif text.startswith('(-'):
+        # parse first argument
+        C1, d1, len1 = aux_parseArgument(text[2:].strip(), C.copy(), d)
+        text = text[len1+2:].strip()
         
+        # parse second argument
+        C2, d2, len2 = aux_parseArgument(text, C.copy(), d)
+        
+        # combine both arguments
+        return C1 - C2, d1 - d2, len1 + len2 + 2
+    
     else:
-        # Skip leading whitespace
-        text = text.strip()
-        
-        # Find end of number
-        len_parsed = 0
-        for i in range(len(text)):
-            if text[i] in ' )':
-                len_parsed = i
+        # Parse numerical constant
+        end_idx = 1
+        for i in range(1, len(text)):
+            if text[i] in [' ', ')']:
+                end_idx = i
                 break
         
-        if len_parsed == 0:
-            len_parsed = len(text)
-        
-        # Parse the number
-        try:
-            number = float(text[:len_parsed])
-        except ValueError:
-            raise ValueError(f"Invalid number in '{text[:len_parsed]}'")
-        
-        # For a constant, set d to the number and ensure C is all zeros
-        d = number
-        # Create a new C matrix that is all zeros (this is crucial!)
-        C_constant = np.zeros_like(C)
-        return C_constant, d, len_parsed
+        value = float(text[:end_idx])
+        return C, d + value, end_idx
 
 
 def aux_getTypeOfConstraint(text: str) -> str:
-    """
-    Check if the current constraint is on the inputs or on the outputs.
+    """Check if the current constraint is on the inputs or on the outputs."""
     
-    Args:
-        text: Text to analyze
-        
-    Returns:
-        Type of constraint ('input' or 'output')
-    """
     indX = text.find('X')
     indY = text.find('Y')
     
@@ -448,7 +411,7 @@ def aux_getTypeOfConstraint(text: str) -> str:
     if indX == -1:
         if indY == -1:
             # none given
-            raise ValueError("File format not supported")
+            raise ValueError('File format not supported')
         else:
             # Y is not empty
             return 'output'
@@ -461,95 +424,3 @@ def aux_getTypeOfConstraint(text: str) -> str:
             return 'input'
         else:
             return 'output'
-
-
-def safeSet2unsafeSet(safe_sets: List[Polytope]) -> List[Polytope]:
-    """
-    Convert safe sets to unsafe sets.
-    
-    Args:
-        safe_sets: List of safe set polytopes
-        
-    Returns:
-        List of unsafe set polytopes
-    """
-    if not safe_sets:
-        return []
-    
-    # For a safe set S, the unsafe set is the complement of S
-    # Since we can't directly represent complements of polytopes,
-    # we need to find an equivalent representation
-    
-    # If we have multiple safe sets, we need to find their intersection
-    # and then the unsafe set is everything outside this intersection
-    
-    # For now, we'll create a simple approximation:
-    # Create a large bounding box and subtract the safe sets
-    # This is a simplified approach - in practice, you'd want more sophisticated
-    # set operations
-    
-    unsafe_sets = []
-    
-    for safe_set in safe_sets:
-        # Get the bounding box of the safe set
-        if hasattr(safe_set, 'getBounds'):
-            bounds = safe_set.getBounds()
-            if bounds:
-                # Create a large bounding box around the safe set
-                # and define the unsafe set as everything outside
-                # This is a simplified approach
-                unsafe_sets.append(safe_set)
-    
-    # If we couldn't create proper unsafe sets, return the original
-    # This maintains the original behavior while we implement proper conversion
-    if not unsafe_sets:
-        return safe_sets
-    
-    return unsafe_sets
-
-
-def aux_combineSafeSets(spec: List[Specification]) -> List[Specification]:
-    """
-    Combine all specifications involving safe sets to a single safe set.
-    
-    Args:
-        spec: List of specifications
-        
-    Returns:
-        Combined specifications
-    """
-    # find all specifications that define a safe set
-    ind = []
-    for i in range(len(spec)):
-        if spec[i].type == 'safeSet':
-            ind.append(i)
-    
-    # check if safe sets exist
-    if len(ind) > 1:
-        # combine safe sets to a single polytope
-        poly = spec[ind[0]].set
-        for i in range(1, len(ind)):
-            # Use intersection operation if available
-            if hasattr(poly, '__and__'):
-                poly = poly & spec[ind[i]].set
-            else:
-                # Fallback: just use the first set
-                poly = spec[ind[0]].set
-                break
-        
-        specNew = Specification(poly, 'safeSet')
-        
-        # remove old specifications
-        ind_ = [i for i in range(len(spec)) if i not in ind]
-        
-        if not ind_:
-            spec = [specNew]
-        else:
-            spec = [spec[i] for i in ind_]
-            # Use add function if available, otherwise just append
-            if hasattr(spec[0], 'add'):
-                spec = spec[0].add(specNew) if len(spec) == 1 else spec + [specNew]
-            else:
-                spec.append(specNew)
-    
-    return spec

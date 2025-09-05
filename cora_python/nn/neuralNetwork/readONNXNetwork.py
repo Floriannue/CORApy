@@ -258,14 +258,11 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                         layer_info['Padding'] = list(attr.ints)
                 
             elif node.op_type == 'Add':
-                layer_info['Type'] = 'ElementwiseAffineLayer'
-                matched = True
-                # Try to extract bias/offset if second input is an initializer
-                if len(node.input) >= 2:
-                    bias_name = node.input[1]
-                    if bias_name in initializers:
-                        bias = onnx.numpy_helper.to_array(initializers[bias_name])
-                        layer_info['Offset'] = bias
+                # DISABLED: Skip Add operations to match MATLAB behavior
+                # MATLAB skips ScalingLayer operations entirely
+                print(f"DEBUG ONNX: Skipping Add operation '{node.name}' to match MATLAB")
+                matched = True  # Mark as matched but don't create layer
+                continue  # Skip this node
                 
             elif node.op_type == 'Mul':
                 layer_info['Type'] = 'ElementwiseAffineLayer'
@@ -278,16 +275,11 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                         layer_info['Scale'] = scale
                 
             elif node.op_type == 'Sub':
-                # Subtraction operation - often used for preprocessing
-                layer_info['Type'] = 'ElementwiseAffineLayer'
-                matched = True
-                # Extract the value being subtracted
-                if len(node.input) >= 2:
-                    const_name = node.input[1]
-                    if const_name in initializers:
-                        const_value = onnx.numpy_helper.to_array(initializers[const_name])
-                        layer_info['Offset'] = -const_value  # Negative because we're subtracting
-                        layer_info['Scale'] = np.ones_like(const_value)  # Scale by 1
+                # DISABLED: Skip Sub operations to match MATLAB behavior
+                # MATLAB skips ScalingLayer operations entirely
+                print(f"DEBUG ONNX: Skipping Sub operation '{node.name}' to match MATLAB")
+                matched = True  # Mark as matched but don't create layer
+                continue  # Skip this node
                 
             elif node.op_type == 'MatMul':
                 layer_info['Type'] = 'FullyConnectedLayer'
@@ -298,16 +290,17 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                     if weight_name in initializers:
                         weight = onnx.numpy_helper.to_array(initializers[weight_name])
                         layer_info['Weight'] = weight
-                # Fuse following Add as bias like MATLAB/DLT does
-                if i + 1 < len(graph.node):
-                    next_node = graph.node[i + 1]
-                    if next_node.op_type == 'Add' and next_node.input[0] == node.output[0]:
-                        if len(next_node.input) >= 2:
-                            bias_name = next_node.input[1]
-                            if bias_name in initializers:
-                                bias = onnx.numpy_helper.to_array(initializers[bias_name])
-                                layer_info['Bias'] = bias
-                                layer_info['SkipNext'] = True
+                # DISABLED: Don't fuse Add as bias - MATLAB skips scaling layers entirely
+                # This was causing Python to have non-zero biases while MATLAB has zero biases
+                # if i + 1 < len(graph.node):
+                #     next_node = graph.node[i + 1]
+                #     if next_node.op_type == 'Add' and next_node.input[0] == node.output[0]:
+                #         if len(next_node.input) >= 2:
+                #             bias_name = next_node.input[1]
+                #             if bias_name in initializers:
+                #                 bias = onnx.numpy_helper.to_array(initializers[bias_name])
+                #                 layer_info['Bias'] = bias
+                #                 layer_info['SkipNext'] = True
             elif node.op_type == 'Identity':
                 layer_info['Type'] = 'IdentityLayer'
                 matched = True
