@@ -27,7 +27,7 @@ import sys
 import os
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
+#matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import time
 
@@ -144,10 +144,11 @@ def example_linear_reach_01_5dim():
         
         # Save plot instead of showing it
         plt.savefig(f'example_5dim_projection_{projDims[0]+1}_{projDims[1]+1}.png', dpi=300, bbox_inches='tight')
-        plt.close()
         print(f'Saved plot for projection [{projDims[0]+1}, {projDims[1]+1}]')
     
     print("Plots saved successfully!")
+    plt.show()
+    plt.close()
     
     # Example completed
     print("\n=== Example completed successfully! ===")

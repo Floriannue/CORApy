@@ -21,6 +21,7 @@ git submodule update
 poetry install #(or pip install .)
 
 # 4. run example
-#use $env:PYTHONPATH = "C:\Bachelorarbeit\Translate_Cora" if not installed as package
+python cora_python/examples/contDynamics/linearSys/example_linear_reach_01_5dim.py
 python cora_python/examples/nn/example_neuralNetwork_verify_safe.py
+python cora_python/examples/nn/example_neuralNetwork_verify_unsafe.py
 ```
