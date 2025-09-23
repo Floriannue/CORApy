@@ -32,14 +32,12 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Add the cora_python directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+# Add the project root directory to the path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(current_dir, '../../..')
+sys.path.insert(0, project_root)
 
-# Use absolute import with fallback
-try:
-    from cora_python.contSet.interval import Interval
-except ImportError:
-    from contSet.interval import Interval
+from cora_python.contSet.interval import Interval
 
 
 def example_interval():
@@ -62,8 +60,8 @@ def example_interval():
     I1 = Interval([0, -1], [3, 1])  # create interval I1
     I2 = Interval([-1, -1.5], [1, -0.5])  # create interval I2
     
-    print("I1 =", I1)
-    print("I2 =", I2)
+    print(I1)
+    print(I2)
     print()
     
     # Obtain and display radius of I1
@@ -84,48 +82,18 @@ def example_interval():
     # Visualization
     plt.figure(figsize=(8, 6))
     plt.hold = True  # Enable hold for multiple plots
-    
-    # Plot I3 in blue
-    if hasattr(I3, 'plot'):
-        I3.plot([1, 2], facecolor='blue', alpha=0.7, label='I3 (intersection)')
-    else:
-        # Fallback plotting if plot method not available
-        print("Warning: Plot method not implemented for intervals")
-        # Manual plotting
-        inf_vals = I3.inf
-        sup_vals = I3.sup
-        if len(inf_vals) >= 2:
-            x_coords = [inf_vals[0], sup_vals[0], sup_vals[0], inf_vals[0], inf_vals[0]]
-            y_coords = [inf_vals[1], inf_vals[1], sup_vals[1], sup_vals[1], inf_vals[1]]
-            plt.fill(x_coords, y_coords, color='blue', alpha=0.7, label='I3 (intersection)')
-    
+
     # Plot I1
-    if hasattr(I1, 'plot'):
-        I1.plot([1, 2], facecolor='red', alpha=0.5, label='I1')
-    else:
-        # Manual plotting
-        inf_vals = I1.inf
-        sup_vals = I1.sup
-        if len(inf_vals) >= 2:
-            x_coords = [inf_vals[0], sup_vals[0], sup_vals[0], inf_vals[0], inf_vals[0]]
-            y_coords = [inf_vals[1], inf_vals[1], sup_vals[1], sup_vals[1], inf_vals[1]]
-            plt.plot(x_coords, y_coords, 'r-', linewidth=2, label='I1')
+    I1.plot([1, 2], FaceColor='red', alpha=0.5, label='I1')
     
     # Plot I2
-    if hasattr(I2, 'plot'):
-        I2.plot([1, 2], facecolor='green', alpha=0.5, label='I2')
-    else:
-        # Manual plotting
-        inf_vals = I2.inf
-        sup_vals = I2.sup
-        if len(inf_vals) >= 2:
-            x_coords = [inf_vals[0], sup_vals[0], sup_vals[0], inf_vals[0], inf_vals[0]]
-            y_coords = [inf_vals[1], inf_vals[1], sup_vals[1], sup_vals[1], inf_vals[1]]
-            plt.plot(x_coords, y_coords, 'g-', linewidth=2, label='I2')
-    
+    I2.plot([1, 2], FaceColor='green', alpha=0.5, label='I2')
+
+    I3.plot([1, 2], FaceColor='blue', alpha=0.7, label='I3 (intersection)')
+
     # Format plot
-    plt.xlabel('x₁')
-    plt.ylabel('x₂')
+    plt.xlabel('x_1')
+    plt.ylabel('x_2')
     plt.title('Interval Operations Example')
     plt.legend()
     plt.grid(True, alpha=0.3)

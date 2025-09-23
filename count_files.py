@@ -40,7 +40,7 @@ def compare_one(dir1, dir2, filter=False):
     
     if count1:print(f"Total relevant files in '{dir1}': {count1}")
     if count2:print(f"Total relevant files in '{dir2}': {count2}")
-    if difference != -1:print(f"The difference is {difference}.") 
+    if difference != -1:print(f"The difference is {difference}. {count2/count1*100}% translated.") 
 
 def compare_all():
     for dirpath, dirnames, filenames in os.walk("cora_python"):#path, contained folders, contained files
