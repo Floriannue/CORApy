@@ -140,11 +140,11 @@ def test_vnnlib2cora_prop5():
     
     # Check specification constraints
     if hasattr(specs.set, 'A') and hasattr(specs.set, 'b'):
-        # Our Python implementation includes all constraints (input + output)
-        # The last 4 rows should be the output constraints: Y_0 <= Y_4, Y_1 <= Y_4, Y_2 <= Y_4, Y_3 <= Y_4
-        # This translates to: Y_0 - Y_4 <= 0, Y_1 - Y_4 <= 0, Y_2 - Y_4 <= 0, Y_3 - Y_4 <= 0
-        # So the coefficient matrix should be: [1, 0, 0, 0, -1], [0, 1, 0, 0, -1], [0, 0, 1, 0, -1], [0, 0, 0, 1, -1]
-        expected_A = np.array([[1, 0, 0, 0, -1], [0, 1, 0, 0, -1], [0, 0, 1, 0, -1], [0, 0, 0, 1, -1]])
-        # Check that the last 4 rows match the expected output constraints
-        assert np.allclose(specs.set.A[-4:, :], expected_A)
-        assert np.allclose(specs.set.b[-4:], np.zeros(4))
+        # The output constraints from MATLAB: Y_0 <= Y_4, Y_1 <= Y_4, Y_2 <= Y_4, Y_3 <= Y_4
+        # which in MATLAB becomes: -Y_0 + Y_4 <= 0, -Y_1 + Y_4 <= 0, -Y_2 + Y_4 <= 0, -Y_3 + Y_4 <= 0
+        # So the coefficient matrix is: [-1, 0, 0, 0, 1], [0, -1, 0, 0, 1], [0, 0, -1, 0, 1], [0, 0, 0, -1, 1]
+        expected_A = np.array([[-1, 0, 0, 0, 1], [0, -1, 0, 0, 1], [0, 0, -1, 0, 1], [0, 0, 0, -1, 1]])
+        # Check that the 4 rows match the expected output constraints (should be only 4 rows for safe set)
+        assert specs.set.A.shape == (4, 5), f"Expected A shape (4, 5), got {specs.set.A.shape}"
+        assert np.allclose(specs.set.A, expected_A), f"A matrix mismatch:\nExpected:\n{expected_A}\nGot:\n{specs.set.A}"
+        assert np.allclose(specs.set.b, np.zeros((4, 1))), f"b vector mismatch, got {specs.set.b}"

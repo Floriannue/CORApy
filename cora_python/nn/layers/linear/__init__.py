@@ -7,5 +7,8 @@ This module contains linear transformation layers for neural networks.
 from .nnLinearLayer import nnLinearLayer
 from .nnElementwiseAffineLayer import nnElementwiseAffineLayer
 from .nnIdentityLayer import nnIdentityLayer
+from .nnConv2DLayer import nnConv2DLayer
+from .nnGeneratorReductionLayer import nnGeneratorReductionLayer
 
-__all__ = ['nnLinearLayer', 'nnElementwiseAffineLayer', 'nnIdentityLayer']
+__all__ = ['nnLinearLayer', 'nnElementwiseAffineLayer', 'nnIdentityLayer', 
+           'nnConv2DLayer', 'nnGeneratorReductionLayer']

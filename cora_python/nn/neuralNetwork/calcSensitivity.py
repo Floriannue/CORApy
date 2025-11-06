@@ -67,9 +67,19 @@ def calcSensitivity(self, x: np.ndarray, varargin=None, store_sensitivity: bool 
     y = x
     
     # Obtain number of output dimensions and batch size.
-    # Use original batch size instead of inferring from potentially wrong y.shape
-    nK = y.shape[0]
-    bSz = original_batch_size
+    # MATLAB: [nK,bSz] = size(y);
+    # This gets the first dimension as nK and second dimension as bSz
+    # If y is 2D (nK, bSz), this works correctly
+    if y.ndim == 1:
+        nK = y.shape[0]
+        bSz = 1
+    elif y.ndim == 2:
+        nK = y.shape[0]
+        bSz = y.shape[1]
+    else:
+        # If y has more dimensions, flatten
+        nK = y.shape[0]
+        bSz = np.prod(y.shape[1:])
     
     # Initialize the sensitivity in for the output, i.e., identity matrix.
     # MATLAB: S = repmat(eye(nK,'like',y),1,1,bSz)

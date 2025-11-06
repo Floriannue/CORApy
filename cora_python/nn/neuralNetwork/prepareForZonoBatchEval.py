@@ -107,8 +107,10 @@ def _aux_prepareLayer(layeri: Any, numApproxErr: int, numGen: int,
         Tuple of (numGen, numNeurons) updated values
     """
     # Store number generators of the input
-    if not hasattr(layeri, 'backprop'):
+    if not hasattr(layeri, 'backprop') or not isinstance(layeri.backprop, dict):
         layeri.backprop = {'store': {}}
+    elif 'store' not in layeri.backprop or not isinstance(layeri.backprop['store'], dict):
+        layeri.backprop['store'] = {}
     # 1-based indexing like MATLAB
     layeri.backprop['store']['genIds'] = list(range(numGen))  # 0-based indexing like Python
     

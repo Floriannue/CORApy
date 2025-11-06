@@ -61,10 +61,12 @@ class TestNeuralNetworkVerify:
         
         res, x_, y_ = self.nn.verify(x, r, A, b, safeSet, options, timeout)
         
-                # Should return UNKNOWN due to timeout, but if it finds a counterexample quickly, that's also valid
+        # Should return UNKNOWN due to timeout, but if it finds a counterexample quickly, that's also valid
         assert res in ['UNKNOWN', 'COUNTEREXAMPLE']
-        assert x_ is None
-        assert y_ is None
+        # If counterexample found before timeout, x_ and y_ will not be None
+        if res == 'UNKNOWN':
+            assert x_ is None or x_.size == 0
+            assert y_ is None or y_.size == 0
     
     def test_verify_with_options(self):
         """Test verification with various options"""

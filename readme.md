@@ -12,7 +12,7 @@ cd Translate_Cora
 # 2. Initialize and update the CORA submodule
 # Only do so if you need CORA - the cora_python translation does not require it to run.
 git submodule init
-git submodule update
+git submodule update --remote --recursive
 #Follow the install instructions in cora_matlab/README.md if you want to run cora_matlab
 #The translation process can then run matlab tests
 

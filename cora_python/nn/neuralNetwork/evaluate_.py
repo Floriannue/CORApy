@@ -105,9 +105,9 @@ def aux_evaluateNumeric(obj: 'NeuralNetwork', input_data: np.ndarray, options: D
         layer_k = obj.layers[k]
         # Store input for backpropgation
         if options['nn'].get('train', {}).get('backprop', False):
-            if not hasattr(layer_k, 'backprop'):
-                layer_k.backprop = {}
-            if 'store' not in layer_k.backprop:
+            if not hasattr(layer_k, 'backprop') or not isinstance(layer_k.backprop, dict):
+                layer_k.backprop = {'store': {}}
+            if 'store' not in layer_k.backprop or not isinstance(layer_k.backprop['store'], dict):
                 layer_k.backprop['store'] = {}
             layer_k.backprop['store']['input'] = r
         r = layer_k.evaluateNumeric(r, options)
@@ -138,9 +138,9 @@ def aux_evaluateInterval(obj: 'NeuralNetwork', input_data: Any, options: Dict[st
         layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
         # Store input for backpropgation
         if options['nn'].get('train', {}).get('backprop', False):
-            if not hasattr(layer_k, 'backprop'):
-                layer_k.backprop = {}
-            if 'store' not in layer_k.backprop:
+            if not hasattr(layer_k, 'backprop') or not isinstance(layer_k.backprop, dict):
+                layer_k.backprop = {'store': {}}
+            if 'store' not in layer_k.backprop or not isinstance(layer_k.backprop['store'], dict):
                 layer_k.backprop['store'] = {}
             layer_k.backprop['store']['input'] = r
         r = layer_k.evaluateInterval(r, options)

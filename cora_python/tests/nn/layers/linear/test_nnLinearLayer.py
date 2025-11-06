@@ -237,26 +237,125 @@ class TestNnLinearLayerComplete:
         assert result[6] == ind  # ind unchanged
         assert result[7] == ind_2  # ind_2 unchanged
     
+    def test_evaluateZonotopeBatch_basic(self):
+        """Test basic zonotope batch evaluation"""
+        # Create a simple linear layer
+        W = np.array([[1, 2], [3, 4]], dtype=np.float64)
+        b = np.array([[0.5], [1.0]], dtype=np.float64)
+        layer = nnLinearLayer(W, b, name='test_linear')
+
+        # Create 3D test arrays: c is (n_in, 1, batch), G is (n_in, q, batch)
+        n_in = 2
+        q = 3
+        batch = 2
+
+        c = np.zeros((n_in, 1, batch))
+        c[:, 0, 0] = [1, 2]
+        c[:, 0, 1] = [3, 4]
+
+        G = np.zeros((n_in, q, batch))
+        G[:, :, 0] = [[1, 0, 0.5], [0, 1, 0.5]]
+        G[:, :, 1] = [[2, 0, 1], [0, 2, 1]]
+
+        options = {'nn': {'interval_center': False}}
+
+        # Evaluate
+        c_out, G_out = layer.evaluateZonotopeBatch(c, G, options)
+
+        # Expected results (verified against MATLAB)
+        expected_c = np.zeros((2, 1, 2))
+        expected_c[:, :, 0] = [[5.5], [12.0]]
+        expected_c[:, :, 1] = [[11.5], [26.0]]
+
+        expected_G = np.zeros((2, 3, 2))
+        expected_G[:, :, 0] = [[1, 2, 1.5], [3, 4, 3.5]]
+        expected_G[:, :, 1] = [[2, 4, 3], [6, 8, 7]]
+
+        assert np.allclose(c_out, expected_c)
+        assert np.allclose(G_out, expected_G)
+
+    def test_evaluateZonotopeBatch_single_batch(self):
+        """Test evaluateZonotopeBatch with single batch"""
+        W = np.array([[2, 0], [0, 3]], dtype=np.float64)
+        b = np.array([[1], [2]], dtype=np.float64)
+        layer = nnLinearLayer(W, b)
+
+        c = np.array([[[1]], [[2]]], dtype=np.float64)
+        G = np.array([[[0.5, 0.3]], [[0.4, 0.2]]], dtype=np.float64)
+
+        options = {'nn': {'interval_center': False}}
+        c_out, G_out = layer.evaluateZonotopeBatch(c, G, options)
+
+        expected_c = np.array([[[3]], [[8]]], dtype=np.float64)
+        expected_G = np.array([[[1, 0.6]], [[1.2, 0.6]]], dtype=np.float64)
+
+        assert np.allclose(c_out, expected_c)
+        assert np.allclose(G_out, expected_G)
+
+    def test_evaluateZonotopeBatch_larger_batch(self):
+        """Test evaluateZonotopeBatch with larger batch size"""
+        W = np.eye(3, dtype=np.float64)
+        b = np.ones((3, 1), dtype=np.float64)
+        layer = nnLinearLayer(W, b)
+
+        batch_size = 5
+        c = np.random.randn(3, 1, batch_size)
+        G = np.random.randn(3, 4, batch_size)
+
+        options = {'nn': {'interval_center': False}}
+        c_out, G_out = layer.evaluateZonotopeBatch(c, G, options)
+
+        expected_c = c + b.reshape(3, 1, 1)
+        expected_G = G
+
+        assert np.allclose(c_out, expected_c)
+        assert np.allclose(G_out, expected_G)
+
+    def test_evaluateZonotopeBatch_zero_generators(self):
+        """Test evaluateZonotopeBatch with zero generators"""
+        W = np.array([[1, 2], [3, 4]], dtype=np.float64)
+        b = np.array([[0.5], [1.0]], dtype=np.float64)
+        layer = nnLinearLayer(W, b)
+
+        c = np.array([[[1]], [[2]]], dtype=np.float64).reshape(2, 1, 1)
+        G = np.zeros((2, 0, 1), dtype=np.float64)
+
+        options = {'nn': {'interval_center': False}}
+        c_out, G_out = layer.evaluateZonotopeBatch(c, G, options)
+
+        expected_c = np.array([[[5.5]], [[12.0]]], dtype=np.float64)
+
+        assert c_out.shape == (2, 1, 1)
+        assert G_out.shape == (2, 0, 1)
+        assert np.allclose(c_out, expected_c)
+
     def test_evaluateZonotopeBatch_full_functionality(self):
         """Test evaluateZonotopeBatch (matching MATLAB exactly)"""
         # Test zonotope batch evaluation
-        n, numGen, batchSize = 3, 2, 4
-        c = np.random.rand(2, 2, batchSize)  # 2x2x4 (matching layer input dimension)
-        G = np.random.rand(2, numGen, batchSize)  # 2x2x4 (matching layer input dimension)
+        # For non-interval_center: c should be (n, 1, batch)
+        # For interval_center: c should be (n, 2, batch) with [lower, upper] bounds
+        numGen, batchSize = 2, 4
         
-        # Test without interval_center
+        # Test without interval_center - c has shape (n, 1, batch)
+        c = np.random.rand(2, 1, batchSize)  # 2x1x4
+        G = np.random.rand(2, numGen, batchSize)  # 2x2x4
+        
         result_c, result_G = self.layer.evaluateZonotopeBatch(c, G, {})
-        expected_c = self.W @ c + self.b
-        expected_G = self.W @ G
+        # Expected: c_out = einsum('ij,jkb->ikb', W, c) + b
+        expected_c = np.einsum('ij,jkb->ikb', self.W, c) + self.b.reshape(self.b.shape[0], self.b.shape[1], 1)
+        expected_G = np.einsum('ij,jkb->ikb', self.W, G)
         
         assert np.allclose(result_c, expected_c)
         assert np.allclose(result_G, expected_G)
         
         # Test with interval_center (matching MATLAB options.nn.interval_center)
+        # c now has shape (n, 2, batch) with [lower, upper]
+        c_interval = np.random.rand(2, 2, batchSize)  # 2x2x4
         options = {'nn': {'interval_center': True}}
-        result_c_interval, result_G_interval = self.layer.evaluateZonotopeBatch(c, G, options)
+        result_c_interval, result_G_interval = self.layer.evaluateZonotopeBatch(c_interval, G, options)
         
         # Should use evaluateInterval for centers
+        assert result_c_interval.shape[0] == 3  # output dimension
         assert result_G_interval.shape == expected_G.shape
     
     def test_evaluateTaylm_full_functionality(self):

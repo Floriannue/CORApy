@@ -158,32 +158,31 @@ class nnLinearLayer(nnLayer):
         Evaluate sensitivity
         
         Args:
-            S: Sensitivity matrix
-            x: Input point
+            S: Sensitivity matrix with shape (nK, output_dim, bSz) - receives from next layer
+            x: Input point (unused, kept for interface compatibility)
             options: Evaluation options
             
         Returns:
-            S: Updated sensitivity matrix
+            S: Updated sensitivity matrix with shape (nK, input_dim, bSz) - passes to previous layer
         """
         # MATLAB: S = pagemtimes(S,obj.W);
-        # This computes S @ W for each batch element
-        # S has shape (nK, nK, bSz) initially, then transforms to (nK, input_dim, bSz)
-        # W has shape (output_dim, input_dim)
-        # Result: S @ W gives (nK, input_dim, bSz)
+        # During backward propagation of sensitivity:
+        # S has shape (nK, output_dim, bSz) where output_dim is this layer's output dimension
+        # W has shape (output_dim, input_dim) 
+        # pagemtimes(S, W) computes S[:,:,b] @ W for each batch b
+        # Result: (nK, input_dim, bSz)
         
         if S.ndim == 3:
-            # S is (nK, nK, bSz) or (nK, input_dim, bSz)
-            # W is (output_dim, input_dim)
-            # MATLAB: S = pagemtimes(S,obj.W) computes S @ W for each batch element
-            # Result: (nK, input_dim, bSz)
-            result = np.zeros((S.shape[0], self.W.shape[1], S.shape[2]))
-            for i in range(S.shape[2]):  # iterate over batch dimension
-                # S[:, :, i] is (nK, input_dim), W is (output_dim, input_dim)
-                # We need S[:, :, i] @ W to get (nK, input_dim)
-                result[:, :, i] = S[:, :, i] @ self.W
+            # Use einsum: 'ijk,jl->ilk' where:
+            # S[i,j,k] = (nK, output_dim, bSz)
+            # W[j,l] = (output_dim, input_dim)
+            # Result[i,l,k] = (nK, input_dim, bSz)
+            # Sum over j (output_dim)
+            # MATLAB: S = pagemtimes(S, obj.W) computes S[:,:,b] @ W for each batch b
+            result = np.einsum('ijk,jl->ilk', S, self.W)
             return result
         else:
-            # Handle single case: S @ W (matching MATLAB)
+            # Handle 2D case: S @ W (no transpose needed)
             return S @ self.W
     
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 
@@ -266,24 +265,20 @@ class nnLinearLayer(nnLayer):
             c_result = self.evaluateInterval(Interval(cl, cu), options)
             c = np.stack([c_result.inf, c_result.sup], axis=1)
         else:
-            # MATLAB: c = obj.W*c + obj.b; (matrix multiplication with 3D array)
-            # For 3D arrays, we need to use proper broadcasting or reshape
+            # MATLAB: c = pagemtimes(obj.W, c) + obj.b;
+            # Use einsum for page-wise matrix multiplication: W @ c for each batch
             if c.ndim == 3:
                 # c is (n_in, 1, batch), W is (n_out, n_in), result should be (n_out, 1, batch)
-                # c is (n_in, 1, batch), W is (n_out, n_in), result should be (n_out, 1, batch)
-                c_transposed = c.transpose(2, 0, 1)  # (batch, n_in, 1)
-                matmul_result = self.W @ c_transposed  # (batch, n_out, 1)  
-                c = np.transpose(matmul_result, (1, 2, 0))  # (n_out, 1, batch)
-                # Reshape bias to (n_out, 1, 1) for correct broadcasting with (n_out, 1, batch)
-                bias_reshaped = self.b.reshape(self.b.shape[0], self.b.shape[1], 1)
-                c = c + bias_reshaped
+                # einsum 'ij,jkb->ikb' performs W @ c[:,:,b] for each b
+                c = np.einsum('ij,jkb->ikb', self.W, c) + self.b.reshape(self.b.shape[0], self.b.shape[1], 1)
             else:
                 c = self.W @ c + self.b
         
         # MATLAB: G = pagemtimes(obj.W,G); (page-wise matrix multiplication)
         if G.ndim == 3:
             # G is (n_in, q, batch), W is (n_out, n_in), result should be (n_out, q, batch)
-            G = np.transpose(self.W @ G.transpose(2, 0, 1), (1, 2, 0))
+            # einsum 'ij,jkb->ikb' performs W @ G[:,:,b] for each b
+            G = np.einsum('ij,jkb->ikb', self.W, G)
         else:
             G = self.W @ G
         

@@ -237,28 +237,40 @@ class nnElementwiseAffineLayer(nnLayer):
         """
         scale, offset = self._aux_getScaleAndOffset()
         
-        # Reshape scale and offset to match c and G dimensions for proper broadcasting
-        # c has shape (n, 1, batch), G has shape (n, generators, batch)
-        # scale and offset should be (n, 1, 1) to avoid expanding batch dimension
-        if c.ndim == 3:
-            scale = scale.reshape(-1, 1, 1)
-            offset = offset.reshape(-1, 1, 1)
+        # MATLAB: scale(:) and offset(:) are column vectors
+        scale = scale.flatten()  # Ensure 1D
+        offset = offset.flatten()  # Ensure 1D
         
         if options.get('nn', {}).get('interval_center', False):
-            # Flip bounds in case the scale is negative
+            # MATLAB: mask = [(scale(:) < 0) ~(scale(:) < 0)];
+            # Creates n x 2 logical matrix where first col is negative, second is positive
+            # MATLAB: c_ = permute(c,[3 1 2]); c = permute(cat(3,c_(:,mask),c_(:,~mask)),[2 3 1]);
+            # c has shape (n, 2, batch) for interval_center
+            # c_ becomes (batch, n, 2) after permute
+            # The mask reorders features: negative scale features first, then positive
             mask = scale < 0
-            c_ = np.transpose(c, (2, 0, 1))
-            c = np.transpose(np.concatenate([c_[:, mask], c_[:, ~mask]], axis=1), (1, 2, 0))
+            c_ = np.transpose(c, (2, 0, 1))  # (batch, n, 2)
+            # Reorder features based on mask: negative first, then positive
+            neg_indices = np.where(mask)[0]
+            pos_indices = np.where(~mask)[0]
+            reorder_idx = np.concatenate([neg_indices, pos_indices])
+            c_reordered = c_[:, reorder_idx, :]
+            c = np.transpose(c_reordered, (1, 2, 0))  # Back to (n, 2, batch)
         
-        # Add the offset
-        c = scale * c + offset
+        # MATLAB: c = scale(:).*c + offset(:);
+        # Reshape for broadcasting: scale and offset are (n,), c is (n, 1 or 2, batch)
+        scale_reshaped = scale.reshape(-1, 1, 1) if c.ndim == 3 else scale.reshape(-1, 1)
+        offset_reshaped = offset.reshape(-1, 1, 1) if c.ndim == 3 else offset.reshape(-1, 1)
+        c = scale_reshaped * c + offset_reshaped
         
         if options.get('nn', {}).get('interval_center', False):
-            # Flip bounds in case the scale is negative
+            # MATLAB: c = sort(c,2); - sort along dimension 2 (the bounds dimension)
             c = np.sort(c, axis=1)
         
+        # MATLAB: G = scale(:).*G;
         # Scale the generators
-        G = scale * G
+        scale_G = scale.reshape(-1, 1, 1) if G.ndim == 3 else scale.reshape(-1, 1)
+        G = scale_G * G
         return c, G
     
     def evaluateTaylm(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:

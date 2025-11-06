@@ -1,0 +1,21 @@
+>> res = example_neuralNetwork_verify_safe()
+Queue / Verified / Total: 0000001 / 0000000 / 0000000 [Avg. radius: 0.21799]
+Queue / Verified / Total: 0000005 / 0000000 / 0000005 [Avg. radius: 0.13799]
+Queue / Verified / Total: 0000020 / 0000001 / 0000025 [Avg. radius: 0.05799]
+Queue / Verified / Total: 0000050 / 0000011 / 0000075 [Avg. radius: 0.04199]
+Queue / Verified / Total: 0000040 / 0000053 / 0000115 [Avg. radius: 0.03069]
+Queue / Verified / Total: 0000010 / 0000091 / 0000125 [Avg. radius: 0.02719]
+Queue / Verified / Total: 0000005 / 0000100 / 0000130 [Avg. radius: 0.03415]
+Queue / Verified / Total: 0000010 / 0000103 / 0000140 [Avg. radius: 0.03335]
+Queue / Verified / Total: 0000010 / 0000111 / 0000150 [Avg. radius: 0.02935]
+Queue / Verified / Total: 0000005 / 0000120 / 0000155 [Avg. radius: 0.02922]
+ACASXU_run2a_1_2_batch_2000.onnx -- prop_1.vnnlib: VERIFIED
+--- Verification time: 0.3390 / 2.0000 [s]
+Result:
+unsat
+
+res =
+
+    'VERIFIED'
+
+>> 

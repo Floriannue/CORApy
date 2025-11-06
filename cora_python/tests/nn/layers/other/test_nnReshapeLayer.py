@@ -60,7 +60,8 @@ def test_nn_nnReshapeLayer():
     # Test getOutputSize
     inputSize = [2, 2]
     outputSize = layer.getOutputSize(inputSize)
-    assert outputSize == [2, 2]  # Should match shape of idx_out
+    # Output size is [num_indices, 1] where num_indices is the number of elements in idx_out
+    assert outputSize == [4, 1]  # 4 elements in idx_out
     
     # gather results
     res = True
@@ -87,7 +88,61 @@ def test_nn_nnReshapeLayer_flatten():
     return res
 
 
+def test_nnReshapeLayer_evaluateZonotopeBatch_index_based():
+    """Test evaluateZonotopeBatch with index-based reshape"""
+    idx_out = np.array([[1, 2], [3, 4]])
+    layer = nnReshapeLayer(idx_out)
+    
+    # Create batch: c is (n, 1, batch), G is (n, q, batch)
+    # Input has 4 features, reshape to 4 features in different order
+    c = np.zeros((4, 1, 2))
+    c[:, 0, 0] = [1.0, 2.0, 3.0, 4.0]
+    c[:, 0, 1] = [5.0, 6.0, 7.0, 8.0]
+    
+    G = np.zeros((4, 2, 2))
+    G[:, :, 0] = [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6], [0.7, 0.8]]
+    G[:, :, 1] = [[0.9, 1.0], [1.1, 1.2], [1.3, 1.4], [1.5, 1.6]]
+    
+    c_out, G_out = layer.evaluateZonotopeBatch(c, G, {})
+    
+    # MATLAB: idx_vec = idx_out(:) = [1, 3, 2, 4] (column-major, 1-based)
+    # Python: idx0 = [0, 2, 1, 3] (0-based)
+    # Expected: c_out = c[[0, 2, 1, 3], :, :]
+    expected_c = np.zeros((4, 1, 2))
+    expected_c[:, 0, 0] = [1.0, 3.0, 2.0, 4.0]  # Reordered
+    expected_c[:, 0, 1] = [5.0, 7.0, 6.0, 8.0]  # Reordered
+    
+    assert np.allclose(c_out, expected_c)
+    assert c_out.shape == (4, 1, 2)
+    assert G_out.shape == (4, 2, 2)
+
+
+def test_nnReshapeLayer_evaluateZonotopeBatch_flatten():
+    """Test evaluateZonotopeBatch with flatten (-1) case"""
+    idx_out = [-1]
+    layer = nnReshapeLayer(idx_out)
+    
+    # For flatten case, should pass through unchanged
+    c = np.zeros((4, 1, 2))
+    c[:, 0, 0] = [1.0, 2.0, 3.0, 4.0]
+    c[:, 0, 1] = [5.0, 6.0, 7.0, 8.0]
+    
+    G = np.zeros((4, 2, 2))
+    G[:, :, 0] = [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6], [0.7, 0.8]]
+    G[:, :, 1] = [[0.9, 1.0], [1.1, 1.2], [1.3, 1.4], [1.5, 1.6]]
+    
+    c_out, G_out = layer.evaluateZonotopeBatch(c, G, {})
+    
+    # Flatten case should pass through unchanged
+    assert np.allclose(c_out, c)
+    assert np.allclose(G_out, G)
+    assert c_out.shape == c.shape
+    assert G_out.shape == G.shape
+
+
 if __name__ == "__main__":
     test_nn_nnReshapeLayer()
     test_nn_nnReshapeLayer_flatten()
+    test_nnReshapeLayer_evaluateZonotopeBatch_index_based()
+    test_nnReshapeLayer_evaluateZonotopeBatch_flatten()
     print("test_nn_nnReshapeLayer successful")

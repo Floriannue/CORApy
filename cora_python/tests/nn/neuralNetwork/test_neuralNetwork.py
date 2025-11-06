@@ -105,3 +105,70 @@ class TestNeuralNetwork:
         assert isinstance(nn.layers[0], nnLinearLayer)
         assert isinstance(nn.layers[1], nnReLULayer)
         assert isinstance(nn.layers[2], nnLinearLayer)
+
+    def test_evaluateZonotopeBatch_default_all_layers(self):
+        """EvaluateZonotopeBatch applies all layers by default"""
+        W1 = np.array([[1.0, 2.0], [3.0, 4.0]])
+        b1 = np.array([[0.5], [1.0]])
+        layer1 = nnLinearLayer(W1, b1)
+
+        W2 = np.array([[2.0, -1.0]])
+        b2 = np.array([[0.2]])
+        layer2 = nnLinearLayer(W2, b2)
+
+        nn = NeuralNetwork([layer1, layer2])
+
+        c = np.array([[[1.0]], [[-1.0]]])
+        G = np.array([[[0.1, 0.0]], [[0.0, 0.2]]])
+
+        result_c, result_G = nn.evaluateZonotopeBatch(c, G)
+
+        c_after_layer1 = np.einsum('ij,jkb->ikb', W1, c) + b1.reshape(b1.shape[0], 1, 1)
+        G_after_layer1 = np.einsum('ij,jkb->ikb', W1, G)
+        expected_c = np.einsum('ij,jkb->ikb', W2, c_after_layer1) + b2.reshape(b2.shape[0], 1, 1)
+        expected_G = np.einsum('ij,jkb->ikb', W2, G_after_layer1)
+
+        assert np.allclose(result_c, expected_c)
+        assert np.allclose(result_G, expected_G)
+
+    def test_evaluateZonotopeBatch_idxLayer_zero_based(self):
+        """evaluateZonotopeBatch respects 0-based idxLayer selection"""
+        W1 = np.array([[1.0, 0.0], [0.0, 1.0]])
+        b1 = np.zeros((2, 1))
+        layer1 = nnLinearLayer(W1, b1)
+
+        W2 = np.array([[2.0, 3.0]])
+        b2 = np.array([[1.0]])
+        layer2 = nnLinearLayer(W2, b2)
+
+        nn = NeuralNetwork([layer1, layer2])
+
+        c = np.array([[[2.0]], [[3.0]]])
+        G = np.array([[[0.5]], [[0.2]]])
+
+        result_c, result_G = nn.evaluateZonotopeBatch(c, G, idxLayer=[0])
+
+        expected_c = np.einsum('ij,jkb->ikb', W1, c) + b1.reshape(b1.shape[0], 1, 1)
+        expected_G = np.einsum('ij,jkb->ikb', W1, G)
+
+        assert np.allclose(result_c, expected_c)
+        assert np.allclose(result_G, expected_G)
+
+    def test_evaluateZonotopeBatch_stores_inputs_for_backprop(self):
+        """When backprop flag is set the current inputs are stored in layer.backprop"""
+        W = np.eye(2)
+        b = np.zeros((2, 1))
+        layer = nnLinearLayer(W, b)
+        nn = NeuralNetwork([layer])
+
+        c = np.array([[[1.0]], [[-1.0]]])
+        G = np.array([[[0.2]], [[0.3]]])
+
+        options = {'nn': {'train': {'backprop': True}}}
+        nn.evaluateZonotopeBatch(c, G, options=options)
+
+        assert 'store' in layer.backprop
+        assert 'inc' in layer.backprop['store']
+        assert 'inG' in layer.backprop['store']
+        assert np.allclose(layer.backprop['store']['inc'], c)
+        assert np.allclose(layer.backprop['store']['inG'], G)

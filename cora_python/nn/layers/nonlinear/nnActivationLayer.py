@@ -101,35 +101,82 @@ class nnActivationLayer(nnLayer):
         Evaluate sensitivity
         
         Args:
-            S: Sensitivity matrix
-            x: Input point
+            S: Sensitivity matrix with shape (nK, layer_output_dim, bSz)
+            x: Input point to the layer with shape (layer_input_dim, bSz)
             options: Evaluation options
             
         Returns:
             S: Updated sensitivity matrix
         """
         # MATLAB: S = S.*permute(obj.df(x),[3 1 2]);
-        # This means: S = S .* df(x) where df(x) is reshaped to match S dimensions
-        # S has shape (nK, input_dim, bSz)
-        # df(x) has shape (input_dim, bSz)
-        # We need to reshape df(x) to (1, input_dim, bSz) for broadcasting
+        # permute([3 1 2]) on a 2D array (dim1, dim2) creates (1, dim1, dim2)
+        # This is because MATLAB adds singleton dimensions when they don't exist
         
-        df_x = self.df(x)  # Shape: (input_dim, bSz)
+        df_x = self.df(x)  # Should return shape (layer_output_dim, bSz) for activation layers
         
-        # Reshape df_x to (1, input_dim, bSz) for broadcasting with S (nK, input_dim, bSz)
-        if df_x.ndim == 2:
-            df_x = df_x.reshape(1, df_x.shape[0], df_x.shape[1])
+        # Ensure df_x is 2D: (layer_output_dim, bSz)
+        # Handle various input shapes
+        if df_x.ndim == 1:
+            # If 1D, reshape to (layer_output_dim, 1) assuming single batch
+            df_x = df_x.reshape(-1, 1)
+        elif df_x.ndim == 2:
+            # Already 2D, keep as is
+            pass
+        elif df_x.ndim == 3:
+            # If 3D, flatten to 2D: (dim1, dim2, dim3) -> (dim1, dim2*dim3)
+            # But we need to match S's dimensions
+            # S has shape (nK, layer_output_dim, bSz)
+            # df_x should have shape (layer_output_dim, bSz)
+            if df_x.shape[0] == 1:
+                # (1, dim1, dim2) -> (dim1, dim2)
+                df_x = df_x.squeeze(0)
+            else:
+                # Flatten last two dimensions
+                df_x = df_x.reshape(df_x.shape[0], -1)
+        else:
+            # More than 3D, flatten all but first dimension
+            df_x = df_x.reshape(df_x.shape[0], -1)
+        
+        # Ensure df_x matches S's last two dimensions
+        # S has shape (nK, layer_output_dim, bSz)
+        # df_x should have shape (layer_output_dim, bSz)
+        # x has shape (layer_input_dim, bSz_x) where layer_input_dim = layer_output_dim for activation layers
+        # The batch size might differ between S and x, so we need to handle that
+        
+        # If dimensions don't match, try to reshape
+        if df_x.shape[0] != S.shape[1]:
+            # Layer output dimension mismatch - this shouldn't happen for activation layers
+            # but we'll try to handle it
+            if df_x.size == S.shape[1] * S.shape[2]:
+                df_x = df_x.reshape(S.shape[1], S.shape[2])
+            else:
+                # Try to match just the first dimension and broadcast the second
+                if df_x.shape[0] == S.shape[1] and df_x.shape[1] == 1:
+                    # Broadcast single batch to match S's batch size
+                    df_x = np.tile(df_x, (1, S.shape[2]))
+                elif df_x.size == S.shape[1] * S.shape[2]:
+                    df_x = df_x.reshape(S.shape[1], S.shape[2])
+                else:
+                    raise ValueError(f"Shape mismatch in evaluateSensitivity: S shape {S.shape}, df_x shape {df_x.shape}, x shape {x.shape}")
+        elif df_x.shape[1] != S.shape[2]:
+            # Batch size mismatch - broadcast if df_x has batch size 1
+            if df_x.shape[1] == 1:
+                # Broadcast single batch to match S's batch size
+                df_x = np.tile(df_x, (1, S.shape[2]))
+            elif S.shape[2] == 1:
+                # S has batch size 1, use df_x's batch size (take first)
+                df_x = df_x[:, 0:1]
+            else:
+                raise ValueError(f"Batch size mismatch in evaluateSensitivity: S shape {S.shape}, df_x shape {df_x.shape}, x shape {x.shape}")
+        
+        # MATLAB permute([3 1 2]) on 2D array creates (1, dim1, dim2)
+        # Reshape df_x from (layer_output_dim, bSz) to (1, layer_output_dim, bSz)
+        df_x = df_x.reshape(1, df_x.shape[0], df_x.shape[1])
         
         # Element-wise multiplication: S .* df_x
-        # Ensure S and df_x have compatible shapes for broadcasting
-        if S.shape[1:] != df_x.shape[1:]:
-            # If dimensions don't match, we need to handle this case
-            # This can happen if the sensitivity matrix has unexpected dimensions
-            print(f"Warning: S shape {S.shape} vs df_x shape {df_x.shape}")
-            # Try to reshape df_x to match S dimensions
-            if S.ndim == 3 and df_x.ndim == 2:
-                df_x = df_x.reshape(1, df_x.shape[0], df_x.shape[1])
-        
+        # S has shape (nK, layer_output_dim, bSz)
+        # df_x has shape (1, layer_output_dim, bSz)
+        # Broadcasting: (nK, layer_output_dim, bSz) .* (1, layer_output_dim, bSz) -> (nK, layer_output_dim, bSz)
         S = S * df_x
         return S
     
@@ -184,29 +231,35 @@ class nnActivationLayer(nnLayer):
             # Store coefficients
             self.backprop['store']['coeffs'] = coeffs
             
-            # Store the slope.
-            if options.get('nn', {}).get('train', {}).get('exact_backprop', False):
-                # Store gradient for the backprop through an image
-                # enclosure.
-                if hasattr(self, 'm_l') and hasattr(self, 'm_u'):
-                    self.backprop['store']['m_l'] = self.m_l
-                    self.backprop['store']['m_u'] = self.m_u
+            # Note: The MATLAB code at lines 120-121 tries to store m_l and m_u,
+            # but these variables are undefined in evaluateZonotopeBatch scope.
+            # This is dead code. The actual backprop variables (m_c, m_G, etc.)
+            # are stored in aux_imgEncBatch, not here.
+            # Therefore, we don't store m_l, m_u, GdIdx, dDimsIdx, etc. here.
+            # They are already stored by aux_imgEncBatch if exact_backprop is enabled.
+                        # Store the slope.
+            # if options.get('nn', {}).get('train', {}).get('exact_backprop', False):
+            #     # Store gradient for the backprop through an image
+            #     # enclosure.
+            #     if hasattr(self, 'm_l') and hasattr(self, 'm_u'):
+            #         self.backprop['store']['m_l'] = self.m_l
+            #         self.backprop['store']['m_u'] = self.m_u
                 
-                if options.get('nn', {}).get('use_approx_error', False):
-                    if not options.get('nn', {}).get('interval_center', False):
-                        if hasattr(self, 'GdIdx'):
-                            self.backprop['store']['GdIdx'] = self.GdIdx
-                    if hasattr(self, 'dDimsIdx'):
-                        self.backprop['store']['dDimsIdx'] = self.dDimsIdx
-                    if hasattr(self, 'notdDimsIdx'):
-                        self.backprop['store']['notdDimsIdx'] = self.notdDimsIdx
+            #     if options.get('nn', {}).get('use_approx_error', False):
+            #         if not options.get('nn', {}).get('interval_center', False):
+            #             if hasattr(self, 'GdIdx'):
+            #                 self.backprop['store']['GdIdx'] = self.GdIdx
+            #         if hasattr(self, 'dDimsIdx'):
+            #             self.backprop['store']['dDimsIdx'] = self.dDimsIdx
+            #         if hasattr(self, 'notdDimsIdx'):
+            #             self.backprop['store']['notdDimsIdx'] = self.notdDimsIdx
                     
-                    if hasattr(self, 'dl_l') and hasattr(self, 'dl_u'):
-                        self.backprop['store']['dl_l'] = self.dl_l
-                        self.backprop['store']['dl_u'] = self.dl_u
-                    if hasattr(self, 'du_l') and hasattr(self, 'du_u'):
-                        self.backprop['store']['du_l'] = self.du_l
-                        self.backprop['store']['du_u'] = self.du_u
+            #         if hasattr(self, 'dl_l') and hasattr(self, 'dl_u'):
+            #             self.backprop['store']['dl_l'] = self.dl_l
+            #             self.backprop['store']['dl_u'] = self.dl_u
+            #         if hasattr(self, 'du_l') and hasattr(self, 'du_u'):
+            #             self.backprop['store']['du_l'] = self.du_l
+            #             self.backprop['store']['du_u'] = self.du_u
         
         return rc, rG
     

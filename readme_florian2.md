@@ -87,6 +87,7 @@ All of them apply always
 - **ALWAYS** read MATLAB source files before translating
 - **ALWAYS** search manual for function specifications
 - **ALWAYS** run tests after implementation
+- **ALWAYS** strucutre the Task into small steps in a ToDo List
 - **ALWAYS** verify the mathematical correctness of both the implementation AND the tests, verify not just the algorithm implementation, but also the test expectations and mathematical assumptions.
 - **ALWAYS** after translating a file **report** back with a comparison against the MATLAB source
 - **ALWAYS** if there is an error, compare the logic step by step against matlab (python code and tests against matlab code and tests) to find the errors root cause
@@ -206,6 +207,7 @@ np.array([1, 0])                  # vector
 - Find root cause of errors by comparing against MATLAB source and `Cora2025.1.0_Manual.txt`
 - Verify accuracy by running the original MATLAB function and the Python translation and compare the results
 - **NEVER** modify tests to pass, only if you compared them against the MATLAB source code and Manual and they are wrong. the tests need to ensure the methodeS provide the same functionality as their matlab original
+- Maintain exactly one Python test module per translated MATLAB file; merge further scenarios into that module
 
 
 ## Workflows
@@ -225,6 +227,7 @@ np.array([1, 0])                  # vector
 **Apply Universal Rules** (see above)
 - `read_file` from discovery and all related MATLAB files
 - `grep_search Cora2025.1.0_Manual.txt` for specifications
+- use Chain of Thought Template to create detailed step by step implementation plan as as ToDo List
 
 **Chain of Thought Template (MANDATORY for each function/class):**
 ```
@@ -272,7 +275,7 @@ np.array([1, 0])                  # vector
 ```python
 # Example: cora_python/contSet/interval/interval.py
 """
-[Replace this string with the exact MATLAB docstring, including the Author block with added entry "Automatic python translation: Florian Nüssel BA 2025"]
+[Replace this string with the exact MATLAB docstring, including the Author block with added entry "Automatic python translation: Florian Nüssel 2025"]
 In this example for interval:
 '''
 interval - object constructor for real-valued intervals
@@ -335,7 +338,7 @@ class Interval(ContSet):
                    - Interval(a, b): Interval with bounds
         """
         # Translate MATLAB constructor logic exactly
-        # Must initlaize object correctly and fully so no unnesessary guards later 
+        # Must initlaize object correctly and fully to prevent unnesessary guards later 
         pass
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
@@ -420,7 +423,7 @@ from .zonotope import Zonotope
 __all__ = ['Interval', 'Zonotope']
 ```
 
-**Step 6: Create comprehensive tests**
+**Step 6: Create one comprehensive test file per translated implementation file**
 ```python
 # Example: cora_python/tests/contSet/interval/test_interval_plus.py
 def test_plus_basic():
@@ -430,7 +433,7 @@ def test_plus_basic():
 
 def test_plus_edge_case1():
     """Test edge cases found in MATLAB tests"""
-    # Add all edge cases from MATLAB and any missing ones
+    # Add all edge cases from MATLAB and any missing test cases
     pass
 # ... more cases ...
 ```
@@ -569,7 +572,6 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-**Your current task** is to ensure all examples are working! in case of error compare all dependencies and every methode involved against matlab and create python-matlab debug scripts (you can execute matlab code)
+**Your current task** is to translate D:\Bachelorarbeit\Translate_Cora\cora_matlab\examples\nn\vnncomp and integrate them in the existing code like in matlab. In case of error compare all dependencies and every methode involved against matlab and create python-matlab debug scripts (you can execute matlab code)
 
 
-t

@@ -217,24 +217,25 @@ def aux_parseAssert(text: str, data: Dict[str, Any]) -> Tuple[int, Dict[str, Any
     
     elif text.startswith('(or'):
         text = text[3:].strip()
-        data_ = {
-            'spec': [],
-            'nrOutputs': data['nrOutputs'],
-            'nrInputs': data['nrInputs'],
-            'polyInput': [],
-            'polyOutput': [],
-            'currIn': 0
-        }
         len_total = 4  # for '(or '
         
         # parse all or conditions
         while not text.startswith(')'):
-            # parse one or condition
+            # parse one or condition - reset data_ for each OR branch
+            data_ = {
+                'spec': [],
+                'nrOutputs': data['nrOutputs'],
+                'nrInputs': data['nrInputs'],
+                'polyInput': [],
+                'polyOutput': [],
+                'currIn': 0
+            }
+            
             len_parsed, data_ = aux_parseAssert(text, data_)
             
             # update remaining text
             text = text[len_parsed:].strip()
-            len_total += len_parsed
+            len_total += len_parsed + (len(text) - len(text.lstrip()))
             
             # update input conditions
             if data_['polyInput']:
@@ -289,7 +290,7 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
     
     # extract operator
     op = text[1:3]  # '<=' or '>='
-    text = text[4:].strip()
+    text = text[4:]
     len_total = 4
     
     # get type of constraint (on inputs X or on output Y)
@@ -306,7 +307,7 @@ def aux_parseLinearConstraint(text: str, data: Dict[str, Any]) -> Tuple[int, Dic
     # parse first argument
     C1, d1, len_parsed = aux_parseArgument(text, C.copy(), d)
     len_total += len_parsed
-    text = text[len_parsed:].strip()
+    text = text[len_parsed-1:].strip()  # len_parsed includes delimiter, so back up by 1 before strip
     
     # parse second argument
     C2, d2, len_parsed = aux_parseArgument(text, C.copy(), d)
@@ -365,7 +366,10 @@ def aux_parseArgument(text: str, C: np.ndarray, d: float) -> Tuple[np.ndarray, f
         index = int(text[2:end_idx])  # Convert X_0 -> 0, Y_1 -> 1, etc.
         C[0, index] += 1.0
         
-        return C, d, end_idx
+        # Return end_idx+1 to match MATLAB's behavior of including the delimiter
+        # In MATLAB, len=i where i is the 1-indexed position of the delimiter
+        # In Python 0-indexed, if delimiter is at position i, we return i+1
+        return C, d, end_idx + 1
     
     elif text.startswith('(+'):
         # parse first argument
@@ -398,7 +402,8 @@ def aux_parseArgument(text: str, C: np.ndarray, d: float) -> Tuple[np.ndarray, f
                 break
         
         value = float(text[:end_idx])
-        return C, d + value, end_idx
+        # Return end_idx+1 to match MATLAB's behavior of including the delimiter
+        return C, d + value, end_idx + 1
 
 
 def aux_getTypeOfConstraint(text: str) -> str:

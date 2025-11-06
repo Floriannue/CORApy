@@ -97,7 +97,7 @@ def aux_readModelAndSpecs(modelPath: str, specPath: str) -> Tuple[NeuralNetwork,
         Tuple of (nn, x, r, A, b, safeSet, options)
     """
     # Load the model.
-    nn = NeuralNetwork.readONNXNetwork(modelPath, True, 'BSSC')
+    nn = NeuralNetwork.readONNXNetwork(modelPath, False, 'BSSC')
     # Load specification.
     X0, specs = vnnlib2cora(specPath)
     # Compute center and radius of the input set.

@@ -48,13 +48,22 @@ def evaluateZonotopeBatch_(nn: NeuralNetwork, c: np.ndarray, G: np.ndarray,
     Returns:
         c, G: batch of output sets
     """
+    # Validate layer indices
+    num_layers = len(nn.layers)
+    for idx in idxLayer:
+        if idx < 0 or idx >= num_layers:
+            raise IndexError(f"Layer index {idx} out of bounds for network with {num_layers} layers")
+
     for i in idxLayer:
         layeri = nn.layers[i]
         # Store input for backpropagation
         if options.get('nn', {}).get('train', {}).get('backprop', False):
-            if hasattr(layeri, 'backprop') and hasattr(layeri.backprop, 'store'):
-                layeri.backprop.store.inc = c
-                layeri.backprop.store.inG = G
+            if not hasattr(layeri, 'backprop') or not isinstance(layeri.backprop, dict):
+                layeri.backprop = {'store': {}}
+            if 'store' not in layeri.backprop or not isinstance(layeri.backprop['store'], dict):
+                layeri.backprop['store'] = {}
+            layeri.backprop['store']['inc'] = c
+            layeri.backprop['store']['inG'] = G
         
         c, G = layeri.evaluateZonotopeBatch(c, G, options)
     
