@@ -21,6 +21,18 @@ Example:
 python run_instance.py test models/ACASXU_run2a_1_2_batch_2000.onnx models/prop_1.vnnlib results.txt 120 --verbose
 ```
 
+### Usage Example
+```bash
+cd cora_python/examples/nn/vnncomp
+export PYTHONPATH="/path/to/Translate_Cora"
+python run_instance.py test \
+    ../models/ACASXU_run2a_1_2_batch_2000.onnx \
+    ../models/prop_2.vnnlib \
+    results.txt \
+    120 \
+    --verbose
+```
+
 ### Output format
 
 Results are written in VNN-COMP format:
@@ -38,7 +50,6 @@ Results are written in VNN-COMP format:
 
 - Python 3.11+
 - CORA Python (cora_python package)
-- NumPy
 - (Optional) GPU support for performance
 
 ---

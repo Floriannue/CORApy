@@ -38,6 +38,10 @@ from cora_python.converter.neuralnetwork2cora.vnnlib2cora import vnnlib2cora
 from cora_python.contSet.polytope import Polytope
 from cora_python.nn.nnHelper.validateNNoptions import validateNNoptions
 
+# Import benchmark configuration
+sys.path.insert(0, os.path.dirname(__file__))
+from benchmark_config import get_benchmark_options
+
 
 def convert_safe_set_to_union_unsafe_sets(specs):
     """
@@ -165,7 +169,7 @@ def run_instance(bench_name: str, model_path: str, vnnlib_path: str,
             print('--- Loading network...')
         
         # Load neural network
-        nn = NeuralNetwork.readONNXNetwork(model_path, verbose=False)
+        nn = NeuralNetwork.readONNXNetwork(model_path)
         
         if verbose:
             print(' done')
@@ -177,19 +181,33 @@ def run_instance(bench_name: str, model_path: str, vnnlib_path: str,
         if verbose:
             print(' done')
         
-        # Set default options
-        options = {
-            'nn': {
-                'use_approx_error': True,
-                'poly_method': 'bounds',
-                'train': {
-                    'use_gpu': False,
-                    'backprop': False,
-                    'mini_batch_size': 1024
+        # Get benchmark-specific options
+        from get_instance_filename import get_instance_filename
+        _, model_name, vnnlib_name = get_instance_filename(bench_name, model_path, vnnlib_path)
+        
+        try:
+            bench_config = get_benchmark_options(bench_name, model_name, vnnlib_path)
+            options = bench_config['options']
+            if verbose:
+                print(f'Using benchmark-specific config for {bench_name}')
+        except ValueError as e:
+            if verbose:
+                print(f'Warning: {e}')
+                print('Using default options')
+            # Fall back to default options
+            options = {
+                'nn': {
+                    'use_approx_error': True,
+                    'poly_method': 'bounds',
+                    'train': {
+                        'use_gpu': False,
+                        'backprop': False,
+                        'mini_batch_size': 1024
+                    }
                 }
             }
-        }
-        options = validateNNoptions(options, set_default=True)
+        
+        options = validateNNoptions(options, True)
         
         # Batch all input sets
         x_list = []
@@ -252,12 +270,13 @@ def run_instance(bench_name: str, model_path: str, vnnlib_path: str,
                 rem_timeout = timeout - (time.time() - total_time_start)
                 
                 # Run verification
-                res_i, x_, y_ = nn.verify(x, r, A, b, is_safe_set, options, rem_timeout, verbose)
+                # Python verify returns (result_str, x_, y_)
+                result_str_i, x_, y_ = nn.verify(x, r, A, b, is_safe_set, options, rem_timeout, verbose)
                 
-                # Add number of verified branches
-                result['numVerified'] += res_i.numVerified
+                # Note: Python version doesn't track numVerified currently
+                # result['numVerified'] += 1  # Would need to be added to verify method
                 
-                result['str'] = res_i.str
+                result['str'] = result_str_i
                 result['x'] = x_
                 result['y'] = y_
                 
