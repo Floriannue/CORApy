@@ -1,0 +1,23 @@
+﻿Startup file: C:\Users\flori\OneDrive\Dokumente\.Studium\Bachelor\6.FS\Bachelorarbeit\Translate_Cora\tbxmanager\startup.m
+Toolbox "yalmip:R20230609:all" added to the Matlab path.
+Toolbox "sedumi:1.3:pcwin64" added to the Matlab path.
+Toolbox "CORA v2025.2.0" added to the Matlab path.
+
+<strong>CORA - TIP OF THE DAY</strong>
+  Example of the day: <a href="matlab:open example_plot_posXYZ">example_plot_posXYZ</a>.
+  Checking out existing examples is a good way to get hands-on experience in CORA.
+
+Done.
+Test 1a: Calling verify with bsafe=-2.27 (should return VERIFIED)
+Arguments: nn, x, r, A, bsafe, safeSet, options, timeout, verbose, plotDims
+Total arguments: 10 (within narginchk(6,11) range)
+Error in Test 1a: Too many input arguments.
+Trying with explicit plotSplittingTree=false...
+Error with plotSplittingTree: Too many input arguments.
+
+Test 1b: Calling verify with bunsafe=-1.27 (should return COUNTEREXAMPLE)
+Error in Test 1b: Too many input arguments.
+Trying with explicit plotSplittingTree=false...
+Error with plotSplittingTree: Too many input arguments.
+
+Done.

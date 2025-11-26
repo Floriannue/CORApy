@@ -173,12 +173,20 @@ class nnLinearLayer(nnLayer):
         # Result: (nK, input_dim, bSz)
         
         if S.ndim == 3:
-            # Use einsum: 'ijk,jl->ilk' where:
-            # S[i,j,k] = (nK, output_dim, bSz)
-            # W[j,l] = (output_dim, input_dim)
-            # Result[i,l,k] = (nK, input_dim, bSz)
-            # Sum over j (output_dim)
-            # MATLAB: S = pagemtimes(S, obj.W) computes S[:,:,b] @ W for each batch b
+            # MATLAB: S = pagemtimes(S, obj.W) where:
+            # S has shape (nK, output_dim, bSz) - sensitivity from next layer
+            # W has shape (output_dim, input_dim)
+            # Result: (nK, input_dim, bSz) - sensitivity to previous layer
+            # For each batch b: S[:, :, b] @ W = (nK, output_dim) @ (output_dim, input_dim) = (nK, input_dim)
+            # Use einsum matching pagemtimes implementation: 'ijk,jl->ikl' where:
+            # - i = nK (first dimension of S)
+            # - j = output_dim (second dimension of S, matches W's first dim)
+            # - k = bSz (third dimension of S)
+            # - l = input_dim (second dimension of W)
+            # Result: [i, k, l] = (nK, bSz, input_dim) but we need (nK, input_dim, bSz)
+            # Actually, pagemtimes with 3D @ 2D gives (i, k, l) = (nK, bSz, input_dim)
+            # But we need (nK, input_dim, bSz), so we use 'ijk,jl->ikl' and then transpose
+            # OR: use 'ijk,jl->ilk' to get (nK, input_dim, bSz) directly
             result = np.einsum('ijk,jl->ilk', S, self.W)
             return result
         else:
@@ -272,7 +280,13 @@ class nnLinearLayer(nnLayer):
                 # einsum 'ij,jkb->ikb' performs W @ c[:,:,b] for each b
                 c = np.einsum('ij,jkb->ikb', self.W, c) + self.b.reshape(self.b.shape[0], self.b.shape[1], 1)
             else:
+                # c is (n_in, batch), W is (n_out, n_in), result should be (n_out, batch)
+                # But we need to return (n_out, 1, batch) to match MATLAB format
                 c = self.W @ c + self.b
+                # Reshape to (n_out, 1, batch) to match expected 3D format
+                if c.ndim == 2:
+                    # Add middle dimension: (n_out, batch) -> (n_out, 1, batch)
+                    c = c.reshape(c.shape[0], 1, c.shape[1])
         
         # MATLAB: G = pagemtimes(obj.W,G); (page-wise matrix multiplication)
         if G.ndim == 3:
@@ -280,7 +294,13 @@ class nnLinearLayer(nnLayer):
             # einsum 'ij,jkb->ikb' performs W @ G[:,:,b] for each b
             G = np.einsum('ij,jkb->ikb', self.W, G)
         else:
+            # G is (n_in, q), W is (n_out, n_in), result should be (n_out, q)
+            # But we need to return (n_out, q, 1) to match expected 3D format
             G = self.W @ G
+            # Reshape to (n_out, q, 1) to match expected 3D format
+            if G.ndim == 2:
+                # Add batch dimension: (n_out, q) -> (n_out, q, 1)
+                G = G.reshape(G.shape[0], G.shape[1], 1)
         
         return c, G
     

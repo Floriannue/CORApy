@@ -8,10 +8,12 @@ from .nnActivationLayer import nnActivationLayer
 from .nnReLULayer import nnReLULayer
 from .nnSigmoidLayer import nnSigmoidLayer
 from .nnTanhLayer import nnTanhLayer
+from .nnMaxPool2DLayer import nnMaxPool2DLayer
 
 __all__ = [
     'nnActivationLayer',
     'nnReLULayer', 
     'nnSigmoidLayer',
-    'nnTanhLayer'
+    'nnTanhLayer',
+    'nnMaxPool2DLayer'
 ]

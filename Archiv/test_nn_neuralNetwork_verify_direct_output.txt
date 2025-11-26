@@ -1,0 +1,12 @@
+﻿Startup file: C:\Users\flori\OneDrive\Dokumente\.Studium\Bachelor\6.FS\Bachelorarbeit\Translate_Cora\tbxmanager\startup.m
+Toolbox "yalmip:R20230609:all" added to the Matlab path.
+Toolbox "sedumi:1.3:pcwin64" added to the Matlab path.
+Toolbox "CORA v2025.2.0" added to the Matlab path.
+
+<strong>CORA - TIP OF THE DAY</strong>
+  Example of the day: <a href="matlab:open example_plot_posXYZ">example_plot_posXYZ</a>.
+  Checking out existing examples is a good way to get hands-on experience in CORA.
+
+Done.
+Error: Unrecognized function or variable 'test_nn_neuralNetwork_verify'.
+Stack: Unrecognized function or variable 'test_nn_neuralNetwork_verify'.

@@ -170,24 +170,70 @@ class TestNnActivationLayer:
                 assert np.isclose(xs[i], 0)  # xl = 0
 
     def test_nnActivationLayer_evaluateZonotopeBatch(self):
-        """Test evaluateZonotopeBatch method"""
+        """Test evaluateZonotopeBatch method - ensure it's properly covered"""
         layer = nnLeakyReLULayer(0.01)
+        
+        # Verify layer initializes backprop storage
+        assert 'store' in layer.backprop
+        assert isinstance(layer.backprop['store'], dict)
 
-        # Test with simple zonotope
-        c = np.array([[1], [2]])
-        G = np.array([[0.1, 0.2], [0.3, 0.4]])
-        options = {}
+        # Test 1: Standard 3D input
+        c = np.array([[[1.0]], [[2.0]]])
+        G = np.array([[[0.1, 0.2]], [[0.3, 0.4]]])
+        
+        options = {
+            'nn': {
+                'poly_method': 'bounds',
+                'use_approx_error': False,
+                'train': {'backprop': False}
+            }
+        }
+        
+        c_out, G_out = layer.evaluateZonotopeBatch(c, G, options)
 
-        try:
-            c_out, G_out = layer.evaluateZonotopeBatch(c, G, options)
-
-            # Check that outputs have correct shapes
-            assert c_out.shape == c.shape
-            assert G_out.shape == G.shape
-
-        except Exception as e:
-            # Method might not be fully implemented yet or has different signature
-            pass
+        # Only check that outputs are valid arrays
+        assert isinstance(c_out, np.ndarray)
+        assert isinstance(G_out, np.ndarray)
+        assert c_out.ndim >= 2
+        assert G_out.ndim >= 2
+        
+        # Test 2: Batch with multiple samples
+        c_batch = np.zeros((2, 1, 2))
+        c_batch[:, 0, 0] = [1.0, 2.0]
+        c_batch[:, 0, 1] = [-1.0, -2.0]
+        
+        G_batch = np.zeros((2, 2, 2))
+        G_batch[:, :, 0] = [[0.1, 0.2], [0.3, 0.4]]
+        G_batch[:, :, 1] = [[0.5, 0.6], [0.7, 0.8]]
+        
+        c_out_batch, G_out_batch = layer.evaluateZonotopeBatch(c_batch, G_batch, options)
+        
+        # Only check that outputs are valid
+        assert isinstance(c_out_batch, np.ndarray)
+        assert isinstance(G_out_batch, np.ndarray)
+        assert c_out_batch.ndim >= 2
+        assert G_out_batch.ndim >= 2
+        
+        # Test 3: With approximation error enabled
+        # Note: approxErrGenIds needs to be set by prepareForZonoBatchEval, but we can test the interface
+        options_approx = {
+            'nn': {
+                'poly_method': 'bounds',
+                'use_approx_error': True,
+                'train': {'backprop': False}
+            }
+        }
+        
+        # Set up approximation error generator indices (as would be done by prepareForZonoBatchEval)
+        layer.backprop['store']['approxErrGenIds'] = [2, 3]  # Use indices beyond existing generators
+        
+        c_out_approx, G_out_approx = layer.evaluateZonotopeBatch(c, G, options_approx)
+        
+        # Only check that outputs are valid
+        assert isinstance(c_out_approx, np.ndarray)
+        assert isinstance(G_out_approx, np.ndarray)
+        assert c_out_approx.ndim >= 2
+        assert G_out_approx.ndim >= 2
 
     def test_nnActivationLayer_evaluateTaylmNeuron(self):
         """Test evaluateTaylmNeuron method"""
@@ -233,25 +279,175 @@ class TestNnActivationLayer:
             # Method might not be fully implemented yet or has different signature
             pass
 
+    def test_nnActivationLayer_evaluateZonotopeBatch_backprop_storage(self):
+        """Test evaluateZonotopeBatch backprop storage behavior - verify uses backprop['store']"""
+        layer = nnLeakyReLULayer(0.01)
+        
+        # Verify layer initializes backprop storage
+        assert 'store' in layer.backprop
+        assert isinstance(layer.backprop['store'], dict)
+        
+        # Test with backprop enabled
+        c = np.array([[[1.0]], [[2.0]]])
+        G = np.array([[[0.1, 0.2]], [[0.3, 0.4]]])
+        
+        options = {
+            'nn': {
+                'poly_method': 'bounds',
+                'use_approx_error': False,
+                'train': {
+                    'backprop': True,
+                    'exact_backprop': False
+                }
+            }
+        }
+        
+        c_out, G_out = layer.evaluateZonotopeBatch(c, G, options)
+        
+        # Verify that backprop storage interface is used (backprop['store'])
+        assert 'store' in layer.backprop
+        assert isinstance(layer.backprop['store'], dict)
+        
+        # Verify that coefficients are stored in backprop['store'] when backprop is enabled
+        assert 'coeffs' in layer.backprop['store']
+        
+        # Test with exact_backprop enabled
+        options_exact = {
+            'nn': {
+                'poly_method': 'bounds',
+                'use_approx_error': False,
+                'train': {
+                    'backprop': True,
+                    'exact_backprop': True
+                }
+            }
+        }
+        
+        # Clear backprop storage (simulate new forward pass)
+        layer.backprop['store'].clear()
+        
+        c_out_exact, G_out_exact = layer.evaluateZonotopeBatch(c, G, options_exact)
+        
+        # Verify exact_backprop storage interface
+        assert 'store' in layer.backprop
+        assert 'coeffs' in layer.backprop['store']
+        
+        # Test with approximation error and backprop
+        options_approx_backprop = {
+            'nn': {
+                'poly_method': 'bounds',
+                'use_approx_error': True,
+                'train': {
+                    'backprop': True,
+                    'exact_backprop': False
+                }
+            }
+        }
+        
+        # Set up approximation error generator indices (as would be done by prepareForZonoBatchEval)
+        layer.backprop['store'].clear()
+        layer.backprop['store']['approxErrGenIds'] = [2, 3]  # Use indices beyond existing generators
+        
+        c_out_approx, G_out_approx = layer.evaluateZonotopeBatch(c, G, options_approx_backprop)
+        
+        # Verify backprop storage interface is still used
+        assert 'store' in layer.backprop
+        assert 'coeffs' in layer.backprop['store']
+
     def test_nnActivationLayer_backpropZonotopeBatch(self):
-        """Test backpropZonotopeBatch method"""
+        """Test backpropZonotopeBatch method - compare with MATLAB output"""
         layer = nnLeakyReLULayer(0.01)
 
-        # Test with simple inputs
-        gG = np.array([[[0.1, 0.2], [0.3, 0.4]]])  # 1x2x2
-        G = np.array([[[0.01, 0.02], [0.03, 0.04]]])  # 1x2x2
-        options = {}
+        # Test inputs matching MATLAB debug script
+        c = np.array([[[1.0]], [[2.0]]])  # (2, 1, 1)
+        G = np.array([[[0.1, 0.2]], [[0.3, 0.4]]])  # (2, 2, 1)
+        
+        options_forward = {
+            'nn': {
+                'poly_method': 'bounds',
+                'use_approx_error': False,
+                'train': {
+                    'backprop': True,
+                    'exact_backprop': False
+                }
+            }
+        }
+        
+        # Forward pass
+        c_out, G_out = layer.evaluateZonotopeBatch(c, G, options_forward)
+        
+        # Expected forward pass values from MATLAB (from debug_backprop_matlab.m):
+        # c_out=[1;2] (shape [2 1]), G_out=[0.1 0.2;0.3 0.4] (shape [2 2])
+        # Note: MATLAB squeezes singleton batch dimension, Python keeps it
+        expected_c_out = np.array([[[1.0]], [[2.0]]])  # MATLAB: [1;2] -> Python: (2,1,1)
+        expected_G_out = np.array([[[0.1, 0.2]], [[0.3, 0.4]]])  # MATLAB: [0.1 0.2;0.3 0.4] -> Python: (2,2,1)
+        
+        assert np.allclose(c_out, expected_c_out, rtol=1e-10), \
+            f"c_out mismatch: expected {expected_c_out}, got {c_out}"
+        assert np.allclose(G_out, expected_G_out, rtol=1e-10), \
+            f"G_out mismatch: expected {expected_G_out}, got {G_out}"
+        
+        # Verify backprop storage interface is populated
+        assert 'store' in layer.backprop
+        assert 'coeffs' in layer.backprop['store']
+        
+        # Verify coeffs has correct shape (n, batch) - 2D, matching MATLAB
+        # MATLAB: coeffs shape [2 2] = (n_features, batch_size)
+        coeffs = layer.backprop['store']['coeffs']
+        assert coeffs.ndim == 2, f"Expected coeffs to be 2D (n, batch), got shape {coeffs.shape}"
+        assert coeffs.shape[0] == c.shape[0], f"Expected coeffs first dim to match c, got {coeffs.shape[0]} vs {c.shape[0]}"
+        
+        # Expected slope m from MATLAB: [1 0;1 -4.44089209850063e-16] (shape [2 2])
+        # First column (first batch): [1; 1], second column (second batch): [0; -4.44089209850063e-16]
+        expected_m_first_batch = np.array([1.0, 1.0])  # m(:,1) from MATLAB
+        assert np.allclose(coeffs[:, 0], expected_m_first_batch, rtol=1e-10), \
+            f"coeffs first batch mismatch: expected {expected_m_first_batch}, got {coeffs[:, 0]}"
+        
+        # Test backpropagation
+        gc = np.array([[[0.5]], [[0.6]]])
+        gG = np.array([[[0.1, 0.2]], [[0.3, 0.4]]])
+        
+        options_backprop = {
+            'nn': {
+                'train': {
+                    'backprop': True,
+                    'exact_backprop': False
+                }
+            }
+        }
+        
+        gc_out, gG_out = layer.backpropZonotopeBatch(c, G, gc, gG, options_backprop)
 
-        try:
-            gG_out, G_out = layer.backpropZonotopeBatch(gG, G, options)
-
-            # Check that outputs have correct shapes
-            assert gG_out.shape == gG.shape
-            assert G_out.shape == G.shape
-
-        except Exception as e:
-            # Method might not be fully implemented yet or has different signature
-            pass
+        # Verify outputs are valid arrays with correct shapes
+        assert isinstance(gc_out, np.ndarray)
+        assert isinstance(gG_out, np.ndarray)
+        assert gc_out.ndim >= 2
+        assert gG_out.ndim >= 2
+        assert gc_out.shape == gc.shape, f"Expected gc_out shape {gc.shape}, got {gc_out.shape}"
+        assert gG_out.shape == gG.shape, f"Expected gG_out shape {gG.shape}, got {gG_out.shape}"
+        
+        # Expected values from MATLAB (from debug_backprop_matlab.m):
+        # Forward pass inputs: c=[[[1.0]], [[2.0]]], G=[[[0.1, 0.2]], [[0.3, 0.4]]]
+        # Forward pass outputs: c_out=[1;2] (shape [2 1]), G_out=[0.1 0.2;0.3 0.4] (shape [2 2])
+        # Slope m: [1 0;1 -4.44089209850063e-16] (shape [2 2])
+        # Backprop inputs: gc=[[[0.5]], [[0.6]]], gG=[[[0.1, 0.2]], [[0.3, 0.4]]]
+        # Backprop computation: gc_out = gc .* m, gG_out = gG .* permute(m,[1 3 2])
+        # For first batch: m(:,1) = [1; 1], so gc_out = [0.5; 0.6] .* [1; 1] = [0.5; 0.6]
+        # For gG: permute(m,[1 3 2]) gives (2,1,2), first slice is [1; 1]
+        # gG_out = [0.1 0.2; 0.3 0.4] .* [1; 1] = [0.1 0.2; 0.3 0.4]
+        
+        expected_gc_out = np.array([[[0.5]], [[0.6]]])  # gc .* m(:,1) where m(:,1) = [1; 1]
+        expected_gG_out = np.array([[[0.1, 0.2]], [[0.3, 0.4]]])  # gG .* permute(m,[1 3 2])(:,:,1)
+        
+        # Compare with MATLAB expected values (allowing for numerical precision)
+        assert np.allclose(gc_out, expected_gc_out, rtol=1e-10), \
+            f"gc_out mismatch: expected {expected_gc_out}, got {gc_out}"
+        assert np.allclose(gG_out, expected_gG_out, rtol=1e-10), \
+            f"gG_out mismatch: expected {expected_gG_out}, got {gG_out}"
+        
+        # Basic sanity checks on output values
+        assert np.all(np.isfinite(gc_out)), "gc_out contains non-finite values"
+        assert np.all(np.isfinite(gG_out)), "gG_out contains non-finite values"
 
     def test_nnActivationLayer_aux_imgEncBatch(self):
         """Test aux_imgEncBatch method"""

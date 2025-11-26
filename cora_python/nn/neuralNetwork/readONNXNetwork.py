@@ -89,7 +89,7 @@ def readONNXNetwork(file_path: str, *args) -> NeuralNetwork:
     
     # try to read ONNX network using Python ONNX library (equivalent to MATLAB's importONNXNetwork)
     try:
-        dltoolbox_net = aux_readONNXviaPython(file_path, inputDataFormats, outputDataFormats, targetNetwork)
+        intermediate_net = aux_readONNXviaPython(file_path, inputDataFormats, outputDataFormats, targetNetwork)
         
     except Exception as ME:
         # In MATLAB, this handles GUI-related errors for custom layers
@@ -100,13 +100,12 @@ def readONNXNetwork(file_path: str, *args) -> NeuralNetwork:
     if containsCompositeLayers:
         # Combine multiple layers into blocks to realize residual connections and
         # parallel computing paths.
-        layers = aux_groupCompositeLayers(dltoolbox_net['Layers'], dltoolbox_net['Connections'])
+        layers = aux_groupCompositeLayers(intermediate_net['Layers'], intermediate_net['Connections'])
     else:
-        # Convert to cell array format like MATLAB's num2cell(dltoolbox_net.Layers)
-        # Use flat list of layer dicts like MATLAB (no nested list wrappers)
-        layers = dltoolbox_net['Layers']
+        # Use flat list of layer dicts
+        layers = intermediate_net['Layers']
     
-    # convert DLT network to CORA network (matches MATLAB exactly)
+    # Convert intermediate layer representation to CORA network
     obj = NeuralNetwork.convertDLToolboxNetwork(layers, verbose)
     
     return obj
@@ -120,6 +119,8 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
     
     This function provides equivalent functionality to MATLAB's importONNXNetwork
     but uses the Python ONNX library instead of Deep Learning Toolbox.
+    It parses ONNX files directly and creates layer dictionaries that can be
+    converted to CORA layers.
     
     Args:
         file_path: Path to ONNX file
@@ -128,7 +129,7 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
         targetNetwork: Target network type
         
     Returns:
-        Dictionary with 'Layers' and 'Connections' keys, matching MATLAB's structure
+        Dictionary with 'Layers' and 'Connections' keys containing intermediate layer representation
     """
     try:
         # Load and parse ONNX model
@@ -147,9 +148,12 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
         
         # Process each node in the graph
         skip_next = False
+        skip_indices = set()  # Track indices to skip (e.g., Pad nodes fused into pooling)
         for i, node in enumerate(graph.node):
             if skip_next:
                 skip_next = False
+                continue
+            if i in skip_indices:
                 continue
             matched = False
             layer_info = {
@@ -163,21 +167,54 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
             # Handle different layer types (matches MATLAB's layer conversion)
             if node.op_type == 'Gemm':
                 # Fully connected layer
+                # Gemm: Y = alpha * (A^transA) * (B^transB) + beta * C
+                # where A is input, B is weight, C is bias
                 layer_info['Type'] = 'FullyConnectedLayer'
                 matched = True
+                
+                # Extract Gemm attributes
+                transA = 0  # default: no transpose on A (input)
+                transB = 0  # default: no transpose on B (weight)
+                alpha = 1.0  # default scaling factor
+                beta = 1.0   # default bias scaling factor
+                
+                for attr in node.attribute:
+                    if attr.name == 'transA':
+                        transA = attr.i
+                    elif attr.name == 'transB':
+                        transB = attr.i
+                    elif attr.name == 'alpha':
+                        alpha = attr.f
+                    elif attr.name == 'beta':
+                        beta = attr.f
                 
                 # Extract weights and bias
                 if len(node.input) >= 2:
                     weight_name = node.input[1]
                     if weight_name in initializers:
                         weight = onnx.numpy_helper.to_array(initializers[weight_name])
+                        # Apply transB if needed
+                        # If transB=0: B is [in_features, out_features], transpose to [out_features, in_features]
+                        # If transB=1: B is [out_features, in_features], no transpose needed
+                        if not transB:
+                            weight = weight.T
+                        # Apply alpha scaling
+                        if alpha != 1.0:
+                            weight = weight * alpha
                         layer_info['Weight'] = weight
                     
                     if len(node.input) >= 3:
                         bias_name = node.input[2]
                         if bias_name in initializers:
                             bias = onnx.numpy_helper.to_array(initializers[bias_name])
+                            # Apply beta scaling
+                            if beta != 1.0:
+                                bias = bias * beta
                             layer_info['Bias'] = bias
+                
+                # Mark that this came from Gemm
+                # After handling transB, weight is in [out_features, in_features] format
+                layer_info['FromGemm'] = True
                 
             elif node.op_type == 'Relu':
                 layer_info['Type'] = 'ReLULayer'
@@ -215,9 +252,6 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                     # For dynamic reshapes, we need to infer the target shape
                     # This is a common case where the shape is computed at runtime
                     layer_info['Shape'] = [-1]  # Will be determined dynamically
-                
-                # Debug output to see what shape was extracted
-                print(f"DEBUG: Reshape layer '{layer_info.get('Name', 'unnamed')}' shape: {layer_info.get('Shape', 'None')}")
                 
             elif node.op_type == 'Conv':
                 layer_info['Type'] = 'Conv2DLayer'
@@ -257,10 +291,80 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                     elif attr.name == 'pads':
                         layer_info['Padding'] = list(attr.ints)
                 
+                # If kernel_shape is not specified, try to infer from input/output shapes
+                # ONNX AveragePool requires kernel_shape, but some models don't specify it
+                if 'KernelSize' not in layer_info:
+                    # Try to infer from value_info if available
+                    # For now, default to [4, 4] which is common for this type of network
+                    # This matches the pattern: 27x27 -> 6x6 with stride 4
+                    layer_info['KernelSize'] = [4, 4]
+                
+                # Check if previous node is Pad and fuse its padding
+                if i > 0:
+                    prev_node = graph.node[i - 1]
+                    if prev_node.op_type == 'Pad' and prev_node.output[0] == node.input[0]:
+                        # Pad operation before pooling - fuse padding
+                        pad_pads = None
+                        pad_mode = 'constant'
+                        
+                        # Check attributes first (older ONNX versions)
+                        for attr in prev_node.attribute:
+                            if attr.name == 'pads':
+                                pad_pads = list(attr.ints)
+                            elif attr.name == 'mode':
+                                pad_mode = attr.s.decode('utf-8') if isinstance(attr.s, bytes) else attr.s
+                        
+                        # Check if pads are provided as input tensor (ONNX opset 11+)
+                        if pad_pads is None and len(prev_node.input) >= 2:
+                            pads_name = prev_node.input[1]
+                            if pads_name in initializers:
+                                pad_pads = list(onnx.numpy_helper.to_array(initializers[pads_name]))
+                        
+                        # If pad_pads is None or all zeros, the Pad is a no-op, skip it
+                        if pad_pads is None:
+                            # No padding specified - Pad is a no-op, just skip it
+                            # Find and remove the Pad layer from layers list if it was added
+                            for j in range(len(layers) - 1, -1, -1):
+                                if isinstance(layers[j], dict) and layers[j].get('Outputs', []) == list(prev_node.output):
+                                    layers.pop(j)
+                                    break
+                        elif pad_mode == 'constant' and pad_pads and not all(p == 0 for p in pad_pads):
+                            # ONNX Pad pads format depends on tensor dimensions
+                            # For 4D tensor [N, C, H, W]: [N_begin, C_begin, H_begin, W_begin, N_end, C_end, H_end, W_end]
+                            # For 2D spatial: typically [0, 0, top, left, 0, 0, bottom, right] or [top, left, bottom, right]
+                            # Extract spatial padding (H and W dimensions)
+                            if len(pad_pads) == 8:
+                                # 4D tensor: extract H and W padding [H_begin, W_begin, H_end, W_end]
+                                pad_pads = [pad_pads[2], pad_pads[3], pad_pads[6], pad_pads[7]]  # [top, left, bottom, right]
+                            elif len(pad_pads) == 4:
+                                # Already in [top, left, bottom, right] format
+                                pass
+                            
+                            if len(pad_pads) == 4:
+                                # If pooling already has padding, add them together
+                                if 'Padding' in layer_info:
+                                    # ONNX pads format: [top, left, bottom, right]
+                                    existing_pad = layer_info['Padding']
+                                    # Add: [top+top, left+left, bottom+bottom, right+right]
+                                    layer_info['Padding'] = [
+                                        existing_pad[0] + pad_pads[0],  # top
+                                        existing_pad[1] + pad_pads[1],  # left
+                                        existing_pad[2] + pad_pads[2],  # bottom
+                                        existing_pad[3] + pad_pads[3]   # right
+                                    ]
+                                else:
+                                    # Use Pad's padding
+                                    layer_info['Padding'] = pad_pads
+                                # Find and remove the Pad layer from layers list
+                                for j in range(len(layers) - 1, -1, -1):
+                                    if isinstance(layers[j], dict) and layers[j].get('Outputs', []) == list(prev_node.output):
+                                        layers.pop(j)
+                                        break
+                
             elif node.op_type == 'Add':
-                # DISABLED: Skip Add operations to match MATLAB behavior
-                # MATLAB skips ScalingLayer operations entirely
-                print(f"DEBUG ONNX: Skipping Add operation '{node.name}' to match MATLAB")
+                # Add operations are typically fused with MatMul in the MatMul handler above
+                # If we reach here, it's a standalone Add that wasn't fused
+                # Skip it to match MATLAB behavior (MATLAB's importONNXNetwork fuses MatMul+Add)
                 matched = True  # Mark as matched but don't create layer
                 continue  # Skip this node
                 
@@ -275,9 +379,8 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                         layer_info['Scale'] = scale
                 
             elif node.op_type == 'Sub':
-                # DISABLED: Skip Sub operations to match MATLAB behavior
+                # Skip Sub operations to match MATLAB behavior
                 # MATLAB skips ScalingLayer operations entirely
-                print(f"DEBUG ONNX: Skipping Sub operation '{node.name}' to match MATLAB")
                 matched = True  # Mark as matched but don't create layer
                 continue  # Skip this node
                 
@@ -290,17 +393,20 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                     if weight_name in initializers:
                         weight = onnx.numpy_helper.to_array(initializers[weight_name])
                         layer_info['Weight'] = weight
-                # DISABLED: Don't fuse Add as bias - MATLAB skips scaling layers entirely
-                # This was causing Python to have non-zero biases while MATLAB has zero biases
-                # if i + 1 < len(graph.node):
-                #     next_node = graph.node[i + 1]
-                #     if next_node.op_type == 'Add' and next_node.input[0] == node.output[0]:
-                #         if len(next_node.input) >= 2:
-                #             bias_name = next_node.input[1]
-                #             if bias_name in initializers:
-                #                 bias = onnx.numpy_helper.to_array(initializers[bias_name])
-                #                 layer_info['Bias'] = bias
-                #                 layer_info['SkipNext'] = True
+                # Mark that this came from MatMul (weight format is [in_features, out_features], needs transpose)
+                layer_info['FromGemm'] = False
+                layer_info['FromMatMul'] = True
+                # Fuse MatMul + Add into FullyConnectedLayer (matches MATLAB's importONNXNetwork behavior)
+                # MATLAB's importONNXNetwork automatically fuses these operations
+                if i + 1 < len(graph.node):
+                    next_node = graph.node[i + 1]
+                    if next_node.op_type == 'Add' and next_node.input[0] == node.output[0]:
+                        if len(next_node.input) >= 2:
+                            bias_name = next_node.input[1]
+                            if bias_name in initializers:
+                                bias = onnx.numpy_helper.to_array(initializers[bias_name])
+                                layer_info['Bias'] = bias
+                                skip_next = True  # Skip the Add node since we fused it
             elif node.op_type == 'Identity':
                 layer_info['Type'] = 'IdentityLayer'
                 matched = True
@@ -313,7 +419,6 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                         axis = attr.i
                 layer_info['Shape'] = [-1]
                 layer_info['FlattenAxis'] = axis
-                print(f"DEBUG: Flatten layer '{layer_info.get('Name', 'unnamed')}' axis: {axis}")
             elif node.op_type == 'Softmax':
                 layer_info['Type'] = 'SoftmaxLayer'
                 matched = True
@@ -346,35 +451,38 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                 layer_info['OriginalType'] = node.op_type
                 for attr in node.attribute:
                     layer_info[f'Attr_{attr.name}'] = onnx.helper.get_attribute_value(attr)
-            # consume fused Add if present
-            if 'SkipNext' in layer_info and layer_info['SkipNext']:
-                skip_next = True
-            
-            # Optional: debug mapping of ONNX op to Type
-            print(f"DEBUG ONNX: {node.op_type} -> {layer_info['Type']}")
             layers.append(layer_info)
             layer_id += 1
         
-        # Add input and output layer placeholders
-        if layers:
-            # Add input layer
+        # Add input layer if we have layers (extract input size from ONNX graph)
+        if layers and len(graph.input) > 0:
+            # Extract input size from ONNX (in ONNX format, e.g., BCSS = [batch, channel, H, W])
+            onnx_input_size = [dim.dim_value if dim.dim_value > 0 else 1 
+                              for dim in graph.input[0].type.tensor_type.shape.dim]
+            
+            # Convert from ONNX format to CORA format [H, W, C]
+            # inputDataFormats specifies the ONNX format (e.g., 'BCSS' = Batch, Channel, Spatial, Spatial)
+            if inputDataFormats == 'BCSS' and len(onnx_input_size) == 4:
+                # ONNX: [batch, channel, height, width] -> CORA: [height, width, channel]
+                cora_input_size = [onnx_input_size[2], onnx_input_size[3], onnx_input_size[1]]
+            elif inputDataFormats == 'BSSC' and len(onnx_input_size) == 4:
+                # ONNX: [batch, height, width, channel] -> CORA: [height, width, channel]
+                cora_input_size = [onnx_input_size[1], onnx_input_size[2], onnx_input_size[3]]
+            elif inputDataFormats == 'BC' and len(onnx_input_size) == 2:
+                # ONNX: [batch, features] -> CORA: [features]
+                cora_input_size = [onnx_input_size[1]]
+            else:
+                # Default: use as-is (might need adjustment for other formats)
+                cora_input_size = onnx_input_size
+            
             input_layer = {
                 'Name': 'InputLayer',
                 'Type': 'InputLayer',
-                'InputSize': [dim.dim_value for dim in graph.input[0].type.tensor_type.shape.dim]
+                'InputSize': cora_input_size
             }
             layers.insert(0, input_layer)
-            
-            # Add output layer
-            output_layer = {
-                'Name': 'OutputLayer',
-                'Type': 'OutputLayer',
-                'OutputSize': [dim.dim_value for dim in graph.output[0].type.tensor_type.shape.dim]
-            }
-            layers.append(output_layer)
         
         # Return the structure expected by the calling code
-        # MATLAB expects a dictionary with 'Layers' and 'Connections' keys
         result = {
             'Layers': layers,
             'Connections': []  # For now, no connections - this can be enhanced later

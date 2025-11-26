@@ -131,17 +131,6 @@ class nnConv2DLayer(nnLayer):
         # 2. check correctness of input arguments
         aux_checkInputArgs(W, b, padding, stride, dilation, name)
         
-        # validate input
-        W, b, padding, stride, dilation, name = setDefaultValues(
-            [1, 0, [0, 0, 0, 0], [1, 1], [1, 1], None], args)
-        inputArgsCheck([
-            [W, 'att', ['numeric']],
-            [b, 'att', ['numeric']],
-            [padding, 'att', ['numeric']],
-            [stride, 'att', ['numeric']],
-            [dilation, 'att', ['numeric']],
-        ])
-        
         # 3. call super class constructor
         super().__init__(name)
         
@@ -279,6 +268,9 @@ class nnConv2DLayer(nnLayer):
         # compute weight and bias
         Wff = self.aux_conv2Mat()
         bias = self.aux_getPaddedBias()
+        # Ensure bias is a column vector for nnLinearLayer
+        if bias.ndim == 1:
+            bias = bias.reshape(-1, 1)
         
         # simulate using linear layer
         linl = nnLinearLayer(Wff, bias)
@@ -331,6 +323,9 @@ class nnConv2DLayer(nnLayer):
         # compute weight and bias
         Wff = self.aux_conv2Mat()
         bias = self.aux_getPaddedBias()
+        # Ensure bias is a column vector for nnLinearLayer
+        if bias.ndim == 1:
+            bias = bias.reshape(-1, 1)
         
         # simulate using linear layer
         linl = nnLinearLayer(Wff, bias)
@@ -362,6 +357,9 @@ class nnConv2DLayer(nnLayer):
         # compute weight and bias
         Wff = self.aux_conv2Mat()
         bias = self.aux_getPaddedBias()
+        # Ensure bias is a column vector for nnLinearLayer
+        if bias.ndim == 1:
+            bias = bias.reshape(-1, 1)
         
         # simulate using linear layer
         linl = nnLinearLayer(Wff, bias)
@@ -430,7 +428,16 @@ class nnConv2DLayer(nnLayer):
                 # This is a simplified version - full implementation would be more complex
                 return self._conv2d_weight_update(input_data, gradOutPermImg, Filter, inImgSize_special, stride, padding, dilation)
         
-        _, batchSize = input_data.shape
+        # Handle both 1D and 2D input shapes
+        # MATLAB always uses [n, batchSize] format, but Python may pass 1D arrays
+        if input_data.ndim == 1:
+            # 1D input: add batch dimension [n] -> [n, 1]
+            input_data = input_data.reshape(-1, 1)
+            _, batchSize = input_data.shape
+        elif input_data.ndim == 2:
+            _, batchSize = input_data.shape
+        else:
+            raise ValueError(f"Input data must be 1D or 2D, got shape {input_data.shape}")
         
         # padding [left,top,right,bottom]
         pad_l = int(padding[0])
@@ -439,7 +446,10 @@ class nnConv2DLayer(nnLayer):
         pad_b = int(padding[3])
         
         # Reshape input to image format: [height, width, channels, batchSize]
-        inputImg = input_data.reshape(list(inImgSize) + [batchSize])
+        # MATLAB uses column-major (Fortran) order, so we must use order='F' to match
+        # Flatten first to ensure consistent ordering, then reshape with Fortran order
+        input_flat = input_data.flatten(order='F')  # Column-major flatten to match MATLAB
+        inputImg = input_flat.reshape(list(inImgSize) + [batchSize], order='F')
         
         # Apply padding
         if pad_t > 0 or pad_b > 0 or pad_l > 0 or pad_r > 0:
@@ -508,7 +518,11 @@ class nnConv2DLayer(nnLayer):
                 output[:, :, out_c_idx, b_idx] = conv_result
         
         # Flatten output: [out_h * out_w * out_c, batchSize]
-        r = output.reshape(-1, batchSize)
+        # MATLAB uses column-major (Fortran) order for reshape
+        # Output shape is [out_h, out_w, out_c, batchSize]
+        # MATLAB: r = reshape(extractdata(rImg),[],batchSize) - column-major flatten
+        # We need to flatten in Fortran order to match MATLAB
+        r = output.flatten(order='F').reshape(-1, batchSize)
         
         return r, None
     
@@ -919,7 +933,11 @@ class nnConv2DLayer(nnLayer):
         k_h, k_w, in_c, out_c = Filter.shape
         
         # Compute an index-matrix for an individual filter.
-        filterIdx = np.arange(1, k_h * k_w + 1, dtype=Filter.dtype).reshape(k_h, k_w)
+        # MATLAB: filterIdx = reshape(1:k_h*k_w, k_h, k_w) - uses column-major reshape
+        # Per readme: use C-order in Python, handle MATLAB compatibility at interface
+        # MATLAB's reshape creates: [[1, 3], [2, 4]] for 2x2 (column-major)
+        # Python: use Fortran order to match MATLAB's column-major reshape at interface
+        filterIdx = np.arange(1, k_h * k_w + 1, dtype=Filter.dtype).reshape(k_h, k_w, order='F')
         
         if np.any(dilation != 1):
             # Dilate filter indices
@@ -954,29 +972,54 @@ class nnConv2DLayer(nnLayer):
             f_w = k_w
         
         # We turn the filter kernel into a vector, padded with 0's.
-        linFilterIdx = np.concatenate([
+        # MATLAB: linFilterIdx = [filterIdx zeros(f_h,in_w_pad-f_w,'like',Filter); 
+        #                         zeros(in_h_pad-f_h,in_w_pad,'like',Filter)];
+        # This concatenates horizontally first (filterIdx + zeros to the right),
+        # then vertically (zeros below)
+        # First concatenate horizontally: [filterIdx, zeros(f_h, in_w_pad-f_w)]
+        linFilterIdx_top = np.concatenate([
             filterIdx,
-            np.zeros((f_h, in_w_pad - f_w), dtype=Filter.dtype),
+            np.zeros((f_h, in_w_pad - f_w), dtype=Filter.dtype)
+        ], axis=1)
+        # Then concatenate vertically: [linFilterIdx_top; zeros(in_h_pad-f_h, in_w_pad)]
+        linFilterIdx = np.concatenate([
+            linFilterIdx_top,
             np.zeros((in_h_pad - f_h, in_w_pad), dtype=Filter.dtype)
         ], axis=0)
         
         # Compute number of zeros needed for padding before the filter.
         nzspad = in_h_pad * (in_w_pad - f_w + 1) - f_h
+        # MATLAB: linFilterIdx(:) - column-major flatten
+        # Per readme: use C-order in Python, handle MATLAB compatibility at interface
+        # MATLAB's A(:) flattens column-major, so use Fortran order at interface
         linFilterIdx = np.concatenate([
             np.zeros((nzspad,), dtype=Filter.dtype),
-            linFilterIdx.flatten()
+            linFilterIdx.flatten(order='F')
         ])
         
         # We compute indices that index the vectorized filter to obtain the
         # filter-matrix. We compute the shifts for each rows.
         # Adjust for row breaks.
+        # CRITICAL: MATLAB's repmat(rowShift,out_h,1) + reshape([],1) behavior
+        # MATLAB: repmat([2,1,0], 3, 1) creates:
+        #   [2, 1, 0;
+        #    2, 1, 0;
+        #    2, 1, 0]
+        # Then reshape([],1) flattens COLUMN-MAJOR: [2,2,2, 1,1,1, 0,0,0]
+        # NOT row-major: [2,1,0, 2,1,0, 2,1,0]
+        # This column-major flattening is essential for correct row ordering in WfIdx!
         rowShift = np.arange(out_w - 1, -1, -1, dtype=Filter.dtype)
-        rowShift = np.tile(rowShift, out_h).reshape(-1, 1)
+        # repmat(rowShift,out_h,1) creates [out_h x out_w] matrix, each row is rowShift
+        rowShift = np.tile(rowShift.reshape(1, -1), (out_h, 1))
+        # reshape([],1) flattens column-major to column vector (MATLAB default)
+        rowShift = rowShift.flatten(order='F').reshape(-1, 1)
         
         # Adjust for horizontal and vertical stride.
+        # MATLAB: repmat(out_h-1:-1:0,1,out_w)' creates (out_w, out_h) matrix
+        # Each column is [out_h-1, out_h-2, ..., 0]
+        vertical_part = np.tile(np.arange(out_h - 1, -1, -1).reshape(-1, 1), (1, out_w)).T.flatten()
         rowShift = ((s_w - 1) * in_h_pad + f_w - 1) * rowShift.flatten() + \
-                   (s_h - 1) * (np.tile(np.arange(out_h - 1, -1, -1), out_w).reshape(out_w, out_h).T.flatten() + 
-                               (out_w - 1) * rowShift.flatten())
+                   (s_h - 1) * (vertical_part + (out_w - 1) * rowShift.flatten())
         
         # Adjust for cutoff rows and columns.
         rowShift = rowShift + \
@@ -989,10 +1032,13 @@ class nnConv2DLayer(nnLayer):
         ij = (n_vec + rowShift.reshape(-1, 1)) + m_vec
         
         # Compute the filter-index matrix.
-        ij_flat = ij.flatten().astype(int)
+        # MATLAB uses 1-based indexing, so convert to 0-based for Python
+        # MATLAB indexes matrices column-major, so flatten in Fortran order
+        ij_flat = ij.flatten(order='F').astype(int) - 1
         # Handle out-of-bounds indices
         ij_flat = np.clip(ij_flat, 0, len(linFilterIdx) - 1)
-        WfIdx = linFilterIdx[ij_flat].reshape(n, m)
+        # MATLAB reshape uses column-major order, so reshape in Fortran order
+        WfIdx = linFilterIdx[ij_flat].reshape(n, m, order='F')
         
         # We remove padded area.
         isPad = np.zeros((in_h_pad, in_w_pad), dtype=bool)
@@ -1000,7 +1046,9 @@ class nnConv2DLayer(nnLayer):
         isPad[in_h_pad - pad_b:, :] = True
         isPad[:, :pad_l] = True
         isPad[:, in_w_pad - pad_r:] = True
-        isPad = isPad.flatten()
+        # MATLAB: reshape(isPad, 1, []) - column-major flatten to row vector
+        # Per readme: use C-order in Python, handle MATLAB compatibility at interface
+        isPad = isPad.flatten(order='F')
         WfIdx = WfIdx[:, ~isPad]
         
         # We add 1 to allow for indexing a zero value which is prepended to each filter.
@@ -1049,19 +1097,30 @@ class nnConv2DLayer(nnLayer):
         # Vectorize all filter kernels and prepend 0.
         # MATLAB: linFfilter = [zeros(1,in_c,out_c,'like',Filter); 
         #     reshape(Filter,[],in_c,out_c)];
+        # MATLAB: linFfilter = linFfilter(:);
+        # Per readme: use C-order in Python, handle MATLAB compatibility at interface
+        # MATLAB's reshape(Filter,[],in_c,out_c) flattens k_h*k_w in column-major
+        # At interface: transpose spatial dims to match MATLAB's column-major reshape
+        Filter_transposed = np.transpose(Filter, [1, 0, 2, 3])  # Swap k_h and k_w for interface compatibility
+        Filter_reshaped = Filter_transposed.reshape(k_h * k_w, in_c, out_c)
         linFfilter = np.concatenate([
             np.zeros((1, in_c, out_c), dtype=Filter.dtype),
-            Filter.reshape(-1, in_c, out_c)
+            Filter_reshaped
         ], axis=0)
-        linFfilter = linFfilter.flatten()
+        # MATLAB: linFfilter(:) - column-major flatten of [1+k_h*k_w, in_c, out_c]
+        # Per readme: for MATLAB A(:), transpose first then flatten in C-order
+        # Transpose [1+k_h*k_w, in_c, out_c] → [in_c, out_c, 1+k_h*k_w], then flatten
+        linFfilter = np.transpose(linFfilter, [1, 2, 0]).flatten()
         
         # Construct weight matrix.
         # MATLAB: Wff = reshape(linFfilter(WffIdx),size(WffIdx));
+        # MATLAB indexes matrices column-major, so flatten in Fortran order
         # WffIdx uses 1-based indexing, so we need to subtract 1 for Python
-        WffIdx_0based = WffIdx - 1
-        # Clip indices to valid range
-        WffIdx_0based = np.clip(WffIdx_0based, 0, len(linFfilter) - 1)
-        Wff = linFfilter[WffIdx_0based].reshape(WffIdx.shape)
+        WffIdx_0based = (WffIdx - 1).flatten(order='F')
+        # Clip indices to valid range and convert to integer
+        WffIdx_0based = np.clip(WffIdx_0based, 0, len(linFfilter) - 1).astype(np.int64)
+        # Reshape back in Fortran order to match MATLAB's column-major reshape
+        Wff = linFfilter[WffIdx_0based].reshape(WffIdx.shape, order='F')
         
         return Wff
     

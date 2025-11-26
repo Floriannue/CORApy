@@ -145,9 +145,29 @@ class nnActivationLayer(nnLayer):
         
         # If dimensions don't match, try to reshape
         if df_x.shape[0] != S.shape[1]:
-            # Layer output dimension mismatch - this shouldn't happen for activation layers
-            # but we'll try to handle it
-            if df_x.size == S.shape[1] * S.shape[2]:
+            # Layer output dimension mismatch
+            # This can happen if S wasn't properly transformed by the previous linear layer
+            # or if there's a dimension mismatch in the network
+            # For activation layers, df_x.shape[0] should equal S.shape[1] (both are layer_output_dim)
+            # If they don't match, it means S has the wrong dimension from the previous layer
+            
+            # Check if this is a case where S needs to be expanded/contracted
+            # If df_x has more dimensions than S, it means the layer expanded the dimension
+            # This shouldn't happen for activation layers (input_dim = output_dim)
+            # But we'll try to handle it by checking if we can reshape
+            
+            if df_x.shape[0] > S.shape[1]:
+                # df_x has more dimensions - this suggests S wasn't transformed correctly
+                # This is likely a bug in the previous layer's evaluateSensitivity
+                raise ValueError(
+                    f"Dimension mismatch in evaluateSensitivity: "
+                    f"S has shape {S.shape} (expected middle dimension {df_x.shape[0]}), "
+                    f"df_x has shape {df_x.shape}, x has shape {x.shape}. "
+                    f"This suggests S wasn't properly transformed by the previous layer. "
+                    f"For activation layers, S.shape[1] should equal df_x.shape[0] (both = layer_output_dim)."
+                )
+            elif df_x.size == S.shape[1] * S.shape[2]:
+                # Total size matches, try to reshape
                 df_x = df_x.reshape(S.shape[1], S.shape[2])
             else:
                 # Try to match just the first dimension and broadcast the second
@@ -157,7 +177,11 @@ class nnActivationLayer(nnLayer):
                 elif df_x.size == S.shape[1] * S.shape[2]:
                     df_x = df_x.reshape(S.shape[1], S.shape[2])
                 else:
-                    raise ValueError(f"Shape mismatch in evaluateSensitivity: S shape {S.shape}, df_x shape {df_x.shape}, x shape {x.shape}")
+                    raise ValueError(
+                        f"Shape mismatch in evaluateSensitivity: "
+                        f"S shape {S.shape}, df_x shape {df_x.shape}, x shape {x.shape}. "
+                        f"Expected S.shape[1] == df_x.shape[0] (both should be layer_output_dim)."
+                    )
         elif df_x.shape[1] != S.shape[2]:
             # Batch size mismatch - broadcast if df_x has batch size 1
             if df_x.shape[1] == 1:
@@ -222,14 +246,30 @@ class nnActivationLayer(nnLayer):
         Returns:
             Tuple of (rc, rG) results
         """
+        # Ensure c and G are 3D for aux_imgEncBatch (MATLAB format: n x 1 x b and n x q x b)
+        # Handle case where c is 2D (n, b) - reshape to (n, 1, b)
+        if c.ndim == 2:
+            c = c[:, np.newaxis, :]  # (n, b) -> (n, 1, b)
+        # Handle case where G is 2D (n, q) - reshape to (n, q, 1)
+        if G.ndim == 2:
+            G = G[:, :, np.newaxis]  # (n, q) -> (n, q, 1)
+        
         # Compute image enclosure
         rc, rG, coeffs, d = self.aux_imgEncBatch(self.f, self.df, c, G, options, 
                                                  lambda m: self.computeExtremePointsBatch(m, options))
         
         # store inputs and coeffs for backpropagation
         if options.get('nn', {}).get('train', {}).get('backprop', False):
-            # Store coefficients
-            self.backprop['store']['coeffs'] = coeffs
+            # MATLAB: obj.backprop.store.coeffs = m; where m has shape (nk, bSz) - 2D
+            # In Python, we need to extract m from coeffs and reshape to match MATLAB
+            # coeffs has shape (n, 2, batch) from aux_imgEncBatch
+            # Extract slope (first column) and reshape to (n, batch) to match MATLAB
+            if len(coeffs.shape) == 3:
+                m = coeffs[:, 0, :]  # Extract slope: (n, batch) - 2D
+            else:
+                m = coeffs[:, 0] if coeffs.ndim == 2 else coeffs
+            # Store just the slope m, not the full coeffs array (matches MATLAB)
+            self.backprop['store']['coeffs'] = m
             
             # Note: The MATLAB code at lines 120-121 tries to store m_l and m_u,
             # but these variables are undefined in evaluateZonotopeBatch scope.
@@ -795,10 +835,20 @@ class nnActivationLayer(nnLayer):
         Returns:
             Tuple of (gc, gG) results
         """
-        # obtain stored coefficients of image enclosure from forward prop.
-        coeffs = self.backprop['store']['coeffs']
-        # obtain slope of the approximation
-        m = coeffs[:, 0, :] if len(coeffs.shape) == 3 else coeffs[:, 0]
+        # obtain stored slope from forward prop.
+        # MATLAB: m = obj.backprop.store.coeffs; [nk,bSz] = size(m);
+        # In MATLAB, coeffs stores just m (the slope) with shape (nk, bSz) - 2D
+        # In Python, we also store just m with shape (n, batch) - 2D
+        m = self.backprop['store']['coeffs']
+        
+        # MATLAB: permute(m,[1 3 2]) on 2D array (nk, bSz) creates (nk, 1, bSz)
+        # Python: need to add singleton dimension first, then transpose
+        if m.ndim == 2:
+            # Reshape (n, batch) -> (n, 1, batch) to match MATLAB permute behavior
+            m_3d = m[:, np.newaxis, :]  # (n, 1, batch)
+        else:
+            m_3d = m
+        
         # obtain indices of active generators
         genIds = self.backprop['store'].get('genIds', slice(None))
         
@@ -822,13 +872,25 @@ class nnActivationLayer(nnLayer):
             hadProdG = gG[:, genIds, :] * G
             
             # Backprop gradients.
-            rgc = gc * m + m_c * np.reshape(hadProdc + np.sum(hadProdG, axis=1), c.shape)
+            # MATLAB: gc = m.*gc + ... (element-wise multiplication)
+            # For interval_center: MATLAB uses permute(m,[1 3 2]).*gc
+            # For non-interval_center: MATLAB uses gc.*m (m is 2D)
+            if options.get('nn', {}).get('interval_center', False):
+                gc = np.transpose(m_3d, (0, 2, 1)) * gc  # permute(m,[1 3 2]) -> (n, batch, 1)
+            else:
+                gc = gc * m  # Element-wise: (n, 1, batch) * (n, batch) broadcasts correctly
+            
+            rgc = gc + m_c * np.reshape(hadProdc + np.sum(hadProdG, axis=1), c.shape)
             rgc[dDimsIdx] = rgc[dDimsIdx] + dc_c * gc[dDimsIdx]
             rgc[dDimsIdx] = rgc[dDimsIdx] + d_c * gG[GdIdx]
             # Assign results.
             gc = rgc
             
-            rgG = gG[:, genIds, :] * np.transpose(m, (1, 2, 0)) + m_G * (hadProdc + hadProdG)
+            # MATLAB: gG(:,genIds,:) = gG(:,genIds,:).*permute(m,[1 3 2]) + ...
+            # permute(m,[1 3 2]) on 2D (nk,bSz) -> (nk,1,bSz)
+            # Then transpose to (1,nk,bSz) for broadcasting
+            m_permuted = np.transpose(m_3d, (1, 2, 0))  # (1, n, batch) from (n, 1, batch)
+            rgG = gG[:, genIds, :] * m_permuted + m_G * (hadProdc + hadProdG)
             rgG = np.transpose(rgG, (1, 0, 2))
             rgG[:, dDimsIdx] = rgG[:, dDimsIdx] + dc_G * np.reshape(gc[dDimsIdx], (1, -1))
             rgG[:, dDimsIdx] = rgG[:, dDimsIdx] + d_G * np.reshape(gG[GdIdx], (1, -1))
@@ -839,8 +901,27 @@ class nnActivationLayer(nnLayer):
         else:
             # Consider the approximation as fixed. Use the slope of the
             # approximation for backpropagation
-            gc = gc * m
-            gG = gG[:, genIds, :] * np.transpose(m, (1, 2, 0))
+            # MATLAB: 
+            #   if interval_center: gc = permute(m,[1 3 2]).*gc;
+            #   else: gc = gc.*m;
+            #   gG(:,genIds,:) = gG(:,genIds,:).*permute(m,[1 3 2]);
+            if options.get('nn', {}).get('interval_center', False):
+                # MATLAB: permute(m,[1 3 2]) on 2D (nk,bSz) -> (nk,1,bSz)
+                gc = np.transpose(m_3d, (0, 2, 1)) * gc  # (n, batch, 1) * (n, 1, batch)
+            else:
+                # MATLAB: gc.*m where m is (nk,bSz) and gc is (nk,1,bSz)
+                # In MATLAB, m (nk,bSz) broadcasts to (nk,1,bSz) for element-wise multiplication
+                # In Python, we need to reshape m to (nk,1,bSz) to match gc's shape
+                if m.ndim == 2:
+                    m_broadcast = m[:, np.newaxis, :]  # (nk, 1, bSz)
+                else:
+                    m_broadcast = m
+                gc = gc * m_broadcast  # (nk, 1, bSz) * (nk, 1, bSz)
+            
+            # MATLAB: gG(:,genIds,:).*permute(m,[1 3 2])
+            # permute(m,[1 3 2]) on 2D (nk,bSz) -> (nk,1,bSz), then transpose to (1,nk,bSz)
+            m_permuted = np.transpose(m_3d, (1, 2, 0))  # (1, n, batch)
+            gG = gG[:, genIds, :] * m_permuted
         
         # Clear backprop storage.
         if 'store' in self.backprop:

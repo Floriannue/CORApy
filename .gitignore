@@ -2,6 +2,7 @@ tbxmanager/
 SDPT3-4.0/
 +DLT_CustomLayers/
 **/__pycache__/
+cora_python/examples/nn/vnncomp/data/
 
 # IDE and editor files
 .idea/

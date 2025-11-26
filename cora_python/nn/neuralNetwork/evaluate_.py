@@ -135,7 +135,7 @@ def aux_evaluateInterval(obj: 'NeuralNetwork', input_data: Any, options: Dict[st
         if 'nn' not in options:
             options['nn'] = {}
         options['nn']['layer_k'] = k
-        layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
+        layer_k = obj.layers[k]  # Python uses 0-based indexing, idxLayer is already 0-based
         # Store input for backpropgation
         if options['nn'].get('train', {}).get('backprop', False):
             if not hasattr(layer_k, 'backprop') or not isinstance(layer_k.backprop, dict):
@@ -226,7 +226,7 @@ def aux_evaluatePolyZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dic
             if 'nn' not in options:
                 options['nn'] = {}
             options['nn']['layer_k'] = k
-            layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
+            layer_k = obj.layers[k]  # Python uses 0-based indexing, idxLayer is already 0-based
             print(f"DEBUG: aux_evaluatePolyZonotope - Before layer {k}: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
             c, G, GI, E, id_, id_max, ind, ind_ = layer_k.evaluatePolyZonotope(
                 c, G, GI, E, id_, id_max, ind, ind_, options)
@@ -267,7 +267,7 @@ def aux_evaluateTaylm(obj: 'NeuralNetwork', input_data: Any, options: Dict[str, 
         if 'nn' not in options:
             options['nn'] = {}
         options['nn']['layer_k'] = k
-        layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
+        layer_k = obj.layers[k]  # Python uses 0-based indexing, idxLayer is already 0-based
         r = layer_k.evaluateTaylm(r, options)
         options = aux_updateOptions(obj, options, 'taylm', k, layer_k)
     
@@ -295,7 +295,7 @@ def aux_evaluateConZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dict
         if 'nn' not in options:
             options['nn'] = {}
         options['nn']['layer_k'] = k
-        layer_k = obj.layers[k - 1]  # MATLAB: obj.layers{k} (1-indexed)
+        layer_k = obj.layers[k]  # Python uses 0-based indexing, idxLayer is already 0-based
         c, G, C, d, l, u = layer_k.evaluateConZonotope(c, G, C, d, l, u, options)
         options = aux_updateOptions(obj, options, 'conZonotope', k, layer_k)
     

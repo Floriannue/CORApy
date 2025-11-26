@@ -104,7 +104,7 @@ All of them apply always
 
 
 #### Conditional Actions:
-- **IF** MATLAB is available: generate results from MATLAB method and compare against Python method
+- **IF** MATLAB is available: generate results from the MATLAB method with `matlab -batch "run('your_matlab_test_script.m')"` and compare against Python method, integrate these input output pairs into tests
 - **IF** tests fail: 
     1. Investigate root cause and compare against MATLAB source code
     2. Create debug scripts in python and matlab. (also usefuel to figure out correct excepted test values)
@@ -201,13 +201,175 @@ np.array([1, 0])                  # vector
 - **Example**: MATLAB `[1,2;3,4](:)` → `[1,3,2,4]`, Python `[[1,2],[3,4]].T.flatten()` → `[1,3,2,4]`
 - **Principle**: Always use C-order (row-major) in Python for consistency, handle MATLAB compatibility at interface level
 
+### Automatic Commenting Guidelines
+**ALWAYS add explanatory comments for the following translation patterns:**
+
+1. **Array Order Conversions (Column-Major ↔ Row-Major)**:
+   - When using `order='F'` (Fortran-order) to match MATLAB's column-major behavior, add comment:
+   ```python
+   # MATLAB: A(:) flattens column-major. Use Fortran-order to match MATLAB behavior at interface
+   arr_flat = arr.flatten(order='F')
+   ```
+   - When reshaping with `order='F'`:
+   ```python
+   # MATLAB: reshape(A, [m, n]) uses column-major. Use Fortran-order to match MATLAB
+   arr_reshaped = arr.reshape(m, n, order='F')
+   ```
+
+2. **Indexing Conversions (1-based → 0-based)**:
+   - When converting MATLAB's 1-based indexing to Python's 0-based:
+   ```python
+   # MATLAB uses 1-based indexing, convert to 0-based for Python
+   idx_python = idx_matlab - 1
+   ```
+   - When MATLAB array indexing is used:
+   ```python
+   # MATLAB: A(1) is first element. Python: A[0] is first element
+   first_elem = arr[0]  # equivalent to MATLAB's arr(1)
+   ```
+
+3. **MATLAB Compatibility at Interface Level**:
+   - When handling MATLAB compatibility while maintaining C-order internally:
+   ```python
+   # Use C-order internally in Python, handle MATLAB compatibility at interface
+   # MATLAB expects column-major flattening, so use order='F' here
+   output = result.flatten(order='F').reshape(-1, batchSize)
+   ```
+
+4. **Complex MATLAB Operations**:
+   - When translating MATLAB's `repmat` and `reshape([],1)`:
+   ```python
+   # MATLAB: repmat(rowShift,out_h,1) creates matrix with out_h rows, then reshape([],1) flattens column-major
+   # This is critical for correct row ordering in weight matrix construction
+   rowShift = np.tile(rowShift.reshape(1, -1), (out_h, 1))
+   rowShift = rowShift.flatten(order='F').reshape(-1, 1)
+   ```
+
+5. **Bug Fixes and Non-Obvious Translations**:
+   - When fixing a bug or implementing a non-obvious translation:
+   ```python
+   # FIX: rowShift computation must use Fortran-order flattening to match MATLAB's
+   # repmat + reshape([],1) behavior. Without this, weight matrix rows are misordered.
+   # See test_aux_conv2Mat_weight_matrix_construction for validation.
+   ```
+
+6. **Array Shape Handling**:
+   - When handling 1D vs 2D array differences:
+   ```python
+   # MATLAB: input_data can be 1D or 2D. Ensure 2D [n, batchSize] for consistency
+   if input_data.ndim == 1:
+       input_data = input_data.reshape(-1, 1)
+   ```
+
+7. **MATLAB Function Equivalents**:
+   - When using NumPy functions that differ from MATLAB:
+   ```python
+   # MATLAB: A(:) flattens column-major. NumPy default is row-major, use order='F'
+   # MATLAB: reshape(A, [m, n]) uses column-major. Use order='F' to match
+   ```
+
+**Comment Placement**:
+- Place comments directly above the code they explain
+- Use inline comments for brief clarifications
+- For complex translations, add a multi-line comment block explaining the MATLAB operation and why the Python translation is structured this way
+
 ### Testing requirements
+
+#### Test Structure
 - Examples must **must** execute correctly but not have tests
-- For testing plotting functions, save output as PNG and verify visually
-- Find root cause of errors by comparing against MATLAB source and `Cora2025.1.0_Manual.txt`
-- Verify accuracy by running the original MATLAB function and the Python translation and compare the results
-- **NEVER** modify tests to pass, only if you compared them against the MATLAB source code and Manual and they are wrong. the tests need to ensure the methodeS provide the same functionality as their matlab original
 - Maintain exactly one Python test module per translated MATLAB file; merge further scenarios into that module
+- For testing plotting functions, save output as PNG and verify comparing the images visually
+- Find root cause of errors by comparing against MATLAB source and `Cora2025.1.0_Manual.txt`
+
+- **NEVER** modify tests to pass, only if you compared them against the MATLAB source code and Manual and they are wrong. The tests need to ensure the methods provide the same functionality as their MATLAB original
+
+#### MATLAB Input/Output Pair Generation
+
+**When to Generate MATLAB I/O Pairs:**
+1. **No MATLAB tests available**: If the MATLAB function has no corresponding test file
+2. **Insufficient test cases**: If existing MATLAB tests don't cover edge cases or specific scenarios
+3. **Test failures**: When Python tests fail and you need to verify expected values from MATLAB
+4. **Complex operations**: For operations involving random numbers, where Python and MATLAB RNGs differ
+5. **Validation**: To validate that the Python translation produces identical results to MATLAB
+
+**How to Create MATLAB Debug Scripts:**
+
+1. **Create `debug_matlab_[function_name].m`** in the project root:
+2. **Run MATLAB script** with `matlab -batch "run('debug_matlab_conv_avgpool.m')"`:
+3. **Extract values from output file** and embed directly in Python test as NumPy arrays
+
+**Best Practices for MATLAB I/O Pair Generation:**
+
+1. **Always save exact input values** when using random numbers:
+2. **Save intermediate results** for debugging:
+3. **Include shape information**:
+4. **Save multiple test cases** (all-ones, random, edge cases):
+
+#### Implementing Tests with MATLAB I/O Pairs
+
+**Step 1: Embed Values Directly in Test**
+- **NEVER** depend on external `.txt` files in tests
+- Copy exact MATLAB values directly into the test as NumPy arrays
+- Add comment indicating source (MATLAB debug script and line number)
+
+**Example:**
+```python
+def test_nnConv2DLayer_random_input_matlab_validation():
+    """
+    Test Conv2D evaluation with random input against MATLAB output
+    Uses exact MATLAB random input values (from debug_matlab_conv_avgpool.m)
+    """
+    # Exact MATLAB random input values (784 values from matlab_conv_avgpool_output.txt line 43)
+    # These are the exact values MATLAB used with rng('default')
+    # NOTE: Python's np.random.seed(0) produces different values than MATLAB's rng('default')
+    x_rand_values = np.array([
+        0.814724, 0.905792, 0.126987, 0.913376, 0.632359, 0.097540, 0.278498, 0.546882, 0.957507, 0.964889,
+        # ... all 784 values embedded here ...
+    ])
+    
+    x_rand = x_rand_values.reshape(784, 1)
+    
+    # Exact MATLAB expected output (from matlab_conv_avgpool_output.txt line 47)
+    matlab_expected = np.array([
+        0.053689, 0.031656, 0.092406, 0.040831, 0.044133, 0.035847, 0.022120, 0.002673,
+        # ... expected values ...
+    ])
+    
+    # Evaluate and compare
+    y_output = nn.evaluate(x_rand)
+    tol = 1e-6
+    assert np.allclose(y_output[:50].flatten(), matlab_expected, atol=tol), \
+        f"Output doesn't match MATLAB. Got {y_output[:50].flatten()[:10]}, expected {matlab_expected[:10]}"
+```
+
+**Step 2: Test Structure**
+- Use descriptive test names: `test_[function]_[scenario]_matlab_validation`
+- Include docstring explaining what MATLAB script generated the values
+- Group related test cases in the same test function when appropriate
+
+**Step 3: Validation**
+- Use appropriate tolerance (`atol` for absolute, `rtol` for relative)
+- For floating-point comparisons: `atol=1e-6` typically sufficient
+- For exact integer comparisons: use `np.array_equal`
+- Check shapes before comparing values
+- Provide informative error messages with actual vs expected values
+
+**Step 4: Debug Scripts (Keep for Reference)**
+- Keep MATLAB debug scripts in archive for future reference
+- Name them: `debug_matlab_[function_name].m`
+- They can be deleted later, but are useful during development
+
+#### Error Investigation Protocol
+
+When tests fail:
+1. **Compare against MATLAB source**: `read_file cora_matlab/path/to/function.m`
+2. **Check manual specifications**: `grep_search "function_name" Cora2025.1.0_Manual.txt`
+3. **Create parallel debug scripts**:
+   - MATLAB: `debug_matlab_function.m` - generates expected values
+   - Python: `debug_python_function.py` - traces Python execution step-by-step
+4. **Compare intermediate results** at each step
+5. **Verify test logic** against MATLAB tests, MATLAB source code, and Manual
+6. **NEVER** modify tests to pass unless verified against MATLAB that the test expectation is wrong
 
 
 ## Workflows
@@ -436,6 +598,7 @@ def test_plus_edge_case1():
     # Add all edge cases from MATLAB and any missing test cases
     pass
 # ... more cases ...
+# use matlab to generate actual input output value pairs to integetre into python tests if no are available in the matlab test
 ```
 
 ### **Testing and Verification**
@@ -572,6 +735,6 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-**Your current task** is to translate D:\Bachelorarbeit\Translate_Cora\cora_matlab\examples\nn\vnncomp and integrate them in the existing code like in matlab. In case of error compare all dependencies and every methode involved against matlab and create python-matlab debug scripts (you can execute matlab code)
+**Your current task** is pyCORA Set-Enclosure Test: create random Zonotope and verify if neuralNetwork/evaluateZonotopeBatch computes Output Sets that contain many Samples (>1000). MATLAB example: cora/unitTests/nn/layers/linear/testnn_nnLinearLayer_evalutateZonotopeBatch.m, cora/unitTests/nn/layers/nonlinear/testnn_nnReLULayer_evalutateZonotopeBatch.m. In case of error compare all dependencies and every methode involved against matlab and create python-matlab debug scripts (you can execute matlab code)
 
 

@@ -157,6 +157,16 @@ def aux_readModelAndSpecs(modelPath: str, specPath: str) -> Tuple[NeuralNetwork,
     options = validateNNoptions(options, True)
     options['nn']['interval_center'] = False
     
+    # Set the falsification method: {'fgsm','center','zonotack'}.
+    options['nn']['falsification_method'] = 'zonotack'
+    # Set the input set refinement method: {'naive','zonotack'}.
+    options['nn']['refinement_method'] = 'zonotack'
+    # Restrict the number of input generators.
+    options['nn']['train']['num_init_gens'] = 5
+    # Restrict the number of approximation error generators per layer.
+    options['nn']['train']['num_approx_err'] = 50
+    options['nn']['approx_error_order'] = 'sensitivity*length'
+    
     return nn, x, r, A, b, safeSet, options
 
 

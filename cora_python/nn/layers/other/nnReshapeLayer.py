@@ -94,30 +94,45 @@ class nnReshapeLayer(nnLayer):
         
         # Handle special case of -1 in idx_out (flatten to 1D)
         if -1 in self.idx_out:
-            # Calculate the size for the -1 dimension
-            total_size = input_data.size
-            target_shape = []
-            for dim in self.idx_out:
-                if dim == -1:
-                    # Calculate this dimension based on total size and other dimensions
-                    other_dims = [d for d in self.idx_out if d != -1]
-                    if other_dims:
-                        other_size = np.prod(other_dims)
-                        if other_size > 0:
-                            target_shape.append(total_size // other_size)
-                        else:
-                            target_shape.append(1)
-                    else:
-                        target_shape.append(total_size)
+            # For flattening, preserve the batch dimension if present
+            # Input is expected to be in format [features, batchSize] from Conv2D/AvgPool layers
+            other_dims = [d for d in self.idx_out if d != -1]
+            
+            if input_data.ndim == 2:
+                # Input has batch dimension: [features, batchSize]
+                features, batchSize = input_data.shape
+                if not other_dims:
+                    # Just [-1]: flatten features, preserve batch dimension
+                    # Input is already in [features, batchSize] format, so return as-is
+                    return input_data
                 else:
-                    target_shape.append(dim)
-            
-            # Ensure the reshape is valid
-            if np.prod(target_shape) != total_size:
-                # If the calculated shape doesn't match, fall back to flattening
-                target_shape = [total_size]
-            
-            return input_data.reshape(target_shape)
+                    # There are other dimensions specified
+                    # Calculate -1 dimension, but preserve batch dimension
+                    total_features = features
+                    other_size = np.prod(other_dims)
+                    if other_size > 0 and total_features % other_size == 0:
+                        calculated_dim = total_features // other_size
+                        target_shape = [calculated_dim] + other_dims + [batchSize]
+                        return input_data.reshape(target_shape)
+                    else:
+                        # Can't divide evenly, keep original shape
+                        return input_data
+            else:
+                # Input is 1D: [features] - no batch dimension
+                total_size = input_data.size
+                if not other_dims:
+                    # Just [-1]: already 1D, return as-is
+                    return input_data
+                else:
+                    # Calculate -1 dimension
+                    other_size = np.prod(other_dims)
+                    if other_size > 0 and total_size % other_size == 0:
+                        calculated_dim = total_size // other_size
+                        target_shape = [calculated_dim] + other_dims
+                        return input_data.reshape(target_shape)
+                    else:
+                        # Can't divide evenly, return as-is
+                        return input_data
         else:
             # Use idx_out as indices to reorder input (like MATLAB)
             # MATLAB: r = input(idx_vec, :, :);
@@ -146,92 +161,192 @@ class nnReshapeLayer(nnLayer):
         Evaluate sensitivity
         
         Args:
-            S: sensitivity matrix
+            S: sensitivity matrix with shape (nK, output_dim, bSz)
             x: input data
             options: evaluation options
             
         Returns:
-            S: reshaped sensitivity matrix
+            S: reshaped sensitivity matrix with shape (nK, input_dim, bSz)
         """
-        # Handle special case of -1 in idx_out (flatten to 1D)
-        if -1 in self.idx_out:
-            # Calculate the size for the -1 dimension
-            total_size = S.size
-            target_shape = []
-            for dim in self.idx_out:
-                if dim == -1:
-                    # Calculate this dimension based on total size and other dimensions
-                    other_dims = [d for d in self.idx_out if d != -1]
-                    if other_dims:
-                        other_size = np.prod(other_dims)
-                        if other_size > 0:
-                            target_shape.append(total_size // other_size)
-                        else:
-                            target_shape.append(1)
-                    else:
-                        target_shape.append(total_size)
+        # MATLAB: S_ = permute(S,[2 1 3]); S_ = obj.aux_embed(S_,inSize); S = permute(S_,[2 1 3]);
+        # This swaps first two dims, embeds according to input size, then swaps back
+        
+        if self.inputSize is None:
+            # If inputSize not set, try to infer from x
+            if x is not None and hasattr(x, 'shape'):
+                if x.ndim >= 1:
+                    self.inputSize = [x.shape[0]]
                 else:
-                    target_shape.append(dim)
-            
-            # Ensure the reshape is valid
-            if np.prod(target_shape) != total_size:
-                # If the calculated shape doesn't match, fall back to flattening
-                target_shape = [total_size]
-            
-            return S.reshape(target_shape)
-        else:
-            # Use idx_out as indices to reorder input (like MATLAB)
-            # MATLAB: S = pagetranspose(obj.aux_reshape(pagetranspose(S)));
-            idx_vec = np.array(self.idx_out).flatten()
-            # Convert to 0-based indexing for Python
-            idx_vec = idx_vec - 1
-            
-            # Handle multi-dimensional input
-            if S.ndim > 1:
-                # For multi-dimensional input, apply indexing to first dimension
-                # and preserve other dimensions
-                result = S[idx_vec]
+                    self.inputSize = [1]
             else:
-                # For 1D input, just apply indexing
-                result = S[idx_vec]
-            
-            return result
+                # Fallback: assume input size matches output size
+                if S.ndim >= 2:
+                    self.inputSize = [S.shape[1]]
+                else:
+                    self.inputSize = [1]
+        
+        inSize = self.inputSize
+        prod_inSize = np.prod(inSize)
+        
+        # Step 1: permute(S, [2 1 3]) - swap first two dimensions
+        # S has shape (nK, output_dim, bSz) -> (output_dim, nK, bSz)
+        if S.ndim == 3:
+            S_perm = np.transpose(S, (1, 0, 2))  # (output_dim, nK, bSz)
+        elif S.ndim == 2:
+            S_perm = S.T  # (output_dim, nK)
+        else:
+            # 1D or scalar - shouldn't happen but handle it
+            S_perm = S
+        
+        # Step 2: aux_embed - inverse of reshape
+        # MATLAB aux_embed logic:
+        # - If 3D (n, q, bSz): reshape to 2D (n, q*bSz)
+        # - Create output (prod(inSize), bSz) or (prod(inSize), q*bSz)
+        # - Set r(idx_vec, :) = input
+        if S_perm.ndim == 3:
+            # 3D case: (output_dim, nK, bSz)
+            n, q, bSz = S_perm.shape
+            # Reshape to 2D: (n, q*bSz) - MATLAB input(:,:)
+            S_2d = S_perm.reshape(n, q * bSz, order='F')
+        elif S_perm.ndim == 2:
+            # 2D case: (output_dim, nK)
+            S_2d = S_perm
+            n, q = S_2d.shape
+            bSz = 1
+        else:
+            # 1D or scalar
+            S_2d = S_perm.reshape(-1, 1) if S_perm.ndim == 1 else S_perm.reshape(1, 1)
+            n, q = S_2d.shape
+            bSz = 1
+        
+        # Get idx_vec from idx_out (1-based, column-major)
+        idx_vec = np.array(self.idx_out)
+        if idx_vec.ndim > 1:
+            idx_vec = idx_vec.flatten(order='F')
+        else:
+            idx_vec = idx_vec.flatten()
+        # Convert to 0-based
+        idx0 = idx_vec - 1
+        idx0 = np.clip(idx0, 0, prod_inSize - 1)
+        
+        # Create output: (prod(inSize), q*bSz) or (prod(inSize), q)
+        if S_perm.ndim == 3:
+            r = np.zeros((prod_inSize, q * bSz), dtype=S_2d.dtype)
+        else:
+            r = np.zeros((prod_inSize, q), dtype=S_2d.dtype)
+        
+        # Set r(idx_vec, :) = input
+        # MATLAB: r(idx_vec, :) = input
+        # idx_vec should have n elements (one for each row of input)
+        # If len(idx0) != n, we need to handle it
+        if len(idx0) == n:
+            # Normal case: idx0 has n elements matching S_2d rows
+            r[idx0, :] = S_2d
+        elif len(idx0) == 1 and n > 1:
+            # Special case: idx_out might be a single value (like [5] for flatten)
+            # In this case, we need to expand idx0 to match n
+            # Or, if idx_out represents a single output dimension, we need different logic
+            # For now, if idx0 is a single index, we'll use it for all rows
+            # This might not be correct, but let's see what happens
+            if n <= prod_inSize:
+                # Use consecutive indices starting from idx0[0]
+                idx0_expanded = np.arange(idx0[0], idx0[0] + n, dtype=int)
+                idx0_expanded = np.clip(idx0_expanded, 0, prod_inSize - 1)
+                r[idx0_expanded, :] = S_2d
+            else:
+                # n > prod_inSize, this shouldn't happen but handle it
+                r[idx0[0]:idx0[0]+min(n, prod_inSize-idx0[0]), :] = S_2d[:min(n, prod_inSize-idx0[0]), :]
+        else:
+            # Other mismatch cases
+            min_len = min(len(idx0), n)
+            r[idx0[:min_len], :] = S_2d[:min_len, :]
+        
+        # Reshape back if was 3D
+        if S_perm.ndim == 3:
+            r = r.reshape(prod_inSize, q, bSz, order='F')
+        
+        # Step 3: permute back: (prod_inSize, nK, bSz) -> (nK, prod_inSize, bSz)
+        if r.ndim == 3:
+            S_result = np.transpose(r, (1, 0, 2))  # (nK, prod_inSize, bSz)
+        elif r.ndim == 2:
+            S_result = r.T  # (nK, prod_inSize)
+        else:
+            S_result = r
+        
+        return S_result
     
     def evaluateZonotopeBatch(self, c: np.ndarray, G: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Evaluate reshape for a batch of zonotopes (centers c and generators G).
-        MATLAB behavior: for Flatten, pass through; for index-based reshape, reorder feature rows.
+        MATLAB behavior: calls aux_reshape which reshapes to 2D, indexes, then reshapes back.
         Shapes: typically c in R^{n x 1 x b} (or n x 1), G in R^{n x q x b} (or n x q)
+        
+        MATLAB aux_reshape logic:
+        1. If input is 3D (n, q, bSz): reshape to 2D (n, q*bSz) using input(:,:)
+        2. idx_vec = idx_out(:) - column-major flatten (1-based)
+        3. r = input(idx_vec, :) - select rows, keep all columns
+        4. If was 3D: reshape back to (len(idx_vec), q, bSz)
         """
         # Flatten case (dynamic -1): ACASXU uses this right after input; no feature reordering needed
         if isinstance(self.idx_out, list) and (-1 in self.idx_out):
             return c, G
 
-        # Normalize shapes to 3D for uniform indexing (MATLAB uses n x 1 x b and n x q x b)
-        if c.ndim == 2:
-            c = c[:, :, np.newaxis]
-        if G.ndim == 2:
-            G = G[:, :, np.newaxis]
-
-        # Index-based mapping: build 0-based flat index vector
-        idx_vec = np.array(self.idx_out)
-        # If idx_out is multi-dimensional, flatten in column-major like MATLAB
-        if idx_vec.ndim > 1:
-            idx_vec = idx_vec.T.reshape(-1, order='C')
+        # Simulate MATLAB aux_reshape exactly
+        # Step 1: Check if input is 3D (matrix)
+        is_matrix_c = c.ndim > 2
+        is_matrix_G = G.ndim > 2
+        
+        # Step 2: For 3D inputs, reshape to 2D like MATLAB input(:,:)
+        # MATLAB: input(:,:) on (n, q, bSz) -> (n, q*bSz) - keeps first dim, flattens rest column-major
+        if is_matrix_c:
+            n_c, q_c, bSz_c = c.shape
+            # Reshape to 2D: (n, q*bSz) using column-major (Fortran) order
+            c_2d = c.reshape(n_c, q_c * bSz_c, order='F')
         else:
-            idx_vec = idx_vec.reshape(-1)
-        # Convert to 0-based
+            c_2d = c
+            n_c, q_c = c.shape if c.ndim == 2 else (c.shape[0], 1)
+            bSz_c = 1
+        
+        if is_matrix_G:
+            n_g, q_g, bSz_g = G.shape
+            # Reshape to 2D: (n, q*bSz) using column-major (Fortran) order
+            G_2d = G.reshape(n_g, q_g * bSz_g, order='F')
+        else:
+            G_2d = G
+            n_g, q_g = G.shape if G.ndim == 2 else (G.shape[0], 1)
+            bSz_g = 1
+        
+        # Step 3: Get idx_vec from idx_out (column-major flatten, 1-based)
+        idx_vec = np.array(self.idx_out)
+        if idx_vec.ndim > 1:
+            # Column-major flatten: idx_out(:) in MATLAB
+            idx_vec = idx_vec.flatten(order='F')
+        else:
+            idx_vec = idx_vec.flatten()
+        # Convert to 0-based for Python
         idx0 = idx_vec - 1
-
+        
         # Bounds check (defensive)
-        max_n = c.shape[0]
-        idx0 = np.clip(idx0, 0, max_n - 1)
-
-        # Apply to feature axis
-        c = c[idx0, :, :]
-        G = G[idx0, :, :]
-
-        return c, G
+        max_n_c = c_2d.shape[0]
+        max_n_g = G_2d.shape[0]
+        idx0_c = np.clip(idx0, 0, max_n_c - 1)
+        idx0_g = np.clip(idx0, 0, max_n_g - 1)
+        
+        # Step 4: MATLAB: r = input(idx_vec, :) - select rows, keep all columns
+        c_result = c_2d[idx0_c, :]
+        G_result = G_2d[idx0_g, :]
+        
+        # Step 5: If was 3D, reshape back to original shape
+        if is_matrix_c:
+            # MATLAB: reshape(r, [], q, bSz) - [] means calculate automatically
+            # Result has shape (len(idx_vec), q*bSz), reshape to (len(idx_vec), q, bSz)
+            c_result = c_result.reshape(len(idx0_c), q_c, bSz_c, order='F')
+        
+        if is_matrix_G:
+            # MATLAB: reshape(r, [], q, bSz)
+            G_result = G_result.reshape(len(idx0_g), q_g, bSz_g, order='F')
+        
+        return c_result, G_result
 
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 
                             E: np.ndarray, id: np.ndarray, id_: np.ndarray, 

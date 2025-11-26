@@ -1,0 +1,56 @@
+=== Testing Zonotope Containment after Conv2D Layer ===
+
+Layer configuration:
+  Input size: [4 4 1]
+  W shape: [2 2 1 2]
+  b shape: [2 1]
+
+Input point x:
+  Shape: [16 1]
+  First 10 values: 1.000000 0.000000 0.000000 0.000000 0.000000 1.000000 0.000000 0.000000 0.000000 0.000000 
+
+Input zonotope X:
+  Center shape: [16 1]
+  Generator shape: [16 16]
+  Number of generators: 16
+
+Evaluating zonotope through network...
+Output zonotope Y:
+  Center shape: [18 1]
+  Generator shape: [18 16]
+  Number of generators: 16
+  Center (first 10): 4.000000 0.000000 1.000000 0.000000 4.000000 0.000000 1.000000 0.000000 4.000000 -2.000000 
+
+Evaluating point through network...
+Output point y_point:
+  Shape: [18 1]
+  First 10 values: 4.000000 0.000000 1.000000 0.000000 4.000000 0.000000 1.000000 0.000000 4.000000 -2.000000 
+
+Center comparison:
+  Max difference: 0.000000e+00
+  All close (tol=1e-10): 1
+
+Testing containment: Y.contains(y_point)
+  Error: Invalid value for OPTIONS parameter Algorithm:
+ must be 'dual-simplex-highs',  'interior-point-legacy',  or 'interior-point'.
+  Identifier: optim:options:meta:EnumType:validate:InvalidEnum
+  Stack:
+    optimoptions at line 124
+    CORAlinprog at line 161
+    zonotopeNorm at line 101
+    priv_zonotopeContainment_pointContainment at line 91
+    priv_zonotopeContainment_pointContainment at line 138
+    contains_ at line 215
+    contains at line 99
+    debug_matlab_zonotope_contains at line 79
+    run at line 112
+
+Additional diagnostics:
+  Y dimension: 18
+  Y number of generators: 16
+  Is degenerate (dim > generators): 1
+
+Testing containment of zero point:
+  Error: Invalid value for OPTIONS parameter Algorithm:
+ must be 'dual-simplex-highs',  'interior-point-legacy',  or 'interior-point'.
+

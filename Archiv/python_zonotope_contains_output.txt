@@ -1,0 +1,85 @@
+=== Testing Zonotope Containment after Conv2D Layer ===
+
+Layer configuration:
+  Input size: [4 4 1]
+  W shape: (2, 2, 1, 2)
+  b shape: (2,)
+
+Input point x:
+  Shape: (16, 1)
+  First 10 values: 1.000000 0.000000 0.000000 0.000000 0.000000 1.000000 0.000000 0.000000 0.000000 0.000000
+
+Input zonotope X:
+  Center shape: (16, 1)
+  Generator shape: (16, 16)
+  Number of generators: 16
+
+Evaluating zonotope through network...
+Output zonotope Y:
+  Center shape: (18, 1)
+  Generator shape: (18, 15)
+  Number of generators: 15
+  Center (first 10): 0.000000 0.000000 1.000000 1.000000 0.000000 0.000000 4.000000 1.000000 0.000000 -3.000000
+  Center (all values): 0.000000 0.000000 1.000000 1.000000 0.000000 0.000000 4.000000 1.000000 0.000000 -3.000000 1.000000 -2.000000 -2.000000 -3.000000 1.000000 -2.000000 -2.000000 -3.000000
+
+Evaluating point through network...
+Output point y_point:
+  Shape: (18, 1)
+  First 10 values: 4.000000 0.000000 1.000000 0.000000 4.000000 0.000000 1.000000 0.000000 4.000000 -2.000000
+  All values: 4.000000 0.000000 1.000000 0.000000 4.000000 0.000000 1.000000 0.000000 4.000000 -2.000000 1.000000 -2.000000 -3.000000 -2.000000 1.000000 -2.000000 -3.000000 -2.000000
+
+Center comparison:
+  Max difference: 4.000000e+00
+  All close (tol=1e-10): False
+
+Testing containment: Y.contains(y_point)
+  Error: ValueError: K must be less than or equal to N for combinations without repetition
+  Traceback:
+    Traceback (most recent call last):
+      File "D:\Bachelorarbeit\Translate_Cora\debug_python_zonotope_contains.py", line 99, in <module>
+        contains_result = Y.contains(y_point)
+                          ^^^^^^^^^^^^^^^^^^^
+      File "D:\Bachelorarbeit\Translate_Cora\cora_python\contSet\contSet\contains.py", line 172, in contains
+        raise e
+      File "D:\Bachelorarbeit\Translate_Cora\cora_python\contSet\contSet\contains.py", line 138, in contains
+        res, cert, scaling = S1.contains_(S2, method, tol, maxEval, cert_toggle, scaling_toggle)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "D:\Bachelorarbeit\Translate_Cora\cora_python\contSet\zonotope\contains_.py", line 207, in contains_
+        return priv_zonotopeContainment_pointContainment(Z, S, method, tol, scalingToggle)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "D:\Bachelorarbeit\Translate_Cora\cora_python\contSet\zonotope\private\priv_zonotopeContainment_pointContainment.py", line 142, in priv_zonotopeContainment_pointContainment
+        return priv_zonotopeContainment_pointContainment(Z, p, 'exact:polymax', tol, scalingToggle)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "D:\Bachelorarbeit\Translate_Cora\cora_python\contSet\zonotope\private\priv_zonotopeContainment_pointContainment.py", line 83, in priv_zonotopeContainment_pointContainment
+        P = Polytope(Z)
+            ^^^^^^^^^^^
+      File "D:\Bachelorarbeit\Translate_Cora\cora_python\contSet\polytope\polytope.py", line 144, in __init__
+        P = Z.polytope()
+            ^^^^^^^^^^^^
+      File "D:\Bachelorarbeit\Translate_Cora\cora_python\contSet\zonotope\polytope.py", line 100, in polytope
+        C, d = aux_polytope_degenerate(Z_compact, tol)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "D:\Bachelorarbeit\Translate_Cora\cora_python\contSet\zonotope\polytope.py", line 273, in aux_polytope_degenerate
+        C, d, _ = aux_polytope_fullDim(Z)
+                  ^^^^^^^^^^^^^^^^^^^^^^^
+      File "D:\Bachelorarbeit\Translate_Cora\cora_python\contSet\zonotope\polytope.py", line 149, in aux_polytope_fullDim
+        comb = combinator(nrGen, n-1, 'c')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "D:\Bachelorarbeit\Translate_Cora\cora_python\g\functions\matlab\validate\check\auxiliary\combinator.py", line 50, in combinator
+        raise ValueError('K must be less than or equal to N for combinations without repetition')
+    ValueError: K must be less than or equal to N for combinations without repetition
+    
+
+Additional diagnostics:
+  Y dimension: 18
+  Y number of generators: 15
+  Is degenerate (dim > generators): True
+
+Testing containment of zero point:
+  Error: ValueError: K must be less than or equal to N for combinations without repetition
+
+=== Comparison with MATLAB ===
+MATLAB center (first 10): 4.000000 0.000000 1.000000 0.000000 4.000000 0.000000 1.000000 0.000000 4.000000 -2.000000
+Python center (first 10): 0.000000 0.000000 1.000000 1.000000 0.000000 0.000000 4.000000 1.000000 0.000000 -3.000000
+MATLAB point (first 10): 4.000000 0.000000 1.000000 0.000000 4.000000 0.000000 1.000000 0.000000 4.000000 -2.000000
+Python point (first 10): 4.000000 0.000000 1.000000 0.000000 4.000000 0.000000 1.000000 0.000000 4.000000 -2.000000

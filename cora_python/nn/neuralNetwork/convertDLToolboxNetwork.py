@@ -35,34 +35,38 @@ from typing import List, Any, Dict, Tuple, Optional
 from .neuralNetwork import NeuralNetwork
 
 
-def convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool = False) -> NeuralNetwork:
+def convertDLToolboxNetwork(layer_dicts: List, verbose: bool = False) -> NeuralNetwork:
     """
-    Convert DLToolbox network to CORA network (matches MATLAB exactly).
+    Convert intermediate layer representation (from ONNX parsing) to CORA network.
+    
+    This function converts layer dictionaries created from ONNX parsing into
+    CORA layer objects. The function name is kept for API compatibility with MATLAB.
     
     Args:
-        dltoolbox_layers: DLToolbox layers
+        layer_dicts: List of layer dictionaries (from ONNX parsing)
         verbose: Whether to print verbose output
         
     Returns:
         CORA neural network
     """
-    n = len(dltoolbox_layers)
+    n = len(layer_dicts)
     
     layers = []
     inputSize = []
     currentSize = []
     
     if verbose:
-        print("Converting Deep Learning Toolbox Model to neuralNetwork...")
+        print("Converting onnx representation to CORA neuralNetwork...")
     
     i = 0
     while i < n:
-        dlt_layer = dltoolbox_layers[i]
+        layer_dict = layer_dicts[i]
         if verbose:
-            print(f"#{i+1}: {type(dlt_layer).__name__}")
+            layer_type = layer_dict.get('Type', 'Unknown') if isinstance(layer_dict, dict) else 'Unknown'
+            print(f"#{i+1}: {layer_type}")
         
-        # All layers are dicts now (flat list). Convert directly in order (like MATLAB)
-        layers, inputSize_, currentSize = aux_convertLayer(layers, dlt_layer, currentSize, verbose)
+        # All layers are dicts (flat list). Convert directly in order
+        layers, inputSize_, currentSize = aux_convertLayer(layers, layer_dict, currentSize, verbose)
         if not inputSize:
             inputSize = inputSize_
         
@@ -71,46 +75,35 @@ def convertDLToolboxNetwork(dltoolbox_layers: List, verbose: bool = False) -> Ne
     # instantiate neural network
     obj = NeuralNetwork(layers)
     
-    # Debug: print layer shapes to trace dimensions
-    if verbose:
-        print("DEBUG: Converted layers summary (type and shapes):")
-        for li, lay in enumerate(obj.layers):
-            lay_type = type(lay).__name__
-            if hasattr(lay, 'W') and hasattr(lay, 'b'):
-                try:
-                    w_shape = tuple(lay.W.shape) if hasattr(lay.W, 'shape') else None
-                    b_shape = tuple(lay.b.shape) if hasattr(lay.b, 'shape') else None
-                except Exception:
-                    w_shape = None
-                    b_shape = None
-                print(f"  [{li}] {lay_type}: W{w_shape} b{b_shape}")
-            else:
-                print(f"  [{li}] {lay_type}")
-    
     # Set input size from inputSize variable (matches MATLAB exactly)
     if inputSize:
         if np.isscalar(inputSize):
             inputSize = [inputSize, 1]
-        # MATLAB: setInputSize with flattened feature dimension for non-BC inputs
-        final_input_size = [np.prod(inputSize), 1] if len(inputSize) > 1 else inputSize
+        
+        # For convolutional networks, preserve spatial dimensions [H, W, C]
+        # For fully connected networks, flatten to [features, 1]
+        # If inputSize has 3 or 4 dimensions, it's a convolutional network
+        if len(inputSize) == 3 or len(inputSize) == 4:
+            # Convolutional network: keep spatial dimensions [H, W, C] or [H, W, C, batch]
+            final_input_size = inputSize
+        else:
+            # Fully connected network: flatten to [features, 1]
+            final_input_size = [np.prod(inputSize), 1] if len(inputSize) > 1 else inputSize
+        
         if verbose:
-            print(f"DEBUG: Original inputSize: {inputSize}")
-            print(f"DEBUG: Final currentSize: {currentSize}")
-            print(f"DEBUG: Setting network input size to final processed size: {final_input_size}")
+            print(f"Setting network input size: {final_input_size}")
         obj.setInputSize(final_input_size, False)
-        if verbose:
-            print(f"After setInputSize, neurons_in = {obj.neurons_in}")
     
     return obj
 
 
-def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: bool) -> Tuple[List, List, List]:
+def aux_convertLayer(layers: List, layer_dict: Dict, currentSize: List, verbose: bool) -> Tuple[List, List, List]:
     """
-    Convert a single DLT layer to CORA layer (matches MATLAB aux_convertLayer).
+    Convert a single layer dictionary to CORA layer.
     
     Args:
         layers: Current list of CORA layers
-        dlt_layer: DLT layer to convert
+        layer_dict: Layer dictionary to convert (from ONNX parsing)
         currentSize: Current input size
         verbose: Whether to print verbose output
         
@@ -119,21 +112,21 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
     """
     inputSize = []
     
-    # Validate layer has required attributes
-    if not dlt_layer or (isinstance(dlt_layer, dict) and not dlt_layer):
+    # Validate layer is a non-empty dict
+    if not layer_dict or not isinstance(layer_dict, dict) or not layer_dict:
         if verbose:
             print("    Warning: Empty or invalid layer, skipping")
         return layers, inputSize, currentSize
     
     # Get layer type for logging
+    layer_type = layer_dict.get('Type', 'Unknown')
     if verbose:
-        layer_type = dlt_layer.get('Type', 'Unknown') if isinstance(dlt_layer, dict) else 'Unknown'
         print(f"  Converting layer type: {layer_type}")
     
     # Check for InputLayer (matches MATLAB exactly)
-    if isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'InputLayer':
+    if layer_dict.get('Type') == 'InputLayer':
         # Input layer - extract input size (matches MATLAB exactly)
-        inputSize = dlt_layer.get('InputSize', [1, 1])
+        inputSize = layer_dict.get('InputSize', [1, 1])
         if len(inputSize) == 1:
             inputSize = [inputSize[0], 1]
         elif len(inputSize) == 3:
@@ -147,12 +140,12 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
             print(f"    Found input size: {inputSize}")
         
         # Handle normalization like MATLAB (if present)
-        if dlt_layer.get('Normalization') == 'zscore':
-            mu = dlt_layer.get('Mean', np.zeros(1))
-            sigma = dlt_layer.get('StandardDeviation', np.ones(1))
+        if layer_dict.get('Normalization') == 'zscore':
+            mu = layer_dict.get('Mean', np.zeros(1))
+            sigma = layer_dict.get('StandardDeviation', np.ones(1))
             from ..layers.linear.nnElementwiseAffineLayer import nnElementwiseAffineLayer
             # Add normalization layer to computational layers (like MATLAB)
-            layers.append(nnElementwiseAffineLayer(1/sigma, -mu/sigma, dlt_layer.get('Name', '')))
+            layers.append(nnElementwiseAffineLayer(1/sigma, -mu/sigma, layer_dict.get('Name', '')))
         
         # Input layer itself is just metadata, don't add to computational layers
         # Only normalization layers (if any) are added above
@@ -162,27 +155,47 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
         return layers, inputSize, currentSize
     
     # Check for FullyConnectedLayer (matches MATLAB exactly)
-    elif isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'FullyConnectedLayer':
+    elif layer_dict.get('Type') == 'FullyConnectedLayer':
         # Linear layer (matches MATLAB exactly)
         from ..layers.linear.nnLinearLayer import nnLinearLayer
 
-        # Extract weights and biases - ensure consistent access
-        W = dlt_layer.get('Weight', np.eye(1))
-        b = dlt_layer.get('Bias', np.zeros((1, 1)))
+        # Extract weights and biases
+        W = layer_dict.get('Weight', np.eye(1))
+        b = layer_dict.get('Bias', np.zeros((1, 1)))
 
-        # Keep weights as they are - ONNX format matches what we need
-        # ONNX stores weights as [inputs, outputs]
-        # For matrix multiplication W @ input, we need [outputs, inputs]
-        # So we need to transpose
-        W = W.T
+        # ONNX MatMul stores weights as [in_features, out_features] -> needs transpose
+        # ONNX Gemm stores weights as [out_features, in_features] (after handling transB) -> no transpose needed
+        # CORA needs W as [out_features, in_features] for W @ x
+        if layer_dict.get('FromGemm', False):
+            # Gemm weights are already in [out_features, in_features] format (after transB handling in readONNXNetwork)
+            # No transpose needed
+            pass
+        elif layer_dict.get('FromMatMul', False):
+            # MatMul weights are [in_features, out_features], transpose to [out_features, in_features]
+            W = W.T
+        else:
+            # Default: assume MatMul format and transpose
+            W = W.T
 
         # Ensure proper shapes
         if len(W.shape) == 1:
             W = W.reshape(-1, 1)
         if len(b.shape) == 1:
             b = b.reshape(-1, 1)
+        
+        # After transpose, W.shape[0] = out_features
+        # Bias should have shape [out_features, 1]
+        # If bias shape doesn't match (e.g., it was transposed incorrectly), fix it
+        if b.shape[0] != W.shape[0]:
+            # This shouldn't happen if ONNX format is correct, but handle it
+            if b.shape[0] == W.shape[1]:
+                # Bias matches input features instead of output features - this is wrong
+                # Create a zero bias of the correct size
+                if verbose:
+                    print(f"Warning: Bias shape {b.shape} doesn't match W.shape[0]={W.shape[0]}. Using zero bias.")
+                b = np.zeros((W.shape[0], 1))
 
-        layer = nnLinearLayer(W, b, name=dlt_layer.get('Name', ''))
+        layer = nnLinearLayer(W, b, name=layer_dict.get('Name', ''))
         layers.append(layer)
 
         # Update sizes (matches MATLAB exactly)
@@ -191,95 +204,71 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
         currentSize = [W.shape[0], 1]  # output features
         
     # Elementwise affine layers (offset/scale) from ONNX Sub/Add/Mul fusion
-    elif isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'ElementwiseAffineLayer':
+    elif layer_dict.get('Type') == 'ElementwiseAffineLayer':
         from ..layers.linear.nnElementwiseAffineLayer import nnElementwiseAffineLayer
-        scale = dlt_layer.get('Scale', 1)
-        offset = dlt_layer.get('Offset', 0)
+        scale = layer_dict.get('Scale', 1)
+        offset = layer_dict.get('Offset', 0)
         # Follow MATLAB strictly: use given tensors as-is but flatten feature dimension
         scale = np.array(scale).astype(float).reshape(-1, 1)
         offset = np.array(offset).astype(float).reshape(-1, 1)
         # If they are scalar, shapes become (1,1). Layer will broadcast with input
-        layer = nnElementwiseAffineLayer(scale, offset, name=dlt_layer.get('Name', ''))
+        layer = nnElementwiseAffineLayer(scale, offset, name=layer_dict.get('Name', ''))
         layers.append(layer)
         # size does not change
         if not currentSize:
             currentSize = [scale.shape[0], 1]
         
     # Check for ReLULayer (matches MATLAB exactly)
-    elif isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'ReLULayer':
+    elif layer_dict.get('Type') == 'ReLULayer':
         # ReLU activation layer
         from ..layers.nonlinear.nnReLULayer import nnReLULayer
-        layer = nnReLULayer(name=dlt_layer.get('Name', ''))
+        layer = nnReLULayer(name=layer_dict.get('Name', ''))
         layers.append(layer)
         
     # Check for SigmoidLayer (matches MATLAB exactly)
-    elif isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'SigmoidLayer':
+    elif layer_dict.get('Type') == 'SigmoidLayer':
         # Sigmoid activation layer
         from ..layers.nonlinear.nnSigmoidLayer import nnSigmoidLayer
-        layer = nnSigmoidLayer(name=dlt_layer.get('Name', ''))
+        layer = nnSigmoidLayer(name=layer_dict.get('Name', ''))
         layers.append(layer)
         
     # Check for TanhLayer (matches MATLAB exactly)
-    elif isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'TanhLayer':
+    elif layer_dict.get('Type') == 'TanhLayer':
         # Tanh activation layer
         from ..layers.nonlinear.nnTanhLayer import nnTanhLayer
-        layer = nnTanhLayer(name=dlt_layer.get('Name', ''))
+        layer = nnTanhLayer(name=layer_dict.get('Name', ''))
         layers.append(layer)
         
     # Check for reshape layers (matches MATLAB exactly)
-    elif isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'ReshapeLayer':
+    elif layer_dict.get('Type') == 'ReshapeLayer':
         # Reshape layer
         from ..layers.other.nnReshapeLayer import nnReshapeLayer
         
         # Extract shape information consistently
-        shape = dlt_layer.get('Shape', [-1])  # Default to flatten if not specified
+        shape = layer_dict.get('Shape', [-1])  # Default to flatten if not specified
+        
+        if verbose:
+            print(f"    DEBUG ReshapeLayer: shape from layer_dict: {shape}, currentSize: {currentSize}, layer_dict keys: {list(layer_dict.keys())}")
         
         # Special handling for Flatten layers (which were converted to ReshapeLayer)
-        if 'FlattenAxis' in dlt_layer:
+        if 'FlattenAxis' in layer_dict:
             # This was originally a Flatten layer
-            flatten_axis = dlt_layer['FlattenAxis']
+            flatten_axis = layer_dict['FlattenAxis']
             if verbose:
                 print(f"    Converting Flatten layer with axis {flatten_axis}")
             
-            # For Flatten layers, we need to determine the output shape dynamically
-            # This matches MATLAB's approach of creating a test input and running it through the layer
-            if verbose:
-                print(f"    DEBUG: currentSize = {currentSize}")
-            if currentSize and len(currentSize) > 0:
-                # Create a test input with the current size (like MATLAB does)
-                # MATLAB: idx = dlarray(1:prod(currentSize)); idx = reshape(idx, currentSize);
-                test_input = np.arange(1, np.prod(currentSize) + 1).reshape(currentSize)
-                
-                # Apply the flatten operation based on the axis
-                if flatten_axis == 1:
-                    # Flatten from dimension 1 onwards (like MATLAB)
-                    # For input [1, 1, 1, 5], this should result in [1, 5]
-                    if len(currentSize) > 1:
-                        # Keep the first dimension, flatten the rest
-                        output_shape = [currentSize[0], np.prod(currentSize[1:])]
-                    else:
-                        output_shape = currentSize
-                else:
-                    # Default flatten behavior
-                    output_shape = [np.prod(currentSize)]
-                
-                # Create the output indices like MATLAB does
-                # MATLAB: idx_out = dlt_layer.predict(idx); idx_out = double(extractdata(idx_out));
-                # For CORA, we need to create the output indices that represent the reshape mapping
-                # The key insight: MATLAB creates indices that map input positions to output positions
-                # For a flatten operation, we need to create the mapping from input to output
-                
-                # Create the output indices by reshaping the test input to the output shape
-                # This gives us the mapping from input positions to output positions
-                output_indices = test_input.reshape(output_shape)
-                shape = output_indices.flatten().tolist()  # Convert to 1D list like MATLAB
-                
+            # Check if Shape was already set from ONNX Reshape operation
+            if 'Shape' in layer_dict and layer_dict['Shape'] != [-1]:
+                # Use the shape from ONNX Reshape operation
+                shape = layer_dict['Shape']
                 if verbose:
-                    print(f"    Flatten output shape: {output_shape}")
-                    print(f"    Output indices: {shape}")
+                    print(f"    Using Shape from ONNX: {shape}")
             else:
-                # No current size info, use dynamic shape
+                # For Flatten layers, use [-1] to indicate flattening to 1D
+                # The ReshapeLayer will handle the flattening correctly
                 shape = [-1]
+                if verbose:
+                    print(f"    Using [-1] for Flatten layer (flatten to 1D)")
         
         # Ensure the shape is valid for the ReshapeLayer
         if shape and -1 not in shape:
@@ -297,111 +286,135 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
             if verbose:
                 print(f"    Fallback to flattening with shape: {shape}")
         
-        layer = nnReshapeLayer(shape, name=dlt_layer.get('Name', ''))
+        layer = nnReshapeLayer(shape, name=layer_dict.get('Name', ''))
         layers.append(layer)
         
         # Update size based on reshape
-        if shape and -1 not in shape:
-            # For flatten operations, the shape contains mapping indices, not output dimensions
-            # We need to determine the actual output size from the reshape operation
-            if 'FlattenAxis' in dlt_layer:
-                # This was a flatten operation - calculate the actual output size
-                flatten_axis = dlt_layer['FlattenAxis']
-                if flatten_axis == 1 and len(currentSize) > 1:
-                    # Flatten from dimension 1 onwards: [1, 1, 1, 5] -> [1, 5]
-                    output_size = [currentSize[0], np.prod(currentSize[1:])]
-                    currentSize = [output_size[1], 1]  # Use the flattened dimension size
-                    if verbose:
-                        print(f"    DEBUG: Flatten operation - input: {currentSize} -> output: {output_size} -> currentSize: {currentSize}")
-                else:
-                    # Default flatten behavior
-                    currentSize = [np.prod(currentSize), 1]
-                    if verbose:
-                        print(f"    DEBUG: Default flatten - currentSize: {currentSize}")
-            else:
-                # Regular reshape operation
-                currentSize = [np.prod(shape), 1]
+        # For ReshapeLayer with [-1], it flattens to 1D, so output size is [total_input_size, 1]
+        if shape == [-1]:
+            # Flatten operation - output size is the total flattened input size
+            input_size = currentSize.copy() if currentSize else []
+            if input_size:
+                currentSize = [np.prod(input_size), 1]
                 if verbose:
-                    print(f"    DEBUG: Regular reshape - currentSize: {currentSize}")
+                    print(f"    DEBUG: Flatten with [-1] - input: {input_size} -> currentSize: {currentSize}")
+            else:
+                if verbose:
+                    print(f"    DEBUG: Flatten with [-1] but no currentSize available")
+        elif shape and -1 not in shape:
+            # ReshapeLayer with indices - output size is number of indices
+            # But indices are for reordering, so output size should match input size
+            # Actually, ReshapeLayer.getOutputSize returns [num_indices, 1]
+            input_size = currentSize.copy() if currentSize else []
+            num_indices = len(shape) if isinstance(shape, list) else np.prod(shape) if hasattr(shape, 'size') else 1
+            # For index-based reshape, output size should be based on the number of unique indices
+            # But typically it's the same as input size (just reordered)
+            if input_size:
+                # Keep the same total size (just reordered)
+                currentSize = [np.prod(input_size), 1]
+            else:
+                currentSize = [num_indices, 1]
+            if verbose:
+                print(f"    DEBUG: Reshape with indices - input: {input_size}, num_indices: {num_indices} -> currentSize: {currentSize}")
         else:
             if verbose:
                 print(f"    DEBUG: No size update - shape: {shape}, currentSize: {currentSize}")
         
-    # Check for Convolution2DLayer (matches MATLAB exactly)
-    elif (hasattr(dlt_layer, '__class__') and 'Convolution2DLayer' in str(dlt_layer.__class__)):
+    # Check for Convolution2DLayer
+    elif layer_dict.get('Type') == 'Conv2DLayer':
         # Convolutional layer
         from ..layers.linear.nnConv2DLayer import nnConv2DLayer
         
         # Extract convolution parameters
-        W = dlt_layer.Weights if hasattr(dlt_layer, 'Weights') else np.eye(1)
-        b = dlt_layer.Bias if hasattr(dlt_layer, 'Bias') else np.zeros(1)
-        padding = dlt_layer.PaddingSize if hasattr(dlt_layer, 'PaddingSize') else [0, 0]
-        stride = dlt_layer.Stride if hasattr(dlt_layer, 'Stride') else [1, 1]
-        dilation = dlt_layer.DilationFactor if hasattr(dlt_layer, 'DilationFactor') else [1, 1]
+        W = layer_dict.get('Weight', np.eye(1))
+        b = layer_dict.get('Bias', np.zeros(1))
+        padding = layer_dict.get('Padding', [0, 0, 0, 0])  # ONNX pads format: [pad_top, pad_left, pad_bottom, pad_right]
         
-        # Ensure bias is column vector
-        b = np.reshape(b, (-1, 1))
+        # ONNX Conv weights are in format: [out_channels, in_channels, kernel_height, kernel_width]
+        # MATLAB nnConv2DLayer expects: [kernel_height, kernel_width, in_channels, out_channels]
+        # Transpose from ONNX to MATLAB format
+        if len(W.shape) == 4:
+            W = np.transpose(W, (2, 3, 1, 0))  # [out, in, H, W] -> [H, W, in, out]
         
-        layer = nnConv2DLayer(W, b, padding, stride, dilation, name=getattr(dlt_layer, 'Name', ''))
+        # MATLAB nnConv2DLayer expects padding as [left, top, right, bottom] (1D array)
+        # ONNX provides pads as [top, left, bottom, right] for 2D convolution
+        # Convert ONNX format to MATLAB format
+        if len(padding) == 4:
+            # ONNX: [top, left, bottom, right] -> MATLAB: [left, top, right, bottom]
+            padding = np.array([padding[1], padding[0], padding[3], padding[2]])
+        elif len(padding) == 2:
+            # If only 2 values, assume [height_pad, width_pad]
+            padding = np.array([padding[1], padding[0], padding[1], padding[0]])
+        else:
+            padding = np.array([0, 0, 0, 0])
+        
+        stride = layer_dict.get('Stride', [1, 1])
+        dilation = layer_dict.get('Dilation', [1, 1])
+        
+        # Ensure arrays are numpy arrays
+        stride = np.array(stride) if not isinstance(stride, np.ndarray) else stride
+        dilation = np.array(dilation) if not isinstance(dilation, np.ndarray) else dilation
+        
+        # Ensure bias is a 1D array with correct size (matches number of output channels)
+        b = np.asarray(b)
+        if b.ndim > 1:
+            b = b.flatten()
+        # After transpose, W.shape[3] is the number of output channels
+        expected_bias_size = W.shape[3] if len(W.shape) == 4 else 1
+        if b.size != expected_bias_size:
+            if verbose:
+                print(f"  WARNING: Bias size {b.size} doesn't match expected {expected_bias_size}. Using zeros.")
+            b = np.zeros(expected_bias_size, dtype=b.dtype)
+        
+        layer = nnConv2DLayer(W, b, padding, stride, dilation, name=layer_dict.get('Name', ''))
         layers.append(layer)
         
-    # Check for pooling layers (matches MATLAB exactly)
-    elif (hasattr(dlt_layer, '__class__') and 'Pooling2DLayer' in str(dlt_layer.__class__)):
-        # Pooling layer - check if it's max or average
-        if 'Max' in str(dlt_layer.__class__):
-            from ..layers.other.nnMaxPoolLayer import nnMaxPoolLayer
-            poolSize = dlt_layer.PoolSize if hasattr(dlt_layer, 'PoolSize') else [2, 2]
-            stride = dlt_layer.Stride if hasattr(dlt_layer, 'Stride') else [1, 1]
-            layer = nnMaxPoolLayer(poolSize, stride, name=getattr(dlt_layer, 'Name', ''))
+    # Check for pooling layers
+    elif layer_dict.get('Type') == 'PoolingLayer':
+        pool_type = layer_dict.get('PoolType', 'AveragePool')
+        if pool_type == 'MaxPool':
+            from ..layers.nonlinear.nnMaxPool2DLayer import nnMaxPool2DLayer
+            poolSize = layer_dict.get('KernelSize', [2, 2])
+            stride = layer_dict.get('Stride', [1, 1])
+            poolSize = np.array(poolSize) if not isinstance(poolSize, np.ndarray) else poolSize
+            stride = np.array(stride) if not isinstance(stride, np.ndarray) else stride
+            layer = nnMaxPool2DLayer(poolSize, stride, name=layer_dict.get('Name', ''))
         else:  # AveragePool
-            from ..layers.other.nnAvgPoolLayer import nnAvgPoolLayer
-            poolSize = dlt_layer.PoolSize if hasattr(dlt_layer, 'PoolSize') else [2, 2]
-            padding = dlt_layer.PaddingSize if hasattr(dlt_layer, 'PaddingSize') else [0, 0]
-            stride = dlt_layer.Stride if hasattr(dlt_layer, 'Stride') else [1, 1]
-            dilation = [1, 1]  # Default like MATLAB
-            layer = nnAvgPoolLayer(poolSize, padding, stride, dilation, name=getattr(dlt_layer, 'Name', ''))
+            from ..layers.linear.nnAvgPool2DLayer import nnAvgPool2DLayer
+            poolSize = layer_dict.get('KernelSize', [2, 2])
+            padding = layer_dict.get('Padding', [0, 0, 0, 0])
+            
+            # MATLAB nnAvgPoolLayer expects padding as [left, top, right, bottom] (1D array)
+            # Convert ONNX format to MATLAB format (same as Conv2D)
+            if len(padding) == 4:
+                # ONNX: [top, left, bottom, right] -> MATLAB: [left, top, right, bottom]
+                padding = np.array([padding[1], padding[0], padding[3], padding[2]])
+            elif len(padding) == 2:
+                # If only 2 values, assume [height_pad, width_pad]
+                padding = np.array([padding[1], padding[0], padding[1], padding[0]])
+            else:
+                padding = np.array([0, 0, 0, 0])
+            
+            # Default stride should match poolSize (like nnAvgPool2DLayer constructor)
+            stride = layer_dict.get('Stride', None)
+            if stride is None:
+                stride = poolSize  # Default to poolSize like nnAvgPool2DLayer
+            stride = np.array(stride) if not isinstance(stride, np.ndarray) else stride
+            dilation = np.array([1, 1])  # Default like MATLAB
+            poolSize = np.array(poolSize) if not isinstance(poolSize, np.ndarray) else poolSize
+            
+            layer = nnAvgPool2DLayer(poolSize, padding, stride, dilation, name=layer_dict.get('Name', ''))
         
         layers.append(layer)
         
-    # Check for ElementwiseAffineLayer (matches MATLAB exactly)
-    elif (hasattr(dlt_layer, '__class__') and 'ElementwiseAffineLayer' in str(dlt_layer.__class__)):
-        from ..layers.linear.nnElementwiseAffineLayer import nnElementwiseAffineLayer
-        
-        s = dlt_layer.Scale if hasattr(dlt_layer, 'Scale') else np.ones(1)
-        o = dlt_layer.Offset if hasattr(dlt_layer, 'Offset') else np.zeros(1)
-        
-        # Fix dimensions for [h,w,c] inputs like MATLAB
-        if len(currentSize) == 3:
-            if not np.isscalar(s):
-                # Fix if all values are equal
-                if len(s) > 0 and np.all(s[0] == s):
-                    s = s[0]
-                else:
-                    # Try to fix scaling factor
-                    s = np.reshape(np.tile(s, np.array(currentSize) // np.array(s.shape)), currentSize)
-            
-            if not np.isscalar(o):
-                # Fix if all values are equal
-                if len(o) > 0 and np.all(o[0] == o):
-                    o = o[0]
-                else:
-                    # Try to fix offset vector
-                    o = np.reshape(np.tile(o, np.array(currentSize) // np.array(o.shape)), currentSize)
-        
-        # Should be column vector
-        s = np.reshape(s, (-1, 1))
-        o = np.reshape(o, (-1, 1))
-        
-        layers.append(nnElementwiseAffineLayer(s, o, getattr(dlt_layer, 'Name', '')))
-        
-    # Check for BatchNormalizationLayer (matches MATLAB exactly)
-    elif (hasattr(dlt_layer, '__class__') and 'BatchNormalizationLayer' in str(dlt_layer.__class__)):
+    # Check for BatchNormalizationLayer
+    elif layer_dict.get('Type') == 'BatchNormLayer':
         # Can be converted to elementwise layers like MATLAB
-        mean = dlt_layer.TrainedMean if hasattr(dlt_layer, 'TrainedMean') else np.zeros(1)
-        var = dlt_layer.TrainedVariance if hasattr(dlt_layer, 'TrainedVariance') else np.ones(1)
-        epsilon = dlt_layer.Epsilon if hasattr(dlt_layer, 'Epsilon') else 1e-5
-        scale = dlt_layer.Scale if hasattr(dlt_layer, 'Scale') else np.ones(1)
-        bias = dlt_layer.Offset if hasattr(dlt_layer, 'Offset') else np.zeros(1)
+        mean = layer_dict.get('Mean', np.zeros(1))
+        var = layer_dict.get('Variance', np.ones(1))
+        epsilon = layer_dict.get('Epsilon', 1e-5)
+        scale = layer_dict.get('Scale', np.ones(1))
+        bias = layer_dict.get('Bias', np.zeros(1))
         
         # (x-mean) / sqrt(var+epsilon) * scale + B
         # = x / sqrt(var+epsilon) * scale + (B - mean / sqrt(var+epsilon) * scale)
@@ -409,108 +422,114 @@ def aux_convertLayer(layers: List, dlt_layer: Any, currentSize: List, verbose: b
         final_offset = (bias - mean * final_scale)
         
         from ..layers.linear.nnElementwiseAffineLayer import nnElementwiseAffineLayer
-        layers.append(nnElementwiseAffineLayer(final_scale, final_offset, getattr(dlt_layer, 'Name', '')))
+        layers.append(nnElementwiseAffineLayer(final_scale, final_offset, layer_dict.get('Name', '')))
         
-    # Check for LeakyReLULayer (matches MATLAB exactly)
-    elif (hasattr(dlt_layer, '__class__') and 'LeakyReLULayer' in str(dlt_layer.__class__)):
-        alpha = dlt_layer.Scale if hasattr(dlt_layer, 'Scale') else 0.01
+    # Check for SoftmaxLayer
+    elif layer_dict.get('Type') == 'SoftmaxLayer':
+        from ..layers.nonlinear.nnSoftmaxLayer import nnSoftmaxLayer
+        layer = nnSoftmaxLayer(name=layer_dict.get('Name', ''))
+        layers.append(layer)
+        
+    # Check for LeakyReLULayer
+    elif layer_dict.get('Type') == 'LeakyReLULayer':
+        alpha = layer_dict.get('Alpha', 0.01)
         from ..layers.nonlinear.nnLeakyReLULayer import nnLeakyReLULayer
-        layers.append(nnLeakyReLULayer(alpha, getattr(dlt_layer, 'Name', '')))
+        layers.append(nnLeakyReLULayer(alpha, layer_dict.get('Name', '')))
         
-    # Check for IdentityLayer (matches MATLAB exactly)
-    elif (hasattr(dlt_layer, '__class__') and 'IdentityLayer' in str(dlt_layer.__class__)):
+    # Check for IdentityLayer
+    elif layer_dict.get('Type') == 'IdentityLayer':
         # Ignore like MATLAB
         inputSize = []
         return layers, inputSize, currentSize
         
-    # Check for output layers (matches MATLAB exactly)
-    elif (hasattr(dlt_layer, '__class__') and 
-          ('RegressionOutputLayer' in str(dlt_layer.__class__) or 'ClassificationOutputLayer' in str(dlt_layer.__class__))) or (isinstance(dlt_layer, dict) and dlt_layer.get('Type') == 'OutputLayer'):
+    # Check for output layers
+    elif layer_dict.get('Type') == 'OutputLayer':
         # Ignore like MATLAB
         inputSize = []
         return layers, inputSize, currentSize
         
     # Check for special VNN Comp cases (matches MATLAB exactly)
-    elif getattr(dlt_layer, 'Name', '') == 'MatMul_To_ReluLayer1003':
+    elif layer_dict.get('Name') == 'MatMul_To_ReluLayer1003':
         # For VNN Comp (test -- test_nano.onnx)
-        params = dlt_layer.ONNXParams if hasattr(dlt_layer, 'ONNXParams') else {}
-        if hasattr(params, 'Learnables') and hasattr(params.Learnables, 'Ma_MatMulcst'):
+        params = layer_dict.get('ONNXParams', {})
+        if 'Learnables' in params and 'Ma_MatMulcst' in params['Learnables']:
             from ..layers.linear.nnLinearLayer import nnLinearLayer
             from ..layers.nonlinear.nnReLULayer import nnReLULayer
-            layers.append(nnLinearLayer(params.Learnables.Ma_MatMulcst, 0, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['Ma_MatMulcst'], 0, layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
         
-    elif getattr(dlt_layer, 'Name', '') == 'MatMul_To_AddLayer1003':
+    elif layer_dict.get('Name') == 'MatMul_To_AddLayer1003':
         # For VNN Comp (test)
-        params = dlt_layer.ONNXParams if hasattr(dlt_layer, 'ONNXParams') else {}
-        if hasattr(params, 'Learnables'):
+        params = layer_dict.get('ONNXParams', {})
+        if 'Learnables' in params:
             from ..layers.linear.nnLinearLayer import nnLinearLayer
             from ..layers.nonlinear.nnReLULayer import nnReLULayer
             
-            if not hasattr(params.Learnables, 'W2'):
+            if 'W2' not in params['Learnables']:
                 # (test --- test_tiny.onnx)
-                layers.append(nnLinearLayer(params.Learnables.W0, 0, getattr(dlt_layer, 'Name', '')))
-                layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-                layers.append(nnLinearLayer(params.Learnables.W1, 0, getattr(dlt_layer, 'Name', '')))
+                layers.append(nnLinearLayer(params['Learnables']['W0'], 0, layer_dict.get('Name', '')))
+                layers.append(nnReLULayer(layer_dict.get('Name', '')))
+                layers.append(nnLinearLayer(params['Learnables']['W1'], 0, layer_dict.get('Name', '')))
             else:
                 # (test --- test_small.onnx)
-                layers.append(nnLinearLayer(params.Learnables.W0.T, np.array([[1.5], [1.5]]), getattr(dlt_layer, 'Name', '')))
-                layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-                layers.append(nnLinearLayer(params.Learnables.W1, np.array([[2.5], [2.5]]), getattr(dlt_layer, 'Name', '')))
-                layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-                layers.append(nnLinearLayer(params.Learnables.W2.T, 3.5, getattr(dlt_layer, 'Name', '')))
+                layers.append(nnLinearLayer(params['Learnables']['W0'].T, np.array([[1.5], [1.5]]), layer_dict.get('Name', '')))
+                layers.append(nnReLULayer(layer_dict.get('Name', '')))
+                layers.append(nnLinearLayer(params['Learnables']['W1'], np.array([[2.5], [2.5]]), layer_dict.get('Name', '')))
+                layers.append(nnReLULayer(layer_dict.get('Name', '')))
+                layers.append(nnLinearLayer(params['Learnables']['W2'].T, 3.5, layer_dict.get('Name', '')))
         
-    elif (getattr(dlt_layer, 'Name', '') == 'MatMul_To_AddLayer1019' or 
-          getattr(dlt_layer, 'Name', '') == 'Mul_To_AddLayer1021'):
+    elif (layer_dict.get('Name') == 'MatMul_To_AddLayer1019' or 
+          layer_dict.get('Name') == 'Mul_To_AddLayer1021'):
         # For VNN Comp (cora - mnist, svhn, cifar10) - requires hard-coding like MATLAB
-        params = dlt_layer.ONNXParams if hasattr(dlt_layer, 'ONNXParams') else {}
-        if hasattr(params, 'Learnables'):
+        params = layer_dict.get('ONNXParams', {})
+        if 'Learnables' in params:
             from ..layers.linear.nnLinearLayer import nnLinearLayer
             from ..layers.nonlinear.nnReLULayer import nnReLULayer
             
             # Hard-coded like MATLAB
-            layers.append(nnLinearLayer(params.Learnables.fc_1_copy_MatMul_W, params.Nonlearnables.fc_1_copy_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.fc_2_copy_MatMul_W, params.Nonlearnables.fc_2_copy_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.fc_3_copy_MatMul_W, params.Nonlearnables.fc_3_copy_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.fc_4_copy_MatMul_W, params.Nonlearnables.fc_4_copy_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.fc_5_copy_MatMul_W, params.Nonlearnables.fc_5_copy_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.fc_6_copy_MatMul_W, params.Nonlearnables.fc_6_copy_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.fc_7_copy_MatMul_W, params.Nonlearnables.fc_7_copy_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.fc_8_copy_MatMul_W, params.Nonlearnables.fc_8_copy_Add_B, getattr(dlt_layer, 'Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['fc_1_copy_MatMul_W'], params['Nonlearnables']['fc_1_copy_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['fc_2_copy_MatMul_W'], params['Nonlearnables']['fc_2_copy_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['fc_3_copy_MatMul_W'], params['Nonlearnables']['fc_3_copy_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['fc_4_copy_MatMul_W'], params['Nonlearnables']['fc_4_copy_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['fc_5_copy_MatMul_W'], params['Nonlearnables']['fc_5_copy_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['fc_6_copy_MatMul_W'], params['Nonlearnables']['fc_6_copy_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['fc_7_copy_MatMul_W'], params['Nonlearnables']['fc_7_copy_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['fc_8_copy_MatMul_W'], params['Nonlearnables']['fc_8_copy_Add_B'], layer_dict.get('Name', '')))
         
-    elif getattr(dlt_layer, 'Name', '') == 'Sub_To_AddLayer1018':
+    elif layer_dict.get('Name') == 'Sub_To_AddLayer1018':
         # For VNN Comp (test_sat.onnx) - requires hard-coding like MATLAB
-        params = dlt_layer.ONNXParams if hasattr(dlt_layer, 'ONNXParams') else {}
-        if hasattr(params, 'Learnables'):
+        params = layer_dict.get('ONNXParams', {})
+        if 'Learnables' in params:
             from ..layers.linear.nnLinearLayer import nnLinearLayer
             from ..layers.nonlinear.nnReLULayer import nnReLULayer
             
             # Hard-coded like MATLAB
-            layers.append(nnLinearLayer(params.Learnables.Operation_1_MatMul_W, params.Nonlearnables.Operation_1_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.Operation_2_MatMul_W, params.Nonlearnables.Operation_2_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.Operation_3_MatMul_W, params.Nonlearnables.Operation_3_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.Operation_4_MatMul_W, params.Nonlearnables.Operation_4_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.Operation_5_MatMul_W, params.Nonlearnables.Operation_5_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.Operation_6_MatMul_W, params.Nonlearnables.Operation_6_Add_B, getattr(dlt_layer, 'Name', '')))
-            layers.append(nnReLULayer(getattr(dlt_layer, 'Name', '')))
-            layers.append(nnLinearLayer(params.Learnables.linear_7_MatMul_W, params.Nonlearnables.linear_7_Add_B, getattr(dlt_layer, 'Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['Operation_1_MatMul_W'], params['Nonlearnables']['Operation_1_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['Operation_2_MatMul_W'], params['Nonlearnables']['Operation_2_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['Operation_3_MatMul_W'], params['Nonlearnables']['Operation_3_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['Operation_4_MatMul_W'], params['Nonlearnables']['Operation_4_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['Operation_5_MatMul_W'], params['Nonlearnables']['Operation_5_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['Operation_6_MatMul_W'], params['Nonlearnables']['Operation_6_Add_B'], layer_dict.get('Name', '')))
+            layers.append(nnReLULayer(layer_dict.get('Name', '')))
+            layers.append(nnLinearLayer(params['Learnables']['linear_7_MatMul_W'], params['Nonlearnables']['linear_7_Add_B'], layer_dict.get('Name', '')))
         
     else:
         # Unknown layer, show warning like MATLAB
         if verbose:
-            print(f"    Warning: Skipping '{type(dlt_layer).__name__}'. Not implemented in cora yet!")
+            layer_name = layer_dict.get('Type', 'Unknown') if isinstance(layer_dict, dict) else 'Unknown'
+            print(f"    Warning: Skipping '{layer_name}'. Not implemented in cora yet!")
         inputSize = []
         return layers, inputSize, currentSize
     

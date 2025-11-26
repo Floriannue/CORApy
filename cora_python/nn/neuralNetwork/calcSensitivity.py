@@ -90,6 +90,24 @@ def calcSensitivity(self, x: np.ndarray, varargin=None, store_sensitivity: bool 
     for i in range(len(self.layers) - 1, -1, -1):
         layer_i = self.layers[i]
         S = layer_i.evaluateSensitivity(S, xs[i], options)
+        # Ensure S maintains 3D shape (nK, input_dim, bSz) throughout backward propagation
+        # Some layers might return 2D arrays, so we need to ensure 3D shape
+        if S.ndim == 0:
+            # S is scalar, this should not happen - reshape to (1, 1, 1)
+            S = np.array(S).reshape(1, 1, 1)
+        elif S.ndim == 1:
+            # S is 1D, reshape based on context
+            # If it matches input dimension, it's likely (input_dim,), reshape to (1, input_dim, 1)
+            # Otherwise, it might be (nK,), reshape to (nK, 1, 1)
+            if len(xs) > 0 and xs[0] is not None and S.shape[0] == xs[0].shape[0]:
+                S = S.reshape(1, S.shape[0], 1)
+            else:
+                S = S.reshape(S.shape[0], 1, 1)
+        elif S.ndim == 2:
+            # S is 2D, add batch dimension: (nK, input_dim) -> (nK, input_dim, 1)
+            S = S.reshape(S.shape[0], S.shape[1], 1)
+        # If S.ndim == 3, it's already correct shape (nK, input_dim, bSz)
+        
         # save sensitivity at layer i for refinement
         if store_sensitivity:
             layer_i.sensitivity = S
