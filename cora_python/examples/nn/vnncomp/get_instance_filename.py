@@ -42,12 +42,12 @@ def get_instance_filename(bench_name: str, model_path: str, vnnlib_path: str) ->
     Returns:
         Tuple of (instance_filename, model_name, vnnlib_name)
     """
-    # Extract model name from path (everything before .onnx)
-    model_match = re.search(r'([^/\\]+)(?=\.onnx$)', model_path)
+    # Extract model name from path (everything before .onnx, possibly followed by .gz)
+    model_match = re.search(r'([^/\\]+)(?=\.onnx(?:\.gz)?$)', model_path)
     model_name = model_match.group(1) if model_match else 'unknown_model'
     
-    # Extract vnnlib name from path (everything before .vnnlib)
-    vnnlib_match = re.search(r'([^/\\]+)(?=\.vnnlib$)', vnnlib_path)
+    # Extract vnnlib name from path (everything before .vnnlib, possibly followed by .gz)
+    vnnlib_match = re.search(r'([^/\\]+)(?=\.vnnlib(?:\.gz)?$)', vnnlib_path)
     vnnlib_name = vnnlib_match.group(1) if vnnlib_match else 'unknown_vnnlib'
     
     # Create unique instance filename

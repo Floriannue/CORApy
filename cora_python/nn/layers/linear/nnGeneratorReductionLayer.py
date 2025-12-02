@@ -76,6 +76,12 @@ def repelem(arr: np.ndarray, *repeats: int) -> np.ndarray:
     """
     arr = np.asarray(arr)
     
+    # Ensure array has at least as many dimensions as repeats
+    # MATLAB treats scalars and 1D arrays as 2D when needed
+    if arr.ndim < len(repeats):
+        # Add singleton dimensions to match number of repeats
+        arr = arr.reshape(arr.shape + (1,) * (len(repeats) - arr.ndim))
+    
     if len(repeats) == 1:
         # 1D case: repeat each element
         return np.repeat(arr, repeats[0])

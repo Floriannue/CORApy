@@ -66,7 +66,7 @@ def main_vnncomp(eval_name: Optional[str] = None) -> bool:
     benchmarks = [
         'test',
         # VNN-COMP'25 benchmarks (uncomment as needed)
-        # 'acasxu_2023',
+        'acasxu_2023',
         # 'cctsdb_yolo_2023',  # (not supported; not main track)
         # 'cersyve',  # (test)
         # 'cgan_2023',  # (not supported)
@@ -83,7 +83,7 @@ def main_vnncomp(eval_name: Optional[str] = None) -> bool:
         # 'sat_relu',
         # 'nn4sys',  # (not supported; TODO: missing convolution 1D)
         # 'relusplitter',  # (test)
-        # 'safenlp_2024',
+        'safenlp_2024',
         # 'soundnessbench',  # (TODO: tune parameters)
         # 'tinyimagenet_2024',
         # 'tllverifybench_2023',

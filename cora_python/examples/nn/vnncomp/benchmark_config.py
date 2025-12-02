@@ -201,6 +201,20 @@ BENCHMARK_CONFIGS = {
         }
     },
     
+    'safenlp_2024': {
+        'permute_dims': False,
+        'input_data_formats': 'BC',
+        'output_data_formats': '',
+        'options': {
+            'nn': {
+                'num_splits': 2,
+                'num_dimensions': 1,
+                'num_neuron_splits': 1,
+                'num_relu_constraints': 100,
+            }
+        }
+    },
+    
     'tinyimagenet': {
         'permute_dims': True,
         'input_data_formats': 'BCSS',
@@ -326,6 +340,10 @@ def get_benchmark_options(bench_name: str, model_name: Optional[str] = None,
     Raises:
         ValueError: If benchmark is unsupported
     """
+    # Handle aliases (e.g., safenlp_2024 -> safenlp)
+    if bench_name == 'safenlp_2024':
+        bench_name = 'safenlp'
+    
     # Check if benchmark is unsupported
     if bench_name in UNSUPPORTED_BENCHMARKS:
         raise ValueError(f"Benchmark '{bench_name}' is not supported")
