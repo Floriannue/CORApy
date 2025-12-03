@@ -121,6 +121,7 @@ def pagemtimes(A: np.ndarray, transA: Optional[str], B: np.ndarray, transB: Opti
         B = np.swapaxes(B, -2, -1)
     
     # Use einsum for efficient batch matrix multiplication
+    # MATLAB pagemtimes performs C(:,:,k) = A(:,:,k) * B(:,:,k) for each page k
     if A.ndim == 2 and B.ndim == 3:
         # A is 2D, B is 3D: A @ B for each batch
         return np.einsum('ij,jkl->ikl', A, B)
@@ -129,7 +130,42 @@ def pagemtimes(A: np.ndarray, transA: Optional[str], B: np.ndarray, transB: Opti
         return np.einsum('ijk,jl->ikl', A, B)
     elif A.ndim == 3 and B.ndim == 3:
         # Both 3D: batch matrix multiplication
-        return np.einsum('ijk,ikl->ijl', A, B)
+        # For each batch k: C(:,:,k) = A(:,:,k) @ B(:,:,k)
+        # A is (i, j, k), B is (j, l, k), result is (i, l, k)
+        # MATLAB pagemtimes automatically broadcasts when batch sizes don't match
+        # We need to handle this case explicitly
+        A_batch = A.shape[2]
+        B_batch = B.shape[2]
+        if A_batch == B_batch:
+            # Same batch size, use einsum directly
+            return np.einsum('ijk,jlk->ilk', A, B)
+        elif A_batch == 1:
+            # A has batch size 1, broadcast to B's batch size
+            # Squeeze A's batch dimension and use 2D @ 3D case
+            A_2d = A[:, :, 0]
+            return np.einsum('ij,jlk->ilk', A_2d, B)
+        elif B_batch == 1:
+            # B has batch size 1, broadcast to A's batch size
+            # Squeeze B's batch dimension and use 3D @ 2D case
+            B_2d = B[:, :, 0]
+            return np.einsum('ijk,jl->ilk', A, B_2d)
+        else:
+            # Different batch sizes, need to replicate the smaller one
+            # MATLAB pagemtimes would automatically broadcast/replicate
+            # Check if one divides the other evenly
+            if A_batch < B_batch and B_batch % A_batch == 0:
+                # Replicate A to match B's batch size
+                nReps = B_batch // A_batch
+                A_rep = repelem(A, 1, 1, nReps)
+                return np.einsum('ijk,jlk->ilk', A_rep, B)
+            elif B_batch < A_batch and A_batch % B_batch == 0:
+                # Replicate B to match A's batch size
+                nReps = A_batch // B_batch
+                B_rep = repelem(B, 1, 1, nReps)
+                return np.einsum('ijk,jlk->ilk', A, B_rep)
+            else:
+                # Batch sizes don't divide evenly, this is an error
+                raise ValueError(f"pagemtimes: batch size mismatch {A_batch} vs {B_batch} - sizes don't divide evenly")
     else:
         # Fallback to regular matrix multiplication
         return A @ B

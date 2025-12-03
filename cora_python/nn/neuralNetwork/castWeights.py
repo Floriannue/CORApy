@@ -63,18 +63,18 @@ def castWeights(nn: NeuralNetwork, x: Union[np.ndarray, np.dtype], idxLayer: Opt
             target_dtype = np.dtype(x)
             print(f"DEBUG: x is class, created dtype: {target_dtype}")
         except:
-            # Fallback to float32
-            target_dtype = np.float32
-            print(f"DEBUG: fallback to float32: {target_dtype}")
+            # Fallback to float64 (MATLAB uses double precision)
+            target_dtype = np.float64
+            print(f"DEBUG: fallback to float64: {target_dtype}")
     else:
         # x is some other type, try to convert to numpy dtype
         try:
             target_dtype = np.dtype(type(x))
             print(f"DEBUG: converted x to dtype: {target_dtype}")
         except:
-            # Fallback to float32
-            target_dtype = np.float32
-            print(f"DEBUG: fallback to float32: {target_dtype}")
+            # Fallback to float64 (MATLAB uses double precision)
+            target_dtype = np.float64
+            print(f"DEBUG: fallback to float64: {target_dtype}")
     
     print(f"DEBUG: Final target_dtype: {target_dtype}, type: {type(target_dtype)}")
 

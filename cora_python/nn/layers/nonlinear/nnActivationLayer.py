@@ -1328,8 +1328,21 @@ class nnActivationLayer(nnLayer):
         # obtain indices of active generators
         genIds = self.backprop['store'].get('genIds', slice(None))
         # Ensure batch dimensions of c and G match (MATLAB keeps both as n x 1 x b and n x q x b)
-        n_c, _, b_c = c.shape
-        n_g, _, b_g = G.shape
+        # Handle both 2D and 3D cases
+        if c.ndim == 3:
+            n_c, _, b_c = c.shape
+        else:
+            # c is 2D, add singleton dimension
+            c = c[:, np.newaxis, :] if c.ndim == 2 else c
+            n_c, _, b_c = c.shape
+        
+        if G.ndim == 3:
+            n_g, _, b_g = G.shape
+        else:
+            # G is 2D, add singleton dimension for generators
+            G = G[:, np.newaxis, :] if G.ndim == 2 else G
+            n_g, _, b_g = G.shape
+        
         if b_c != b_g:
             if b_c == 1 and b_g > 1:
                 c = np.repeat(c, b_g, axis=2)
@@ -1344,9 +1357,153 @@ class nnActivationLayer(nnLayer):
             c = c[:, :1, :]  # Take only first column
         
         # compute bounds: radius per feature and batch; shape (n,1,b)
-        r_raw = np.sum(np.abs(G[:, genIds, :]), axis=1)
-        r = r_raw.reshape((c.shape[0], 1, c.shape[-1]))
+        # MATLAB: [n,q,bSz] = size(G); r = reshape(sum(abs(G(:,genIds,:)),2),[n bSz]);
+        # Get dimensions first
+        n_c = c.shape[0]
+        b_c = c.shape[2] if c.ndim == 3 else (c.shape[1] if c.ndim == 2 else 1)
+        
+        # Ensure G is 3D: (n, q, bSz)
+        if G.ndim == 2:
+            # G is 2D, need to determine if it's (n, bSz) or (q, bSz)
+            # If G.shape[1] == b_c, then G is likely (q, bSz) - add n dimension
+            if G.shape[1] == b_c:
+                # G is (q, bSz), add n dimension: (1, q, bSz)
+                G = G[np.newaxis, :, :]  # (1, q, bSz)
+            elif G.shape[0] == n_c:
+                # G is (n, bSz), add q dimension: (n, 1, bSz)
+                G = G[:, np.newaxis, :]  # (n, 1, bSz)
+            else:
+                # Can't determine, assume (q, bSz) and add n dimension
+                G = G[np.newaxis, :, :]  # (1, q, bSz)
+        
+        # Get dimensions after ensuring G is 3D
+        n_g, q_g, b_g = G.shape
+        
+        # Check if batch sizes match
+        if b_g != b_c:
+            if b_g == 1 and b_c > 1:
+                # G has batch size 1, replicate to match c
+                G = np.repeat(G, b_c, axis=2)
+                b_g = b_c
+            elif b_c == 1 and b_g > 1:
+                # c has batch size 1, replicate to match G
+                if c.ndim == 3:
+                    c = np.repeat(c, b_g, axis=2)
+                else:
+                    c = np.repeat(c, b_g, axis=1)
+                b_c = b_g
+        
+        # Check if G and c have matching first dimensions
+        if n_g != n_c:
+            # G and c have different n dimensions, need to broadcast or replicate
+            if n_g == 1 and n_c > 1:
+                # G has n=1, replicate to match c
+                G = np.repeat(G, n_c, axis=0)
+                n_g = n_c
+            elif n_c == 1 and n_g > 1:
+                # c has n=1, replicate to match G
+                c = np.repeat(c, n_g, axis=0)
+                n_c = n_g
+        
+        # MATLAB: r = reshape(sum(abs(G(:,genIds,:)),2),[n bSz]);
+        # Sum over axis 1 (generators), then reshape to (n, bSz)
+        # G should be 3D (n_g, q, b_g) at this point
+        G_selected = G[:, genIds, :]  # (n_g, num_gens, b_g)
+        r_raw = np.sum(np.abs(G_selected), axis=1)  # Should be (n_g, b_g)
+        
+        # DEBUG: Log r values for comparison with MATLAB (first few iterations only)
+        # This helps identify why bounds collapse faster in Python
+        if hasattr(self, '_debug_iteration') and self._debug_iteration is not None and self._debug_iteration <= 10:
+            print(f"ACTIVATION LAYER DEBUG (iteration {self._debug_iteration}):")
+            print(f"  Layer: {self.__class__.__name__}")
+            print(f"  G_selected shape: {G_selected.shape}")
+            print(f"  r_raw (first 3 neurons, first 3 batches): {r_raw[:min(3, r_raw.shape[0]), :min(3, r_raw.shape[1])].flatten()}")
+            print(f"  r_raw min/max: min={np.min(r_raw)}, max={np.max(r_raw)}")
+            if np.any(r_raw < 1e-6):
+                zero_count = np.sum(r_raw < 1e-6)
+                print(f"  WARNING: {zero_count} neurons have r < 1e-6 (bounds will collapse)!")
+                zero_indices = np.where(r_raw < 1e-6)
+                print(f"  Zero r locations (first 5): neurons={zero_indices[0][:5]}, batches={zero_indices[1][:5]}")
+        
+        # Ensure r_raw is 2D (n, b) matching c's dimensions
+        # MATLAB: r = reshape(sum(abs(G(:,genIds,:)),2),[n bSz]);
+        # r_raw should be (n_g, b_g) after sum, but we need (n_c, b_c)
+        if r_raw.ndim == 1:
+            # r_raw is 1D, this shouldn't happen if G is properly 3D
+            # Try to infer correct shape
+            if r_raw.size == n_g * b_g:
+                # r_raw is flattened (n*b,), reshape to (n, b)
+                r_raw = r_raw.reshape((n_g, b_g))
+            elif r_raw.size == b_g:
+                # r_raw is (b,), replicate to (n, b)
+                r_raw = np.tile(r_raw.reshape((1, -1)), (n_g, 1))
+            else:
+                raise ValueError(f"Cannot handle r_raw with size {r_raw.size}, expected {n_g * b_g} or {b_g}, G.shape={G.shape}, c.shape={c.shape}, n_g={n_g}, b_g={b_g}")
+        
+        # Now ensure r_raw matches c's dimensions (n_c, b_c)
+        if r_raw.ndim == 2:
+            # r_raw is 2D, check and fix dimensions to match c
+            if r_raw.shape[0] != n_c:
+                # r_raw has wrong first dimension
+                if r_raw.shape[0] == 1 and n_c > 1:
+                    r_raw = np.repeat(r_raw, n_c, axis=0)
+                elif r_raw.shape[0] > n_c:
+                    r_raw = r_raw[:n_c, :]
+                elif r_raw.shape[0] < n_c:
+                    raise ValueError(f"r_raw.shape[0]={r_raw.shape[0]} < n_c={n_c}, cannot replicate")
+            if r_raw.shape[1] != b_c:
+                # r_raw has wrong second dimension
+                if r_raw.shape[1] == 1 and b_c > 1:
+                    r_raw = np.repeat(r_raw, b_c, axis=1)
+                elif r_raw.shape[1] > b_c:
+                    r_raw = r_raw[:, :b_c]
+                elif r_raw.shape[1] < b_c:
+                    # r_raw has smaller batch size, replicate to match c
+                    if b_c % r_raw.shape[1] == 0:
+                        # b_c is a multiple of r_raw.shape[1], replicate
+                        nReps = b_c // r_raw.shape[1]
+                        r_raw = np.repeat(r_raw, nReps, axis=1)
+                    else:
+                        raise ValueError(f"r_raw.shape[1]={r_raw.shape[1]} < b_c={b_c} and b_c is not a multiple, cannot replicate")
+        else:
+            raise ValueError(f"r_raw is not 2D after processing: ndim={r_raw.ndim}, shape={r_raw.shape}, G.shape={G.shape}, c.shape={c.shape}")
+        
+        # Final safety check: r_raw must be 2D with shape (n_c, b_c)
+        if r_raw.ndim != 2:
+            raise ValueError(f"r_raw is not 2D before reshape: ndim={r_raw.ndim}, shape={r_raw.shape}, expected ({n_c}, {b_c})")
+        if r_raw.shape != (n_c, b_c):
+            # Try to fix it one more time
+            if r_raw.size == n_c * b_c:
+                r_raw = r_raw.reshape((n_c, b_c))
+            else:
+                raise ValueError(f"r_raw shape {r_raw.shape} != expected ({n_c}, {b_c}), size={r_raw.size}, expected size={n_c * b_c}")
+        
+        # Reshape to (n, 1, b) to match MATLAB's usage
+        # r_raw should now be (n_c, b_c)
+        r = r_raw.reshape((n_c, 1, b_c))
         # r = max(eps('like',c),r); % prevent numerical instabilities
+        
+        # DEBUG: Log bounds computation for comparison with MATLAB
+        if hasattr(self, '_debug_iteration') and self._debug_iteration is not None and self._debug_iteration <= 10:
+            print(f"  After bounds computation:")
+            print(f"    r shape: {r.shape}, r (first 3 neurons, first 3 batches): {r[:min(3, r.shape[0]), 0, :min(3, r.shape[2])].flatten()}")
+            print(f"    c (first 3 neurons, first 3 batches): {c[:min(3, c.shape[0]), 0, :min(3, c.shape[2])].flatten()}")
+            l_debug = c - r
+            u_debug = c + r
+            print(f"    l (first 3 neurons, first 3 batches): {l_debug[:min(3, l_debug.shape[0]), 0, :min(3, l_debug.shape[2])].flatten()}")
+            print(f"    u (first 3 neurons, first 3 batches): {u_debug[:min(3, u_debug.shape[0]), 0, :min(3, u_debug.shape[2])].flatten()}")
+            bounds_collapse = np.abs(u_debug - l_debug) < np.finfo(c.dtype).eps
+            if np.any(bounds_collapse):
+                collapse_count = np.sum(bounds_collapse)
+                print(f"    WARNING: {collapse_count} bounds have collapsed (l ≈ u)!")
+                collapse_indices = np.where(bounds_collapse)
+                print(f"    Collapsed bounds (first 5): neurons={collapse_indices[0][:5]}, batches={collapse_indices[2][:5]}")
+                # Check if centers are ≤ 0 (will cause m = 0 for ReLU)
+                c_collapsed = c[collapse_indices[0], 0, collapse_indices[2]]
+                c_le_zero = c_collapsed <= 0
+                print(f"    Centers at collapsed bounds (first 5): {c_collapsed[:5]}")
+                print(f"    Centers ≤ 0 (will cause m=0): {np.sum(c_le_zero)}/{len(c_collapsed)}")
+        
         l = c - r
         u = c + r
         # compute slope of approximation
@@ -1370,11 +1527,44 @@ class nnActivationLayer(nnLayer):
         # evaluate image enclosure
         rc = m * c
         
+        # MATLAB: G = permute(m,[1 3 2]).*G;
+        # Ensure G's batch size matches m's batch size
         if m.ndim == 3 and G.ndim == 3:
-            # m is (n,1,b), G is (n,q,b) - should broadcast properly
-            rG = m * G  # This should work with proper broadcasting
+            m_bSz = m.shape[2]
+            G_bSz = G.shape[2]
+            if m_bSz != G_bSz:
+                # Replicate G to match m's batch size
+                if m_bSz > G_bSz and m_bSz % G_bSz == 0:
+                    nReps = m_bSz // G_bSz
+                    G = np.repeat(G, nReps, axis=2)
+                elif G_bSz > m_bSz and G_bSz % m_bSz == 0:
+                    # G has larger batch size, subset it
+                    G = G[:, :, :m_bSz]
+                else:
+                    raise ValueError(f"Cannot match batch sizes: m.shape={m.shape}, G.shape={G.shape}")
+            # MATLAB: G = permute(m,[1 3 2]).*G;
+            # permute(m,[1 3 2]) changes (n, 1, b) to (n, b, 1)
+            # In NumPy, we can use (n, 1, b) * (n, q, b) which broadcasts to (n, q, b)
+            # This is equivalent to MATLAB's permute and multiply
+            rG = m * G  # (n, 1, b) * (n, q, b) -> (n, q, b) via broadcasting
+            
+            # DEBUG: Log m and rG values for comparison with MATLAB
+            if hasattr(self, '_debug_iteration') and self._debug_iteration is not None and self._debug_iteration <= 10:
+                print(f"  After generator multiplication:")
+                print(f"    m shape: {m.shape}, m (first 3 neurons, first 3 batches): {m[:min(3, m.shape[0]), 0, :min(3, m.shape[2])].flatten()}")
+                print(f"    m min/max: min={np.min(m)}, max={np.max(m)}")
+                if np.any(np.abs(m) < 1e-6):
+                    zero_m_count = np.sum(np.abs(m) < 1e-6)
+                    print(f"    WARNING: {zero_m_count} neurons have |m| < 1e-6 (generators will become zero)!")
+                    zero_m_indices = np.where(np.abs(m) < 1e-6)
+                    print(f"    Zero m locations (first 5): neurons={zero_m_indices[0][:5]}, batches={zero_m_indices[2][:5]}")
+                print(f"    rG shape: {rG.shape}, rG sum(abs) (first 3 neurons, first 3 batches): {np.sum(np.abs(rG[:min(3, rG.shape[0]), :, :min(3, rG.shape[2])]), axis=1).flatten()}")
+                if np.any(np.sum(np.abs(rG), axis=1) < 1e-6):
+                    zero_rG_count = np.sum(np.sum(np.abs(rG), axis=1) < 1e-6)
+                    print(f"    WARNING: {zero_rG_count} neurons have sum(|rG|) < 1e-6 (generators collapsed to zero)!")
         else:
-            rG = np.transpose(m, (0, 2, 1)) * G
+            # Handle 2D case
+            rG = m * G
         
         if options['nn'].get('use_approx_error', False):
             # Compute extreme points.

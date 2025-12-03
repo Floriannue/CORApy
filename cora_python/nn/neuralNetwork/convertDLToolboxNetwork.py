@@ -141,8 +141,8 @@ def aux_convertLayer(layers: List, layer_dict: Dict, currentSize: List, verbose:
         
         # Handle normalization like MATLAB (if present)
         if layer_dict.get('Normalization') == 'zscore':
-            mu = layer_dict.get('Mean', np.zeros(1))
-            sigma = layer_dict.get('StandardDeviation', np.ones(1))
+            mu = layer_dict.get('Mean', np.zeros(1, dtype=np.float64))
+            sigma = layer_dict.get('StandardDeviation', np.ones(1, dtype=np.float64))
             from ..layers.linear.nnElementwiseAffineLayer import nnElementwiseAffineLayer
             # Add normalization layer to computational layers (like MATLAB)
             layers.append(nnElementwiseAffineLayer(1/sigma, -mu/sigma, layer_dict.get('Name', '')))
@@ -162,6 +162,10 @@ def aux_convertLayer(layers: List, layer_dict: Dict, currentSize: List, verbose:
         # Extract weights and biases
         W = layer_dict.get('Weight', np.eye(1))
         b = layer_dict.get('Bias', np.zeros((1, 1)))
+        
+        # Ensure float64 precision (weights from ONNX may be float32)
+        W = np.asarray(W, dtype=np.float64)
+        b = np.asarray(b, dtype=np.float64)
 
         # ONNX MatMul stores weights as [in_features, out_features] -> needs transpose
         # ONNX Gemm stores weights as [out_features, in_features] (after handling transB) -> no transpose needed
@@ -193,7 +197,7 @@ def aux_convertLayer(layers: List, layer_dict: Dict, currentSize: List, verbose:
                 # Create a zero bias of the correct size
                 if verbose:
                     print(f"Warning: Bias shape {b.shape} doesn't match W.shape[0]={W.shape[0]}. Using zero bias.")
-                b = np.zeros((W.shape[0], 1))
+                b = np.zeros((W.shape[0], 1), dtype=np.float64)
 
         layer = nnLinearLayer(W, b, name=layer_dict.get('Name', ''))
         layers.append(layer)
@@ -326,8 +330,8 @@ def aux_convertLayer(layers: List, layer_dict: Dict, currentSize: List, verbose:
         from ..layers.linear.nnConv2DLayer import nnConv2DLayer
         
         # Extract convolution parameters
-        W = layer_dict.get('Weight', np.eye(1))
-        b = layer_dict.get('Bias', np.zeros(1))
+        W = layer_dict.get('Weight', np.eye(1, dtype=np.float64))
+        b = layer_dict.get('Bias', np.zeros(1, dtype=np.float64))
         padding = layer_dict.get('Padding', [0, 0, 0, 0])  # ONNX pads format: [pad_top, pad_left, pad_bottom, pad_right]
         
         # ONNX Conv weights are in format: [out_channels, in_channels, kernel_height, kernel_width]
@@ -364,7 +368,7 @@ def aux_convertLayer(layers: List, layer_dict: Dict, currentSize: List, verbose:
         if b.size != expected_bias_size:
             if verbose:
                 print(f"  WARNING: Bias size {b.size} doesn't match expected {expected_bias_size}. Using zeros.")
-            b = np.zeros(expected_bias_size, dtype=b.dtype)
+            b = np.zeros(expected_bias_size, dtype=np.float64)
         
         layer = nnConv2DLayer(W, b, padding, stride, dilation, name=layer_dict.get('Name', ''))
         layers.append(layer)
@@ -410,11 +414,11 @@ def aux_convertLayer(layers: List, layer_dict: Dict, currentSize: List, verbose:
     # Check for BatchNormalizationLayer
     elif layer_dict.get('Type') == 'BatchNormLayer':
         # Can be converted to elementwise layers like MATLAB
-        mean = layer_dict.get('Mean', np.zeros(1))
-        var = layer_dict.get('Variance', np.ones(1))
+        mean = layer_dict.get('Mean', np.zeros(1, dtype=np.float64))
+        var = layer_dict.get('Variance', np.ones(1, dtype=np.float64))
         epsilon = layer_dict.get('Epsilon', 1e-5)
-        scale = layer_dict.get('Scale', np.ones(1))
-        bias = layer_dict.get('Bias', np.zeros(1))
+        scale = layer_dict.get('Scale', np.ones(1, dtype=np.float64))
+        bias = layer_dict.get('Bias', np.zeros(1, dtype=np.float64))
         
         # (x-mean) / sqrt(var+epsilon) * scale + B
         # = x / sqrt(var+epsilon) * scale + (B - mean / sqrt(var+epsilon) * scale)

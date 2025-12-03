@@ -1,0 +1,625 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.11.3, pytest-8.3.5, pluggy-1.5.0 -- D:\Programme\Python3.11\python.exe
+cachedir: .pytest_cache
+rootdir: D:\Bachelorarbeit\Translate_Cora\cora_python\tests\nn
+configfile: pytest.ini
+plugins: anyio-4.10.0, jaxtyping-0.2.36, mock-3.14.1
+collecting ... collected 1 item
+
+cora_python\tests\nn\neuralNetwork\test_neuralNetwork_verify.py::testnn_neuralNetwork_verify DEBUG: Layer 0: <class 'cora_python.nn.layers.other.nnReshapeLayer.nnReshapeLayer'>, has __class__: True, has type: True
+DEBUG: Layer 1: <class 'cora_python.nn.layers.linear.nnLinearLayer.nnLinearLayer'>, has __class__: True, has type: True
+DEBUG: Layer 2: <class 'cora_python.nn.layers.nonlinear.nnReLULayer.nnReLULayer'>, has __class__: True, has type: True
+DEBUG: Layer 3: <class 'cora_python.nn.layers.linear.nnLinearLayer.nnLinearLayer'>, has __class__: True, has type: True
+DEBUG: Layer 4: <class 'cora_python.nn.layers.nonlinear.nnReLULayer.nnReLULayer'>, has __class__: True, has type: True
+DEBUG: Layer 5: <class 'cora_python.nn.layers.linear.nnLinearLayer.nnLinearLayer'>, has __class__: True, has type: True
+DEBUG: Layer 6: <class 'cora_python.nn.layers.nonlinear.nnReLULayer.nnReLULayer'>, has __class__: True, has type: True
+DEBUG: Layer 7: <class 'cora_python.nn.layers.linear.nnLinearLayer.nnLinearLayer'>, has __class__: True, has type: True
+DEBUG: Layer 8: <class 'cora_python.nn.layers.nonlinear.nnReLULayer.nnReLULayer'>, has __class__: True, has type: True
+DEBUG: Layer 9: <class 'cora_python.nn.layers.linear.nnLinearLayer.nnLinearLayer'>, has __class__: True, has type: True
+DEBUG: Layer 10: <class 'cora_python.nn.layers.nonlinear.nnReLULayer.nnReLULayer'>, has __class__: True, has type: True
+DEBUG: Layer 11: <class 'cora_python.nn.layers.linear.nnLinearLayer.nnLinearLayer'>, has __class__: True, has type: True
+DEBUG: Layer 12: <class 'cora_python.nn.layers.nonlinear.nnReLULayer.nnReLULayer'>, has __class__: True, has type: True
+DEBUG: Layer 13: <class 'cora_python.nn.layers.linear.nnLinearLayer.nnLinearLayer'>, has __class__: True, has type: True
+DEBUG (_aux_validate_and_normalize_polytope_inputs HRep): A_raw shape: (10, 5), Ae_raw shape: None
+DEBUG (_aux_validate_and_normalize_polytope_inputs HRep): Inferred n: 5
+DEBUG (_aux_validate_and_normalize_polytope_inputs): Final n before return: 5
+DEBUG (Polytope.__init__): self._dim_val after _general_constructor: 5
+DEBUG (_aux_validate_and_normalize_polytope_inputs HRep): A_raw shape: (1, 5), Ae_raw shape: None
+DEBUG (_aux_validate_and_normalize_polytope_inputs HRep): Inferred n: 5
+DEBUG (_aux_validate_and_normalize_polytope_inputs): Final n before return: 5
+DEBUG (Polytope.__init__): self._dim_val after _general_constructor: 5
+DEBUG: x type: <class 'type'>, x value: <class 'numpy.float32'>
+DEBUG: x is class, created dtype: float32
+DEBUG: Final target_dtype: float32, type: <class 'numpy.dtype[float32]'>
+Initial radius: min=0.025000, max=0.500000
+Queue / Verified / Total: 0000001 / 0000000 / 0000000 [Avg. radius: 0.21799]
+DEBUG Adversarial: safeSet=False, attack range=[4.011410, 4.011410], counterexamples found: 0
+DEBUG Adversarial: checkSpecs=[False]
+DEBUG Adversarial FIRST ITER: ld_yi=[0.0202845], b=[-3.99112565]
+DEBUG Adversarial FIRST ITER: ld_yi shape=(1, 1), b shape=(1, 1)
+DEBUG Adversarial FIRST ITER: A shape=(1, 5), yi shape=(5, 1)
+DEBUG Adversarial FIRST ITER: A=[-1.  0.  0.  0.  0.], yi=[-0.0202845 -0.0193085 -0.019157  -0.0189128 -0.0189197]
+DEBUG Adversarial FIRST ITER: zi=[ 0.59999999  0.5         0.5         0.49999999 -0.44999999]
+DEBUG Adversarial FIRST ITER: A @ yi (manual)=[0.0202845], matches ld_yi: True
+DEBUG Adversarial FIRST ITER: comparison (ld_yi <= b)=[False]
+DEBUG Adversarial FIRST ITER: all(comparison)=False
+DEBUG Adversarial FIRST ITER: critValPerConstr=[4.01141015]
+DEBUG Adversarial FIRST ITER: critVal=[4.01141015]
+DEBUG Adversarial FIRST ITER: MATLAB logic: all(ld_ys <= b, 1) = [False]
+DEBUG Adversarial: xi.shape=(5, 1), ri.shape=(5, 1), sens.shape=(1, 5)
+DEBUG Adversarial: zi.shape=(5, 1), yi.shape=(5, 1)
+DEBUG Adversarial: zi=[ 0.59999999  0.5         0.5         0.49999999 -0.44999999]
+DEBUG Adversarial: yi=[-0.0202845 -0.0193085 -0.019157  -0.0189128 -0.0189197]
+DEBUG Adversarial: ri range=[0.025000, 0.500000], sens range=[0.001442, 0.080065]
+FGSM TRACE: About to check checkSpecs. np.any(checkSpecs)=False, checkSpecs.shape=(1,), sum=0
+Queue / Verified / Total: 0000005 / 0000000 / 0000005 [Avg. radius: 0.13799]
+DEBUG Adversarial: safeSet=False, attack range=[4.011410, 4.011410], counterexamples found: 0
+DEBUG Adversarial: checkSpecs=[False False False]
+DEBUG Adversarial: xi.shape=(5, 3), ri.shape=(5, 3), sens.shape=(3, 5)
+DEBUG Adversarial: zi.shape=(5, 3), yi.shape=(5, 3)
+DEBUG Adversarial: zi=[ 0.63992888  0.63992888  0.59999999 -0.40000001 -0.19999999  0.10000001
+  0.          0.          0.5         0.47499999  0.47499999  0.49999999
+ -0.47499999 -0.47499999 -0.44999999]
+DEBUG Adversarial: yi=[-0.0202845 -0.0202845 -0.0202845 -0.0193085 -0.0193085 -0.0193085
+ -0.019157  -0.019157  -0.019157  -0.0189128 -0.0189128 -0.0189128
+ -0.0189197 -0.0189197 -0.0189197]
+DEBUG Adversarial: ri range=[0.025000, 0.500000], sens range=[0.000001, 0.080065]
+FGSM TRACE: About to check checkSpecs. np.any(checkSpecs)=False, checkSpecs.shape=(3,), sum=0
+Queue / Verified / Total: 0000015 / 0000002 / 0000020 [Avg. radius: 0.07932]
+DEBUG Adversarial: safeSet=False, attack range=[4.010173, 4.011410], counterexamples found: 0
+DEBUG Adversarial: checkSpecs=[False False False False]
+DEBUG Adversarial: xi.shape=(5, 4), ri.shape=(5, 4), sens.shape=(4, 5)
+DEBUG Adversarial: zi.shape=(5, 4), yi.shape=(5, 4)
+DEBUG Adversarial: zi=[ 0.63992888  0.63992888  0.59999999  0.67985776 -0.08       -0.04
+  0.02        0.02        0.          0.          0.5        -0.5
+  0.47499999  0.47499999  0.49999999  0.44999999 -0.47499999 -0.47499999
+ -0.44999999 -0.44999999]
+DEBUG Adversarial: yi=[-0.0202845  -0.0202845  -0.01904713 -0.01994433 -0.0193085  -0.0193085
+ -0.01616239 -0.01564906 -0.019157   -0.019157   -0.01833763 -0.01775422
+ -0.0189128  -0.0189128  -0.01591156 -0.01538004 -0.0189197  -0.0189197
+ -0.01755277 -0.01683463]
+DEBUG Adversarial: ri range=[0.020000, 0.500000], sens range=[0.000001, 0.080065]
+FGSM TRACE: About to check checkSpecs. np.any(checkSpecs)=False, checkSpecs.shape=(4,), sum=0
+Queue / Verified / Total: 0000020 / 0000013 / 0000040 [Avg. radius: 0.04199]
+DEBUG: x type: <class 'type'>, x value: <class 'numpy.float32'>
+DEBUG: x is class, created dtype: float32
+DEBUG: Final target_dtype: float32, type: <class 'numpy.dtype[float32]'>
+Initial radius: min=0.025000, max=0.500000
+Queue / Verified / Total: 0000001 / 0000000 / 0000000 [Avg. radius: 0.21799]
+DEBUG Zonotack: Gxi_subset shape=(5, 5, 1)
+DEBUG Zonotack: Gxi_subset max per dim=[0.03992888 0.5        0.5        0.025      0.025     ]
+DEBUG Zonotack: ri=[0.03992888 0.5        0.5        0.025      0.025     ]
+DEBUG Zonotack: sum(|Gxi_subset|, axis=1)=[0.03992888 0.5        0.5        0.025      0.025     ]
+DEBUG Zonotack: delta shape=(5, 1), max=[0.03992888 0.5        0.5        0.025      0.025     ]
+DEBUG Zonotack: zi shape=(5, 1), zi=[ 0.67985776 -0.5         0.5         0.44999999 -0.44999999]
+DEBUG Zonotack: bounds=[[[ 0.6 ]
+ [-0.5 ]
+ [-0.5 ]
+ [ 0.45]
+ [-0.5 ]], [[ 0.67985773]
+ [ 0.5       ]
+ [ 0.5       ]
+ [ 0.5       ]
+ [-0.45      ]]]
+DEBUG Zonotack: zi in bounds=False
+DEBUG Adversarial: safeSet=False, attack range=[4.011410, 4.011410], counterexamples found: 0
+DEBUG Adversarial: checkSpecs=[False]
+DEBUG Adversarial FIRST ITER: ld_yi=[0.0202845], b=[-3.99112565]
+DEBUG Adversarial FIRST ITER: ld_yi shape=(1, 1), b shape=(1, 1)
+DEBUG Adversarial FIRST ITER: A shape=(1, 5), yi shape=(5, 1)
+DEBUG Adversarial FIRST ITER: A=[-1.  0.  0.  0.  0.], yi=[-0.0202845 -0.0193085 -0.019157  -0.0189128 -0.0189197]
+DEBUG Adversarial FIRST ITER: zi=[ 0.67985776 -0.5         0.5         0.44999999 -0.44999999]
+DEBUG Adversarial FIRST ITER: A @ yi (manual)=[0.0202845], matches ld_yi: True
+DEBUG Adversarial FIRST ITER: comparison (ld_yi <= b)=[False]
+DEBUG Adversarial FIRST ITER: all(comparison)=False
+DEBUG Adversarial FIRST ITER: critValPerConstr=[4.01141015]
+DEBUG Adversarial FIRST ITER: critVal=[4.01141015]
+DEBUG Adversarial FIRST ITER: MATLAB logic: all(ld_ys <= b, 1) = [False]
+DEBUG Adversarial: xi.shape=(5, 1), ri.shape=(5, 1), sens=None
+DEBUG Adversarial: zi.shape=(5, 1), yi.shape=(5, 1)
+DEBUG Adversarial: zi=[ 0.67985776 -0.5         0.5         0.44999999 -0.44999999]
+DEBUG Adversarial: yi=[-0.0202845 -0.0193085 -0.019157  -0.0189128 -0.0189197]
+DEBUG Adversarial: ri range=[0.025000, 0.500000], sens=None
+FGSM TRACE: About to check checkSpecs. np.any(checkSpecs)=False, checkSpecs.shape=(1,), sum=0
+DEBUG _aux_scaleAndOffsetZonotope: c.shape=(4, 1250), G.shape=(4, 5, 1250), bc.shape=(5, 25), br.shape=(5, 25)
+DEBUG _aux_scaleAndOffsetZonotope: qiIds=5, G_.shape=(4, 5, 1250)
+DEBUG _aux_scaleAndOffsetZonotope: Replicating bc/br, G_bSz=1250, bc_bSz=25, nReps=50
+DEBUG _aux_scaleAndOffsetZonotope: After replication, bc.shape=(5, 1250), br.shape=(5, 1250)
+DEBUG _aux_scaleAndOffsetZonotope: bc_.shape=(5, 1, 1250), br_.shape=(1, 5, 1250)
+DEBUG: After _aux_boundsOfConZonotope, ly.shape=(5, 1250), bli.shape=(5, 1250), bui.shape=(5, 1250)
+DEBUG: bc.shape=(5, 25), br.shape=(5, 25), bSz=25
+DEBUG: bci.shape=(5, 1250), bri.shape=(5, 1250)
+DEBUG: Batch size mismatch! bc.shape[1]=25, bci.shape[1]=1250
+DEBUG: After replication, bc.shape=(5, 1250), br.shape=(5, 1250), bSz=1250
+DEBUG _aux_scaleAndOffsetZonotope: c.shape=(5, 25, 1), G.shape=(5, 5, 25), bc.shape=(5, 1250), br.shape=(5, 1250)
+DEBUG _aux_scaleAndOffsetZonotope: qiIds=5, G_.shape=(5, 5, 25)
+DEBUG _aux_scaleAndOffsetZonotope: Replicating bc/br, G_bSz=25, bc_bSz=1250, nReps=0
+DEBUG _aux_scaleAndOffsetZonotope: After replication, bc.shape=(5, 0), br.shape=(5, 0)
+DEBUG _aux_scaleAndOffsetZonotope: bc_.shape=(5, 1, 0), br_.shape=(1, 5, 0)
+FAILED
+
+================================== FAILURES ===================================
+_________________________ testnn_neuralNetwork_verify _________________________
+
+    def testnn_neuralNetwork_verify():
+        """
+        Test neuralNetwork.verify function with ACASXU models (MATLAB testnn_neuralNetwork_verify equivalent)
+    
+        This test matches cora/unitTests/nn/neuralNetwork/testnn_neuralNetwork_verify.m exactly.
+        Uses specs from the ACASXU benchmark: prop_1, prop_2.
+        """
+        import os
+        import pytest
+        from cora_python.g.macros.CORAROOT import CORAROOT
+    
+        # We use the specs from the acasxu benchmark: prop_1, prop_2, prop_3, and prop_5.
+    
+        # Toggle verbose verification output.
+        verbose = True
+    
+        # Specify the model path.
+        cora_root = CORAROOT()
+        model1Path = os.path.join(cora_root, 'cora_matlab', 'models', 'Cora', 'nn', 'ACASXU_run2a_1_2_batch_2000.onnx')
+        model2Path = os.path.join(cora_root, 'cora_matlab', 'models', 'Cora', 'nn', 'ACASXU_run2a_5_3_batch_2000.onnx')
+        prop1Filename = os.path.join(cora_root, 'cora_matlab', 'models', 'Cora', 'nn', 'prop_1.vnnlib')
+        prop2Filename = os.path.join(cora_root, 'cora_matlab', 'models', 'Cora', 'nn', 'prop_2.vnnlib')
+    
+        # Check if files exist, skip test if they don't
+        if not os.path.isfile(model1Path):
+            pytest.skip(f"ACASXU model file not found: {model1Path}")
+        if not os.path.isfile(model2Path):
+            pytest.skip(f"ACASXU model file not found: {model2Path}")
+        if not os.path.isfile(prop1Filename):
+            pytest.skip(f"VNNLIB file not found: {prop1Filename}")
+        if not os.path.isfile(prop2Filename):
+            pytest.skip(f"VNNLIB file not found: {prop2Filename}")
+    
+        # Set a timeout of 10s (MATLAB: timeout = 10;)
+        timeout = 10
+    
+        # First test case: prop_1.vnnlib ------------------------------------------
+        # MATLAB: [nn,options,x,r,A,b,safeSet] = aux_readNetworkAndOptions(model1Path,prop1Filename);
+        nn, options, x, r, A, b, safeSet = aux_readNetworkAndOptions(model1Path, prop1Filename)
+    
+        # Test 'naive'-splitting and 'fgsm'-falsification.
+        # MATLAB: options.nn.falsification_method = 'fgsm';
+        # MATLAB: options.nn.refinement_method = 'naive';
+        options['nn']['falsification_method'] = 'fgsm'
+        options['nn']['refinement_method'] = 'naive'
+    
+        # Do verification.
+        # MATLAB: [verifRes,x_,y_] = nn.verify(x,r,A,b,safeSet,options,timeout,verbose);
+        # MATLAB: assert(~strcmp(verifRes.str,'COUNTEREXAMPLE') & isempty(x_) & isempty(y_));
+        verifRes, x_, y_ = nn.verify(x, r, A, b, safeSet, options, timeout, verbose)
+        assert verifRes != 'COUNTEREXAMPLE', f"Expected not COUNTEREXAMPLE, got '{verifRes}'"
+        assert x_ is None or (hasattr(x_, 'size') and x_.size == 0), f"Expected empty x_, got {x_}"
+        assert y_ is None or (hasattr(y_, 'size') and y_.size == 0), f"Expected empty y_, got {y_}"
+    
+        # Test 'zonotack' implementation with restricted number of generators.
+        # MATLAB: options.nn.falsification_method = 'zonotack';
+        # MATLAB: options.nn.refinement_method = 'zonotack';
+        options['nn']['falsification_method'] = 'zonotack'
+        options['nn']['refinement_method'] = 'zonotack'
+        # Specify parameters.
+        # MATLAB: options.nn.num_splits = 2;
+        # MATLAB: options.nn.num_dimensions = 2;
+        # MATLAB: options.nn.num_neuron_splits = 1;
+        options['nn']['num_splits'] = 2
+        options['nn']['num_dimensions'] = 2
+        options['nn']['num_neuron_splits'] = 1
+        # Restrict the number of input generators.
+        # MATLAB: options.nn.train.num_init_gens = 5;
+        options['nn']['train']['num_init_gens'] = 5
+        # Restrict the number of approximation error generators per layer.
+        # MATLAB: options.nn.train.num_approx_err = 50;
+        options['nn']['train']['num_approx_err'] = 50
+        # MATLAB: options.nn.approx_error_order = 'sensitivity*length';
+        options['nn']['approx_error_order'] = 'sensitivity*length'
+        # Add relu tightening constraints.
+        # MATLAB: options.nn.num_relu_tighten_constraints = inf;
+        options['nn']['num_relu_tighten_constraints'] = np.inf
+        # Do verification.
+        # MATLAB: [verifRes,x_,y_] = nn.verify(x,r,A,b,safeSet,options,timeout,verbose);
+        # MATLAB: assert(~strcmp(verifRes.str,'COUNTEREXAMPLE') & isempty(x_) & isempty(y_));
+>       verifRes, x_, y_ = nn.verify(x, r, A, b, safeSet, options, timeout, verbose)
+
+cora_python\tests\nn\neuralNetwork\test_neuralNetwork_verify.py:514: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+cora_python\nn\neuralNetwork\verify.py:1355: in verify
+    l, u, nrXis = _aux_refineInputSet(nn, options, nReLU > 0 or nNeur > 0,
+cora_python\nn\neuralNetwork\verify_helpers.py:1699: in _aux_refineInputSet
+    cAnc, GAnc = _aux_scaleAndOffsetZonotope(cAnc, GAnc, bc, br)
+cora_python\nn\neuralNetwork\verify_helpers.py:81: in _aux_scaleAndOffsetZonotope
+    offset = pagemtimes(G_, 'none', bc_, 'none')  # (n, 1, batch)
+cora_python\nn\layers\linear\nnGeneratorReductionLayer.py:135: in pagemtimes
+    return np.einsum('ijk,jlk->ilk', A, B)
+<__array_function__ internals>:200: in einsum
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+out = None, optimize = False
+operands = ('ijk,jlk->ilk', array([[[0.03992888, 0.03992888, 0.03992888, 0.03992888, 0.03992888,
+         0.03992888, 0.03992888,...  , 0.025     , 0.025     , 0.025     , 0.025     ]]],
+      dtype=float32), array([], shape=(5, 1, 0), dtype=float64))
+kwargs = {}, specified_out = False
+
+    @array_function_dispatch(_einsum_dispatcher, module='numpy')
+    def einsum(*operands, out=None, optimize=False, **kwargs):
+        """
+        einsum(subscripts, *operands, out=None, dtype=None, order='K',
+               casting='safe', optimize=False)
+    
+        Evaluates the Einstein summation convention on the operands.
+    
+        Using the Einstein summation convention, many common multi-dimensional,
+        linear algebraic array operations can be represented in a simple fashion.
+        In *implicit* mode `einsum` computes these values.
+    
+        In *explicit* mode, `einsum` provides further flexibility to compute
+        other array operations that might not be considered classical Einstein
+        summation operations, by disabling, or forcing summation over specified
+        subscript labels.
+    
+        See the notes and examples for clarification.
+    
+        Parameters
+        ----------
+        subscripts : str
+            Specifies the subscripts for summation as comma separated list of
+            subscript labels. An implicit (classical Einstein summation)
+            calculation is performed unless the explicit indicator '->' is
+            included as well as subscript labels of the precise output form.
+        operands : list of array_like
+            These are the arrays for the operation.
+        out : ndarray, optional
+            If provided, the calculation is done into this array.
+        dtype : {data-type, None}, optional
+            If provided, forces the calculation to use the data type specified.
+            Note that you may have to also give a more liberal `casting`
+            parameter to allow the conversions. Default is None.
+        order : {'C', 'F', 'A', 'K'}, optional
+            Controls the memory layout of the output. 'C' means it should
+            be C contiguous. 'F' means it should be Fortran contiguous,
+            'A' means it should be 'F' if the inputs are all 'F', 'C' otherwise.
+            'K' means it should be as close to the layout as the inputs as
+            is possible, including arbitrarily permuted axes.
+            Default is 'K'.
+        casting : {'no', 'equiv', 'safe', 'same_kind', 'unsafe'}, optional
+            Controls what kind of data casting may occur.  Setting this to
+            'unsafe' is not recommended, as it can adversely affect accumulations.
+    
+              * 'no' means the data types should not be cast at all.
+              * 'equiv' means only byte-order changes are allowed.
+              * 'safe' means only casts which can preserve values are allowed.
+              * 'same_kind' means only safe casts or casts within a kind,
+                like float64 to float32, are allowed.
+              * 'unsafe' means any data conversions may be done.
+    
+            Default is 'safe'.
+        optimize : {False, True, 'greedy', 'optimal'}, optional
+            Controls if intermediate optimization should occur. No optimization
+            will occur if False and True will default to the 'greedy' algorithm.
+            Also accepts an explicit contraction list from the ``np.einsum_path``
+            function. See ``np.einsum_path`` for more details. Defaults to False.
+    
+        Returns
+        -------
+        output : ndarray
+            The calculation based on the Einstein summation convention.
+    
+        See Also
+        --------
+        einsum_path, dot, inner, outer, tensordot, linalg.multi_dot
+        einops :
+            similar verbose interface is provided by
+            `einops <https://github.com/arogozhnikov/einops>`_ package to cover
+            additional operations: transpose, reshape/flatten, repeat/tile,
+            squeeze/unsqueeze and reductions.
+        opt_einsum :
+            `opt_einsum <https://optimized-einsum.readthedocs.io/en/stable/>`_
+            optimizes contraction order for einsum-like expressions
+            in backend-agnostic manner.
+    
+        Notes
+        -----
+        .. versionadded:: 1.6.0
+    
+        The Einstein summation convention can be used to compute
+        many multi-dimensional, linear algebraic array operations. `einsum`
+        provides a succinct way of representing these.
+    
+        A non-exhaustive list of these operations,
+        which can be computed by `einsum`, is shown below along with examples:
+    
+        * Trace of an array, :py:func:`numpy.trace`.
+        * Return a diagonal, :py:func:`numpy.diag`.
+        * Array axis summations, :py:func:`numpy.sum`.
+        * Transpositions and permutations, :py:func:`numpy.transpose`.
+        * Matrix multiplication and dot product, :py:func:`numpy.matmul` :py:func:`numpy.dot`.
+        * Vector inner and outer products, :py:func:`numpy.inner` :py:func:`numpy.outer`.
+        * Broadcasting, element-wise and scalar multiplication, :py:func:`numpy.multiply`.
+        * Tensor contractions, :py:func:`numpy.tensordot`.
+        * Chained array operations, in efficient calculation order, :py:func:`numpy.einsum_path`.
+    
+        The subscripts string is a comma-separated list of subscript labels,
+        where each label refers to a dimension of the corresponding operand.
+        Whenever a label is repeated it is summed, so ``np.einsum('i,i', a, b)``
+        is equivalent to :py:func:`np.inner(a,b) <numpy.inner>`. If a label
+        appears only once, it is not summed, so ``np.einsum('i', a)`` produces a
+        view of ``a`` with no changes. A further example ``np.einsum('ij,jk', a, b)``
+        describes traditional matrix multiplication and is equivalent to
+        :py:func:`np.matmul(a,b) <numpy.matmul>`. Repeated subscript labels in one
+        operand take the diagonal. For example, ``np.einsum('ii', a)`` is equivalent
+        to :py:func:`np.trace(a) <numpy.trace>`.
+    
+        In *implicit mode*, the chosen subscripts are important
+        since the axes of the output are reordered alphabetically.  This
+        means that ``np.einsum('ij', a)`` doesn't affect a 2D array, while
+        ``np.einsum('ji', a)`` takes its transpose. Additionally,
+        ``np.einsum('ij,jk', a, b)`` returns a matrix multiplication, while,
+        ``np.einsum('ij,jh', a, b)`` returns the transpose of the
+        multiplication since subscript 'h' precedes subscript 'i'.
+    
+        In *explicit mode* the output can be directly controlled by
+        specifying output subscript labels.  This requires the
+        identifier '->' as well as the list of output subscript labels.
+        This feature increases the flexibility of the function since
+        summing can be disabled or forced when required. The call
+        ``np.einsum('i->', a)`` is like :py:func:`np.sum(a, axis=-1) <numpy.sum>`,
+        and ``np.einsum('ii->i', a)`` is like :py:func:`np.diag(a) <numpy.diag>`.
+        The difference is that `einsum` does not allow broadcasting by default.
+        Additionally ``np.einsum('ij,jh->ih', a, b)`` directly specifies the
+        order of the output subscript labels and therefore returns matrix
+        multiplication, unlike the example above in implicit mode.
+    
+        To enable and control broadcasting, use an ellipsis.  Default
+        NumPy-style broadcasting is done by adding an ellipsis
+        to the left of each term, like ``np.einsum('...ii->...i', a)``.
+        To take the trace along the first and last axes,
+        you can do ``np.einsum('i...i', a)``, or to do a matrix-matrix
+        product with the left-most indices instead of rightmost, one can do
+        ``np.einsum('ij...,jk...->ik...', a, b)``.
+    
+        When there is only one operand, no axes are summed, and no output
+        parameter is provided, a view into the operand is returned instead
+        of a new array.  Thus, taking the diagonal as ``np.einsum('ii->i', a)``
+        produces a view (changed in version 1.10.0).
+    
+        `einsum` also provides an alternative way to provide the subscripts
+        and operands as ``einsum(op0, sublist0, op1, sublist1, ..., [sublistout])``.
+        If the output shape is not provided in this format `einsum` will be
+        calculated in implicit mode, otherwise it will be performed explicitly.
+        The examples below have corresponding `einsum` calls with the two
+        parameter methods.
+    
+        .. versionadded:: 1.10.0
+    
+        Views returned from einsum are now writeable whenever the input array
+        is writeable. For example, ``np.einsum('ijk...->kji...', a)`` will now
+        have the same effect as :py:func:`np.swapaxes(a, 0, 2) <numpy.swapaxes>`
+        and ``np.einsum('ii->i', a)`` will return a writeable view of the diagonal
+        of a 2D array.
+    
+        .. versionadded:: 1.12.0
+    
+        Added the ``optimize`` argument which will optimize the contraction order
+        of an einsum expression. For a contraction with three or more operands this
+        can greatly increase the computational efficiency at the cost of a larger
+        memory footprint during computation.
+    
+        Typically a 'greedy' algorithm is applied which empirical tests have shown
+        returns the optimal path in the majority of cases. In some cases 'optimal'
+        will return the superlative path through a more expensive, exhaustive search.
+        For iterative calculations it may be advisable to calculate the optimal path
+        once and reuse that path by supplying it as an argument. An example is given
+        below.
+    
+        See :py:func:`numpy.einsum_path` for more details.
+    
+        Examples
+        --------
+        >>> a = np.arange(25).reshape(5,5)
+        >>> b = np.arange(5)
+        >>> c = np.arange(6).reshape(2,3)
+    
+        Trace of a matrix:
+    
+        >>> np.einsum('ii', a)
+        60
+        >>> np.einsum(a, [0,0])
+        60
+        >>> np.trace(a)
+        60
+    
+        Extract the diagonal (requires explicit form):
+    
+        >>> np.einsum('ii->i', a)
+        array([ 0,  6, 12, 18, 24])
+        >>> np.einsum(a, [0,0], [0])
+        array([ 0,  6, 12, 18, 24])
+        >>> np.diag(a)
+        array([ 0,  6, 12, 18, 24])
+    
+        Sum over an axis (requires explicit form):
+    
+        >>> np.einsum('ij->i', a)
+        array([ 10,  35,  60,  85, 110])
+        >>> np.einsum(a, [0,1], [0])
+        array([ 10,  35,  60,  85, 110])
+        >>> np.sum(a, axis=1)
+        array([ 10,  35,  60,  85, 110])
+    
+        For higher dimensional arrays summing a single axis can be done with ellipsis:
+    
+        >>> np.einsum('...j->...', a)
+        array([ 10,  35,  60,  85, 110])
+        >>> np.einsum(a, [Ellipsis,1], [Ellipsis])
+        array([ 10,  35,  60,  85, 110])
+    
+        Compute a matrix transpose, or reorder any number of axes:
+    
+        >>> np.einsum('ji', c)
+        array([[0, 3],
+               [1, 4],
+               [2, 5]])
+        >>> np.einsum('ij->ji', c)
+        array([[0, 3],
+               [1, 4],
+               [2, 5]])
+        >>> np.einsum(c, [1,0])
+        array([[0, 3],
+               [1, 4],
+               [2, 5]])
+        >>> np.transpose(c)
+        array([[0, 3],
+               [1, 4],
+               [2, 5]])
+    
+        Vector inner products:
+    
+        >>> np.einsum('i,i', b, b)
+        30
+        >>> np.einsum(b, [0], b, [0])
+        30
+        >>> np.inner(b,b)
+        30
+    
+        Matrix vector multiplication:
+    
+        >>> np.einsum('ij,j', a, b)
+        array([ 30,  80, 130, 180, 230])
+        >>> np.einsum(a, [0,1], b, [1])
+        array([ 30,  80, 130, 180, 230])
+        >>> np.dot(a, b)
+        array([ 30,  80, 130, 180, 230])
+        >>> np.einsum('...j,j', a, b)
+        array([ 30,  80, 130, 180, 230])
+    
+        Broadcasting and scalar multiplication:
+    
+        >>> np.einsum('..., ...', 3, c)
+        array([[ 0,  3,  6],
+               [ 9, 12, 15]])
+        >>> np.einsum(',ij', 3, c)
+        array([[ 0,  3,  6],
+               [ 9, 12, 15]])
+        >>> np.einsum(3, [Ellipsis], c, [Ellipsis])
+        array([[ 0,  3,  6],
+               [ 9, 12, 15]])
+        >>> np.multiply(3, c)
+        array([[ 0,  3,  6],
+               [ 9, 12, 15]])
+    
+        Vector outer product:
+    
+        >>> np.einsum('i,j', np.arange(2)+1, b)
+        array([[0, 1, 2, 3, 4],
+               [0, 2, 4, 6, 8]])
+        >>> np.einsum(np.arange(2)+1, [0], b, [1])
+        array([[0, 1, 2, 3, 4],
+               [0, 2, 4, 6, 8]])
+        >>> np.outer(np.arange(2)+1, b)
+        array([[0, 1, 2, 3, 4],
+               [0, 2, 4, 6, 8]])
+    
+        Tensor contraction:
+    
+        >>> a = np.arange(60.).reshape(3,4,5)
+        >>> b = np.arange(24.).reshape(4,3,2)
+        >>> np.einsum('ijk,jil->kl', a, b)
+        array([[4400., 4730.],
+               [4532., 4874.],
+               [4664., 5018.],
+               [4796., 5162.],
+               [4928., 5306.]])
+        >>> np.einsum(a, [0,1,2], b, [1,0,3], [2,3])
+        array([[4400., 4730.],
+               [4532., 4874.],
+               [4664., 5018.],
+               [4796., 5162.],
+               [4928., 5306.]])
+        >>> np.tensordot(a,b, axes=([1,0],[0,1]))
+        array([[4400., 4730.],
+               [4532., 4874.],
+               [4664., 5018.],
+               [4796., 5162.],
+               [4928., 5306.]])
+    
+        Writeable returned arrays (since version 1.10.0):
+    
+        >>> a = np.zeros((3, 3))
+        >>> np.einsum('ii->i', a)[:] = 1
+        >>> a
+        array([[1., 0., 0.],
+               [0., 1., 0.],
+               [0., 0., 1.]])
+    
+        Example of ellipsis use:
+    
+        >>> a = np.arange(6).reshape((3,2))
+        >>> b = np.arange(12).reshape((4,3))
+        >>> np.einsum('ki,jk->ij', a, b)
+        array([[10, 28, 46, 64],
+               [13, 40, 67, 94]])
+        >>> np.einsum('ki,...k->i...', a, b)
+        array([[10, 28, 46, 64],
+               [13, 40, 67, 94]])
+        >>> np.einsum('k...,jk', a, b)
+        array([[10, 28, 46, 64],
+               [13, 40, 67, 94]])
+    
+        Chained array operations. For more complicated contractions, speed ups
+        might be achieved by repeatedly computing a 'greedy' path or pre-computing the
+        'optimal' path and repeatedly applying it, using an
+        `einsum_path` insertion (since version 1.12.0). Performance improvements can be
+        particularly significant with larger arrays:
+    
+        >>> a = np.ones(64).reshape(2,4,8)
+    
+        Basic `einsum`: ~1520ms  (benchmarked on 3.1GHz Intel i5.)
+    
+        >>> for iteration in range(500):
+        ...     _ = np.einsum('ijk,ilm,njm,nlk,abc->',a,a,a,a,a)
+    
+        Sub-optimal `einsum` (due to repeated path calculation time): ~330ms
+    
+        >>> for iteration in range(500):
+        ...     _ = np.einsum('ijk,ilm,njm,nlk,abc->',a,a,a,a,a, optimize='optimal')
+    
+        Greedy `einsum` (faster optimal path approximation): ~160ms
+    
+        >>> for iteration in range(500):
+        ...     _ = np.einsum('ijk,ilm,njm,nlk,abc->',a,a,a,a,a, optimize='greedy')
+    
+        Optimal `einsum` (best usage pattern in some use cases): ~110ms
+    
+        >>> path = np.einsum_path('ijk,ilm,njm,nlk,abc->',a,a,a,a,a, optimize='optimal')[0]
+        >>> for iteration in range(500):
+        ...     _ = np.einsum('ijk,ilm,njm,nlk,abc->',a,a,a,a,a, optimize=path)
+    
+        """
+        # Special handling if out is specified
+        specified_out = out is not None
+    
+        # If no optimization, run pure einsum
+        if optimize is False:
+            if specified_out:
+                kwargs['out'] = out
+>           return c_einsum(*operands, **kwargs)
+E           ValueError: operands could not be broadcast together with remapped shapes [original->remapped]: (5,5,25)->(5,newaxis,25,5) (5,1,0)->(1,0,5)
+
+D:\Programme\Python3.11\Lib\site-packages\numpy\core\einsumfunc.py:1371: ValueError
+============================== warnings summary ===============================
+neuralNetwork/test_neuralNetwork_verify.py::testnn_neuralNetwork_verify
+  D:\Bachelorarbeit\Translate_Cora\cora_python\nn\neuralNetwork\verify_helpers.py:878: RuntimeWarning: divide by zero encountered in divide
+    rh = np.clip((b_ - sABnd) / A_safe, bl_, bu_)  # (q, p, bSz)
+
+neuralNetwork/test_neuralNetwork_verify.py::testnn_neuralNetwork_verify
+  D:\Bachelorarbeit\Translate_Cora\cora_python\nn\neuralNetwork\verify_helpers.py:878: RuntimeWarning: invalid value encountered in divide
+    rh = np.clip((b_ - sABnd) / A_safe, bl_, bu_)  # (q, p, bSz)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED cora_python\tests\nn\neuralNetwork\test_neuralNetwork_verify.py::testnn_neuralNetwork_verify
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+======================== 1 failed, 2 warnings in 4.02s ========================

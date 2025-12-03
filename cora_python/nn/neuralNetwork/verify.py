@@ -62,6 +62,11 @@ except ImportError:
 if TYPE_CHECKING:
     from .neuralNetwork import NeuralNetwork
 
+# Floating-point tolerance for comparisons
+# MATLAB uses double precision by default, so we use a small tolerance to account for
+# floating-point precision errors in comparisons (>=, <=, ==, etc.)
+FLOAT_TOLERANCE = 1e-6
+
 
 def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: np.ndarray, 
            safeSet: Any, options: Optional[Dict[str, Any]] = None, timeout: Optional[float] = None, 
@@ -101,8 +106,11 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
     
     # Ensure x and r are 2D column vectors like MATLAB
     # MATLAB: x and r are column vectors (n, 1) or (n, num_patches)
-    x = np.asarray(x)
-    r = np.asarray(r)
+    # Convert to float64 to match MATLAB's double precision
+    x = np.asarray(x, dtype=np.float64)
+    r = np.asarray(r, dtype=np.float64)
+    A = np.asarray(A, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
     if x.ndim == 1:
         x = x.reshape(-1, 1)  # (n,) -> (n, 1)
     # r can be scalar or array
@@ -148,12 +156,13 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
     
     # Extract parameters.
     bs = options.get('nn', {}).get('train', {}).get('mini_batch_size', 32)
-    
-    # To speed up computations and reduce gpu memory, we only use single precision.
-    inputDataClass = np.float32
+    batch_size = bs  # Save batch size before it might get overwritten
     
     # Check if a gpu is used during training.
     useGpu = options.get('nn', {}).get('train', {}).get('use_gpu', False)
+    
+    # For CPU operations, use float64 to match MATLAB's double precision
+    # For GPU operations, use float32 to speed up computations and reduce GPU memory
     if useGpu and TORCH_AVAILABLE:
         # Training data is also moved to gpu.
         # In MATLAB: inputDataClass = gpuArray(inputDataClass)
@@ -165,13 +174,14 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         else:
             print("CUDA not available, falling back to CPU")
             useGpu = False
-            inputDataClass = np.float32
+            inputDataClass = np.float64  # Use float64 for CPU
     else:
-        # No GPU support available
+        # No GPU support available - use float64 for CPU to match MATLAB
         useGpu = False
-        inputDataClass = np.float32
+        inputDataClass = np.float64  # Use float64 for CPU to match MATLAB
     
     # (potentially) move weights of the network to gpu
+    # Note: For CPU, this will cast weights to float64, matching MATLAB
     nn.castWeights(inputDataClass)
     
     # Specify indices of layers for propagation.
@@ -181,9 +191,10 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
     # for fast adding of approximation errors.
     numGen = nn.prepareForZonoBatchEval(x, options, idxLayer)
     # Allocate generators for initial perturbance set.
+    # Use inputDataClass (float64 for CPU, float32 for GPU)
     idMat = np.concatenate([np.eye(x.shape[0], dtype=inputDataClass), 
                            np.zeros((x.shape[0], numGen - x.shape[0]), dtype=inputDataClass)], axis=1)
-    batchG = np.tile(idMat.reshape(idMat.shape[0], idMat.shape[1], 1), (1, 1, bs))
+    batchG = np.tile(idMat.reshape(idMat.shape[0], idMat.shape[1], 1), (1, 1, batch_size))
     
     # Initialize queue - preserve original shapes like MATLAB
     # MATLAB: xs = x; rs = r; nrXs = zeros([0 size(x,2)]);
@@ -206,7 +217,9 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
     timerVal = time.time()
 
     # Main splitting loop.
+    iteration = 0
     while xs.shape[1] > 0:
+        iteration += 1
         current_time = time.time() - timerVal
         if current_time > timeout:
             res = 'UNKNOWN'
@@ -217,9 +230,13 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         if verbose:
             print(f'Queue / Verified / Total: {xs.shape[1]:07d} / {verifiedPatches:07d} / {totalNumSplits:07d} [Avg. radius: {np.mean(rs):.5f}]')
         
+        # ALWAYS log iteration count (critical for debugging)
+        if iteration == 1 or iteration % 10 == 0 or xs.shape[1] < 10:
+            print(f'ITERATION {iteration}: Queue={xs.shape[1]}, Verified={verifiedPatches}, Total={totalNumSplits}, res={res}')
+        
         # Pop next batch from the queue.
         # MATLAB: [xi,ri,nrXi,xs,rs,nrXs,qIdx] = aux_pop(xs,rs,nrXs,bSz,options);
-        xi, ri, nrXi, xs, rs, nrXs, qIdx = _aux_pop(xs, rs, nrXs, bs, options)
+        xi, ri, nrXi, xs, rs, nrXs, qIdx = _aux_pop(xs, rs, nrXs, batch_size, options)
         
         # Move the batch to the GPU.
         # In MATLAB: xi = cast(xi,'like',inputDataClass); ri = cast(ri,'like',inputDataClass); nrXi = cast(nrXi,'like',inputDataClass);
@@ -252,10 +269,26 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         
         # Construct input zonotope.
         # MATLAB: [cxi,Gxi,inputDimIdx] = aux_constructInputZonotope(options,inputGenHeuristic,xi,ri,batchG,sens,ivalGrad,numInitGens);
+        # Determine if we need to compute and store sensitivity
+        # MATLAB: computeAndStoreSensitivity = ... (line 211-220)
+        falsification_method = options.get('nn', {}).get('falsification_method', 'center')
+        refinement_method = options.get('nn', {}).get('refinement_method', 'naive')
+        neuronSplitHeuristic = options.get('nn', {}).get('neuron_split_heuristic', 'most-sensitive-approx-error')
+        reluConstrHeuristic = options.get('nn', {}).get('relu_constr_heuristic', 'most-sensitive-approx-error')
+        
+        computeAndStoreSensitivity = (
+            inputGenHeuristic in ['most-sensitive-input-radius', 'zono-norm-gradient']
+            or inputSplitHeuristic in ['most-sensitive-input-radius', 'zono-norm-gradient']
+            or neuronSplitHeuristic in ['most-sensitive-approx-error', 'most-sensitive-input-radius']
+            or reluConstrHeuristic in ['most-sensitive-approx-error', 'most-sensitive-input-radius']
+            or falsification_method == 'fgsm'
+            or refinement_method in ['zonotack', 'zonotack-layerwise']
+        )
+        
         # Compute sensitivity for input generator heuristic if needed
         sens = None
         if inputGenHeuristic in ['most-sensitive-input-radius', 'zono-norm-gradient']:
-            S, _ = nn.calcSensitivity(xi, options, store_sensitivity=False)
+            S, _ = nn.calcSensitivity(xi, options, store_sensitivity=computeAndStoreSensitivity)
             if S.ndim == 3:
                 S_abs = np.abs(S)
                 S_max = np.maximum(S_abs, 1e-6)
@@ -264,9 +297,26 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             else:
                 sens = np.ones((cbSz, n0), dtype=xi.dtype)
         
+        # DEBUG: Pass iteration number for logging in _aux_constructInputZonotope
+        if iteration <= 10:
+            options['_debug_iteration'] = iteration
+        else:
+            options.pop('_debug_iteration', None)
+        
         cxi, Gxi, inputDimIdx = _aux_constructInputZonotope(
             options, inputGenHeuristic, xi, ri, batchG, sens, ivalGrad, numInitGens
         )
+        
+        # DEBUG: Log Gxi for first few iterations (critical for debugging)
+        if iteration <= 10:
+            print(f"INPUT ZONOTOPE DEBUG (iteration {iteration}):")
+            print(f"  Gxi.shape={Gxi.shape}")
+            print(f"  Gxi (first 3 batches, first 3 generators, first 3 dims):")
+            for j in range(min(3, cbSz)):
+                print(f"    Batch {j}: {Gxi[:min(3, Gxi.shape[0]), :min(3, Gxi.shape[1]), j].flatten()}")
+            print(f"  sum(abs(Gxi), axis=1) (first 3 batches): {np.sum(np.abs(Gxi), axis=1)[:min(3, Gxi.shape[0]), :min(3, cbSz)].flatten()}")
+            if np.any(np.sum(np.abs(Gxi), axis=1) < 1e-6):
+                print(f"  WARNING: Gxi has very small generators! This might cause ld_ri to be too small.")
         
         # Python layers expect 3D input, so reshape cxi if needed
         # MATLAB: cxi can be 2D (n0, bSz) or 3D (n0, 2, bSz) depending on interval_center
@@ -308,8 +358,21 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         # Store inputs for each layer by enabling backpropagation.
         storeInputs = options.get('nn', {}).get('train', {}).get('backprop', False)
         options['nn']['train']['backprop'] = storeInputs
+        
+        # DEBUG: Set iteration number for activation layer logging
+        if iteration <= 10:
+            for layer in nn.layers:
+                if hasattr(layer, '__class__') and 'Activation' in layer.__class__.__name__:
+                    layer._debug_iteration = iteration
+        
         # Compute output enclosure.
         yi, Gyi = nn.evaluateZonotopeBatch_(cxi, Gxi, options, idxLayer)
+        
+        # DEBUG: Clear iteration number after evaluation
+        if iteration <= 10:
+            for layer in nn.layers:
+                if hasattr(layer, '_debug_iteration'):
+                    layer._debug_iteration = None
         # Disable backpropagation.
         options['nn']['train']['backprop'] = False
         
@@ -411,6 +474,25 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         # ld_Gyi_err: (spec_dim, batch)
         ld_ri = np.sum(np.abs(ld_Gyi), axis=1) + ld_Gyi_err  # (spec_dim, batch)
         
+        # DEBUG: Log Gyi and ld_Gyi for first few iterations (critical for debugging)
+        if iteration <= 10:
+            print(f"RADIUS DEBUG (iteration {iteration}):")
+            print(f"  Gyi.shape={Gyi.shape if 'Gyi' in locals() else 'N/A'}")
+            print(f"  ld_Gyi.shape={ld_Gyi.shape}")
+            print(f"  ld_Gyi (first 3 batches, first 3 generators):")
+            for j in range(min(3, cbSz)):
+                print(f"    Batch {j}: {ld_Gyi[:, :min(3, ld_Gyi.shape[1]), j].flatten()}")
+            print(f"  sum(abs(ld_Gyi), axis=1) (first 3 batches): {np.sum(np.abs(ld_Gyi), axis=1)[:, :min(3, cbSz)].flatten()}")
+            print(f"  ld_Gyi_err (first 3 batches): {ld_Gyi_err[:, :min(3, cbSz)].flatten()}")
+            print(f"  ld_ri (first 3 batches): {ld_ri[:, :min(3, cbSz)].flatten()}")
+            if np.any(ld_ri < 1e-6):
+                print(f"  WARNING: ld_ri is very small (near zero)! This might cause incorrect verification.")
+                zero_batches = np.where(ld_ri[0, :] < 1e-6)[0]
+                print(f"  Batches with ld_ri < 1e-6: {zero_batches[:5]}")
+                if len(zero_batches) > 0:
+                    j = zero_batches[0]
+                    print(f"  For batch {j}: Gyi.shape={Gyi.shape}, Gyi[:,:,{j}] sample: {Gyi[:, :min(5, Gyi.shape[1]), j].flatten()}")
+        
         # 2.3. Check specification.
         # MATLAB: if safeSet
         #     unknown = any(ld_yi + ld_ri(:,:) > b,1);
@@ -426,7 +508,54 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             # unsafe iff all(A*y <= b) <--> safe iff any(A*y > b)
             # Thus, unknown if all(A*y <= b).
             # MATLAB: unknown = all(ld_yi - ld_ri(:,:) <= b,1);
-            unknown = np.all(ld_yi - ld_ri <= b, axis=0)  # (batch,)
+            # CRITICAL FIX: When ld_ri ≈ 0 (point zonotope), if center violates, don't verify!
+            # If ld_ri is very small (near zero), we have a point zonotope.
+            # For a point that violates (ld_yi > b), we should NOT verify it.
+            # The check all(ld_yi - ld_ri <= b) when ld_ri ≈ 0 becomes all(ld_yi <= b).
+            # If ld_yi > b, then all(ld_yi <= b) = False, so unknown = False (verified).
+            # But this is wrong! If the center violates, we should check for counterexamples.
+            # Fix: When ld_ri is very small, check if center violates directly.
+            ld_yi_minus_ri = ld_yi - ld_ri
+            # Standard check: unknown if worst case (center - radius) satisfies constraint
+            unknown_standard = np.all(ld_yi_minus_ri <= b, axis=0)  # (batch,)
+            
+            # Special case: when ld_ri is very small (point zonotope)
+            # If center violates, mark as unknown (needs checking/counterexample search)
+            is_point_zonotope = ld_ri < 1e-6  # Very small radius = point
+            center_violates = np.any(ld_yi > b, axis=0)  # (batch,) - any constraint violated
+            # For unsafeSet: violation means all(ld_yi <= b) is False
+            # So if center violates, we should NOT verify (mark as unknown)
+            unknown = unknown_standard.copy()
+            # If it's a point and center violates, mark as unknown (don't verify)
+            point_and_violates = is_point_zonotope & center_violates
+            if np.any(point_and_violates):
+                unknown[point_and_violates] = True  # Mark as unknown (needs checking)
+                if iteration <= 5:
+                    print(f"  FIX: Point zonotope with violating center detected in {np.sum(point_and_violates)} batches")
+                    print(f"    These batches will be marked as unknown (not verified) to allow counterexample search")
+        
+        # DEBUG: Log unknown computation (ALWAYS log first few iterations)
+        if verbose or np.all(~unknown) or iteration <= 5:
+            print(f"SPECIFICATION CHECK (iteration {iteration}, unknown computation):")
+            print(f"  safeSet={safeSet}, cbSz={cbSz}")
+            print(f"  ld_yi.shape={ld_yi.shape}, ld_ri.shape={ld_ri.shape}")
+            if safeSet:
+                print(f"  ld_yi + ld_ri > b: {(ld_yi + ld_ri > b).flatten()}")
+            else:
+                ld_yi_minus_ri = ld_yi - ld_ri
+                print(f"  ld_yi (first 3): {ld_yi[:, :min(3, cbSz)].flatten()}")
+                print(f"  ld_ri (first 3): {ld_ri[:, :min(3, cbSz)].flatten()}")
+                print(f"  ld_yi - ld_ri (first 3): {ld_yi_minus_ri[:, :min(3, cbSz)].flatten()}")
+                print(f"  b: {b.flatten()}")
+                print(f"  ld_yi - ld_ri <= b (all constraints, first 3 batches):")
+                for j in range(min(3, cbSz)):
+                    check = ld_yi_minus_ri[:, j] <= b.flatten()
+                    print(f"    Batch {j}: {check} -> all={np.all(check)}")
+            print(f"  unknown: {unknown}")
+            print(f"  Verified patches in this batch: {np.sum(~unknown)}/{len(unknown)}")
+            if np.all(~unknown) and iteration <= 5:
+                print(f"  WARNING: All patches verified in iteration {iteration}! This might be too early.")
+            print(f"  Remaining unknown patches: {np.sum(unknown)}/{len(unknown)}")
         
         # Update counter for verified patches.
         # MATLAB: numVerified = numVerified + sum(~unknown,'all');
@@ -537,6 +666,23 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 # xi_ = repelem(xi,1,p) + delta(:,:)
                 xi_repeated = xi.repeat(1, p)  # (n0, p*cbSz)
                 zi = xi_repeated + delta
+                
+                if verbose:
+                    # Debug: Check if attack stays within bounds by construction
+                    Gxi_subset_np = Gxi_subset.cpu().numpy() if hasattr(Gxi_subset, 'cpu') else Gxi_subset
+                    delta_np = delta.cpu().numpy() if hasattr(delta, 'cpu') else delta
+                    zi_np = zi.cpu().numpy() if hasattr(zi, 'cpu') else zi
+                    xi_np = xi.cpu().numpy() if hasattr(xi, 'cpu') else xi
+                    ri_np = ri.cpu().numpy() if hasattr(ri, 'cpu') else ri
+                    print(f"DEBUG Zonotack: Gxi_subset shape={Gxi_subset_np.shape}")
+                    print(f"DEBUG Zonotack: Gxi_subset max per dim={np.max(np.abs(Gxi_subset_np), axis=(1,2)).flatten()}")
+                    print(f"DEBUG Zonotack: ri={ri_np.flatten()}")
+                    print(f"DEBUG Zonotack: sum(|Gxi_subset|, axis=1)={np.sum(np.abs(Gxi_subset_np), axis=1).flatten()}")
+                    print(f"DEBUG Zonotack: delta shape={delta_np.shape}, max={np.max(np.abs(delta_np), axis=1).flatten()}")
+                    print(f"DEBUG Zonotack: zi shape={zi_np.shape}, zi={zi_np.flatten()}")
+                    print(f"DEBUG Zonotack: bounds=[{xi_np-ri_np}, {xi_np+ri_np}]")
+                    print(f"DEBUG Zonotack: zi in bounds={np.all(zi_np >= xi_np - ri_np) and np.all(zi_np <= xi_np + ri_np)}")
+                
                 zi = zi.cpu().numpy() if isinstance(xi, np.ndarray) else zi
             else:
                 beta_ = -np.sign(ld_Gyi_subset)  # (p, numInitGens, cbSz)
@@ -559,13 +705,24 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 # xi_ = repelem(xi,1,p) + delta(:,:)
                 xi_repeated = np.repeat(xi, p, axis=1)  # (n0, p*cbSz)
                 zi = xi_repeated + delta
+                
+                if verbose:
+                    # Debug: Check if attack stays within bounds by construction
+                    print(f"DEBUG Zonotack: Gxi_subset shape={Gxi_subset.shape}")
+                    print(f"DEBUG Zonotack: Gxi_subset max per dim={np.max(np.abs(Gxi_subset), axis=(1,2)).flatten()}")
+                    print(f"DEBUG Zonotack: ri={ri.flatten()}")
+                    print(f"DEBUG Zonotack: sum(|Gxi_subset|, axis=1)={np.sum(np.abs(Gxi_subset), axis=1).flatten()}")
+                    print(f"DEBUG Zonotack: delta shape={delta.shape}, max={np.max(np.abs(delta), axis=1).flatten()}")
+                    print(f"DEBUG Zonotack: zi shape={zi.shape}, zi={zi.flatten()}")
+                    print(f"DEBUG Zonotack: bounds=[{xi-ri}, {xi+ri}]")
+                    print(f"DEBUG Zonotack: zi in bounds={np.all(zi >= xi - ri) and np.all(zi <= xi + ri)}")
         elif falsification_method == 'center':
             # Use the center for falsification
             zi = xi
         else:  # 'fgsm' or default
             # FGSM method: uses sensitivity to compute gradient-based attack
-            # 1. Compute the sensitivity.
-            S, _ = nn.calcSensitivity(xi, options, store_sensitivity=False)
+            # 1. Compute the sensitivity (store for neuron splitting).
+            S, _ = nn.calcSensitivity(xi, options, store_sensitivity=computeAndStoreSensitivity)
             
             # Compute sens for splitting (needed later)
             # MATLAB: sens = reshape(max(max(abs(S),1e-6),[],1),[n0 cbSz]);
@@ -602,6 +759,13 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             # A has shape (p, nK) = (num_constraints, output_dim)
             # pagemtimes(A, S) computes A @ S for each batch: (p, n0, cbSz)
             p_orig = A.shape[0] if A.ndim == 2 else 1
+            
+            # DEBUG: Log FGSM attack construction details
+            if verbose:
+                print(f"FGSM ATTACK CONSTRUCTION:")
+                print(f"  p_orig={p_orig}, safeSet={safeSet}, cbSz={cbSz}, n0={n0}")
+                print(f"  A.shape={A.shape}, S.shape={S.shape if isinstance(S, np.ndarray) else 'torch tensor'}")
+            
             if useGpu and TORCH_AVAILABLE:
                 if isinstance(S, np.ndarray):
                     S = torch.tensor(S, dtype=torch.float32, device=device)
@@ -613,26 +777,98 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 # S: (nK, n0, cbSz), A: (p, nK), result: (p, n0, cbSz)
                 if safeSet:
                     grad = -torch.einsum('ij,jkl->ikl', A_tensor, S)  # (p_orig, n0, cbSz)
+                    if verbose:
+                        print(f"  After pagemtimes(-A,S): grad.shape={grad.shape}")
                     # MATLAB: We combine all constraints for a stronger attack.
-                    # This means we sum over the constraint dimension
-                    # grad has shape (p_orig, n0, cbSz), we sum over p_orig to get (1, n0, cbSz)
-                    grad = torch.sum(grad, dim=0, keepdim=True)  # (1, n0, cbSz)
+                    # NOTE: MATLAB sets p=1 but doesn't explicitly show sum operation.
+                    # The comment says "combine all constraints", which suggests summing.
+                    # However, if MATLAB doesn't actually sum, we need to match that behavior.
+                    # Check option to see if we should sum or use first constraint
+                    fgsm_combine_constraints = options.get('nn', {}).get('fgsm_combine_constraints', 'sum')
+                    grad_before_combine = grad.clone() if verbose or p_orig > 1 else None
+                    if p_orig > 1:
+                        print(f"WARNING: FGSM safeSet constraint combination:")
+                        print(f"  MATLAB sets p=1 but doesn't explicitly show how to combine {p_orig} constraints")
+                        print(f"  grad.shape before combine: {grad.shape}")
+                        print(f"  Option fgsm_combine_constraints={fgsm_combine_constraints}")
+                        if fgsm_combine_constraints == 'sum':
+                            print(f"  Python explicitly sums constraints: grad = sum(grad, axis=0)")
+                        elif fgsm_combine_constraints == 'first':
+                            print(f"  Python uses first constraint only: grad = grad[0:1, :, :]")
+                        else:
+                            raise ValueError(f"Invalid fgsm_combine_constraints: {fgsm_combine_constraints}. Must be 'sum' or 'first'")
+                    
+                    if fgsm_combine_constraints == 'sum':
+                        # Sum all constraints (current approach, matches comment "combine all constraints")
+                        grad = torch.sum(grad, dim=0, keepdim=True)  # (1, n0, cbSz)
+                    elif fgsm_combine_constraints == 'first':
+                        # Use only first constraint (if MATLAB doesn't actually sum)
+                        grad = grad[0:1, :, :]  # (1, n0, cbSz) - take first constraint only
+                    else:
+                        raise ValueError(f"Invalid fgsm_combine_constraints: {fgsm_combine_constraints}")
+                    
+                    if verbose:
+                        print(f"  After combine: grad.shape={grad.shape}")
+                        if grad_before_combine is not None:
+                            print(f"  grad_before_combine sample (first constraint): {grad_before_combine[0, :3, 0]}")
+                            print(f"  grad_after_combine sample: {grad[0, :3, 0]}")
                     p = 1  # Combine all constraints for safe sets
                 else:
-                    grad = torch.einsum('ij,jkl->ikl', A_tensor, S)  # (p_orig, n0, cbSz)
-                    p = p_orig
+                    # MATLAB: grad = pagemtimes(A,S) for unsafeSet
+                    # CRITICAL QUESTION: For unsafeSet, we want A*y <= b (decrease A*y)
+                    # But grad = A*S points in direction that INCREASES A*y
+                    # MATLAB uses +grad, but this seems backwards!
+                    # 
+                    # Options to test:
+                    # 1. 'matlab' - match MATLAB exactly (use +grad) [default]
+                    # 2. 'negative' - use -grad (logically correct for decreasing A*y)
+                    # 3. 'both' - try both directions (more thorough but slower)
+                    fgsm_unsafe_direction = options.get('nn', {}).get('fgsm_unsafe_direction', 'matlab')
+                    
+                    if fgsm_unsafe_direction == 'matlab':
+                        # Match MATLAB exactly
+                        grad = torch.einsum('ij,jkl->ikl', A_tensor, S)  # (p_orig, n0, cbSz)
+                        if verbose:
+                            print(f"  After pagemtimes(A,S): grad.shape={grad.shape} (MATLAB behavior)")
+                    elif fgsm_unsafe_direction == 'negative':
+                        # Use -grad (logically correct for decreasing A*y)
+                        print(f"WARNING: Using -grad for unsafeSet (experimental, not matching MATLAB)")
+                        grad = -torch.einsum('ij,jkl->ikl', A_tensor, S)  # (p_orig, n0, cbSz)
+                        if verbose:
+                            print(f"  After pagemtimes(-A,S): grad.shape={grad.shape} (negative direction)")
+                    elif fgsm_unsafe_direction == 'both':
+                        # Try both directions - this will double the number of candidates
+                        print(f"INFO: Trying both +grad and -grad for unsafeSet (doubles candidates)")
+                        grad_pos = torch.einsum('ij,jkl->ikl', A_tensor, S)  # (p_orig, n0, cbSz)
+                        grad_neg = -grad_pos  # (p_orig, n0, cbSz)
+                        # Concatenate both directions
+                        grad = torch.cat([grad_pos, grad_neg], dim=0)  # (2*p_orig, n0, cbSz)
+                        p = 2 * p_orig  # Double the number of candidates
+                        if verbose:
+                            print(f"  After pagemtimes(±A,S): grad.shape={grad.shape}, p={p} (both directions)")
+                    else:
+                        raise ValueError(f"Invalid fgsm_unsafe_direction: {fgsm_unsafe_direction}. Must be 'matlab', 'negative', or 'both'")
+                    
+                    if fgsm_unsafe_direction != 'both':
+                        p = p_orig
                 # sgrad = reshape(permute(sign(grad),[2 3 1]),[n0 cbSz*p])
                 # sign(grad): (p, n0, cbSz) where p is the final value (1 for safeSet, p_orig otherwise)
                 # permute([2 3 1]): (n0, cbSz, p)
                 # reshape([n0 cbSz*p]): (n0, cbSz*p)
-                sgrad = torch.sign(grad).permute(1, 2, 0).reshape(n0, cbSz * p)
+                sgrad_sign = torch.sign(grad)
+                if verbose:
+                    print(f"  sign(grad) shape: {sgrad_sign.shape}, p={p}")
+                sgrad = sgrad_sign.permute(1, 2, 0).reshape(n0, cbSz * p)
+                if verbose:
+                    print(f"  sgrad shape after permute+reshape: {sgrad.shape}")
+                    print(f"  sgrad unique values: {torch.unique(sgrad).cpu().numpy()}")
                 # xi_ = repelem(xi,1,p) + repelem(ri,1,p).*sgrad
                 # Verify sgrad is ±1 (or 0)
                 # sgrad should contain only values in {-1, 0, 1}
                 sgrad_min, sgrad_max = torch.min(sgrad).item(), torch.max(sgrad).item()
                 sgrad_abs = torch.abs(sgrad)
                 # Check if all values are either ±1 (abs=1) or 0
-                is_valid = torch.all((torch.isclose(sgrad_abs, torch.ones_like(sgrad_abs), atol=1e-6)) | (torch.isclose(sgrad, torch.zeros_like(sgrad), atol=1e-6)))
+                is_valid = torch.all((torch.isclose(sgrad_abs, torch.ones_like(sgrad_abs), atol=FLOAT_TOLERANCE)) | (torch.isclose(sgrad, torch.zeros_like(sgrad), atol=FLOAT_TOLERANCE)))
                 if not is_valid:
                     # sgrad should be ±1 (or 0 if grad is exactly 0)
                     raise ValueError(f"sgrad should be ±1 or 0, but got range [{sgrad_min}, {sgrad_max}], unique values: {torch.unique(sgrad).cpu().numpy()}")
@@ -640,12 +876,26 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 ri_repeated = ri.repeat(1, p)  # (n0, cbSz*p)
                 zi = xi_repeated + ri_repeated * sgrad
                 # Verify zi is within [xi - ri, xi + ri] by construction
+                # For FGSM, sgrad = ±1, so zi should always be within bounds
                 # Convert to numpy for bounds checking
                 xi_np = xi.cpu().numpy() if isinstance(xi, torch.Tensor) else xi
                 ri_np = ri.cpu().numpy() if isinstance(ri, torch.Tensor) else ri
                 zi_np = zi.cpu().numpy() if isinstance(zi, torch.Tensor) else zi
+                # Check bounds: zi should be in [xi_repeated - ri_repeated, xi_repeated + ri_repeated]
+                # Since xi_repeated and ri_repeated are repeated, we can check against original xi, ri
+                # For each column j in zi, it corresponds to batch j // p, candidate j % p
                 # Use tolerance for floating-point comparison (MATLAB uses double precision by default)
-                tol = 1e-6
+                for j in range(zi_np.shape[1]):
+                        batch_j = j // p
+                        if batch_j >= xi_np.shape[1]:
+                            raise ValueError(f"FGSM bug: zi column {j} maps to batch {batch_j} but xi only has {xi_np.shape[1]} batches. zi.shape={zi_np.shape}, xi.shape={xi_np.shape}, p={p}")
+                        zi_col = zi_np[:, j:j+1]
+                        xi_col = xi_np[:, batch_j:batch_j+1]
+                        ri_col = ri_np[:, batch_j:batch_j+1]
+                        # Use tolerance for floating-point comparison
+                        if not (np.all(zi_col >= xi_col - ri_col - FLOAT_TOLERANCE) and np.all(zi_col <= xi_col + ri_col + FLOAT_TOLERANCE)):
+                            raise ValueError(f"FGSM bug: zi[:, {j}] is out of bounds! zi_col={zi_col.flatten()}, bounds=[{xi_col-ri_col}, {xi_col+ri_col}], batch={batch_j}, p={p}, sgrad[:,{j}]={sgrad[:, j].cpu().numpy() if isinstance(sgrad, torch.Tensor) else sgrad[:, j]}")
+                # Use tolerance for floating-point comparison (MATLAB uses double precision by default)
                 for batch_idx in range(cbSz):
                     xi_b = xi_np[:, batch_idx:batch_idx+1]  # (n0, 1)
                     ri_b = ri_np[:, batch_idx:batch_idx+1]  # (n0, 1)
@@ -653,8 +903,8 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                     zi_lower = xi_b - ri_b  # (n0, 1)
                     zi_upper = xi_b + ri_b  # (n0, 1)
                     # Check all p candidates for this batch entry with tolerance
-                    violations_lower = zi_b_candidates < (zi_lower - tol)  # (n0, p)
-                    violations_upper = zi_b_candidates > (zi_upper + tol)  # (n0, p)
+                    violations_lower = zi_b_candidates < (zi_lower - FLOAT_TOLERANCE)  # (n0, p)
+                    violations_upper = zi_b_candidates > (zi_upper + FLOAT_TOLERANCE)  # (n0, p)
                     any_violation_lower = np.any(violations_lower)
                     any_violation_upper = np.any(violations_upper)
                     if any_violation_lower or any_violation_upper:
@@ -681,19 +931,91 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 # S: (nK, n0, cbSz), A: (p, nK), result: (p, n0, cbSz)
                 if safeSet:
                     grad = -np.einsum('ij,jkl->ikl', A, S)  # (p_orig, n0, cbSz)
+                    if verbose:
+                        print(f"  After pagemtimes(-A,S): grad.shape={grad.shape}")
                     # MATLAB: We combine all constraints for a stronger attack.
-                    # This means we sum over the constraint dimension
-                    # grad has shape (p_orig, n0, cbSz), we sum over p_orig to get (1, n0, cbSz)
-                    grad = np.sum(grad, axis=0, keepdims=True)  # (1, n0, cbSz)
+                    # NOTE: MATLAB sets p=1 but doesn't explicitly show sum operation.
+                    # The comment says "combine all constraints", which suggests summing.
+                    # However, if MATLAB doesn't actually sum, we need to match that behavior.
+                    # Check option to see if we should sum or use first constraint
+                    fgsm_combine_constraints = options.get('nn', {}).get('fgsm_combine_constraints', 'sum')
+                    grad_before_combine = grad.copy() if verbose or p_orig > 1 else None
+                    if p_orig > 1:
+                        print(f"WARNING: FGSM safeSet constraint combination:")
+                        print(f"  MATLAB sets p=1 but doesn't explicitly show how to combine {p_orig} constraints")
+                        print(f"  grad.shape before combine: {grad.shape}")
+                        print(f"  Option fgsm_combine_constraints={fgsm_combine_constraints}")
+                        if fgsm_combine_constraints == 'sum':
+                            print(f"  Python explicitly sums constraints: grad = sum(grad, axis=0)")
+                        elif fgsm_combine_constraints == 'first':
+                            print(f"  Python uses first constraint only: grad = grad[0:1, :, :]")
+                        else:
+                            raise ValueError(f"Invalid fgsm_combine_constraints: {fgsm_combine_constraints}. Must be 'sum' or 'first'")
+                    
+                    if fgsm_combine_constraints == 'sum':
+                        # Sum all constraints (current approach, matches comment "combine all constraints")
+                        grad = np.sum(grad, axis=0, keepdims=True)  # (1, n0, cbSz)
+                    elif fgsm_combine_constraints == 'first':
+                        # Use only first constraint (if MATLAB doesn't actually sum)
+                        grad = grad[0:1, :, :]  # (1, n0, cbSz) - take first constraint only
+                    else:
+                        raise ValueError(f"Invalid fgsm_combine_constraints: {fgsm_combine_constraints}")
+                    
+                    if verbose:
+                        print(f"  After combine: grad.shape={grad.shape}")
+                        if grad_before_combine is not None:
+                            print(f"  grad_before_combine sample (first constraint): {grad_before_combine[0, :3, 0]}")
+                            print(f"  grad_after_combine sample: {grad[0, :3, 0]}")
                     p = 1  # Combine all constraints for safe sets
                 else:
-                    grad = np.einsum('ij,jkl->ikl', A, S)  # (p_orig, n0, cbSz)
-                    p = p_orig
+                    # MATLAB: grad = pagemtimes(A,S) for unsafeSet
+                    # CRITICAL QUESTION: For unsafeSet, we want A*y <= b (decrease A*y)
+                    # But grad = A*S points in direction that INCREASES A*y
+                    # MATLAB uses +grad, but this seems backwards!
+                    # 
+                    # Options to test:
+                    # 1. 'matlab' - match MATLAB exactly (use +grad) [default]
+                    # 2. 'negative' - use -grad (logically correct for decreasing A*y)
+                    # 3. 'both' - try both directions (more thorough but slower)
+                    fgsm_unsafe_direction = options.get('nn', {}).get('fgsm_unsafe_direction', 'matlab')
+                    
+                    if fgsm_unsafe_direction == 'matlab':
+                        # Match MATLAB exactly
+                        grad = np.einsum('ij,jkl->ikl', A, S)  # (p_orig, n0, cbSz)
+                        if verbose:
+                            print(f"  After pagemtimes(A,S): grad.shape={grad.shape} (MATLAB behavior)")
+                    elif fgsm_unsafe_direction == 'negative':
+                        # Use -grad (logically correct for decreasing A*y)
+                        print(f"WARNING: Using -grad for unsafeSet (experimental, not matching MATLAB)")
+                        grad = -np.einsum('ij,jkl->ikl', A, S)  # (p_orig, n0, cbSz)
+                        if verbose:
+                            print(f"  After pagemtimes(-A,S): grad.shape={grad.shape} (negative direction)")
+                    elif fgsm_unsafe_direction == 'both':
+                        # Try both directions - this will double the number of candidates
+                        print(f"INFO: Trying both +grad and -grad for unsafeSet (doubles candidates)")
+                        grad_pos = np.einsum('ij,jkl->ikl', A, S)  # (p_orig, n0, cbSz)
+                        grad_neg = -grad_pos  # (p_orig, n0, cbSz)
+                        # Concatenate both directions
+                        grad = np.concatenate([grad_pos, grad_neg], axis=0)  # (2*p_orig, n0, cbSz)
+                        p = 2 * p_orig  # Double the number of candidates
+                        if verbose:
+                            print(f"  After pagemtimes(±A,S): grad.shape={grad.shape}, p={p} (both directions)")
+                    else:
+                        raise ValueError(f"Invalid fgsm_unsafe_direction: {fgsm_unsafe_direction}. Must be 'matlab', 'negative', or 'both'")
+                    
+                    if fgsm_unsafe_direction != 'both':
+                        p = p_orig
                 # sgrad = reshape(permute(sign(grad),[2 3 1]),[n0 cbSz*p])
                 # sign(grad): (p, n0, cbSz) where p is the final value (1 for safeSet, p_orig otherwise)
                 # permute([2 3 1]): (n0, cbSz, p)
                 # reshape([n0 cbSz*p]): (n0, cbSz*p)
-                sgrad = np.sign(grad).transpose(1, 2, 0).reshape(n0, cbSz * p)
+                sgrad_sign = np.sign(grad)
+                if verbose:
+                    print(f"  sign(grad) shape: {sgrad_sign.shape}, p={p}")
+                sgrad = sgrad_sign.transpose(1, 2, 0).reshape(n0, cbSz * p)
+                if verbose:
+                    print(f"  sgrad shape after permute+reshape: {sgrad.shape}")
+                    print(f"  sgrad unique values: {np.unique(sgrad)}")
                 # xi_ = repelem(xi,1,p) + repelem(ri,1,p).*sgrad
                 # MATLAB: xi_ = repelem(xi,1,p) + repelem(ri,1,p).*sgrad;
                 # This should keep zi within [xi - ri, xi + ri] since sgrad = ±1
@@ -702,7 +1024,7 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 sgrad_min, sgrad_max = np.min(sgrad), np.max(sgrad)
                 sgrad_abs = np.abs(sgrad)
                 # Check if all values are either ±1 (abs=1) or 0
-                is_valid = np.all((np.isclose(sgrad_abs, 1.0, atol=1e-6)) | (np.isclose(sgrad, 0.0, atol=1e-6)))
+                is_valid = np.all((np.isclose(sgrad_abs, 1.0, atol=FLOAT_TOLERANCE)) | (np.isclose(sgrad, 0.0, atol=FLOAT_TOLERANCE)))
                 if not is_valid:
                     # sgrad should be ±1 (or 0 if grad is exactly 0)
                     # If not, there's a bug in sign computation
@@ -710,6 +1032,20 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 xi_repeated = np.repeat(xi, p, axis=1)  # (n0, cbSz*p)
                 ri_repeated = np.repeat(ri, p, axis=1)  # (n0, cbSz*p)
                 zi = xi_repeated + ri_repeated * sgrad
+                # Verify zi is within [xi - ri, xi + ri] by construction
+                # For FGSM, sgrad = ±1, so zi should always be within bounds
+                # Check bounds: zi should be in [xi_repeated - ri_repeated, xi_repeated + ri_repeated]
+                # Use tolerance for floating-point comparison (MATLAB uses double precision by default)
+                for j in range(zi.shape[1]):
+                    batch_j = j // p
+                    if batch_j >= xi.shape[1]:
+                        raise ValueError(f"FGSM bug: zi column {j} maps to batch {batch_j} but xi only has {xi.shape[1]} batches. zi.shape={zi.shape}, xi.shape={xi.shape}, p={p}")
+                    zi_col = zi[:, j:j+1]
+                    xi_col = xi[:, batch_j:batch_j+1]
+                    ri_col = ri[:, batch_j:batch_j+1]
+                    # Use tolerance for floating-point comparison
+                    if not (np.all(zi_col >= xi_col - ri_col - FLOAT_TOLERANCE) and np.all(zi_col <= xi_col + ri_col + FLOAT_TOLERANCE)):
+                        raise ValueError(f"FGSM bug: zi[:, {j}] is out of bounds! zi_col={zi_col.flatten()}, bounds=[{xi_col-ri_col}, {xi_col+ri_col}], batch={batch_j}, p={p}, sgrad[:,{j}]={sgrad[:, j]}")
                 # Verify zi is within [xi - ri, xi + ri] by construction
                 # For each original batch entry, check all p candidates
                 for batch_idx in range(cbSz):
@@ -722,9 +1058,8 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                     # Compare each dimension: zi_b_candidates is (n0, p), zi_lower/upper are (n0, 1)
                     # Broadcasting: (n0, p) >= (n0, 1) -> (n0, p)
                     # Use tolerance for floating-point comparison (MATLAB uses double precision by default)
-                    tol = 1e-6
-                    violations_lower = zi_b_candidates < (zi_lower - tol)  # (n0, p)
-                    violations_upper = zi_b_candidates > (zi_upper + tol)  # (n0, p)
+                    violations_lower = zi_b_candidates < (zi_lower - FLOAT_TOLERANCE)  # (n0, p)
+                    violations_upper = zi_b_candidates > (zi_upper + FLOAT_TOLERANCE)  # (n0, p)
                     # Check if any dimension violates bounds for any candidate
                     any_violation_lower = np.any(violations_lower)
                     any_violation_upper = np.any(violations_upper)
@@ -753,6 +1088,20 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         yi = nn.evaluate_(zi, options, idxLayer)
         # MATLAB: ld_ys = A*ys;
         ld_yi = A @ yi  # logit difference: A*yi, shape (num_constraints, batch_size)
+        
+        # DEBUG: Log constraint interpretation (first iteration only)
+        if verbose and cbSz == 1 and zi.shape[1] == p_orig:
+            print(f"CONSTRAINT INTERPRETATION DEBUG (first iteration):")
+            print(f"  A.shape={A.shape}, A={A.flatten()}")
+            print(f"  b.shape={b.shape}, b={b.flatten()}")
+            print(f"  safeSet={safeSet}")
+            print(f"  yi.shape={yi.shape}, yi={yi.flatten()}")
+            print(f"  ld_yi = A @ yi: {ld_yi.flatten()}")
+            print(f"  For unsafeSet: we want all(ld_yi <= b) = all({ld_yi.flatten()} <= {b.flatten()})")
+            print(f"  Current: ld_yi - b = {(ld_yi - b).flatten()}")
+            print(f"  To satisfy: need ld_yi <= b, i.e., decrease ld_yi")
+            print(f"  FGSM uses grad = A*S which INCREASES ld_yi")
+            print(f"  This seems backwards! Should we use -grad instead?")
         # MATLAB: critValPerConstr = ld_ys - b;
         # b should already be reshaped to (num_constraints, 1) at function start
         critValPerConstr = ld_yi - b  # (num_constraints, batch_size)
@@ -764,6 +1113,17 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             checkSpecs = np.any(ld_yi > b, axis=0)  # (batch_size,)
             critValPerConstr = -critValPerConstr
             critVal = np.min(critValPerConstr, axis=0)  # (batch_size,)
+            
+            # DEBUG: Log falsification results
+            if verbose or np.any(checkSpecs):
+                print(f"FGSM FALSIFICATION CHECK (safeSet=True):")
+                print(f"  zi.shape={zi.shape}, yi.shape={yi.shape}")
+                print(f"  A.shape={A.shape}, b.shape={b.shape}")
+                print(f"  ld_yi.shape={ld_yi.shape}, ld_yi={ld_yi.flatten()}")
+                print(f"  b={b.flatten()}")
+                print(f"  ld_yi > b: {(ld_yi > b).flatten()}")
+                print(f"  checkSpecs (any(ld_yi > b, axis=0)): {checkSpecs}")
+                print(f"  Found counterexamples: {np.sum(checkSpecs)}/{len(checkSpecs)}")
         else:
             # MATLAB: falsified = all(ld_ys <= b,1);
             # unsafe iff all(A*y <= b) <--> safe iff any(A*y > b)
@@ -780,11 +1140,15 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             critVal = np.max(critValPerConstr, axis=0)  # (batch_size,)
             
             # Debug output for unsafe sets
-            if verbose and np.any(checkSpecs):
-                print(f"DEBUG UnsafeSet: ld_yi shape={ld_yi.shape}, b shape={b.shape}")
-                print(f"DEBUG UnsafeSet: ld_yi={ld_yi.flatten()}")
-                print(f"DEBUG UnsafeSet: b={b.flatten()}")
-                print(f"DEBUG UnsafeSet: comparison (ld_yi <= b)={comparison.flatten()}")
+            if verbose or np.any(checkSpecs):
+                print(f"FGSM FALSIFICATION CHECK (safeSet=False):")
+                print(f"  zi.shape={zi.shape}, yi.shape={yi.shape}")
+                print(f"  A.shape={A.shape}, b.shape={b.shape}")
+                print(f"  ld_yi.shape={ld_yi.shape}, ld_yi={ld_yi.flatten()}")
+                print(f"  b={b.flatten()}")
+                print(f"  comparison (ld_yi <= b): {comparison.flatten()}")
+                print(f"  checkSpecs (all(ld_yi <= b, axis=0)): {checkSpecs}")
+                print(f"  Found counterexamples: {np.sum(checkSpecs)}/{len(checkSpecs)}")
                 print(f"DEBUG UnsafeSet: checkSpecs={checkSpecs}")
                 print(f"DEBUG UnsafeSet: critValPerConstr={critValPerConstr.flatten()}")
         
@@ -819,7 +1183,7 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 print(f"DEBUG Adversarial FIRST ITER: zi={zi_flat}")
                 # Compute A @ yi manually to verify
                 A_yi_manual = A @ yi
-                print(f"DEBUG Adversarial FIRST ITER: A @ yi (manual)={A_yi_manual.flatten()}, matches ld_yi: {np.allclose(A_yi_manual, ld_yi)}")
+                print(f"DEBUG Adversarial FIRST ITER: A @ yi (manual)={A_yi_manual.flatten()}, matches ld_yi: {np.allclose(A_yi_manual, ld_yi, atol=FLOAT_TOLERANCE)}")
                 if not safeSet:
                     comparison_first = ld_yi <= b
                     print(f"DEBUG Adversarial FIRST ITER: comparison (ld_yi <= b)={comparison_first.flatten()}")
@@ -842,24 +1206,191 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 sens_range_str = f"sens range=[{np.min(sens):.6f}, {np.max(sens):.6f}]" if sens is not None else "sens=None"
                 print(f"DEBUG Adversarial: ri range=[{np.min(ri):.6f}, {np.max(ri):.6f}], {sens_range_str}")
         
+        # ALWAYS print this to trace execution
+        print(f"FGSM TRACE: About to check checkSpecs. np.any(checkSpecs)={np.any(checkSpecs)}, checkSpecs.shape={checkSpecs.shape}, sum={np.sum(checkSpecs)}")
+        # ALWAYS log if counterexamples are found (critical for debugging)
         if np.any(checkSpecs):
             # Found a counterexample.
-            # MATLAB: zi is within [xi - ri, xi + ri] by construction (xi_ = xi + ri * sgrad where sgrad = ±1)
-            # So we don't need to validate bounds - if construction is correct, counterexample is valid
+            # Note: For FGSM, zi is within [xi - ri, xi + ri] by construction (sgrad = ±1).
+            # For zonotack, bounds are ensured by construction (generators are bounded).
+            # However, we should validate that the counterexample is actually valid
+            # (within bounds and violates spec) to match MATLAB's behavior exactly.
+            print(f"=" * 80)
+            print(f"FGSM: Found counterexample! checkSpecs has {np.sum(checkSpecs)}/{len(checkSpecs)} True values")
+            print(f"  safeSet={safeSet}, falsification_method={falsification_method}")
+            print(f"  MATLAB would break here (line 518-521) and return COUNTEREXAMPLE")
+            print(f"  zi.shape={zi.shape}, yi.shape={yi.shape if 'yi' in locals() else 'not computed'}")
+            if 'ld_yi' in locals():
+                print(f"  ld_yi.shape={ld_yi.shape}, b.shape={b.shape}")
+                print(f"  ld_yi sample: {ld_yi[:, :min(3, ld_yi.shape[1])] if ld_yi.ndim == 2 else ld_yi.flatten()[:3]}")
+                print(f"  b sample: {b.flatten()[:min(3, len(b))]}")
+            print(f"=" * 80)
             res = 'COUNTEREXAMPLE'
+            
+            # Select the first counterexample
             idNzEntry = np.where(checkSpecs)[0]
             id_ = idNzEntry[0]
+            print(f"FGSM: Selected id_={id_}, zi.shape={zi.shape}, cbSz={cbSz}")
             # MATLAB: x_ = zi(:,id);
             if useGpu and TORCH_AVAILABLE:
                 x_ = zi[:, id_].cpu().numpy().reshape(-1, 1)
             else:
                 x_ = zi[:, id_].reshape(-1, 1)
-            # Gathering weights from gpu. There is are precision error when using single gpuArray.
-            # In MATLAB: nn.castWeights(single(1)); y_ = nn.evaluate_(gather(x_),options,idxLayer);
-            nn.castWeights(np.float32)
-            # In MATLAB: gather(x_) moves data from GPU to CPU. For Python: x_ is already on CPU.
-            y_ = nn.evaluate_(x_, options, idxLayer)
-            break
+            print(f"FGSM: x_ extracted: {x_.flatten()}")
+            
+            # Validate counterexample: ensure it's within input bounds
+            # Find which batch this candidate belongs to
+            p_candidates = zi.shape[1] // cbSz if zi.shape[1] > cbSz else 1
+            batch_idx = id_ // p_candidates
+            print(f"FGSM: p_candidates={p_candidates}, batch_idx={batch_idx}, xi.shape={xi.shape if isinstance(xi, np.ndarray) else 'torch'}")
+            # Get the original input bounds for this batch
+            if useGpu and TORCH_AVAILABLE:
+                xi_b = xi[:, batch_idx:batch_idx+1].cpu().numpy()
+                ri_b = ri[:, batch_idx:batch_idx+1].cpu().numpy()
+            else:
+                xi_b = xi[:, batch_idx:batch_idx+1]
+                ri_b = ri[:, batch_idx:batch_idx+1]
+            
+            # Debug: Check if xi_b and ri_b are reasonable
+            print(f"FGSM DEBUG: xi_b = {xi_b.flatten()}, ri_b = {ri_b.flatten()}")
+            print(f"FGSM DEBUG: Bounds = [{(xi_b - ri_b).flatten()}, {(xi_b + ri_b).flatten()}]")
+            if np.any(np.abs(xi_b) > 10) or np.any(ri_b > 10):
+                print(f"FGSM WARNING: Extreme input set detected!")
+                print(f"  This suggests the splitting created invalid input sets")
+                print(f"  Original input should be around x=[0.64, 0, 0, 0.475, -0.475], r=[0.04, 0.5, 0.5, 0.025, 0.025]")
+            
+            # Validate counterexample: ensure it's within input bounds and actually violates spec
+            # Check if counterexample is within bounds [xi - ri, xi + ri]
+            # For FGSM, this should NEVER happen - if it does, there's a bug
+            lower_bound = xi_b - ri_b
+            upper_bound = xi_b + ri_b
+            
+            # Check each dimension explicitly - ALWAYS do this check
+            x_flat = x_.flatten()
+            lower_flat = lower_bound.flatten()
+            upper_flat = upper_bound.flatten()
+            
+            # Force debug output to trace the bug
+            print(f"FGSM BOUNDS CHECK: id_={id_}, batch_idx={batch_idx}, p_candidates={p_candidates}")
+            print(f"  x_={x_flat}")
+            print(f"  xi_b={xi_b.flatten()}, ri_b={ri_b.flatten()}")
+            print(f"  lower_bound={lower_flat}, upper_bound={upper_flat}")
+            
+            # Use tolerance for floating-point comparison
+            in_bounds_lower = np.all(x_flat >= lower_flat - FLOAT_TOLERANCE)
+            in_bounds_upper = np.all(x_flat <= upper_flat + FLOAT_TOLERANCE)
+            in_bounds = in_bounds_lower and in_bounds_upper
+            
+            print(f"  x_ >= lower: {x_flat >= lower_flat}")
+            print(f"  x_ <= upper: {x_flat <= upper_flat}")
+            print(f"  in_bounds_lower={in_bounds_lower}, in_bounds_upper={in_bounds_upper}, in_bounds={in_bounds}")
+            
+            # ALWAYS check bounds - this is critical for FGSM
+            # For FGSM, counterexample MUST be within bounds - if not, raise error immediately
+            if not in_bounds:
+                # This should NEVER happen for FGSM - raise error to catch the bug
+                # Get zi column for debugging
+                zi_col = zi[:, id_].cpu().numpy() if useGpu and TORCH_AVAILABLE else zi[:, id_]
+                if isinstance(zi_col, np.ndarray) and zi_col.ndim > 1:
+                    zi_col = zi_col.flatten()
+                elif not isinstance(zi_col, np.ndarray):
+                    zi_col = np.array(zi_col).flatten()
+                
+                # Find which dimensions are out of bounds
+                violations_lower = np.where(x_flat < lower_flat)[0]
+                violations_upper = np.where(x_flat > upper_flat)[0]
+                
+                raise ValueError(
+                    f"FGSM BUG: Counterexample is out of bounds! This should never happen for FGSM.\n"
+                    f"  id_={id_}, p_candidates={p_candidates}, batch_idx={batch_idx}\n"
+                    f"  x_={x_flat}\n"
+                    f"  zi[:, {id_}]={zi_col}\n"
+                    f"  xi_b={xi_b.flatten()}, ri_b={ri_b.flatten()}\n"
+                    f"  lower_bound={lower_flat}, upper_bound={upper_flat}\n"
+                    f"  violations_lower (dims where x_ < lower): {violations_lower}\n"
+                    f"  violations_upper (dims where x_ > upper): {violations_upper}\n"
+                    f"  in_bounds_lower={in_bounds_lower}, in_bounds_upper={in_bounds_upper}\n"
+                    f"  zi.shape={zi.shape}, xi.shape={xi.shape if isinstance(xi, np.ndarray) else type(xi)}, cbSz={cbSz}\n"
+                    f"  This indicates a bug in FGSM attack construction or candidate selection."
+                )
+            
+            if res == 'COUNTEREXAMPLE' and x_ is not None:
+                # WARNING: This validation is EXTRA logic not present in MATLAB!
+                # MATLAB breaks immediately when falsified is True (line 518-521).
+                # We re-evaluate to ensure it actually violates the spec (double-check).
+                # If this validation rejects a counterexample, it could cause us to return
+                # VERIFIED when we should return COUNTEREXAMPLE.
+                if verbose:
+                    print(f"DEBUG: Re-evaluating counterexample {id_} to verify spec violation")
+                    print(f"DEBUG: x_ = {x_.flatten()}")
+                    print(f"DEBUG: Expected bounds: xi_b - ri_b to xi_b + ri_b")
+                nn.castWeights(np.float32)
+                y_ = nn.evaluate_(x_, options, idxLayer)
+                ld_check = A @ y_  # (num_constraints, 1)
+                
+                if verbose:
+                    print(f"DEBUG: Re-evaluation: y_={y_.flatten()}, ld_check={ld_check.flatten()}, b={b.flatten()}")
+                    print(f"DEBUG: safeSet={safeSet}, ld_check > b: {ld_check > b}, ld_check <= b: {ld_check <= b}")
+                    print(f"DEBUG: Margin: ld_check - b = {(ld_check - b).flatten()}")
+                
+                # Verify it actually violates the specification
+                if safeSet:
+                    violates = np.any(ld_check > b)
+                    if verbose:
+                        print(f"DEBUG: safeSet violation check: np.any(ld_check > b) = {violates}")
+                else:
+                    violates = np.all(ld_check <= b)
+                    if verbose:
+                        print(f"DEBUG: unsafeSet violation check: np.all(ld_check <= b) = {violates}")
+                
+                if not violates:
+                    # False positive - doesn't actually violate spec, skip it
+                    # WARNING: This is EXTRA validation not in MATLAB - could cause incorrect VERIFIED result!
+                    print("=" * 80)
+                    print("WARNING: EXTRA VALIDATION REJECTED COUNTEREXAMPLE (NOT IN MATLAB)!")
+                    print("=" * 80)
+                    print(f"  This extra validation logic rejected a counterexample that checkSpecs found.")
+                    print(f"  MATLAB would have returned COUNTEREXAMPLE here (line 518-521), but we're continuing.")
+                    print(f"  This could cause us to return VERIFIED when we should return COUNTEREXAMPLE.")
+                    print(f"  Counterexample id_={id_}")
+                    print(f"  ld_check={ld_check.flatten()}")
+                    print(f"  b={b.flatten()}")
+                    print(f"  safeSet={safeSet}, violates={violates}")
+                    print(f"  Original checkSpecs was True, but re-evaluation says it doesn't violate spec.")
+                    print(f"  This suggests either:")
+                    print(f"    1. Numerical precision issue in re-evaluation")
+                    print(f"    2. Bug in checkSpecs computation")
+                    print(f"    3. Bug in re-evaluation logic")
+                    print("=" * 80)
+                    
+                    # Check if we should raise an error (default: True to catch this issue)
+                    raise_on_validation_reject = options.get('nn', {}).get('raise_on_validation_reject', True)
+                    if raise_on_validation_reject:
+                        raise ValueError(
+                            f"EXTRA VALIDATION REJECTED COUNTEREXAMPLE: "
+                            f"checkSpecs found counterexample (id_={id_}), but re-evaluation says it doesn't violate spec. "
+                            f"This extra validation is NOT in MATLAB and could cause incorrect VERIFIED result. "
+                            f"ld_check={ld_check.flatten()}, b={b.flatten()}, safeSet={safeSet}, violates={violates}. "
+                            f"Set options['nn']['raise_on_validation_reject'] = False to continue anyway."
+                        )
+                    
+                    res = None
+                    x_ = None
+                    y_ = None
+                    # Don't break - continue with refinement instead
+                else:
+                    # Valid counterexample - return it
+                    if verbose:
+                        print(f"DEBUG: Counterexample {id_} confirmed to violate spec, breaking loop")
+                    break
+        else:
+            # No counterexamples found - log if verbose
+            if verbose:
+                print(f"FGSM: No counterexamples found. checkSpecs: {np.sum(checkSpecs)}/{len(checkSpecs)} True")
+                if 'ld_yi' in locals():
+                    print(f"  ld_yi sample: {ld_yi[:, :min(3, ld_yi.shape[1])] if ld_yi.ndim == 2 else ld_yi.flatten()[:3]}")
+                    print(f"  b sample: {b.flatten()[:min(3, len(b))]}")
+            # Continue with refinement
         
         # 3. Refine input sets. -------------------------------------------
         # Extract refinement method
@@ -896,8 +1427,8 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             
             # sens might not exist if falsification_method was 'center' or 'zonotack'
             if 'sens' not in locals() or sens is None:
-                # Compute sensitivity for splitting
-                S, _ = nn.calcSensitivity(xi, options, store_sensitivity=False)
+                # Compute sensitivity for splitting (store for neuron splitting).
+                S, _ = nn.calcSensitivity(xi, options, store_sensitivity=computeAndStoreSensitivity)
                 # Compute sens from S (same logic as in falsification section)
                 if S.ndim == 3:
                     S_abs = np.abs(S)
@@ -1007,7 +1538,7 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 permIdx = sub2ind((n0, cbSz),
                                   inputDimIdx.flatten('F'),  # Column-major flatten, 1-based
                                   repelem(np.arange(1, cbSz + 1), numInitGens, 1).flatten('F'))  # 1-based
-                permIdx = permIdx.reshape(numInitGens, cbSz) - 1  # Convert to 0-based for indexing
+                permIdx = permIdx.reshape(numInitGens, cbSz)  # sub2ind already returns 0-based indices
                 # Permute the input and radius.
                 xi_ = xi[permIdx]  # (numInitGens, cbSz)
                 ri_ = ri[permIdx]  # (numInitGens, cbSz)
@@ -1052,7 +1583,7 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                                            inputDimIdx.flatten('F'),  # 1-based
                                            np.tile(np.arange(1, numInitGens + 1), (1, cbSz)).flatten('F'),  # 1-based
                                            repelem(np.arange(1, cbSz + 1), numInitGens, 1).flatten('F'))  # 1-based
-                        dimGenIdx = dimGenIdx - 1  # Convert to 0-based
+                        # sub2ind already returns 0-based indices, so use directly
                         dimGenIdx = dimGenIdx.reshape(numInitGens, cbSz)
                         # MATLAB: grad = reshape(grad(dimGenIdx),[numInitGens cbSz]);
                         grad = grad_full.flatten()[dimGenIdx].reshape(numInitGens, cbSz)
@@ -1074,6 +1605,10 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 )
                 
                 # Compute input-split constraints.
+                # MATLAB: [Ai,bi,dimIds,hi] = aux_dimSplitConstraints(hi(:,:),nSplits,nDims);
+                # Flatten hi to 2D if needed
+                if hi.ndim > 2:
+                    hi = hi.reshape(hi.shape[0], -1, order='F')
                 Ai, bi, dimIds, hi = _aux_dimSplitConstraints(hi, nSplits, nDims)
                 
                 # Update number of new splits.
@@ -1099,13 +1634,32 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                     bi = np.concatenate([bi, bi_pad], axis=1)
             
             # Append zeros for generators.
-            An_ = np.concatenate([An, np.zeros((An.shape[0], q - An.shape[1], cbSz), dtype=An.dtype)], axis=1) if An.shape[1] < q else An
-            Ai_ = np.concatenate([Ai, np.zeros((Ai.shape[0], q - Ai.shape[1], cbSz), dtype=Ai.dtype)], axis=1) if Ai.shape[1] < q else Ai
+            # Use the actual batch size from An and Ai (which may have been padded in _aux_neuronConstraints)
+            actual_bSz_n = An.shape[2]
+            actual_bSz_i = Ai.shape[2]
+            actual_bSz_bn = bn.shape[2]
+            actual_bSz_bi = bi.shape[2]
+            
+            # Find the maximum batch size across all arrays
+            max_bSz = max(actual_bSz_n, actual_bSz_i, actual_bSz_bn, actual_bSz_bi)
+            
+            # Pad An and Ai to have the same batch size
+            if actual_bSz_n < max_bSz:
+                An = np.concatenate([An, np.zeros((An.shape[0], An.shape[1], max_bSz - actual_bSz_n), dtype=An.dtype)], axis=2)
+            if actual_bSz_i < max_bSz:
+                Ai = np.concatenate([Ai, np.zeros((Ai.shape[0], Ai.shape[1], max_bSz - actual_bSz_i), dtype=Ai.dtype)], axis=2)
+            if actual_bSz_bn < max_bSz:
+                bn = np.concatenate([bn, np.full((bn.shape[0], bn.shape[1], max_bSz - actual_bSz_bn), np.nan, dtype=bn.dtype)], axis=2)
+            if actual_bSz_bi < max_bSz:
+                bi = np.concatenate([bi, np.full((bi.shape[0], bi.shape[1], max_bSz - actual_bSz_bi), np.nan, dtype=bi.dtype)], axis=2)
+            
+            An_ = np.concatenate([An, np.zeros((An.shape[0], q - An.shape[1], max_bSz), dtype=An.dtype)], axis=1) if An.shape[1] < q else An
+            Ai_ = np.concatenate([Ai, np.zeros((Ai.shape[0], q - Ai.shape[1], max_bSz), dtype=Ai.dtype)], axis=1) if Ai.shape[1] < q else Ai
             # Concatenate input and neuron splits.
-            As = np.concatenate([An_, Ai_], axis=0)  # (nNeur + nDims, q, cbSz)
-            bs = np.concatenate([bn, bi], axis=0)  # (nSplits-1, nNeur + nDims, cbSz)
+            As = np.concatenate([An_, Ai_], axis=0)  # (nNeur + nDims, q, max_bSz)
+            bs = np.concatenate([bn, bi], axis=0)  # (nSplits-1, nNeur + nDims, max_bSz)
             # Pad the neuron split indices with NaN for the input dimensions.
-            newNrXi = np.concatenate([newNrXi, np.full((dimIds.shape[0], cbSz), np.nan, dtype=newNrXi.dtype)], axis=0)
+            newNrXi = np.concatenate([newNrXi, np.full((dimIds.shape[0], max_bSz), np.nan, dtype=newNrXi.dtype)], axis=0)
             
             # Handle input_xor_neuron_splitting option
             if options.get('nn', {}).get('input_xor_neuron_splitting', False) and nNeur > 0 and nDims > 0:
@@ -1122,7 +1676,7 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
                 sIdx = sub2ind((As.shape[0], As.shape[2]),
                                sort_idx[:nDims_, :].flatten('F'),  # 1-based
                                np.tile(np.arange(1, cbSz + 1), nDims_))  # 1-based
-                sIdx = sIdx - 1  # Convert to 0-based
+                # sub2ind already returns 0-based indices, so use directly
                 
                 # Extract the corresponding constraint.
                 As_flat = As.reshape(As.shape[0], q, -1)
@@ -1225,10 +1779,42 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         # All these variables should exist at this point in the code
         del xi, ri, yi, Gyi, cxi, Gxi, yic, yid, ld_yi, ld_Gyi, ld_ri, ld_Gyi_err, zi, critVal, critValPerConstr, checkSpecs, xis, ris
     
-    # Verified.
-    if res is None:
+    # MATLAB: if size(xs,2) == 0 && ~strcmp(res.str,'COUNTEREXAMPLE')
+    #     res.str = 'VERIFIED';
+    #     x_ = [];
+    #     y_ = [];
+    # end
+    # Check if queue is empty and we haven't found a counterexample
+    # ALWAYS log termination (critical for debugging)
+    print(f"=" * 80)
+    print(f"VERIFICATION TERMINATION:")
+    print(f"  Total iterations: {iteration}")
+    print(f"  Queue size (xs.shape[1]): {xs.shape[1]}")
+    print(f"  Current res: {res}")
+    print(f"  verifiedPatches: {verifiedPatches}")
+    print(f"  totalNumSplits: {totalNumSplits}")
+    if xs.shape[1] == 0:
+        print(f"  WARNING: Queue is empty! This means all patches were verified or split until empty.")
+        print(f"  MATLAB found COUNTEREXAMPLE after 13 iterations.")
+        print(f"  Python ran {iteration} iterations and returned {res}.")
+        if iteration < 13 and res == 'VERIFIED':
+            print(f"  CRITICAL: Python terminated early! This is likely the bug.")
+    print(f"=" * 80)
+    
+    if xs.shape[1] == 0 and res != 'COUNTEREXAMPLE':
+        # Verified all patches.
+        print(f"RETURNING VERIFIED: Queue is empty and no counterexample found")
         res = 'VERIFIED'
         x_ = None
         y_ = None
+    elif res is None:
+        # If res is still None but queue is not empty, this shouldn't happen
+        # But handle it gracefully - set to UNKNOWN
+        print(f"RETURNING UNKNOWN: res is None but queue has {xs.shape[1]} items")
+        res = 'UNKNOWN'
+        x_ = None
+        y_ = None
+    else:
+        print(f"RETURNING {res}: Queue has {xs.shape[1]} items")
     
     return res, x_, y_

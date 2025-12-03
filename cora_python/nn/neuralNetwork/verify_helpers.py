@@ -43,6 +43,19 @@ def _aux_scaleAndOffsetZonotope(c: np.ndarray, G: np.ndarray, bc: np.ndarray, br
     Scale and offset the zonotope to a new hypercube with center bc and radius br.
     
     MATLAB: function [c,G] = aux_scaleAndOffsetZonotope(c,G,bc,br)
+    
+    MATLAB code (lines 2014-2032):
+        qiIds = 1:min(size(G,2),size(bc,1));
+        G_ = G(:,qiIds,:);
+        bc_ = permute(bc(qiIds,:),[1 3 2]);
+        br_ = permute(br(qiIds,:),[3 1 2]);
+        offset = pagemtimes(G_,bc_);
+        if ndims(c) > 2
+            c = c + offset;
+        else
+            c = c + offset(:,:);
+        end
+        G(:,qiIds,:) = G(:,qiIds,:).*br_;
     """
     from ..layers.linear.nnGeneratorReductionLayer import pagemtimes
     
@@ -50,22 +63,116 @@ def _aux_scaleAndOffsetZonotope(c: np.ndarray, G: np.ndarray, bc: np.ndarray, br
     qiIds = min(G.shape[1], bc.shape[0])
     # Extract the relevant entries.
     G_ = G[:, :qiIds, :]  # (n, qiIds, batch)
-    bc_ = np.transpose(bc[:qiIds, :], (0, 2, 1))  # (qiIds, 1, batch)
-    br_ = np.transpose(br[:qiIds, :], (2, 0, 1))  # (1, qiIds, batch)
+    
+    # MATLAB: bc_ = permute(bc(qiIds,:),[1 3 2]);
+    # bc(qiIds,:) is 2D (qiIds, bSz), permute([1 3 2]) makes it (qiIds, 1, bSz)
+    bc_ = np.expand_dims(bc[:qiIds, :], axis=1)  # (qiIds, 1, bSz_bc)
+    # MATLAB: br_ = permute(br(qiIds,:),[3 1 2]);
+    # br(qiIds,:) is 2D (qiIds, bSz), permute([3 1 2]) makes it (1, qiIds, bSz)
+    br_ = np.expand_dims(br[:qiIds, :], axis=0)  # (1, qiIds, bSz_bc)
     
     # Scale and offset the zonotope to a new hypercube with center bc and radius br.
+    # MATLAB: offset = pagemtimes(G_,bc_);
+    # pagemtimes will handle batch size mismatches through replication
     offset = pagemtimes(G_, 'none', bc_, 'none')  # (n, 1, batch)
     
     # Offset the center.
+    # MATLAB: if ndims(c) > 2, c = c + offset; else c = c + offset(:,:); end
     if c.ndim > 2:  # iff options.nn.interval_center
+        # MATLAB: c = c + offset;
+        # Both c and offset are 3D, addition should broadcast
+        # Ensure batch sizes match
+        c_bSz = c.shape[2]
+        offset_bSz = offset.shape[2]
+        if c_bSz != offset_bSz:
+            from ..layers.linear.nnGeneratorReductionLayer import repelem
+            if c_bSz > offset_bSz and c_bSz % offset_bSz == 0:
+                nReps = c_bSz // offset_bSz
+                offset = repelem(offset, 1, 1, nReps)
+            elif offset_bSz > c_bSz and offset_bSz % c_bSz == 0:
+                # Subset offset to match c's batch size
+                offset = offset[:, :, :c_bSz]
+            else:
+                raise ValueError(f"Cannot match batch sizes in offset: c.shape={c.shape}, offset.shape={offset.shape}")
         c = c + offset
     else:
-        c = c + offset.squeeze(1)  # (n, batch)
+        # MATLAB: c = c + offset(:,:);
+        # offset(:,:) squeezes singleton dimensions
+        # offset is (n, 1, batch), offset(:,:) becomes (n, batch)
+        if offset.shape[1] == 1:
+            offset_2d = offset.squeeze(1)  # (n, batch_offset)
+        else:
+            offset_2d = offset.reshape(offset.shape[0], -1)  # (n, batch_offset)
+        # Ensure batch sizes match
+        c_bSz = c.shape[1] if c.ndim == 2 else c.shape[2]
+        offset_bSz = offset_2d.shape[1]
+        if c_bSz != offset_bSz:
+            from ..layers.linear.nnGeneratorReductionLayer import repelem
+            if c_bSz > offset_bSz and c_bSz % offset_bSz == 0:
+                nReps = c_bSz // offset_bSz
+                offset_2d = repelem(offset_2d, 1, nReps)
+            elif offset_bSz > c_bSz and offset_bSz % c_bSz == 0:
+                # Subset offset to match c's batch size
+                offset_2d = offset_2d[:, :c_bSz]
+            else:
+                raise ValueError(f"Cannot match batch sizes in offset_2d: c.shape={c.shape}, offset_2d.shape={offset_2d.shape}")
+        c = c + offset_2d  # (n, batch)
     
     # Scale the generators.
+    # MATLAB: G(:,qiIds,:) = G(:,qiIds,:).*br_;
+    # br_ has shape (1, qiIds, bSz_br), G has shape (n, qiIds, bSz_G)
+    # If batch sizes don't match, we need to replicate br_
+    G_bSz = G.shape[2]
+    br_bSz = br_.shape[2]
+    if G_bSz != br_bSz:
+        from ..layers.linear.nnGeneratorReductionLayer import repelem
+        if G_bSz > br_bSz and G_bSz % br_bSz == 0:
+            nReps = G_bSz // br_bSz
+            br_ = repelem(br_, 1, 1, nReps)
+        elif br_bSz > G_bSz and br_bSz % G_bSz == 0:
+            # This shouldn't happen, but handle it
+            # Subset br_ to match G's batch size
+            br_ = br_[:, :, :G_bSz]
     G[:, :qiIds, :] = G[:, :qiIds, :] * br_  # Broadcast: (n, qiIds, batch) * (1, qiIds, batch)
     
     return c, G
+
+
+def _aux_patchWeightMask(imgSize: tuple, ph: int, pw: int, l: float, u: float) -> np.ndarray:
+    """
+    Generate a patch-wise weight mask for input splitting, where the 
+    center of a patch gets a higher score than the remaining pixels of the patch.
+    
+    MATLAB: function imgM = aux_patchWeightMask(imgSize,ph,pw,l,u)
+    Lines 1303-1321
+    """
+    # Create the weight mask for a patch; initialize with the low score.
+    # MATLAB: pM = l*ones([ph pw]);
+    pM = l * np.ones((ph, pw))
+    
+    # Set the center pixel to the high score.
+    # MATLAB: pM(ceil(ph/2),ceil(pw/2)) = u;
+    center_h = int(np.ceil(ph / 2)) - 1  # Convert to 0-based
+    center_w = int(np.ceil(pw / 2)) - 1  # Convert to 0-based
+    pM[center_h, center_w] = u
+    
+    # Tile mask over input.
+    # MATLAB: imgM = kron(ones(ceil(imgSize(1:2)./[ph pw])),pM);
+    # kron(A, B) computes the Kronecker product
+    tiles_h = int(np.ceil(imgSize[0] / ph))
+    tiles_w = int(np.ceil(imgSize[1] / pw))
+    imgM = np.kron(np.ones((tiles_h, tiles_w)), pM)
+    
+    # Trim excess dimensions.
+    # MATLAB: imgM = imgM(1:imgSize(1),1:imgSize(2));
+    imgM = imgM[:imgSize[0], :imgSize[1]]
+    
+    if len(imgSize) == 3:
+        # There is a color channel.
+        # MATLAB: imgM = repmat(imgM,1,1,imgSize(3));
+        imgM = np.repeat(imgM[:, :, np.newaxis], imgSize[2], axis=2)
+    
+    return imgM
 
 
 def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: np.ndarray, u: np.ndarray, 
@@ -166,7 +273,22 @@ def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: np.ndarray, u: np.nd
             # No neuron IDs provided, skip this check
             pass
     
-    # TODO: Handle imgSz, patchSz, patchScore if needed (for image inputs)
+    # Handle imgSz, patchSz, patchScore for image inputs
+    if imgSz is not None and imgSz:
+        # MATLAB lines 1473-1486
+        # Obtain the patch size.
+        ph = patchSz[0] if patchSz is not None else 1
+        pw = patchSz[1] if patchSz is not None and len(patchSz) > 1 else 1
+        # Obtain the scores.
+        lowScore = patchScore[0] if patchScore is not None else 0.1
+        highScore = patchScore[1] if patchScore is not None and len(patchScore) > 1 else 1.0
+        # Compute a patch-wise weight mask to avoid splitting many similar input dimensions.
+        imgM = _aux_patchWeightMask(imgSz, ph, pw, lowScore, highScore)
+        # Convert to the correct data type.
+        imgM = imgM.astype(h.dtype)
+        # Weight the heuristic by the patch-wise mask.
+        # MATLAB: h = h.*imgM(:);
+        h = h * imgM.flatten().reshape(-1, 1)
     
     return h
 
@@ -191,17 +313,19 @@ def _aux_dimSplitConstraints(hi: np.ndarray, nSplits: int, nDims: int) -> Tuple[
     hi = hi_sorted[:nDims, :]  # (nDims, batch)
     
     # Compute dimension indices.
+    # MATLAB: dimIdx = sub2ind([nDims n bSz],repelem((1:nDims)',1,bSz),dimIds,repelem(1:bSz,nDims,1));
+    # dimIds is already 0-based from argsort, need to convert to 1-based for MATLAB sub2ind
     dimIdx = sub2ind((nDims, n, bSz),
                      repelem(np.arange(1, nDims + 1), 1, bSz),  # 1-based
-                     dimIds.flatten('F'),  # Column-major flatten
+                     (dimIds + 1).flatten('F'),  # Convert to 1-based, then flatten
                      repelem(np.arange(1, bSz + 1), nDims, 1).flatten('F'))  # 1-based
     
     # 2. Construct the constraints.
     Ai = np.zeros((nDims, n, bSz), dtype=hi.dtype)
     # Set non-zero entries
-    dimIdx_0based = dimIdx - 1  # Convert to 0-based
+    # sub2ind already returns 0-based indices, so use directly
     Ai_flat = Ai.flatten()
-    Ai_flat[dimIdx_0based] = 1
+    Ai_flat[dimIdx] = 1
     Ai = Ai_flat.reshape(nDims, n, bSz)
     
     # Specify offsets: repelem(-1 + (1:(nSplits-1)).*(2/nSplits),nDims,1,bSz)
@@ -231,7 +355,12 @@ def _aux_constructUnsafeOutputSet(options: Dict[str, Any], y: np.ndarray, Gy: np
         yr = 0.5 * (y[:, 1, :] - y[:, 0, :])
     else:
         # The radius is zero.
-        yc = y
+        # MATLAB: yc = y; where y is (nK, bSz)
+        # If y is 3D (nK, 1, bSz), squeeze the middle dimension
+        if y.ndim == 3 and y.shape[1] == 1:
+            yc = y.squeeze(axis=1)  # (nK, bSz)
+        else:
+            yc = y
         yr = np.zeros((nK, 1, bSz), dtype=y.dtype)
     
     # Compute the output constraints (logit difference).
@@ -240,7 +369,8 @@ def _aux_constructUnsafeOutputSet(options: Dict[str, Any], y: np.ndarray, Gy: np
         yic = yc
         yid = yr
     else:
-        yic = yc
+        # MATLAB: yic = yi; where yi is (nK, bSz) when interval_center is False
+        yic = yc  # Already reshaped above to (nK, bSz)
         yid = np.zeros((nK, 1, bSz), dtype=y.dtype)
     
     # Compute logit difference
@@ -268,12 +398,14 @@ def _aux_constructUnsafeOutputSet(options: Dict[str, Any], y: np.ndarray, Gy: np
         b_ = b - ld_yi  # (spec_dim, batch)
     
     # Construct a struct for the output set.
+    # MATLAB: uYi.b = b_ + ld_Gyi_err(:,:);
+    # The (:,:) keeps it 2D, so don't add newaxis
     uYi = {
         'c': yc,
         'r': yr,
         'G': Gy,
         'A': A_,
-        'b': b_ + ld_Gyi_err[:, :, np.newaxis] if ld_Gyi_err.ndim == 2 else b_ + ld_Gyi_err.reshape(-1, 1)
+        'b': b_ + ld_Gyi_err  # Keep 2D like MATLAB
     }
     
     return uYi
@@ -286,6 +418,16 @@ def _aux_pop(xs: np.ndarray, rs: np.ndarray, nrXs: np.ndarray, bSz: int, options
     MATLAB signature:
     function [xi,ri,nrXi,xs,rs,nrXs,qIdx] = aux_pop(xs,rs,nrXs,bSz,options)
     """
+    # Ensure bSz is an integer (it might be passed as an array)
+    if isinstance(bSz, np.ndarray):
+        if bSz.size == 1:
+            bSz = int(bSz.item())
+        else:
+            # If it's an array, use the size of the first dimension
+            bSz = int(bSz.shape[0] if bSz.ndim > 0 else bSz.size)
+    elif not isinstance(bSz, (int, np.integer)):
+        bSz = int(bSz)
+    
     # Obtain the number of elements in the queue.
     nQueue = xs.shape[1]
     
@@ -369,23 +511,40 @@ def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: np.
     dimIdx_flat = dimIdx.flatten('F')  # Column-major flatten, 1-based
     genIdx_flat = np.tile(np.arange(1, numInitGens + 1), (1, bSz)).flatten('F')  # 1-based
     batchIdx_flat = repelem(np.arange(1, bSz + 1), numInitGens, 1).flatten('F')  # 1-based
-    gIdx = sub2ind(Gxi.shape, dimIdx_flat, genIdx_flat, batchIdx_flat)  # 1-based linear indices
+    gIdx = sub2ind(Gxi.shape, dimIdx_flat, genIdx_flat, batchIdx_flat)  # 0-based linear indices (sub2ind converts internally)
     
     # Set non-zero generator entries.
     # MATLAB: Gxi(gIdx) = ri(sub2ind(size(ri),dimIdx,repelem(1:bSz,numInitGens,1)));
     ri_dimIdx_flat = dimIdx.flatten('F')  # Column-major flatten, 1-based
     ri_batchIdx_flat = repelem(np.arange(1, bSz + 1), numInitGens, 1).flatten('F')  # 1-based
-    ri_gIdx = sub2ind(ri.shape, ri_dimIdx_flat, ri_batchIdx_flat)  # 1-based linear indices
-    # Convert to 0-based for Python indexing
-    Gxi_flat = Gxi.flatten()
-    ri_flat = ri.flatten()
-    Gxi_flat[gIdx - 1] = ri_flat[ri_gIdx - 1]  # Convert 1-based to 0-based
-    Gxi = Gxi_flat.reshape(Gxi.shape)
+    ri_gIdx = sub2ind(ri.shape, ri_dimIdx_flat, ri_batchIdx_flat)  # 0-based linear indices (sub2ind converts internally)
+    # sub2ind already returns 0-based indices, so use directly
+    # Use Fortran order to match MATLAB's column-major indexing
+    Gxi_flat = Gxi.flatten('F')
+    ri_flat = ri.flatten('F')
+    Gxi_flat[gIdx] = ri_flat[ri_gIdx]  # Both are already 0-based
+    Gxi = Gxi_flat.reshape(Gxi.shape, order='F')
     
     # Sum generators to compute remaining set.
     # MATLAB: ri_ = (ri - reshape(sum(Gxi,2),[n0 bSz]));
     Gxi_sum = np.sum(Gxi, axis=1)  # Sum over generators: (n0, bSz)
     ri_ = ri - Gxi_sum
+    
+    # DEBUG: Log ri_ values for comparison with MATLAB (first few iterations only)
+    # This helps identify if Python's remaining radius is smaller
+    # Note: iteration number needs to be passed or stored in options
+    debug_iteration = options.get('_debug_iteration', None)
+    if debug_iteration is not None and debug_iteration <= 10:
+        print(f"SPLITTING DEBUG (iteration {debug_iteration}):")
+        print(f"  ri shape: {ri.shape}, ri (first 3 dims, first 3 batches): {ri[:min(3, ri.shape[0]), :min(3, ri.shape[1])].flatten()}")
+        print(f"  Gxi_sum shape: {Gxi_sum.shape}, Gxi_sum (first 3 dims, first 3 batches): {Gxi_sum[:min(3, Gxi_sum.shape[0]), :min(3, Gxi_sum.shape[1])].flatten()}")
+        print(f"  ri_ shape: {ri_.shape}, ri_ (first 3 dims, first 3 batches): {ri_[:min(3, ri_.shape[0]), :min(3, ri_.shape[1])].flatten()}")
+        print(f"  ri_ min/max: min={np.min(ri_)}, max={np.max(ri_)}")
+        if np.any(ri_ < 1e-6):
+            zero_count = np.sum(ri_ < 1e-6)
+            print(f"  WARNING: {zero_count} entries have ri_ < 1e-6 (very small remaining radius)!")
+            zero_indices = np.where(ri_ < 1e-6)
+            print(f"  Zero ri_ locations (first 5): dims={zero_indices[0][:5]}, batches={zero_indices[1][:5]}")
     
     # Construct the center.
     if options.get('nn', {}).get('interval_center', False):
@@ -416,9 +575,10 @@ def _aux_split_with_dim(xi: np.ndarray, ri: np.ndarray, his: np.ndarray, nSplits
     n, bs = xi.shape
     # Find the input dimension with the largest heuristic.
     # MATLAB: [~,sortDims] = sort(abs(his),1,'descend');
-    sortDims = np.argsort(np.abs(his), axis=0)[::-1]  # Sort descending along axis=0 (rows)
+    sortDims = np.argsort(np.abs(his), axis=0)[::-1]  # Sort descending along axis=0 (rows), returns 0-based indices
     # MATLAB: dimId = sortDims(1,:);
-    dimId = sortDims[0, :]  # Shape: (batch,), 1-based dimension indices
+    # MATLAB returns 1-based indices, Python returns 0-based, so add 1 to convert
+    dimId = sortDims[0, :] + 1  # Shape: (batch,), 1-based dimension indices
     
     # MATLAB: splitsIdx = repmat(1:nSplits,1,bs);
     splitsIdx = np.tile(np.arange(1, nSplits + 1), bs)  # 1-based like MATLAB: (nSplits*bs,)
@@ -427,21 +587,22 @@ def _aux_split_with_dim(xi: np.ndarray, ri: np.ndarray, his: np.ndarray, nSplits
     
     # MATLAB: linIdx = sub2ind([n bs nSplits], repelem(dimId,nSplits),bsIdx(:)',splitsIdx(:)');
     dim_repeated = repelem(dimId, nSplits)  # Shape: (batch*nSplits,), 1-based
-    linIdx = sub2ind((n, bs, nSplits), dim_repeated, bsIdx, splitsIdx)  # 1-based linear indices
+    linIdx = sub2ind((n, bs, nSplits), dim_repeated, bsIdx, splitsIdx)  # 0-based linear indices (sub2ind converts internally)
     
     # 2. Split the selected dimension.
     xi_ = xi.copy()
     ri_ = ri.copy()
     # Shift to the lower bound.
-    dimIdx = sub2ind((n, bs), dimId, np.arange(1, bs + 1))  # 1-based linear indices
-    dimIdx_0based = dimIdx - 1
-    xi_flat = xi_.flatten()
-    ri_flat = ri_.flatten()
-    xi_flat[dimIdx_0based] = xi_flat[dimIdx_0based] - ri_flat[dimIdx_0based]
-    xi_ = xi_flat.reshape(n, bs)
-    ri_flat = ri_.flatten()
-    ri_flat[dimIdx_0based] = ri_flat[dimIdx_0based] / nSplits
-    ri_ = ri_flat.reshape(n, bs)
+    dimIdx = sub2ind((n, bs), dimId, np.arange(1, bs + 1))  # 0-based linear indices (sub2ind converts internally)
+    # sub2ind already returns 0-based indices, so use directly
+    # Use Fortran order to match MATLAB's column-major indexing
+    xi_flat = xi_.flatten('F')
+    ri_flat = ri.flatten('F')  # Use ORIGINAL ri for shift, not ri_!
+    xi_flat[dimIdx] = xi_flat[dimIdx] - ri_flat[dimIdx]
+    xi_ = xi_flat.reshape((n, bs), order='F')
+    ri_flat = ri_.flatten('F')  # Now use ri_ for reduction
+    ri_flat[dimIdx] = ri_flat[dimIdx] / nSplits
+    ri_ = ri_flat.reshape((n, bs), order='F')
     
     # MATLAB: xis = repmat(xi_,1,1,nSplits);
     xis = np.tile(xi_.reshape(n, bs, 1), (1, 1, nSplits))  # Shape: (n, bs, nSplits)
@@ -449,16 +610,26 @@ def _aux_split_with_dim(xi: np.ndarray, ri: np.ndarray, his: np.ndarray, nSplits
     ris = np.tile(ri_.reshape(n, bs, 1), (1, 1, nSplits))  # Shape: (n, bs, nSplits)
     
     # MATLAB: xis(linIdx(:)) = xis(linIdx(:)) + (2*splitsIdx(:) - 1).*ris(linIdx(:));
-    linIdx_0based = linIdx - 1
-    xis_flat = xis.flatten()
-    ris_flat = ris.flatten()
-    splitsIdx_0based = splitsIdx - 1
-    xis_flat[linIdx_0based] = xis_flat[linIdx_0based] + (2 * splitsIdx_0based - 1) * ris_flat[linIdx_0based]
-    xis = xis_flat.reshape(n, bs, nSplits)
+    # sub2ind already returns 0-based indices, so use directly
+    # splitsIdx is 1-based (1, 2, ..., nSplits) matching MATLAB, use directly in formula
+    # Use Fortran order to match MATLAB's column-major indexing
+    xis_flat = xis.flatten('F')
+    ris_flat = ris.flatten('F')
+    xis_flat[linIdx] = xis_flat[linIdx] + (2 * splitsIdx - 1) * ris_flat[linIdx]
+    xis = xis_flat.reshape((n, bs, nSplits), order='F')
     
     # MATLAB: xis = xis(:,:); ris = ris(:,:);
     xis = xis.reshape(n, -1)
     ris = ris.reshape(n, -1)
+    
+    # Debug: Check if any values are outside reasonable bounds
+    if np.any(np.abs(xis) > 100):
+        print(f"WARNING: aux_split produced extreme values!")
+        print(f"  xis range: [{np.min(xis)}, {np.max(xis)}]")
+        print(f"  ris range: [{np.min(ris)}, {np.max(ris)}]")
+        print(f"  dimId (1-based): {dimId}")
+        print(f"  Input xi range: [{np.min(xi)}, {np.max(xi)}]")
+        print(f"  Input ri range: [{np.min(ri)}, {np.max(ri)}]")
     
     return xis, ris, dimId
 
@@ -481,9 +652,10 @@ def _aux_split(xi: np.ndarray, ri: np.ndarray, sens: np.ndarray, nSplits: int, n
     # MATLAB: [~,sortDims] = sort(abs(sens.*ri),1,'descend');
     # sens and ri both have shape (input_dim, batch)
     # sort along dimension 1 (columns), descending
-    sortDims = np.argsort(np.abs(sens * ri), axis=0)[::-1]  # Sort descending along axis=0 (rows)
+    sortDims = np.argsort(np.abs(sens * ri), axis=0)[::-1]  # Sort descending along axis=0 (rows), returns 0-based indices
     # MATLAB: dimIds = sortDims(1:nDims,:);
-    dimIds = sortDims[:nDims, :]  # Shape: (nDims, batch)
+    # MATLAB returns 1-based indices, Python returns 0-based, so add 1 to convert
+    dimIds = sortDims[:nDims, :] + 1  # Shape: (nDims, batch), 1-based dimension indices
     
     # MATLAB: splitsIdx = repmat(1:nSplits,1,bs);
     splitsIdx = np.tile(np.arange(1, nSplits + 1), bs)  # 1-based like MATLAB: (nSplits*bs,)
@@ -499,7 +671,7 @@ def _aux_split(xi: np.ndarray, ri: np.ndarray, sens: np.ndarray, nSplits: int, n
     dim_repeated = repelem(dim, nSplits)  # Shape: (batch*nSplits,), 1-based
     # sub2ind([n bs nSplits], dim_repeated, bsIdx, splitsIdx)
     # All inputs are 1-based MATLAB indices
-    linIdx = sub2ind((n, bs, nSplits), dim_repeated, bsIdx, splitsIdx)  # 1-based linear indices
+    linIdx = sub2ind((n, bs, nSplits), dim_repeated, bsIdx, splitsIdx)  # 0-based linear indices (sub2ind converts internally)
     
     # 2. Split the selected dimension.
     # MATLAB: xi_ = xi; ri_ = ri;
@@ -507,18 +679,18 @@ def _aux_split(xi: np.ndarray, ri: np.ndarray, sens: np.ndarray, nSplits: int, n
     ri_ = ri.copy()
     # Shift to the lower bound.
     # MATLAB: dimIdx = sub2ind([n bs],dim,1:bs);
-    dimIdx = sub2ind((n, bs), dim, np.arange(1, bs + 1))  # 1-based linear indices
+    dimIdx = sub2ind((n, bs), dim, np.arange(1, bs + 1))  # 0-based linear indices (sub2ind converts internally)
     # MATLAB: xi_(dimIdx) = xi_(dimIdx) - ri(dimIdx);
-    # Convert 1-based indices to 0-based for Python indexing
-    dimIdx_0based = dimIdx - 1
-    xi_flat = xi_.flatten()
-    ri_flat = ri_.flatten()
-    xi_flat[dimIdx_0based] = xi_flat[dimIdx_0based] - ri_flat[dimIdx_0based]
-    xi_ = xi_flat.reshape(n, bs)
+    # sub2ind already returns 0-based indices, so use directly
+    # Use Fortran order to match MATLAB's column-major indexing
+    xi_flat = xi_.flatten('F')
+    ri_flat = ri_.flatten('F')
+    xi_flat[dimIdx] = xi_flat[dimIdx] - ri_flat[dimIdx]
+    xi_ = xi_flat.reshape((n, bs), order='F')
     # MATLAB: ri_(dimIdx) = ri_(dimIdx)/nSplits;
-    ri_flat = ri_.flatten()
-    ri_flat[dimIdx_0based] = ri_flat[dimIdx_0based] / nSplits
-    ri_ = ri_flat.reshape(n, bs)
+    ri_flat = ri_.flatten('F')
+    ri_flat[dimIdx] = ri_flat[dimIdx] / nSplits
+    ri_ = ri_flat.reshape((n, bs), order='F')
     
     # MATLAB: xis = repmat(xi_,1,1,nSplits);
     xis = np.tile(xi_.reshape(n, bs, 1), (1, 1, nSplits))  # Shape: (n, bs, nSplits)
@@ -527,14 +699,13 @@ def _aux_split(xi: np.ndarray, ri: np.ndarray, sens: np.ndarray, nSplits: int, n
     
     # MATLAB: xis(linIdx(:)) = xis(linIdx(:)) + (2*splitsIdx(:) - 1).*ris(linIdx(:));
     # Offset the center.
-    # Convert 1-based linIdx to 0-based for Python indexing
-    linIdx_0based = linIdx - 1
-    xis_flat = xis.flatten()
-    ris_flat = ris.flatten()
-    # splitsIdx is 1-based (1, 2, ..., nSplits), convert to 0-based for calculation
-    splitsIdx_0based = splitsIdx - 1  # Now 0, 1, ..., nSplits-1
-    xis_flat[linIdx_0based] = xis_flat[linIdx_0based] + (2 * splitsIdx_0based - 1) * ris_flat[linIdx_0based]
-    xis = xis_flat.reshape(n, bs, nSplits)
+    # sub2ind already returns 0-based indices, so use directly
+    # splitsIdx is 1-based (1, 2, ..., nSplits) matching MATLAB, use directly in formula
+    # Use Fortran order to match MATLAB's column-major indexing
+    xis_flat = xis.flatten('F')
+    ris_flat = ris.flatten('F')
+    xis_flat[linIdx] = xis_flat[linIdx] + (2 * splitsIdx - 1) * ris_flat[linIdx]
+    xis = xis_flat.reshape((n, bs, nSplits), order='F')
     
     # MATLAB: xis = xis(:,:); ris = ris(:,:);
     # Flatten last two dimensions: (n, bs, nSplits) -> (n, bs*nSplits)
@@ -677,14 +848,18 @@ def _aux_convertSplitConstraints(As: np.ndarray, bs: np.ndarray, nrXis: np.ndarr
         
         # Compute all combinations of the splits.
         idx = pcs + 1
+        # MATLAB: for i=1:(ps-1), Python: for i in range(ps-1) means i=0 corresponds to MATLAB i=1
         for i in range(ps - 1):
+            matlab_i = i + 1  # Convert Python i to MATLAB i
             # Increase the index.
             idx_ = idx * (pcs + 1)
             # Repeat the current combined splits.
-            b_[:2*(i+1), :idx_, :] = np.tile(b_[:2*(i+1), :idx, :], (1, pcs+1, 1))
+            # MATLAB: b_(1:2*i,1:idx_,:) = repmat(b_(1:2*i,1:idx,:),1,pcs+1,1);
+            b_[:2*matlab_i, :idx_, :] = np.tile(b_[:2*matlab_i, :idx, :], (1, pcs+1, 1))
             # Repeat the elements of the next split and append them.
-            next_slice = b_[2*i:2*(i+1), :(pcs+1), :]
-            b_[2*i:2*(i+1), :idx_, :] = repelem(next_slice, 1, (pcs+1)**i, 1)
+            # MATLAB: b_(2*i + (1:2),1:idx_,:) = repelem(b_(2*i + (1:2),1:(pcs+1),:),1,(pcs+1)^i,1);
+            next_slice = b_[2*matlab_i:2*matlab_i+2, :(pcs+1), :]
+            b_[2*matlab_i:2*matlab_i+2, :idx_, :] = repelem(next_slice, 1, (pcs+1)**matlab_i, 1)
             # Update the index of the combined splits.
             idx = idx_
         
@@ -712,9 +887,9 @@ def _aux_convertSplitConstraints(As: np.ndarray, bs: np.ndarray, nrXis: np.ndarr
     else:
         # There are no additional constraints.
         newSplits = 1
-        A = np.zeros((0, As.shape[1] if As.size > 0 else 0, As.shape[2] if As.size > 0 else 0), dtype=As.dtype if As.size > 0 else np.float32)
-        b = np.zeros((0, bs.shape[1] if bs.size > 0 else 0), dtype=bs.dtype if bs.size > 0 else np.float32)
-        constNrIdx = np.zeros((0, nrXis.shape[1] if nrXis.size > 0 else 0), dtype=nrXis.dtype if nrXis.size > 0 else np.float32)
+        A = np.zeros((0, As.shape[1] if As.size > 0 else 0, As.shape[2] if As.size > 0 else 0), dtype=As.dtype if As.size > 0 else np.float64)
+        b = np.zeros((0, bs.shape[1] if bs.size > 0 else 0), dtype=bs.dtype if bs.size > 0 else np.float64)
+        constNrIdx = np.zeros((0, nrXis.shape[1] if nrXis.size > 0 else 0), dtype=nrXis.dtype if nrXis.size > 0 else np.float64)
     
     return A, b, newSplits, constNrIdx
 
@@ -722,7 +897,7 @@ def _aux_convertSplitConstraints(As: np.ndarray, bs: np.ndarray, nrXis: np.ndarr
 def _aux_boundsOfBoundedPolytope(A: np.ndarray, b: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute the bounds [bl,bu] of a bounded polytope P:
-    Given P=(A,b) \cap [-1,1], compute its bounds.
+    Given P=(A,b) \\cap [-1,1], compute its bounds.
     
     MATLAB: function [bl,bu] = aux_boundsOfBoundedPolytope(A,b,options)
     """
@@ -744,7 +919,15 @@ def _aux_boundsOfBoundedPolytope(A: np.ndarray, b: np.ndarray, options: Dict[str
         
         # Permute the dimension of the constraints for easier handling.
         A_ = np.transpose(A, (1, 0, 2))  # (q, p, bSz)
-        b_ = np.transpose(b, (2, 0, 1)) if b.ndim > 1 else b.reshape(1, -1, 1)  # (1, p, bSz)
+        # MATLAB: b_ = permute(b,[3 1 2]); where b is (p, bSz)
+        # permute([3 1 2]) on 2D array (p, bSz) adds singleton at dim 0: (1, p, bSz)
+        if b.ndim == 2:
+            b_ = np.expand_dims(b, axis=0)  # (p, bSz) -> (1, p, bSz)
+            b_ = np.transpose(b_, (0, 1, 2))  # Already in correct order
+        elif b.ndim == 3:
+            b_ = np.transpose(b, (2, 0, 1))  # (p, bSz, x) -> (x, p, bSz) or similar
+        else:
+            b_ = b.reshape(1, -1, 1)  # (1, p, bSz)
         # Reshape factor bounds for easier multiplication.
         bl_ = bl.reshape(q, 1, bSz)  # (q, 1, bSz)
         bu_ = bu.reshape(q, 1, bSz)  # (q, 1, bSz)
@@ -883,14 +1066,17 @@ def _aux_boundsOfConZonotope(cZs: Dict[str, np.ndarray], numUnionConst: int, opt
         
         if numUnionConst > 1:
             # Unify sets if a safe set is specified.
-            bl = bl.reshape(q, bSz, numUnionConst)
-            bu = bu.reshape(q, bSz, numUnionConst)
+            # bl and bu have shape (q, bSz*numUnionConst) after _aux_boundsOfBoundedPolytope
+            # Reshape to (q, bSz, numUnionConst) and take min/max along the last dimension
+            # to get back to (q, bSz)
+            bl = bl.reshape(q, bSz, numUnionConst, order='F')
+            bu = bu.reshape(q, bSz, numUnionConst, order='F')
             bl = np.min(bl, axis=2)
             bu = np.max(bu, axis=2)
         else:
             # There are no constraints to unify.
-            bl = bl.reshape(q, bSz)
-            bu = bu.reshape(q, bSz)
+            bl = bl.reshape(q, bSz, order='F')
+            bu = bu.reshape(q, bSz, order='F')
     else:
         bl = None
         bu = None
@@ -911,16 +1097,29 @@ def _aux_boundsOfConZonotope(cZs: Dict[str, np.ndarray], numUnionConst: int, opt
     
     # Map bounds of the factors to bounds of the constraint zonotope.
     # We use interval arithmetic for that.
-    bc = 0.5 * (bu + bl).transpose(1, 0)  # (q, bSz) -> (bSz, q) -> transpose to (q, 1, bSz)?
-    br = 0.5 * (bu - bl).transpose(1, 0)
+    # MATLAB: bc = 1/2*permute(bu + bl,[1 3 2]); where bl, bu are (q, bSz_actual)
+    # permute([1 3 2]) on 2D (q, bSz_actual) adds singleton: (q, 1, bSz_actual)
+    # Get the actual batch size from bl/bu (which may be expanded due to splitting)
+    bSz_actual = bl.shape[1]
+    bc = 0.5 * (bu + bl)  # (q, bSz_actual)
+    br = 0.5 * (bu - bl)  # (q, bSz_actual)
     
-    # Ensure correct shape for pagemtimes
-    if bc.ndim == 2:
-        bc = bc.reshape(q, 1, bSz)
-    if br.ndim == 2:
-        br = br.reshape(q, 1, bSz)
+    # MATLAB: bc = permute(bc,[1 3 2]); adds singleton dimension
+    bc = np.expand_dims(bc, axis=1)  # (q, 1, bSz_actual)
+    br = np.expand_dims(br, axis=1)  # (q, 1, bSz_actual)
     
     # Map bounds of the factors to bounds of the constraint zonotope.
+    # MATLAB: c = c + reshape(pagemtimes(G,bc),[n bSz]);
+    # Note: G has original bSz, but bc has bSz_actual (expanded), so we need to match them
+    if bSz != bSz_actual:
+        # Replicate G to match the expanded batch size
+        from ..layers.linear.nnGeneratorReductionLayer import repelem
+        nReps = bSz_actual // bSz
+        G = repelem(G, 1, 1, nReps)
+        c = repelem(c, 1, nReps) if c.ndim == 2 else repelem(c, 1, 1, nReps)
+        r = repelem(r, 1, nReps) if r.ndim == 2 else repelem(r, 1, 1, nReps)
+        bSz = bSz_actual  # Update bSz to the actual batch size
+    
     c_offset = pagemtimes(G, 'none', bc, 'none').reshape(n, bSz)
     r_offset = pagemtimes(np.abs(G), 'none', br, 'none').reshape(n, bSz)
     c = c + c_offset
@@ -1042,16 +1241,24 @@ def _aux_neuronConstraints(nn: 'NeuralNetwork', options: Dict[str, Any], idxLaye
         # Obtain the sensitivity for heuristic.
         if hasattr(layeri, 'sensitivity') and layeri.sensitivity is not None:
             Si_ = np.maximum(np.abs(layeri.sensitivity), 1e-6)
-            sens = np.reshape(np.max(Si_, axis=0), (nk, -1))
+            # Handle empty sensitivity array
+            if Si_.size == 0:
+                sens = np.ones((nk, bSz), dtype=prevNrXs.dtype)
+            else:
+                sens = np.reshape(np.max(Si_, axis=0), (nk, -1))
         else:
             sens = np.ones((nk, bSz), dtype=prevNrXs.dtype)
         
         if As.shape[2] < bSz:
             padBSz = bSz - As.shape[2]
             # Pad to the correct batch size.
+            # MATLAB: As = cat(3,As,zeros([q nNeur padBSz],'like',As));
             As = np.concatenate([As, np.zeros((q, nNeur, padBSz), dtype=As.dtype)], axis=2)
+            # MATLAB: bs = cat(3,bs,zeros([(nSplits-1) nNeur padBSz],'like',bs));
             bs = np.concatenate([bs, np.zeros((nSplits-1, nNeur, padBSz), dtype=bs.dtype)], axis=2)
+            # MATLAB: h = [h -ones([nNeur padBSz],'like',h)];
             h = np.concatenate([h, -np.ones((nNeur, padBSz), dtype=h.dtype)], axis=1)
+            # MATLAB: constNrIdx = [constNrIdx,Inf([nNeur padBSz],'like',constNrIdx)];
             constNrIdx = np.concatenate([constNrIdx, np.full((nNeur, padBSz), np.inf, dtype=constNrIdx.dtype)], axis=1)
         
         if q < qi:
@@ -1095,6 +1302,11 @@ def _aux_neuronConstraints(nn: 'NeuralNetwork', options: Dict[str, Any], idxLaye
         else:
             raise ValueError(f"Invalid split_position: {split_position}. Must be 'zero' or 'middle'")
         
+        # Ensure bsi matches bs's batch size before concatenation
+        if bs.shape[2] > bsi.shape[2]:
+            pad_bSz = bs.shape[2] - bsi.shape[2]
+            bsi = np.concatenate([bsi, np.zeros((nSplits-1, nk, pad_bSz), dtype=bsi.dtype)], axis=2)
+        
         # Append the new offsets.
         bs = np.concatenate([bs, bsi], axis=1)  # (nSplits-1, nNeur + nk, bSz)
         
@@ -1116,27 +1328,69 @@ def _aux_neuronConstraints(nn: 'NeuralNetwork', options: Dict[str, Any], idxLaye
         hi = _aux_computeHeuristic(heuristic, i, li, ui, dr, sens, grad,
                                    sim, prevNrXs, neuronIds, True, 0.7)
         
+        # Ensure h, hi, bs, and constNrIdx have matching batch sizes
+        # Use hi's batch size as the true batch size for this layer
+        # (hi inherits batch size from sens, which may differ from Gi's batch size)
+        hi_bSz = hi.shape[1] if hi.ndim > 1 else 1
+        if h.shape[1] < hi_bSz:
+            padBSz = hi_bSz - h.shape[1]
+            h = np.concatenate([h, -np.ones((nNeur, padBSz), dtype=h.dtype)], axis=1)
+        if bs.shape[2] < hi_bSz:
+            pad_bSz = hi_bSz - bs.shape[2]
+            bs = np.concatenate([bs, np.zeros((nSplits-1, bs.shape[1], pad_bSz), dtype=bs.dtype)], axis=2)
+        if constNrIdx.shape[1] < hi_bSz:
+            pad_bSz = hi_bSz - constNrIdx.shape[1]
+            constNrIdx = np.concatenate([constNrIdx, np.full((nNeur, pad_bSz), np.inf, dtype=constNrIdx.dtype)], axis=1)
+        
         # Append heuristic and sort.
+        # MATLAB: [h,idx] = sort([h; hi(:,:)],1,'descend');
+        # hi(:,:) flattens hi to 2D if needed
+        if hi.ndim > 2:
+            hi = hi.reshape(hi.shape[0], -1, order='F')
         h_combined = np.concatenate([h, hi], axis=0)  # (nNeur + nk, bSz)
-        sort_idx = np.argsort(h_combined, axis=0)[::-1]  # Sort descending
-        h = h_combined[sort_idx[:nNeur, :], np.arange(bSz)]  # (nNeur, bSz)
+        # Sort descending along axis 0 (within each column/batch)
+        sort_idx = np.argsort(-h_combined, axis=0)  # Descending order
+        # MATLAB: h = h(1:nNeur,:); - keep only top nNeur rows after sorting
+        # We need to extract values using the sorted indices for each batch
+        h_sorted = np.take_along_axis(h_combined, sort_idx, axis=0)
+        h = h_sorted[:nNeur, :]  # (nNeur, bSz)
         
         # Obtain the indices for the relevant constraints.
-        sIdx = sub2ind((As.shape[1], As.shape[2]),
-                       sort_idx[:nNeur, :].flatten('F'),  # 1-based
-                       np.tile(np.arange(1, bSz + 1), nNeur))  # 1-based
-        sIdx = sIdx - 1  # Convert to 0-based
+        # MATLAB: sIdx = sub2ind(size(As,2:3), idx(1:nNeur,:),repmat(1:bSz,nNeur,1));
+        # size(As,2:3) = [As.shape[1], As.shape[2]] in Python (0-based)
+        # idx(1:nNeur,:) = sort_idx[:nNeur, :] + 1 for 1-based MATLAB indexing
+        # repmat(1:bSz,nNeur,1) = np.tile(np.arange(1, bSz+1), (nNeur, 1))
+        # Use actual_bSz for consistency
+        actual_bSz = hi_bSz
+        row_indices = (sort_idx[:nNeur, :actual_bSz] + 1).flatten('F')  # 1-based for MATLAB sub2ind
+        col_indices = np.tile(np.arange(1, actual_bSz + 1), nNeur)  # 1-based
+        sIdx = sub2ind((As.shape[1], actual_bSz), row_indices, col_indices)
+        # sub2ind returns 0-based indices for Python
         
         # Extract constraints.
-        As_flat = As.reshape(q, -1)
-        As = As_flat[:, sIdx].reshape(q, nNeur, bSz)
-        bs_flat = bs.reshape(nSplits-1, -1)
-        bs = bs_flat[:, sIdx].reshape(nSplits-1, nNeur, bSz)
+        # MATLAB: As = reshape(As(:,sIdx),[q nNeur bSz]);
+        # Use hi_bSz as the actual batch size after all padding
+        actual_bSz = hi_bSz
+        if q > 0:
+            As_flat = As.reshape(q, -1, order='F')
+            As = As_flat[:, sIdx].reshape((q, nNeur, actual_bSz), order='F')
+        else:
+            # No constraints yet, create empty array with correct shape
+            As = np.zeros((0, nNeur, actual_bSz), dtype=As.dtype)
+        
+        # MATLAB: bs = reshape(bs(:,sIdx),[nSplits-1 nNeur bSz]);
+        bs_flat = bs.reshape(nSplits-1, -1, order='F')
+        bs = bs_flat[:, sIdx].reshape((nSplits-1, nNeur, actual_bSz), order='F')
         
         # Update indices.
-        constNrIdx_new = np.tile(neuronIds.reshape(-1, 1), (1, bSz))  # (nk, bSz)
-        constNrIdx = np.concatenate([constNrIdx, constNrIdx_new], axis=0)  # (nNeur + nk, bSz)
-        constNrIdx = constNrIdx[sort_idx[:nNeur, :], np.arange(bSz)]  # (nNeur, bSz)
+        # MATLAB: constNrIdx = [constNrIdx; repmat(neuronIds,bSz,1)'];
+        # repmat(neuronIds,bSz,1)' = repmat(neuronIds,bSz,1) transposed = (nk, bSz)
+        constNrIdx_new = np.tile(neuronIds.reshape(-1, 1), (1, actual_bSz))  # (nk, actual_bSz)
+        constNrIdx = np.concatenate([constNrIdx, constNrIdx_new], axis=0)  # (nNeur + nk, actual_bSz)
+        # MATLAB: constNrIdx = reshape(constNrIdx(sIdx),[nNeur bSz]);
+        # Extract using linear indices sIdx, then reshape
+        constNrIdx_flat = constNrIdx.flatten('F')  # Column-major order
+        constNrIdx = constNrIdx_flat[sIdx].reshape((nNeur, actual_bSz), order='F')
     
     # Transpose constraint matrix.
     As = np.transpose(As, (1, 0, 2))  # (nNeur, q, bSz)
@@ -1157,7 +1411,7 @@ def _aux_neuronConstraints(nn: 'NeuralNetwork', options: Dict[str, Any], idxLaye
                          np.tile(np.arange(1, p + 1).reshape(-1, 1), (1, bSz)).flatten('F'),  # 1-based
                          dimIds.flatten('F'),  # 1-based (after adding 1)
                          np.tile(np.arange(1, bSz + 1), p))  # 1-based
-        dimIdx = dimIdx - 1  # Convert to 0-based
+        # sub2ind already returns 0-based indices, so use directly
         v_flat = v.flatten()
         v_flat[dimIdx] = 1
         v = v_flat.reshape(p, numInitGens, bSz)
@@ -1202,6 +1456,9 @@ def _aux_computeBoundsZonotope(c: np.ndarray, G: np.ndarray, options: Dict[str, 
         c, G = _aux_matchBatchSize(c, G, bSz, options)
     
     if bc.size > 0:
+        # After _aux_matchBatchSize, G might have a different batch size than bc
+        # MATLAB doesn't replicate inside aux_scaleAndOffsetZonotope, so we shouldn't either
+        # Just call the function and let it handle the batch size mismatch
         # Scale and offset the input set.
         c_, G_ = _aux_scaleAndOffsetZonotope(c, G, bc, br)
     else:
@@ -1223,6 +1480,15 @@ def _aux_computeBoundsZonotope(c: np.ndarray, G: np.ndarray, options: Dict[str, 
         c = 0.5 * np.sum(c, axis=1).reshape(nk, bSz) if c.ndim > 2 else c
     else:
         # The radius is zero.
+        # MATLAB: cl_ = c_; cu_ = c_; where c_ is (nk, bSz) when interval_center is False
+        # If c_ is 3D, squeeze or reshape it to 2D
+        if c_.ndim > 2:
+            # This shouldn't happen when interval_center is False, but handle it
+            if c_.shape[1] == 1:
+                c_ = c_.squeeze(axis=1)  # (nk, bSz)
+            else:
+                # Take the first "slice" or reshape
+                c_ = c_.reshape(nk, -1)
         cl_ = c_
         cu_ = c_
     
@@ -1266,14 +1532,14 @@ def _aux_computeBoundsOfInputSet(layer: Any, options: Dict[str, Any], bc: np.nda
             l, u, c, _, cl_, cu_, G_ = _aux_computeBoundsZonotope(c, G, options, bc, br)
         else:
             # There is no stored input set.
-            l = np.full((1, bSz), -np.inf, dtype=bc.dtype if bc.size > 0 else np.float32)
-            u = np.full((1, bSz), np.inf, dtype=bc.dtype if bc.size > 0 else np.float32)
+            l = np.full((1, bSz), -np.inf, dtype=bc.dtype if bc.size > 0 else np.float64)
+            u = np.full((1, bSz), np.inf, dtype=bc.dtype if bc.size > 0 else np.float64)
             cl_ = np.array([])
             cu_ = np.array([])
             G_ = np.array([])
     else:
-        l = np.full((1, bSz), -np.inf, dtype=bc.dtype if bc.size > 0 else np.float32)
-        u = np.full((1, bSz), np.inf, dtype=bc.dtype if bc.size > 0 else np.float32)
+        l = np.full((1, bSz), -np.inf, dtype=bc.dtype if bc.size > 0 else np.float64)
+        u = np.full((1, bSz), np.inf, dtype=bc.dtype if bc.size > 0 else np.float64)
         cl_ = np.array([])
         cu_ = np.array([])
         G_ = np.array([])
@@ -1356,6 +1622,7 @@ def _aux_refineInputSet(nn: 'NeuralNetwork', options: Dict[str, Any], storeInput
         refIdxLayer = [0]  # 0 represents input layer
     
     # Obtain number of generators and batchsize.
+    # MATLAB: [nK,q,bSz] = size(Gy);
     nK, q, bSz = Gy.shape
     
     # Convert and join the general- & input-split constraints.
@@ -1412,7 +1679,17 @@ def _aux_refineInputSet(nn: 'NeuralNetwork', options: Dict[str, Any], storeInput
         
         if C_.size > 0:
             # Append split constraints.
+            # MATLAB: uYi.A = [uYi.A; C_]; uYi.b = [uYi.b; d_];
             if uYi['A'].size > 0:
+                # Check if batch sizes match; if not, replicate uYi to match C_'s batch size
+                uYi_bSz = uYi['A'].shape[2]
+                C_bSz = C_.shape[2]
+                if uYi_bSz != C_bSz:
+                    # Replicate uYi to match the batch size
+                    from ..layers.linear.nnGeneratorReductionLayer import repelem
+                    nReps = C_bSz // uYi_bSz
+                    uYi['A'] = repelem(uYi['A'], 1, 1, nReps)
+                    uYi['b'] = repelem(uYi['b'], 1, nReps)
                 uYi['A'] = np.concatenate([uYi['A'], C_], axis=0)
                 uYi['b'] = np.concatenate([uYi['b'], d_], axis=0)
             else:
@@ -1435,14 +1712,31 @@ def _aux_refineInputSet(nn: 'NeuralNetwork', options: Dict[str, Any], storeInput
         
         # Compute the bounds of the unsafe inputs (hypercube).
         ly, uy, bli, bui = _aux_boundsOfConZonotope(uYi, numUnionConst, options)
-        # Update empty sets.
-        isEmpty = isEmpty | np.any(np.isnan(ly), axis=0) | np.any(np.isnan(uy), axis=0)
         
+        # Update empty sets.
+        # Check if batch size has changed (due to splitting in _aux_boundsOfConZonotope)
+        ly_bSz = ly.shape[1] if ly.ndim > 1 else 1
+        if isEmpty.shape[1] != ly_bSz:
+            # Replicate isEmpty to match the new batch size
+            from ..layers.linear.nnGeneratorReductionLayer import repelem
+            nReps = ly_bSz // isEmpty.shape[1]
+            isEmpty = repelem(isEmpty, 1, nReps)
+        isEmpty = isEmpty | np.any(np.isnan(ly), axis=0) | np.any(np.isnan(uy), axis=0)
+
         # Compute the center and radius of the new inner hypercube.
         bci = 0.5 * (bui + bli)
         bri = 0.5 * (bui - bli)
         
         # Update the hypercube.
+        # Check if batch sizes match; if not, replicate bc and br
+        if bc.shape[1] != bci.shape[1]:
+            # Replicate bc and br to match the new batch size
+            from ..layers.linear.nnGeneratorReductionLayer import repelem
+            nReps = bci.shape[1] // bc.shape[1]
+            bc = repelem(bc, 1, nReps)
+            br = repelem(br, 1, nReps)
+            bSz = bci.shape[1]  # Update bSz to match the new batch size
+        
         bc = bc + br * bci
         br = br * bri
         
@@ -1518,7 +1812,9 @@ def _aux_refineInputSet(nn: 'NeuralNetwork', options: Dict[str, Any], storeInput
         
         if storeInputs:
             # New input sets are computed for the layers; update scaling index.
-            scaleInputSets[0, ancIdx >= ancIdx[i]] = False
+            # Convert ancIdx to array for element-wise comparison
+            ancIdx_arr = np.array(ancIdx)
+            scaleInputSets[0, ancIdx_arr >= ancIdx[i]] = False
         
         # Check if we can further refine the current layer.
         if refIter <= minRefIter or (refIter < maxRefIter and
@@ -1674,8 +1970,8 @@ def _aux_obtainBoundsFromSplits(neuronIds: np.ndarray, bSz: int, constNrIdx: np.
     MATLAB: function [l,u] = aux_obtainBoundsFromSplits(neuronIds,bSz,constNrIdx,d,c)
     """
     # Initialize the bounds.
-    l = np.full((len(neuronIds), bSz), -np.inf, dtype=d.dtype if d.size > 0 else np.float32)
-    u = np.full((len(neuronIds), bSz), np.inf, dtype=d.dtype if d.size > 0 else np.float32)
+    l = np.full((len(neuronIds), bSz), -np.inf, dtype=d.dtype if d.size > 0 else np.float64)
+    u = np.full((len(neuronIds), bSz), np.inf, dtype=d.dtype if d.size > 0 else np.float64)
     
     # Handle multiple splits per dimension by aggregating bounds to get the best (tightest) bounds for each dimension.
     # MATLAB TODO: implement handling of multiple splits per dimension. Use aggregation to get the best bounds for each dimension.
@@ -1977,7 +2273,7 @@ def _aux_reluTightenConstraints(nn: 'NeuralNetwork', options: Dict[str, Any],
         cIdx = sub2ind((At0.shape[1], At0.shape[2]),
                        sort_idx[:numConstr_, :].flatten('F'),  # 1-based
                        np.tile(np.arange(1, bSz + 1), numConstr_))  # 1-based
-        cIdx = cIdx - 1  # Convert to 0-based
+        # sub2ind already returns 0-based indices, so use directly
         
         # Select the relevant constraints.
         At0_flat = At0.reshape(q, -1)
@@ -2014,7 +2310,7 @@ def _aux_reluTightenConstraints(nn: 'NeuralNetwork', options: Dict[str, Any],
     sortIdx = sub2ind((At.shape[1], At.shape[2]),
                       sortIds.flatten('F'),  # 1-based
                       np.tile(np.arange(1, bSz + 1), At.shape[1]))  # 1-based
-    sortIdx = sortIdx - 1  # Convert to 0-based
+    # sub2ind already returns 0-based indices, so use directly
     # Reorder the constraints.
     At_flat = At.reshape(q, -1)
     At = At_flat[:, sortIdx].reshape(q, At.shape[1], bSz)

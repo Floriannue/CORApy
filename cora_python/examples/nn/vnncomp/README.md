@@ -2,6 +2,8 @@
 
 This folder contains Python scripts for running CORA on VNN-COMP benchmarks.
 
+acasxu correct results verified: 139,  falsified: 47
+
 ## Files
 
 - `get_instance_filename.py`: Helper to generate unique filenames for instances

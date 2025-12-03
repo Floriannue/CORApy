@@ -201,6 +201,8 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                         # Apply alpha scaling
                         if alpha != 1.0:
                             weight = weight * alpha
+                        # Convert to float64 to match MATLAB's double precision
+                        weight = weight.astype(np.float64)
                         layer_info['Weight'] = weight
                     
                     if len(node.input) >= 3:
@@ -210,6 +212,8 @@ def aux_readONNXviaPython(file_path: str, inputDataFormats: str, outputDataForma
                             # Apply beta scaling
                             if beta != 1.0:
                                 bias = bias * beta
+                            # Convert to float64 to match MATLAB's double precision
+                            bias = bias.astype(np.float64)
                             layer_info['Bias'] = bias
                 
                 # Mark that this came from Gemm
