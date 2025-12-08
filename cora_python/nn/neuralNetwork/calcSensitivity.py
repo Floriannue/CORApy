@@ -28,6 +28,7 @@ Last update:   23-November-2022 (polish)
 """
 
 import numpy as np
+import torch
 from typing import Any, Dict, Optional, Tuple
 
 # Import nnHelper methods for proper integration
@@ -55,6 +56,13 @@ def calcSensitivity(self, x: np.ndarray, varargin=None, store_sensitivity: bool 
     # validate options using nnHelper
     options = validateNNoptions(varargin, False)
     
+    # Convert numpy input to torch if needed - all internal operations use torch
+    if isinstance(x, np.ndarray):
+        x = torch.tensor(x, dtype=torch.float32)
+    
+    device = x.device
+    dtype = x.dtype
+    
     # forward propagation
     xs = [None] * len(self.layers)
     original_batch_size = x.shape[1] if x.ndim > 1 else 1
@@ -79,12 +87,13 @@ def calcSensitivity(self, x: np.ndarray, varargin=None, store_sensitivity: bool 
     else:
         # If y has more dimensions, flatten
         nK = y.shape[0]
-        bSz = np.prod(y.shape[1:])
+        bSz = torch.prod(torch.tensor(y.shape[1:], device=device)).item()
     
     # Initialize the sensitivity in for the output, i.e., identity matrix.
     # MATLAB: S = repmat(eye(nK,'like',y),1,1,bSz)
     # This creates (nK, nK, bSz) - identity matrices for each batch element
-    S = np.tile(np.eye(nK, dtype=y.dtype).reshape(nK, nK, 1), (1, 1, bSz))
+    # Use torch.eye and repeat
+    S = torch.eye(nK, dtype=dtype, device=device).unsqueeze(2).repeat(1, 1, bSz)
     
     # backward propagation
     for i in range(len(self.layers) - 1, -1, -1):
@@ -94,12 +103,12 @@ def calcSensitivity(self, x: np.ndarray, varargin=None, store_sensitivity: bool 
         # Some layers might return 2D arrays, so we need to ensure 3D shape
         if S.ndim == 0:
             # S is scalar, this should not happen - reshape to (1, 1, 1)
-            S = np.array(S).reshape(1, 1, 1)
+            S = S.reshape(1, 1, 1)
         elif S.ndim == 1:
             # S is 1D, reshape based on context
             # If it matches input dimension, it's likely (input_dim,), reshape to (1, input_dim, 1)
             # Otherwise, it might be (nK,), reshape to (nK, 1, 1)
-            if len(xs) > 0 and xs[0] is not None and S.shape[0] == xs[0].shape[0]:
+            if len(xs) > 0 and xs[i] is not None and S.shape[0] == xs[i].shape[0]:
                 S = S.reshape(1, S.shape[0], 1)
             else:
                 S = S.reshape(S.shape[0], 1, 1)

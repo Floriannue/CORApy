@@ -33,6 +33,7 @@ Translation date: 2025-11-25
 """
 
 import numpy as np
+import torch
 from typing import List, Tuple, Optional, Dict, Any
 from ..nnLayer import nnLayer
 
@@ -118,12 +119,16 @@ class nnMaxPool2DLayer(nnLayer):
         Evaluate layer numerically
         
         Args:
-            input_data: Input data (column vector, all dimensions (h,w,c) flattened)
+            input_data: Input data (column vector, all dimensions (h,w,c) flattened) - converted to torch internally
             options: Evaluation options
             
         Returns:
-            r: Output after max pooling
+            r: Output after max pooling (torch tensor)
         """
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
         num_samples = input_data.shape[1] if input_data.ndim > 1 else 1
         if input_data.ndim == 1:
             input_data = input_data.reshape(-1, 1)
@@ -131,12 +136,17 @@ class nnMaxPool2DLayer(nnLayer):
         # Move adjacent pixels next to each other
         id_mpp = self._aux_computePermutationMatrix()
         
+        # Convert id_mpp to torch if needed
+        if isinstance(id_mpp, np.ndarray):
+            id_mpp = torch.tensor(id_mpp, dtype=torch.long, device=input_data.device)
+        
         # Rearrange
         input_rearranged = input_data[id_mpp, :]
-        input_rearranged = input_rearranged.reshape(np.prod(self.poolSize), -1, num_samples)
+        pool_size_prod = torch.prod(torch.tensor(self.poolSize, device=input_data.device)).item()
+        input_rearranged = input_rearranged.reshape(int(pool_size_prod), -1, num_samples)
         
         # Compute max
-        r = np.max(input_rearranged, axis=0)
+        r = torch.max(input_rearranged, dim=0)[0]
         
         # Reshape to match input format
         r = r.reshape(-1, num_samples)
@@ -148,13 +158,19 @@ class nnMaxPool2DLayer(nnLayer):
         Evaluate sensitivity
         
         Args:
-            S: Sensitivity matrix
-            x: Input data
+            S: Sensitivity matrix (torch tensor)
+            x: Input data (torch tensor)
             options: Evaluation options
             
         Returns:
-            S: Updated sensitivity matrix
+            S: Updated sensitivity matrix (torch tensor)
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(S, np.ndarray):
+            S = torch.tensor(S, dtype=torch.float32)
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32)
+        
         # This is a simplified implementation
         # Full implementation would require backpropagation storage
         raise NotImplementedError("Sensitivity evaluation for MaxPool2D not yet fully implemented")

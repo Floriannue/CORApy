@@ -5,6 +5,7 @@ This class implements a tanh activation layer for neural networks.
 """
 
 import numpy as np
+import torch
 from .nnActivationLayer import nnActivationLayer
 
 
@@ -193,10 +194,14 @@ class nnTanhLayer(nnActivationLayer):
         Evaluate the tanh function numerically.
         
         Args:
-            input_data: input data
+            input_data: input data (numpy array or torch tensor) - converted to torch internally
             options: options dictionary
             
         Returns:
-            Output of the tanh function
+            Output of the tanh function (torch tensor)
         """
-        return np.tanh(input_data)
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
+        return torch.tanh(input_data)

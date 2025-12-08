@@ -264,11 +264,8 @@ def test_nn_neuralNetwork_verify_matlab_exact():
     options = validateNNoptions(options, True)
     options['nn']['interval_center'] = False
     
-    # Set the falsification method: {'fgsm','center','zonotack'}.
-    options['nn']['falsification_method'] = 'zonotack'
-    # Set the input set refinement method: {'naive','zonotack'}.
-    options['nn']['refinement_method'] = 'zonotack'
-    
+    # Note: MATLAB verify.m does NOT support falsification_method or refinement_method options
+    # It only implements simple FGSM falsification and naive splitting
     # Do verification - should return VERIFIED
     # MATLAB: [res,x_,y_] = nn.verify(x,r,A,bsafe,safeSet,options,timeout,verbose,[1:2; 1:2]);
     # MATLAB: assert(strcmp(res.str,'VERIFIED') & isempty(x_) & isempty(y_));

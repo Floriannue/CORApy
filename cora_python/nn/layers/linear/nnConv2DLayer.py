@@ -39,8 +39,9 @@ Last revision: 17-August-2022
 """
 
 import numpy as np
+import torch
 from typing import Any, Dict, List, Optional, Tuple, Union
-from scipy import signal
+# from scipy import signal  # No longer needed - using torch operations instead
 from ..nnLayer import nnLayer
 from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
 from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
@@ -135,11 +136,22 @@ class nnConv2DLayer(nnLayer):
         super().__init__(name)
         
         # 4. assign properties
-        self.W = np.asarray(W, dtype=np.float64)
-        if np.isscalar(b):
-            self.b = np.array([b], dtype=np.float64)
+        # Convert to torch tensors - all internal operations use torch
+        if not isinstance(W, torch.Tensor):
+            W = torch.tensor(W, dtype=torch.float32)
         else:
-            self.b = np.asarray(b, dtype=np.float64).flatten()
+            W = W.float()
+        if np.isscalar(b):
+            b = torch.tensor([b], dtype=torch.float32)
+        else:
+            if not isinstance(b, torch.Tensor):
+                b = torch.tensor(b, dtype=torch.float32)
+            else:
+                b = b.float()
+            b = b.flatten()
+        
+        self.W = W
+        self.b = b
         self.padding = np.asarray(padding, dtype=int)
         self.stride = np.asarray(stride, dtype=int)
         self.dilation = np.asarray(dilation, dtype=int)
@@ -183,17 +195,21 @@ class nnConv2DLayer(nnLayer):
     
     # evaluate ------------------------------------------------------------
     
-    def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
         """
         Evaluate numeric input
         
         Args:
-            input_data: Input data (flattened, shape: [n, batchSize])
+            input_data: Input data (flattened, shape: [n, batchSize]) - converted to torch internally
             options: Evaluation options
             
         Returns:
-            r: Output data (flattened)
+            r: Output data (flattened, torch tensor)
         """
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
         self.checkInputSize()
         r, _ = self.conv2d(input_data, 'sparseIdx')
         return r
@@ -218,26 +234,32 @@ class nnConv2DLayer(nnLayer):
         u = mu + r
         return Interval(l, u)
     
-    def evaluateSensitivity(self, S: np.ndarray, x: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateSensitivity(self, S, x, options: Dict[str, Any]):
         """
         Evaluate sensitivity
         
         Args:
-            S: Sensitivity matrix
-            x: Input point
+            S: Sensitivity matrix (torch tensor)
+            x: Input point (torch tensor)
             options: Evaluation options
             
         Returns:
-            S: Output sensitivity
+            S: Output sensitivity (torch tensor)
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(S, np.ndarray):
+            S = torch.tensor(S, dtype=torch.float32)
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32)
+        
         self.checkInputSize()
         
         vK, vk, batchSize = S.shape
-        S = np.transpose(S, [1, 0, 2])  # permute(S,[2 1 3])
+        S = torch.permute(S, (1, 0, 2))  # permute(S,[2 1 3])
         S = S.reshape(vk, vK * batchSize)
         S = self.transconv2d(S, 'sparseIdx', self.W, None)
         S = S.reshape(S.shape[0], vK, batchSize)
-        S = np.transpose(S, [1, 0, 2])  # permute(S,[2 1 3])
+        S = torch.permute(S, (1, 0, 2))  # permute(S,[2 1 3])
         return S
     
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 
@@ -276,19 +298,24 @@ class nnConv2DLayer(nnLayer):
         linl = nnLinearLayer(Wff, bias)
         return linl.evaluatePolyZonotope(c, G, GI, E, id_, id_2, ind, ind_2, options)
     
-    def evaluateZonotopeBatch(self, c: np.ndarray, G: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def evaluateZonotopeBatch(self, c, G, options: Dict[str, Any]):
         """
         Evaluate zonotope batch (for training)
         
         Args:
-            c: Center (n, 1 or 2, batchSize)
-            G: Generators (n, q, batchSize)
+            c: Center (n, 1 or 2, batchSize) (numpy array or torch tensor) - converted to torch internally
+            G: Generators (n, q, batchSize) (numpy array or torch tensor) - converted to torch internally
             options: Evaluation options
             
         Returns:
-            c: Output center
-            G: Output generators
+            c: Output center (torch tensor)
+            G: Output generators (torch tensor)
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(c, np.ndarray):
+            c = torch.tensor(c, dtype=torch.float32)
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
         self.checkInputSize()
         
         if options.get('nn', {}).get('interval_center', False):
@@ -298,9 +325,12 @@ class nnConv2DLayer(nnLayer):
             cu = c[:, 1, :].reshape(n, batchSize)
             # Evaluate bounds.
             c_result = self.evaluateInterval(Interval(cl, cu), options)
-            c = np.stack([c_result.inf, c_result.sup], axis=1)  # permute(cat(3,c.inf,c.sup),[1 3 2])
+            # Convert to torch
+            c_inf = torch.tensor(c_result.inf, dtype=G.dtype, device=G.device)
+            c_sup = torch.tensor(c_result.sup, dtype=G.dtype, device=G.device)
+            c = torch.stack([c_inf, c_sup], dim=1)  # permute(cat(3,c.inf,c.sup),[1 3 2])
             # Evaluate generators.
-            c0 = np.zeros((n, batchSize), dtype=G.dtype)
+            c0 = torch.zeros((n, batchSize), dtype=G.dtype, device=G.device)
             _, G, _ = self.conv2dZonotope(c0, G, 'sparseIdx')
         else:
             c, G, _ = self.conv2dZonotope(c, G, 'sparseIdx')
@@ -397,22 +427,46 @@ class nnConv2DLayer(nnLayer):
         """
         return ['W', 'b']
     
-    def conv2d(self, input_data: np.ndarray, *args) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    def conv2d(self, input_data, *args):
         """
         Perform 2D convolution
         
         Args:
-            input_data: Input data (flattened, shape: [n, batchSize])
+            input_data: Input data (flattened, shape: [n, batchSize]) (numpy array or torch tensor) - converted to torch internally
             *args: Variable arguments (store, Filter, b, inImgSize, stride, padding, dilation)
                    Special case: if store == 'dWSparseIdx', then args[1] is gradOutPermImg
                    and args[2] is empty, args[3] is [in_h, in_w, batchSize]
             
         Returns:
-            r: Output data (flattened)
+            r: Output data (flattened, torch tensor)
             Wff: Weight matrix (not computed, returns None)
         """
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
+        device = input_data.device
+        dtype = input_data.dtype
+        
         defaults = ['', self.W, self.b, self.inputSize, self.stride, self.padding, self.dilation]
         store, Filter, b, inImgSize, stride, padding, dilation = setDefaultValues(defaults, args)
+        
+        # Convert Filter and b to torch if needed
+        if isinstance(Filter, np.ndarray):
+            Filter = torch.tensor(Filter, dtype=dtype, device=device)
+        elif isinstance(Filter, torch.Tensor):
+            Filter = Filter.to(device=device, dtype=dtype)
+        else:
+            # Filter is self.W which is already torch
+            Filter = Filter.to(device=device, dtype=dtype)
+        
+        if isinstance(b, np.ndarray):
+            b = torch.tensor(b, dtype=dtype, device=device)
+        elif isinstance(b, torch.Tensor):
+            b = b.to(device=device, dtype=dtype)
+        else:
+            # b is self.b which is already torch
+            b = b.to(device=device, dtype=dtype)
         
         # Handle special case for weight update: 'dWSparseIdx'
         if store == 'dWSparseIdx':
@@ -446,20 +500,29 @@ class nnConv2DLayer(nnLayer):
         pad_b = int(padding[3])
         
         # Reshape input to image format: [height, width, channels, batchSize]
-        # MATLAB uses column-major (Fortran) order, so we must use order='F' to match
-        # Flatten first to ensure consistent ordering, then reshape with Fortran order
-        input_flat = input_data.flatten(order='F')  # Column-major flatten to match MATLAB
-        inputImg = input_flat.reshape(list(inImgSize) + [batchSize], order='F')
+        # MATLAB uses column-major (Fortran) order, so we must use permute to match
+        # Flatten first to ensure consistent ordering, then reshape
+        input_flat = input_data.flatten()  # Flatten in row-major (C) order
+        # For column-major (Fortran) order in torch, we need to reshape then permute
+        # MATLAB: reshape(input, [h, w, c, batch]) with Fortran order
+        # In torch: reshape to (h*w*c, batch) then reshape to (h, w, c, batch)
+        total_size = input_flat.shape[0] // batchSize
+        inputImg = input_flat.reshape(total_size, batchSize).T.reshape(batchSize, *inImgSize)
+        # Permute to (h, w, c, batch) format
+        inputImg = inputImg.permute(1, 2, 3, 0)  # (batch, h, w, c) -> (h, w, c, batch)
         
         # Apply padding
         if pad_t > 0 or pad_b > 0 or pad_l > 0 or pad_r > 0:
-            inputImg = np.pad(inputImg, ((pad_t, pad_b), (pad_l, pad_r), (0, 0), (0, 0)), mode='constant')
+            # torch.nn.functional.pad uses (pad_left, pad_right, pad_top, pad_bottom) for 2D
+            inputImg = torch.nn.functional.pad(inputImg.permute(3, 2, 0, 1), (pad_l, pad_r, pad_t, pad_b), mode='constant', value=0)
+            inputImg = inputImg.permute(2, 3, 1, 0)  # Back to (h, w, c, batch)
         
         # Get output size
-        out_h, out_w, out_c = self.aux_computeOutputSize(Filter, inImgSize, stride, padding, dilation)
+        Filter_np = Filter.cpu().numpy() if isinstance(Filter, torch.Tensor) else Filter
+        out_h, out_w, out_c = self.aux_computeOutputSize(Filter_np, inImgSize, stride, padding, dilation)
         
         # Initialize output
-        output = np.zeros((out_h, out_w, out_c, batchSize), dtype=input_data.dtype)
+        output = torch.zeros((out_h, out_w, out_c, batchSize), dtype=dtype, device=device)
         
         # Get filter parameters
         k_h, k_w, in_c, num_filters = Filter.shape
@@ -478,16 +541,16 @@ class nnConv2DLayer(nnLayer):
                 
                 # Apply dilation to filter
                 if d_h > 1 or d_w > 1:
-                    dilated_filter = np.zeros((f_h, f_w, in_c), dtype=Filter.dtype)
+                    dilated_filter = torch.zeros((f_h, f_w, in_c), dtype=dtype, device=device)
                     for i in range(k_h):
                         for j in range(k_w):
                             dilated_filter[i * d_h, j * d_w, :] = filter_kernel[i, j, :]
                     filter_kernel = dilated_filter
                 else:
-                    filter_kernel = filter_kernel.copy()
+                    filter_kernel = filter_kernel.clone()
                 
                 # Convolve each input channel and sum
-                conv_result = np.zeros((out_h, out_w), dtype=input_data.dtype)
+                conv_result = torch.zeros((out_h, out_w), dtype=dtype, device=device)
                 for in_c_idx in range(in_c):
                     # Extract single channel from input
                     input_channel = inputImg[:, :, in_c_idx, b_idx]
@@ -506,12 +569,12 @@ class nnConv2DLayer(nnLayer):
                             # Extract window and convolve
                             if in_h_end <= input_channel.shape[0] and in_w_end <= input_channel.shape[1]:
                                 window = input_channel[in_h_start:in_h_end, in_w_start:in_w_end]
-                                conv_result[out_h_idx, out_w_idx] += np.sum(window * filter_channel)
+                                conv_result[out_h_idx, out_w_idx] += torch.sum(window * filter_channel)
                 
                 # Add bias
-                if b is not None and len(b) > 0:
-                    if np.isscalar(b):
-                        conv_result += b
+                if b is not None and b.numel() > 0:
+                    if b.numel() == 1:
+                        conv_result += b.item()
                     else:
                         conv_result += b[out_c_idx]
                 
@@ -521,30 +584,39 @@ class nnConv2DLayer(nnLayer):
         # MATLAB uses column-major (Fortran) order for reshape
         # Output shape is [out_h, out_w, out_c, batchSize]
         # MATLAB: r = reshape(extractdata(rImg),[],batchSize) - column-major flatten
-        # We need to flatten in Fortran order to match MATLAB
-        r = output.flatten(order='F').reshape(-1, batchSize)
+        # For torch, permute then flatten: (h, w, c, batch) -> (batch, h, w, c) -> flatten -> (h*w*c, batch)
+        r = output.permute(3, 0, 1, 2).reshape(-1, batchSize).T  # Transpose to get (h*w*c, batch)
         
         return r, None
     
-    def _conv2d_weight_update(self, inputPerm: np.ndarray, gradOutPermImg: np.ndarray, 
-                              Filter: np.ndarray, inImgSize: List[int], stride: np.ndarray,
-                              padding: np.ndarray, dilation: np.ndarray) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    def _conv2d_weight_update(self, inputPerm, gradOutPermImg, 
+                              Filter, inImgSize: List[int], stride,
+                              padding, dilation):
         """
         Special convolution for weight updates (dWSparseIdx mode)
         
         Args:
-            inputPerm: Permuted input
-            gradOutPermImg: Permuted gradient output image
-            Filter: Filter weights
+            inputPerm: Permuted input (numpy array or torch tensor) - converted to torch internally
+            gradOutPermImg: Permuted gradient output image (numpy array or torch tensor) - converted to torch internally
+            Filter: Filter weights (torch tensor)
             inImgSize: Input image size [in_h, in_w, batchSize]
             stride: Stride factors
             padding: Padding values
             dilation: Dilation factors
             
         Returns:
-            dW: Weight gradients (flattened)
+            dW: Weight gradients (flattened, torch tensor)
             Wff: Not used
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(inputPerm, np.ndarray):
+            inputPerm = torch.tensor(inputPerm, dtype=torch.float32)
+        if isinstance(gradOutPermImg, np.ndarray):
+            gradOutPermImg = torch.tensor(gradOutPermImg, dtype=torch.float32)
+        
+        device = inputPerm.device
+        dtype = inputPerm.dtype
+        
         # This is a simplified implementation
         # Full version would use sparse indexing for efficiency
         in_h, in_w, batchSize = inImgSize[0], inImgSize[1], inImgSize[2]
@@ -555,10 +627,10 @@ class nnConv2DLayer(nnLayer):
         
         # Get filter size
         k_h, k_w, in_c, out_c = Filter.shape
-        f_h, f_w = self.aux_getFilterSize(Filter, dilation)
+        f_h, f_w = self.aux_getFilterSize(Filter.cpu().numpy() if isinstance(Filter, torch.Tensor) else Filter, dilation)
         
         # Initialize weight gradients
-        dW = np.zeros((f_h, f_w, out_c, in_c), dtype=inputPerm.dtype)
+        dW = torch.zeros((f_h, f_w, out_c, in_c), dtype=dtype, device=device)
         
         # Compute gradients by convolving input with gradients
         # This is a simplified version
@@ -568,8 +640,16 @@ class nnConv2DLayer(nnLayer):
                     input_ch = inputImg[:, :, in_c_idx, b_idx]
                     grad_ch = gradImg[:, :, out_c_idx, b_idx] if gradImg.shape[2] > out_c_idx else gradImg[:, :, 0, b_idx]
                     
-                    # Convolve
-                    conv_result = signal.correlate2d(input_ch, grad_ch, mode='valid')
+                    # Convolve using torch's conv2d (correlate2d equivalent)
+                    # For correlation, we need to flip the kernel
+                    # Use conv2d with flipped kernel for correlation
+                    input_ch_4d = input_ch.unsqueeze(0).unsqueeze(0)  # (1, 1, h, w)
+                    grad_ch_4d = grad_ch.unsqueeze(0).unsqueeze(0)  # (1, 1, h, w)
+                    # Flip kernel for correlation
+                    grad_ch_flipped = torch.flip(torch.flip(grad_ch_4d, dims=[2]), dims=[3])
+                    # Use conv2d with padding='valid' (no padding)
+                    conv_result = torch.nn.functional.conv2d(input_ch_4d, grad_ch_flipped, padding=0)
+                    conv_result = conv_result.squeeze(0).squeeze(0)  # Remove batch and channel dims
                     if conv_result.shape[0] >= f_h and conv_result.shape[1] >= f_w:
                         dW[:, :, out_c_idx, in_c_idx] += conv_result[:f_h, :f_w]
         
@@ -594,11 +674,20 @@ class nnConv2DLayer(nnLayer):
         defaults = ['', self.W, self.b, self.inputSize, self.stride, self.padding, self.dilation]
         store, Filter, b, inImgSize, stride, padding, dilation = setDefaultValues(defaults, args)
         
+        # Convert numpy inputs to torch if needed
+        if isinstance(c, np.ndarray):
+            c = torch.tensor(c, dtype=torch.float32)
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
+        
+        device = c.device if isinstance(c, torch.Tensor) else torch.device('cpu')
+        dtype = c.dtype if isinstance(c, torch.Tensor) else torch.float32
+        
         # Put generators into batch and do regular convolution.
         n, q, batchSize = G.shape
         # MATLAB: inputLin = reshape(cat(2,permute(c,[1 3 2]),G),n,(q+1)*batchSize);
-        c_perm = np.transpose(c, [0, 2, 1]) if c.ndim == 3 else c[:, np.newaxis, :]
-        inputLin = np.concatenate([c_perm.reshape(n, -1), G.reshape(n, -1)], axis=1)
+        c_perm = torch.permute(c, (0, 2, 1)) if c.ndim == 3 else c.unsqueeze(1)
+        inputLin = torch.cat([c_perm.reshape(n, -1), G.reshape(n, -1)], dim=1)
         inputLin = inputLin.reshape(n, (q + 1) * batchSize)
         
         rLin, Wff = self.conv2d(inputLin, store, Filter, b, inImgSize, stride, padding, dilation)
@@ -609,19 +698,35 @@ class nnConv2DLayer(nnLayer):
         
         return c, G, Wff
     
-    def transconv2d(self, input_data: np.ndarray, *args) -> np.ndarray:
+    def transconv2d(self, input_data, *args):
         """
         Perform transposed 2D convolution (for backpropagation)
         
         Args:
-            input_data: Input data (flattened)
+            input_data: Input data (flattened) (numpy array or torch tensor) - converted to torch internally
             *args: Variable arguments
             
         Returns:
-            r: Output data (flattened)
+            r: Output data (flattened, torch tensor)
         """
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
+        device = input_data.device
+        dtype = input_data.dtype
+        
         defaults = ['', self.W, self.b, self.inputSize, self.stride, self.padding, self.dilation]
         store, Filter, b, inImgSize, stride, padding, dilation = setDefaultValues(defaults, args)
+        
+        # Convert Filter to torch if needed
+        if isinstance(Filter, np.ndarray):
+            Filter = torch.tensor(Filter, dtype=dtype, device=device)
+        elif isinstance(Filter, torch.Tensor):
+            Filter = Filter.to(device=device, dtype=dtype)
+        else:
+            # Filter is self.W which is already torch
+            Filter = Filter.to(device=device, dtype=dtype)
         
         _, batchSize = input_data.shape
         
@@ -632,15 +737,16 @@ class nnConv2DLayer(nnLayer):
         pad_b = int(padding[3])
         
         # Compute size of gradient.
-        out_h, out_w, out_c = self.aux_computeOutputSize(Filter, inImgSize, stride, padding, dilation)
+        Filter_np = Filter.cpu().numpy() if isinstance(Filter, torch.Tensor) else Filter
+        out_h, out_w, out_c = self.aux_computeOutputSize(Filter_np, inImgSize, stride, padding, dilation)
         
         # Reshape input to image format: [out_h, out_w, out_c, batchSize]
         inputImg = input_data.reshape(out_h, out_w, out_c, batchSize)
         
         # Get filter parameters
         k_h, k_w, in_c, num_filters = Filter.shape
-        stride_h, stride_w = stride[0], stride[1]
-        d_h, d_w = dilation[0], dilation[1]
+        stride_h, stride_w = int(stride[0]), int(stride[1])
+        d_h, d_w = int(dilation[0]), int(dilation[1])
         
         # Compute dilated filter size
         f_h = k_h + (k_h - 1) * (d_h - 1)
@@ -650,17 +756,17 @@ class nnConv2DLayer(nnLayer):
         # Output size for transposed conv: (out_h - 1) * stride + f_h - pad_t - pad_b
         out_trans_h = (out_h - 1) * stride_h + f_h - pad_t - pad_b
         out_trans_w = (out_w - 1) * stride_w + f_w - pad_l - pad_r
-        output = np.zeros((out_trans_h, out_trans_w, in_c, batchSize), dtype=input_data.dtype)
+        output = torch.zeros((out_trans_h, out_trans_w, in_c, batchSize), dtype=dtype, device=device)
         
         # Perform transposed convolution
         for b_idx in range(batchSize):
             for out_c_idx in range(num_filters):
                 # Get filter for this output channel (flip for transposed conv)
-                filter_kernel = np.flip(np.flip(Filter[:, :, :, out_c_idx], axis=0), axis=1)
+                filter_kernel = torch.flip(torch.flip(Filter[:, :, :, out_c_idx], dims=[0]), dims=[1])
                 
                 # Apply dilation
                 if d_h > 1 or d_w > 1:
-                    dilated_filter = np.zeros((f_h, f_w, in_c), dtype=Filter.dtype)
+                    dilated_filter = torch.zeros((f_h, f_w, in_c), dtype=dtype, device=device)
                     for i in range(k_h):
                         for j in range(k_w):
                             dilated_filter[i * d_h, j * d_w, :] = filter_kernel[i, j, :]
@@ -670,13 +776,18 @@ class nnConv2DLayer(nnLayer):
                 input_channel = inputImg[:, :, out_c_idx, b_idx]
                 
                 # Upsample input by inserting zeros
-                upsampled = np.zeros((out_h * stride_h, out_w * stride_w), dtype=input_data.dtype)
+                upsampled = torch.zeros((out_h * stride_h, out_w * stride_w), dtype=dtype, device=device)
                 upsampled[::stride_h, ::stride_w] = input_channel
                 
-                # Convolve with flipped filter
+                # Convolve with flipped filter using torch conv2d
                 for in_c_idx in range(in_c):
                     filter_channel = filter_kernel[:, :, in_c_idx]
-                    conv_result = signal.convolve2d(upsampled, filter_channel, mode='full')
+                    # Use conv2d for convolution
+                    input_4d = upsampled.unsqueeze(0).unsqueeze(0)  # (1, 1, h, w)
+                    filter_4d = filter_channel.unsqueeze(0).unsqueeze(0)  # (1, 1, f_h, f_w)
+                    # Use conv2d with full padding (equivalent to 'full' mode)
+                    conv_result = torch.nn.functional.conv2d(input_4d, filter_4d, padding=(f_h-1, f_w-1))
+                    conv_result = conv_result.squeeze(0).squeeze(0)  # Remove batch and channel dims
                     # Crop to output size
                     crop_h = (conv_result.shape[0] - out_trans_h) // 2
                     crop_w = (conv_result.shape[1] - out_trans_w) // 2
@@ -697,33 +808,39 @@ class nnConv2DLayer(nnLayer):
         
         # Add zeros for cropping
         if crop[1] > 0:
-            output = np.concatenate([output, np.zeros((output.shape[0], crop[1], in_c, batchSize), dtype=output.dtype)], axis=1)
+            output = torch.cat([output, torch.zeros((output.shape[0], crop[1], in_c, batchSize), dtype=dtype, device=device)], dim=1)
         if crop[0] > 0:
-            output = np.concatenate([output, np.zeros((crop[0], in_w, in_c, batchSize), dtype=output.dtype)], axis=0)
+            output = torch.cat([output, torch.zeros((crop[0], in_w, in_c, batchSize), dtype=dtype, device=device)], dim=0)
         
         # Flatten output
         r = output.reshape(-1, batchSize)
         return r
     
-    def transconv2dZonotope(self, c: np.ndarray, G: np.ndarray, *args) -> Tuple[np.ndarray, np.ndarray]:
+    def transconv2dZonotope(self, c, G, *args):
         """
         Perform transposed 2D convolution on zonotope
         
         Args:
-            c: Center
-            G: Generators
+            c: Center (numpy array or torch tensor) - converted to torch internally
+            G: Generators (numpy array or torch tensor) - converted to torch internally
             *args: Variable arguments
             
         Returns:
-            c: Output center
-            G: Output generators
+            c: Output center (torch tensor)
+            G: Output generators (torch tensor)
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(c, np.ndarray):
+            c = torch.tensor(c, dtype=torch.float32)
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
+        
         defaults = ['', self.inputSize, self.W, self.b, self.stride, self.padding, self.dilation]
         store, inImgSize, Filter, b, stride, padding, dilation = setDefaultValues(defaults, args)
         
         # Put generators into batch and do regular transposed convolution.
         n, q, batchSize = G.shape
-        inputLin = np.concatenate([c.reshape(n, -1), G.reshape(n, -1)], axis=1)
+        inputLin = torch.cat([c.reshape(n, -1), G.reshape(n, -1)], dim=1)
         inputLin = inputLin.reshape(n, (q + 1) * batchSize)
         
         rLin = self.transconv2d(inputLin, store, Filter, b, inImgSize, stride, padding, dilation)
@@ -756,21 +873,21 @@ class nnConv2DLayer(nnLayer):
         # Compute number of cropped rows and columns.
         f_h, f_w = self.aux_getFilterSize()
         crop = np.array([
-            (in_h - f_h + pad_t + pad_b) - (out_h - 1) * self.stride[0],
-            (in_w - f_w + pad_l + pad_r) - (out_w - 1) * self.stride[1]
+            (in_h - f_h + pad_t + pad_b) - (out_h - 1) * int(self.stride[0]),
+            (in_w - f_w + pad_l + pad_r) - (out_w - 1) * int(self.stride[1])
         ])
         return crop
     
-    def convForWeigthsUpdate(self, grad_out: np.ndarray, input_data: np.ndarray) -> np.ndarray:
+    def convForWeigthsUpdate(self, grad_out, input_data):
         """
         Compute weight update using convolution
         
         Args:
-            grad_out: Output gradients
-            input_data: Input data
+            grad_out: Output gradients (numpy array or torch tensor) - converted to torch internally
+            input_data: Input data (numpy array or torch tensor) - converted to torch internally
             
         Returns:
-            dW: Weight gradients
+            dW: Weight gradients (torch tensor)
         """
         _, batchSize = input_data.shape
         in_h = self.inputSize[0]
@@ -782,13 +899,22 @@ class nnConv2DLayer(nnLayer):
         
         crop = self.computeCrop()
         
+        # Convert numpy inputs to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        if isinstance(grad_out, np.ndarray):
+            grad_out = torch.tensor(grad_out, dtype=torch.float32)
+        
+        device = input_data.device
+        dtype = input_data.dtype
+        
         # To compute the weight update, the input is convolved with the outgoing gradient.
-        inputPerm = np.transpose(input_data.reshape(in_h, in_w, in_c, batchSize), [0, 1, 3, 2]).reshape(-1, in_c)
-        gradOutPermImg = np.transpose(grad_out.reshape(out_h, out_w, out_c, batchSize), [0, 1, 3, 2])
+        inputPerm = torch.permute(input_data.reshape(in_h, in_w, in_c, batchSize), (0, 1, 3, 2)).reshape(-1, in_c)
+        gradOutPermImg = torch.permute(grad_out.reshape(out_h, out_w, out_c, batchSize), (0, 1, 3, 2))
         
         # Compute weight update using convolution
         # This is a simplified version - full implementation would use the dWSparseIdx option
-        dW = np.zeros((self.W.shape[0], self.W.shape[1], out_c, in_c), dtype=grad_out.dtype)
+        dW = torch.zeros((self.W.shape[0], self.W.shape[1], out_c, in_c), dtype=dtype, device=device)
         
         # For each output and input channel pair
         for out_c_idx in range(out_c):
@@ -797,16 +923,22 @@ class nnConv2DLayer(nnLayer):
                 grad_channel = gradOutPermImg[:, :, out_c_idx, :].reshape(out_h, out_w, batchSize)
                 input_channel = inputPerm[:, in_c_idx].reshape(in_h, in_w, batchSize)
                 
-                # Convolve input with gradients
+                # Convolve input with gradients using torch
                 for b_idx in range(batchSize):
-                    conv_result = signal.correlate2d(input_channel[:, :, b_idx], grad_channel[:, :, b_idx], mode='valid')
+                    # Use conv2d for correlation (flip kernel)
+                    input_2d = input_channel[:, :, b_idx].unsqueeze(0).unsqueeze(0)  # (1, 1, h, w)
+                    grad_2d = grad_channel[:, :, b_idx].unsqueeze(0).unsqueeze(0)  # (1, 1, h, w)
+                    # Flip for correlation
+                    grad_flipped = torch.flip(torch.flip(grad_2d, dims=[2]), dims=[3])
+                    conv_result = torch.nn.functional.conv2d(input_2d, grad_flipped, padding=0)
+                    conv_result = conv_result.squeeze(0).squeeze(0)  # Remove batch and channel dims
                     # Crop to filter size
                     if conv_result.shape[0] >= self.W.shape[0] and conv_result.shape[1] >= self.W.shape[1]:
                         dW[:, :, out_c_idx, in_c_idx] += conv_result[:self.W.shape[0], :self.W.shape[1]]
         
         # Reshape and crop to size
         f_h, f_w = self.aux_getFilterSize()
-        dW = np.transpose(dW.reshape(f_h + crop[0], f_w + crop[1], out_c, in_c), [0, 1, 3, 2])
+        dW = torch.permute(dW.reshape(f_h + crop[0], f_w + crop[1], out_c, in_c), (0, 1, 3, 2))
         dW = dW[:f_h, :f_w, :, :]
         
         return dW
@@ -1174,9 +1306,22 @@ class nnConv2DLayer(nnLayer):
         out_h, out_w, out_c = self.aux_computeOutputSize()
         _, batchSize = input_data.shape
         
+        # Convert to torch if needed
+        if isinstance(grad_out, np.ndarray):
+            grad_out = torch.tensor(grad_out, dtype=torch.float32)
+        
+        device = grad_out.device if isinstance(grad_out, torch.Tensor) else torch.device('cpu')
+        dtype = grad_out.dtype if isinstance(grad_out, torch.Tensor) else torch.float32
+        
         # Compute bias update.
         grad_out_reshaped = grad_out.reshape(out_h, out_w, out_c, batchSize)
-        db = np.sum(grad_out_reshaped, axis=(0, 1, 3))  # squeeze(sum(...,[1 2 4]))
+        db = torch.sum(grad_out_reshaped, dim=(0, 1, 3))  # squeeze(sum(...,[1 2 4]))
+        
+        # Convert back to numpy if needed for updateGrad
+        if hasattr(self, 'updateGrad'):
+            db_np = db.cpu().numpy() if isinstance(db, torch.Tensor) else db
+        else:
+            db_np = db
         
         # Update weights and bias.
         self.updateGrad('W', dW, options)
@@ -1203,13 +1348,39 @@ class nnConv2DLayer(nnLayer):
         Returns:
             gl, gu: Backpropagated gradients
         """
+        # Convert inputs to torch if needed
+        if isinstance(l, np.ndarray):
+            l = torch.tensor(l, dtype=torch.float32)
+        if isinstance(u, np.ndarray):
+            u = torch.tensor(u, dtype=torch.float32)
+        if isinstance(gl, np.ndarray):
+            gl = torch.tensor(gl, dtype=torch.float32)
+        if isinstance(gu, np.ndarray):
+            gu = torch.tensor(gu, dtype=torch.float32)
+        
+        device = l.device if isinstance(l, torch.Tensor) else torch.device('cpu')
+        dtype = l.dtype if isinstance(l, torch.Tensor) else torch.float32
+        
         # See (Gowal et al. 2019)
         mu = (u + l) / 2
         r = (u - l) / 2
         
         # Compute weight update.
-        dWmu = self.convForWeigthsUpdate(gu + gl, mu)
-        dWr = self.convForWeigthsUpdate(gu - gl, r) * np.sign(self.W)
+        # Convert to numpy for convForWeigthsUpdate if it expects numpy
+        mu_np = mu.cpu().numpy() if isinstance(mu, torch.Tensor) else mu
+        r_np = r.cpu().numpy() if isinstance(r, torch.Tensor) else r
+        gu_gl_sum_np = (gu + gl).cpu().numpy() if isinstance(gu, torch.Tensor) else (gu + gl)
+        gu_gl_diff_np = (gu - gl).cpu().numpy() if isinstance(gu, torch.Tensor) else (gu - gl)
+        
+        dWmu = self.convForWeigthsUpdate(gu_gl_sum_np, mu_np)
+        dWr_np = self.convForWeigthsUpdate(gu_gl_diff_np, r_np)
+        # Convert to torch for multiplication
+        if isinstance(dWr_np, np.ndarray):
+            dWr_np = torch.tensor(dWr_np, dtype=dtype, device=device)
+        if isinstance(self.W, torch.Tensor):
+            dWr = dWr_np * torch.sign(self.W)
+        else:
+            dWr = dWr_np * np.sign(self.W)
         
         # Compute size of gradient.
         out_h, out_w, out_c = self.aux_computeOutputSize()
@@ -1217,7 +1388,17 @@ class nnConv2DLayer(nnLayer):
         
         # Compute bias update.
         gl_reshaped = gl.reshape(out_h, out_w, out_c, batchSize)
-        db = np.sum(gl_reshaped, axis=(0, 1, 3))  # squeeze(sum(...,[1 2 4]))
+        db = torch.sum(gl_reshaped, dim=(0, 1, 3))  # squeeze(sum(...,[1 2 4]))
+        
+        # Convert back to numpy if needed for updateGrad
+        if hasattr(self, 'updateGrad'):
+            db_np = db.cpu().numpy() if isinstance(db, torch.Tensor) else db
+            dWmu_np = dWmu if isinstance(dWmu, np.ndarray) else dWmu.cpu().numpy() if isinstance(dWmu, torch.Tensor) else dWmu
+            dWr_np_final = dWr.cpu().numpy() if isinstance(dWr, torch.Tensor) else dWr
+        else:
+            db_np = db
+            dWmu_np = dWmu
+            dWr_np_final = dWr
         
         # Update weights and bias.
         self.updateGrad('W', dWmu + dWr, options)
@@ -1275,31 +1456,61 @@ class nnConv2DLayer(nnLayer):
             # Extract gradient for the bounds.
             gl = gc[:, 0, :].reshape(nGrad, batchSize)
             gu = gc[:, 1, :].reshape(nGrad, batchSize)
-            gl, gu = self.backpropIntervalBatch(cl, cu, gl, gu, options)
-            gc = np.stack([gl, gu], axis=1)  # permute(cat(3,gl,gu),[1 3 2])
+            # Convert to numpy for backpropIntervalBatch if needed, then convert back
+            if isinstance(cl, torch.Tensor):
+                cl = cl.cpu().numpy()
+            if isinstance(cu, torch.Tensor):
+                cu = cu.cpu().numpy()
+            if isinstance(gl, torch.Tensor):
+                gl = gl.cpu().numpy()
+            if isinstance(gu, torch.Tensor):
+                gu = gu.cpu().numpy()
             
-            c0 = np.zeros((nGrad, batchSize), dtype=gG.dtype)
+            gl, gu = self.backpropIntervalBatch(cl, cu, gl, gu, options)
+            
+            # Convert back to torch
+            if isinstance(gl, np.ndarray):
+                gl = torch.tensor(gl, dtype=gG.dtype, device=gG.device)
+            if isinstance(gu, np.ndarray):
+                gu = torch.tensor(gu, dtype=gG.dtype, device=gG.device)
+            
+            gc = torch.stack([gl, gu], dim=1)  # permute(cat(3,gl,gu),[1 3 2])
+            
+            c0 = torch.zeros((nGrad, batchSize), dtype=gG.dtype, device=gG.device)
             _, gG = self.transconv2dZonotope(c0, gG, 'sparseIdx', self.W, None)
         else:
+            # Convert inputs to torch if needed
+            if isinstance(c, np.ndarray):
+                c = torch.tensor(c, dtype=torch.float32)
+            if isinstance(G, np.ndarray):
+                G = torch.tensor(G, dtype=torch.float32)
+            if isinstance(gc, np.ndarray):
+                gc = torch.tensor(gc, dtype=torch.float32)
+            if isinstance(gG, np.ndarray):
+                gG = torch.tensor(gG, dtype=torch.float32)
+            
+            device = gG.device if isinstance(gG, torch.Tensor) else torch.device('cpu')
+            dtype = gG.dtype if isinstance(gG, torch.Tensor) else torch.float32
+            
             # Only using options.nn.train.zonotope_weight_update = 'sum'
             # We move the generators to the batch. This is in order to do a
             # convolution of the input with the outgoing gradient.
-            c_perm = np.transpose(c, [0, 2, 1]) if c.ndim == 3 else c[:, np.newaxis, :]
-            inputLin = np.concatenate([c_perm.reshape(nIn, -1), G.reshape(nIn, -1)], axis=1)
+            c_perm = torch.permute(c, (0, 2, 1)) if c.ndim == 3 else c.unsqueeze(1)
+            inputLin = torch.cat([c_perm.reshape(nIn, -1), G.reshape(nIn, -1)], dim=1)
             inputLin = inputLin.reshape(nIn, (q + 1) * batchSize)
-            inputLinPerm = np.transpose(inputLin.reshape(in_h, in_w, in_c, (q + 1) * batchSize), [0, 1, 3, 2]).reshape(-1, in_c)
+            inputLinPerm = torch.permute(inputLin.reshape(in_h, in_w, in_c, (q + 1) * batchSize), (0, 1, 3, 2)).reshape(-1, in_c)
             
             # Similarly, we move the generator of the outgoing gradient to the
             # batch as well.
-            gc_perm = np.transpose(gc, [0, 2, 1]) if gc.ndim == 3 else gc[:, np.newaxis, :]
-            gradLin = np.concatenate([gc_perm.reshape(nGrad, -1), gG.reshape(nGrad, -1)], axis=1)
+            gc_perm = torch.permute(gc, (0, 2, 1)) if gc.ndim == 3 else gc.unsqueeze(1)
+            gradLin = torch.cat([gc_perm.reshape(nGrad, -1), gG.reshape(nGrad, -1)], dim=1)
             gradLin = gradLin.reshape(nGrad, (q + 1) * batchSize)
-            gradOutPermImg = np.transpose(gradLin.reshape(out_h, out_w, out_c, (q + 1) * batchSize), [0, 1, 3, 2])
+            gradOutPermImg = torch.permute(gradLin.reshape(out_h, out_w, out_c, (q + 1) * batchSize), (0, 1, 3, 2))
             
             # To compute the weight update, the input is convolved with the
             # outgoing gradient. (Simplified - full version uses dWSparseIdx)
             # For now, use convForWeigthsUpdate on a per-batch basis
-            weightsUpdate = np.zeros((f_h, f_w, in_c, out_c), dtype=gG.dtype)
+            weightsUpdate = torch.zeros((f_h, f_w, in_c, out_c), dtype=dtype, device=device)
             for b_idx in range(batchSize):
                 # Extract center and generators for this batch
                 c_batch = c[:, :, b_idx] if c.ndim == 3 else c

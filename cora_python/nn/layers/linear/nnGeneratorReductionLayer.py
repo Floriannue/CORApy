@@ -26,6 +26,7 @@ Last revision: ---
 """
 
 import numpy as np
+import torch
 from typing import Any, Dict, List, Optional, Tuple
 from .nnIdentityLayer import nnIdentityLayer
 from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
@@ -220,19 +221,24 @@ class nnGeneratorReductionLayer(nnIdentityLayer):
         if not hasattr(self, 'backprop') or self.backprop is None:
             self.backprop = {'store': {}}
     
-    def evaluateZonotopeBatch(self, c: np.ndarray, G: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def evaluateZonotopeBatch(self, c, G, options: Dict[str, Any]):
         """
         Evaluate zonotope batch with generator reduction
         
         Args:
-            c: Center (n, batchSize)
-            G: Generators (n, q, batchSize)
+            c: Center (n, batchSize) (numpy array or torch tensor) - converted to torch internally
+            G: Generators (n, q, batchSize) (numpy array or torch tensor) - converted to torch internally
             options: Evaluation options
             
         Returns:
-            c: Center (unchanged)
-            G: Reduced generators with approximation errors
+            c: Center (unchanged, torch tensor)
+            G: Reduced generators with approximation errors (torch tensor)
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(c, np.ndarray):
+            c = torch.tensor(c, dtype=torch.float32)
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
         # Reduce the generator matrix.
         G_, I, keepGensIdx, reduceGensIdx = self.aux_reduceGirad(G, self.maxGens)
         n, q, batchSize = G_.shape
@@ -249,10 +255,11 @@ class nnGeneratorReductionLayer(nnIdentityLayer):
         GdIdx = GdIdx.reshape(n, batchSize)
         
         # Append generators for the approximation errors.
-        G = np.concatenate([G_, np.zeros((n, n, batchSize), dtype=G_.dtype)], axis=1)
+        device = G_.device
+        dtype = G_.dtype
+        G = torch.cat([G_, torch.zeros((n, n, batchSize), dtype=dtype, device=device)], dim=1)
         # Add approximation errors to the generators.
-        # Convert 1-based MATLAB indices to 0-based Python indices
-        GdIdx_0based = GdIdx - 1
+        # Direct assignment using indices
         for i in range(n):
             for j in range(batchSize):
                 G[i, q + i, j] = I[i, j]
@@ -266,108 +273,144 @@ class nnGeneratorReductionLayer(nnIdentityLayer):
         
         return c, G
     
-    def backpropZonotopeBatch(self, c: np.ndarray, G: np.ndarray, gc: np.ndarray, 
-                              gG: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def backpropZonotopeBatch(self, c, G, gc, 
+                              gG, options: Dict[str, Any]):
         """
         Backpropagate zonotope batch gradients
         
         Args:
-            c: Center
-            G: Generators
-            gc: Center gradients
-            gG: Generator gradients
+            c: Center (torch tensor)
+            G: Generators (torch tensor)
+            gc: Center gradients (torch tensor)
+            gG: Generator gradients (torch tensor)
             options: Backpropagation options
             
         Returns:
-            gc: Center gradients (unchanged)
-            gG: Backpropagated generator gradients
+            gc: Center gradients (unchanged, torch tensor)
+            gG: Backpropagated generator gradients (torch tensor)
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(c, np.ndarray):
+            c = torch.tensor(c, dtype=torch.float32)
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
+        if isinstance(gc, np.ndarray):
+            gc = torch.tensor(gc, dtype=torch.float32)
+        if isinstance(gG, np.ndarray):
+            gG = torch.tensor(gG, dtype=torch.float32)
+        
         # Extract indices of reduced generators.
         keepGensIdx = self.backprop['store']['keepGensIdx']
         reduceGensIdx = self.backprop['store']['reduceGensIdx']
         GdIdx = self.backprop['store']['GdIdx']
         
         n, q_total, batchSize = G.shape
-        Gred = G[:, reduceGensIdx].reshape(n, -1, batchSize)
+        # Convert reduceGensIdx to torch for indexing
+        reduceGensIdx_torch = torch.tensor(reduceGensIdx.flatten(), dtype=torch.long, device=G.device)
+        Gred = G[:, reduceGensIdx_torch].reshape(n, -1, batchSize)
         
-        gG_ = np.zeros_like(G)
-        gG_[:, keepGensIdx] = gG[:, :keepGensIdx.shape[0], :].reshape(n, -1)
+        device = G.device
+        dtype = G.dtype
+        gG_ = torch.zeros_like(G)
+        # Convert keepGensIdx to torch for indexing
+        keepGensIdx_torch = torch.tensor(keepGensIdx.flatten(), dtype=torch.long, device=device)
+        keepGens_count = keepGensIdx.shape[0] if keepGensIdx.ndim > 1 else len(keepGensIdx)
+        gG_[:, keepGensIdx_torch] = gG[:, :keepGens_count, :].reshape(n, -1)
         # MATLAB: gG_(:,reduceGensIdx) = reshape(sign(Gred).*permute(gG(GdIdx),[1 3 2]),n,[]);
         # Extract gG values at diagonal positions (approximation error positions)
         # The diagonal positions are at column indices q, q+1, ..., q+n-1 (0-based: q-1, q, ..., q+n-2)
         q = q_total - n  # Number of original generators before adding diagonal
-        gG_at_GdIdx = np.zeros((n, batchSize), dtype=gG.dtype)
+        gG_at_GdIdx = torch.zeros((n, batchSize), dtype=dtype, device=device)
         for i in range(n):
             for j in range(batchSize):
                 gG_at_GdIdx[i, j] = gG[i, q + i, j]  # q + i is the diagonal position
-        gG_[:, reduceGensIdx] = (np.sign(Gred) * gG_at_GdIdx[:, :, np.newaxis]).reshape(n, -1)
+        gG_[:, reduceGensIdx_torch] = (torch.sign(Gred) * gG_at_GdIdx.unsqueeze(1)).reshape(n, -1)
         gG = gG_
         
         return gc, gG
     
-    def aux_reduceGirad(self, G: np.ndarray, maxGens: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def aux_reduceGirad(self, G, maxGens: int):
         """
         Reduce generators using Girad method
         
         Args:
-            G: Generators (n, q, batchSize)
+            G: Generators (n, q, batchSize) (torch tensor)
             maxGens: Maximum number of generators
             
         Returns:
-            G_: Reduced generators
-            I: Approximation errors
-            keepGensIdx: Indices of kept generators
-            reduceGensIdx: Indices of reduced generators
+            G_: Reduced generators (torch tensor)
+            I: Approximation errors (torch tensor)
+            keepGensIdx: Indices of kept generators (numpy array for indexing)
+            reduceGensIdx: Indices of reduced generators (numpy array for indexing)
         """
+        # Convert numpy to torch if needed
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
+        
         # Obtain number of dimensions and generators.
         n, q, batchSize = G.shape
         
         # Compute the length of each generator.
-        genLens = np.sum(np.abs(G), axis=0).reshape(q, batchSize)
+        genLens = torch.sum(torch.abs(G), dim=0).reshape(q, batchSize)
         
         # Sort the generators by their length.
-        idx = np.argsort(genLens, axis=0)  # Sort along first axis (generators)
+        idx = torch.argsort(genLens, dim=0)  # Sort along first axis (generators)
         # MATLAB: idx = reshape(sub2ind([q batchSize], idx,repmat(1:batchSize,q,1)),size(idx));
-        i_idx = idx.flatten()
+        i_idx = idx.flatten().cpu().numpy()
         j_idx = np.tile(np.arange(1, batchSize+1), q)
         idx_flat = sub2ind((q, batchSize), i_idx+1, j_idx)  # +1 for 1-based indexing
         idx = idx_flat.reshape(idx.shape)
         
         # Identify the generators to keep.
         keepGensIdx = idx[:maxGens - n, :]
-        G_ = G[:, keepGensIdx.flatten()].reshape(n, -1, batchSize)
+        # Convert keepGensIdx to torch for indexing
+        keepGensIdx_torch = torch.tensor(keepGensIdx.flatten(), dtype=torch.long, device=G.device)
+        G_ = G[:, keepGensIdx_torch].reshape(n, -1, batchSize)
         
         # Identify generators to reduce.
         reduceGensIdx = idx[maxGens - n:, :]
-        Gred = G[:, reduceGensIdx.flatten()].reshape(n, -1, batchSize)
-        I = np.sum(np.abs(Gred), axis=1).reshape(n, batchSize)
+        reduceGensIdx_torch = torch.tensor(reduceGensIdx.flatten(), dtype=torch.long, device=G.device)
+        Gred = G[:, reduceGensIdx_torch].reshape(n, -1, batchSize)
+        I = torch.sum(torch.abs(Gred), dim=1).reshape(n, batchSize)
         
         return G_, I, keepGensIdx, reduceGensIdx
     
-    def aux_reducePCA(self, G: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def aux_reducePCA(self, G):
         """
         Reduce generators using PCA method
         
         Args:
-            G: Generators (n, q, batchSize)
+            G: Generators (n, q, batchSize) (torch tensor)
             
         Returns:
-            G_: Reduced generators
-            U: Transformation matrix
+            G_: Reduced generators (torch tensor)
+            U: Transformation matrix (torch tensor)
         """
+        # Convert numpy to torch if needed
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
+        
         # Obtain number of dimensions and generators.
         n, _, batchSize = G.shape
         
-        X = pagetranspose(np.concatenate([G, -G], axis=1))
-        Co = pagemtimes(X, 'transpose', X, 'none')
-        U = np.zeros((n, n, batchSize), dtype=G.dtype)
+        # X = pagetranspose(concatenate([G, -G], axis=1))
+        X = torch.cat([G, -G], dim=1).permute(0, 2, 1)  # pagetranspose equivalent
+        # Co = pagemtimes(X, 'transpose', X, 'none')
+        Co = torch.einsum('ijk,ilk->ijl', X, X)  # X^T @ X for each batch
+        U = torch.zeros((n, n, batchSize), dtype=G.dtype, device=G.device)
         for i in range(batchSize):
-            U_, _, _ = np.linalg.svd(Co[:, :, i])
+            # Use torch SVD
+            U_, _, _ = torch.linalg.svd(Co[:, :, i])
             U[:, :, i] = U_
         
-        r = np.sum(np.abs(pagemtimes(U, 'transpose', G, 'none')), axis=1)
-        idmat = np.eye(n, dtype=G.dtype)
-        G_ = pagemtimes(U, 'none', (r[:, :, np.newaxis] * idmat[np.newaxis, :, :]), 'none')
+        # r = sum(abs(pagemtimes(U, 'transpose', G, 'none')), axis=1)
+        # U^T @ G for each batch
+        r = torch.sum(torch.abs(torch.einsum('ijk,jlk->ilk', U, G)), dim=1)
+        idmat = torch.eye(n, dtype=G.dtype, device=G.device)
+        # G_ = pagemtimes(U, 'none', (r[:, :, np.newaxis] * idmat[np.newaxis, :, :]), 'none')
+        # U @ (r * idmat) for each batch
+        r_idmat = r.unsqueeze(2) * idmat.unsqueeze(0)  # (n, batch, n) * (1, n, n) -> (n, batch, n)
+        G_ = torch.einsum('ijk,ilk->ilk', U, r_idmat.permute(0, 2, 1))  # U @ (r * idmat) for each batch
         
         return G_, U
 

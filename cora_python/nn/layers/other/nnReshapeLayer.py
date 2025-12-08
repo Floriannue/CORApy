@@ -26,6 +26,7 @@ Last revision: 10-August-2022 (renamed)
 """
 
 import numpy as np
+import torch
 from typing import Any, Dict, List, Optional, Tuple
 from ..nnLayer import nnLayer
 
@@ -77,17 +78,20 @@ class nnReshapeLayer(nnLayer):
         num = int(idx.size)
         return [num, 1]
     
-    def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
         """
         Evaluate layer numerically
         
         Args:
-            input_data: input data
+            input_data: input data (numpy array or torch tensor) - converted to torch internally
             options: evaluation options
             
         Returns:
-            output: reshaped input data
+            output: reshaped input data (torch tensor)
         """
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
         # Debug output
         if hasattr(options, 'debug') and options.get('debug', False):
             print(f"DEBUG ReshapeLayer: input_data shape: {input_data.shape}, idx_out: {self.idx_out}")
@@ -109,7 +113,7 @@ class nnReshapeLayer(nnLayer):
                     # There are other dimensions specified
                     # Calculate -1 dimension, but preserve batch dimension
                     total_features = features
-                    other_size = np.prod(other_dims)
+                    other_size = torch.prod(torch.tensor(other_dims, device=input_data.device)).item()
                     if other_size > 0 and total_features % other_size == 0:
                         calculated_dim = total_features // other_size
                         target_shape = [calculated_dim] + other_dims + [batchSize]
@@ -119,13 +123,13 @@ class nnReshapeLayer(nnLayer):
                         return input_data
             else:
                 # Input is 1D: [features] - no batch dimension
-                total_size = input_data.size
+                total_size = input_data.numel()
                 if not other_dims:
                     # Just [-1]: already 1D, return as-is
                     return input_data
                 else:
                     # Calculate -1 dimension
-                    other_size = np.prod(other_dims)
+                    other_size = torch.prod(torch.tensor(other_dims, device=input_data.device)).item()
                     if other_size > 0 and total_size % other_size == 0:
                         calculated_dim = total_size // other_size
                         target_shape = [calculated_dim] + other_dims
@@ -139,10 +143,11 @@ class nnReshapeLayer(nnLayer):
             # Convert MATLAB's column-major idx_out to Python's row-major representation
             # MATLAB idx_out(:) gives column-major order, but we want to maintain C-order in Python
             # So we need to transpose idx_out first, then flatten to get the correct order
-            idx_out_transposed = np.array(self.idx_out).T  # Transpose to convert to row-major
+            idx_out_array = torch.tensor(self.idx_out, device=input_data.device)
+            idx_out_transposed = idx_out_array.T  # Transpose to convert to row-major
             idx_vec = idx_out_transposed.flatten()  # Now flatten in C-order
             # Convert to 0-based indexing for Python
-            idx_vec = idx_vec - 1
+            idx_vec = (idx_vec - 1).long()  # Convert to long for indexing
             
 
             # Handle multi-dimensional input
@@ -156,18 +161,23 @@ class nnReshapeLayer(nnLayer):
             
             return result
     
-    def evaluateSensitivity(self, S: np.ndarray, x: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateSensitivity(self, S, x, options: Dict[str, Any]):
         """
         Evaluate sensitivity
         
         Args:
-            S: sensitivity matrix with shape (nK, output_dim, bSz)
-            x: input data
+            S: sensitivity matrix with shape (nK, output_dim, bSz) (torch tensor)
+            x: input data (torch tensor)
             options: evaluation options
             
         Returns:
-            S: reshaped sensitivity matrix with shape (nK, input_dim, bSz)
+            S: reshaped sensitivity matrix with shape (nK, input_dim, bSz) (torch tensor)
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(S, np.ndarray):
+            S = torch.tensor(S, dtype=torch.float32)
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32)
         # MATLAB: S_ = permute(S,[2 1 3]); S_ = obj.aux_embed(S_,inSize); S = permute(S_,[2 1 3]);
         # This swaps first two dims, embeds according to input size, then swaps back
         
@@ -275,7 +285,7 @@ class nnReshapeLayer(nnLayer):
         
         return S_result
     
-    def evaluateZonotopeBatch(self, c: np.ndarray, G: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def evaluateZonotopeBatch(self, c, G, options: Dict[str, Any]):
         """
         Evaluate reshape for a batch of zonotopes (centers c and generators G).
         MATLAB behavior: calls aux_reshape which reshapes to 2D, indexes, then reshapes back.
@@ -301,7 +311,8 @@ class nnReshapeLayer(nnLayer):
         if is_matrix_c:
             n_c, q_c, bSz_c = c.shape
             # Reshape to 2D: (n, q*bSz) using column-major (Fortran) order
-            c_2d = c.reshape(n_c, q_c * bSz_c, order='F')
+            # For torch, permute then reshape: (n, q, bSz) -> (n, bSz, q) -> (n, q*bSz)
+            c_2d = c.permute(0, 2, 1).reshape(n_c, q_c * bSz_c)
         else:
             c_2d = c
             n_c, q_c = c.shape if c.ndim == 2 else (c.shape[0], 1)
@@ -310,27 +321,29 @@ class nnReshapeLayer(nnLayer):
         if is_matrix_G:
             n_g, q_g, bSz_g = G.shape
             # Reshape to 2D: (n, q*bSz) using column-major (Fortran) order
-            G_2d = G.reshape(n_g, q_g * bSz_g, order='F')
+            # For torch, permute then reshape: (n, q, bSz) -> (n, bSz, q) -> (n, q*bSz)
+            G_2d = G.permute(0, 2, 1).reshape(n_g, q_g * bSz_g)
         else:
             G_2d = G
             n_g, q_g = G.shape if G.ndim == 2 else (G.shape[0], 1)
             bSz_g = 1
         
         # Step 3: Get idx_vec from idx_out (column-major flatten, 1-based)
-        idx_vec = np.array(self.idx_out)
+        idx_vec = torch.tensor(self.idx_out, device=c.device)
         if idx_vec.ndim > 1:
             # Column-major flatten: idx_out(:) in MATLAB
-            idx_vec = idx_vec.flatten(order='F')
+            # For torch, we need to transpose then flatten to get column-major
+            idx_vec = idx_vec.T.flatten()
         else:
             idx_vec = idx_vec.flatten()
         # Convert to 0-based for Python
-        idx0 = idx_vec - 1
+        idx0 = (idx_vec - 1).long()
         
         # Bounds check (defensive)
         max_n_c = c_2d.shape[0]
         max_n_g = G_2d.shape[0]
-        idx0_c = np.clip(idx0, 0, max_n_c - 1)
-        idx0_g = np.clip(idx0, 0, max_n_g - 1)
+        idx0_c = torch.clamp(idx0, 0, max_n_c - 1)
+        idx0_g = torch.clamp(idx0, 0, max_n_g - 1)
         
         # Step 4: MATLAB: r = input(idx_vec, :) - select rows, keep all columns
         c_result = c_2d[idx0_c, :]
@@ -340,11 +353,13 @@ class nnReshapeLayer(nnLayer):
         if is_matrix_c:
             # MATLAB: reshape(r, [], q, bSz) - [] means calculate automatically
             # Result has shape (len(idx_vec), q*bSz), reshape to (len(idx_vec), q, bSz)
-            c_result = c_result.reshape(len(idx0_c), q_c, bSz_c, order='F')
+            # For column-major (Fortran) order in torch, we need to reshape then transpose
+            c_result = c_result.reshape(len(idx0_c), bSz_c, q_c).permute(0, 2, 1)
         
         if is_matrix_G:
             # MATLAB: reshape(r, [], q, bSz)
-            G_result = G_result.reshape(len(idx0_g), q_g, bSz_g, order='F')
+            # For column-major (Fortran) order in torch, we need to reshape then transpose
+            G_result = G_result.reshape(len(idx0_g), bSz_g, q_g).permute(0, 2, 1)
         
         return c_result, G_result
 

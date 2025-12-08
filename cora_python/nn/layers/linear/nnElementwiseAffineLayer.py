@@ -29,6 +29,7 @@ Last revision: 10-August-2022 (renamed)
 """
 
 import numpy as np
+import torch
 from typing import Any, Dict, List, Optional, Tuple
 from ..nnLayer import nnLayer
 
@@ -78,8 +79,18 @@ class nnElementwiseAffineLayer(nnLayer):
         # call super class constructor
         super().__init__(name)
         
-        self.scale = np.asarray(scale, dtype=np.float64)
-        self.offset = np.asarray(offset, dtype=np.float64)
+        # Convert to torch tensors - all internal operations use torch
+        if not isinstance(scale, torch.Tensor):
+            scale = torch.tensor(scale, dtype=torch.float32)
+        else:
+            scale = scale.float()
+        if not isinstance(offset, torch.Tensor):
+            offset = torch.tensor(offset, dtype=torch.float32)
+        else:
+            offset = offset.float()
+        
+        self.scale = scale
+        self.offset = offset
     
     def getNumNeurons(self) -> Tuple[List[int], List[int]]:
         """
@@ -113,18 +124,27 @@ class nnElementwiseAffineLayer(nnLayer):
         self.scale = self.scale.astype(target_dtype)
         self.offset = self.offset.astype(target_dtype)
     
-    def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
         """
         Evaluate layer numerically
         
         Args:
-            input_data: input data
+            input_data: input data (numpy array or torch tensor) - converted to torch internally
             options: evaluation options
             
         Returns:
-            r: scaled and offset input data
+            r: scaled and offset input data (torch tensor)
         """
-        scale, offset = self._aux_getScaleAndOffset()
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
+        device = input_data.device
+        dtype = input_data.dtype
+        
+        # Move scale and offset to same device/dtype
+        scale = self.scale.to(device=device, dtype=dtype)
+        offset = self.offset.to(device=device, dtype=dtype)
         
         # Fix broadcasting: ensure scale and offset have same shape as input_data for element-wise operation
         # scale and offset should be (n, 1) to match input_data (n, batch_size)
@@ -135,19 +155,29 @@ class nnElementwiseAffineLayer(nnLayer):
         r = scale * input_data + offset
         return r
     
-    def evaluateSensitivity(self, S: np.ndarray, x: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateSensitivity(self, S, x, options: Dict[str, Any]):
         """
         Evaluate sensitivity
         
         Args:
-            S: sensitivity matrix
-            x: input data
+            S: sensitivity matrix (torch tensor)
+            x: input data (torch tensor)
             options: evaluation options
             
         Returns:
-            S: updated sensitivity matrix
+            S: updated sensitivity matrix (torch tensor)
         """
-        scale, offset = self._aux_getScaleAndOffset()
+        # Convert numpy inputs to torch if needed
+        if isinstance(S, np.ndarray):
+            S = torch.tensor(S, dtype=torch.float32)
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32)
+        
+        device = S.device
+        dtype = S.dtype
+        
+        # Move scale to same device/dtype
+        scale = self.scale.to(device=device, dtype=dtype)
         
         # MATLAB: S = scale(:)' .* S;
         # scale(:)' creates a row vector that broadcasts along the first dimension of S
@@ -223,19 +253,28 @@ class nnElementwiseAffineLayer(nnLayer):
         # For now, return bounds unchanged
         return bounds
     
-    def evaluateZonotopeBatch(self, c: np.ndarray, G: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def evaluateZonotopeBatch(self, c, G, options: Dict[str, Any]):
         """
         Evaluate layer with zonotope batch (for training)
         
         Args:
-            c: center
-            G: generators
+            c: center (numpy array or torch tensor) - converted to torch internally
+            G: generators (numpy array or torch tensor) - converted to torch internally
             options: evaluation options
             
         Returns:
-            c, G: updated zonotope batch
+            c, G: updated zonotope batch (torch tensors)
         """
-        scale, offset = self._aux_getScaleAndOffset()
+        # Convert numpy inputs to torch if needed
+        if isinstance(c, np.ndarray):
+            c = torch.tensor(c, dtype=torch.float32)
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
+        
+        device = c.device
+        dtype = c.dtype
+        scale = self.scale.to(device=device, dtype=dtype)
+        offset = self.offset.to(device=device, dtype=dtype)
         
         # MATLAB: scale(:) and offset(:) are column vectors
         scale = scale.flatten()  # Ensure 1D
@@ -249,13 +288,13 @@ class nnElementwiseAffineLayer(nnLayer):
             # c_ becomes (batch, n, 2) after permute
             # The mask reorders features: negative scale features first, then positive
             mask = scale < 0
-            c_ = np.transpose(c, (2, 0, 1))  # (batch, n, 2)
+            c_ = torch.permute(c, (2, 0, 1))  # (batch, n, 2)
             # Reorder features based on mask: negative first, then positive
-            neg_indices = np.where(mask)[0]
-            pos_indices = np.where(~mask)[0]
-            reorder_idx = np.concatenate([neg_indices, pos_indices])
+            neg_indices = torch.where(mask)[0]
+            pos_indices = torch.where(~mask)[0]
+            reorder_idx = torch.cat([neg_indices, pos_indices])
             c_reordered = c_[:, reorder_idx, :]
-            c = np.transpose(c_reordered, (1, 2, 0))  # Back to (n, 2, batch)
+            c = torch.permute(c_reordered, (1, 2, 0))  # Back to (n, 2, batch)
         
         # MATLAB: c = scale(:).*c + offset(:);
         # Reshape for broadcasting: scale and offset are (n,), c is (n, 1 or 2, batch)
@@ -265,7 +304,7 @@ class nnElementwiseAffineLayer(nnLayer):
         
         if options.get('nn', {}).get('interval_center', False):
             # MATLAB: c = sort(c,2); - sort along dimension 2 (the bounds dimension)
-            c = np.sort(c, axis=1)
+            c, _ = torch.sort(c, dim=1)
         
         # MATLAB: G = scale(:).*G;
         # Scale the generators
@@ -375,12 +414,12 @@ class nnElementwiseAffineLayer(nnLayer):
         }
         return fieldStruct
     
-    def _aux_getScaleAndOffset(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _aux_getScaleAndOffset(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Read out scale and offsets as vectors
         
         Returns:
-            scale, offset: scale and offset as vectors
+            scale, offset: scale and offset as vectors (torch tensors)
         """
         scale = self.scale.flatten()
         offset = self.offset.flatten()

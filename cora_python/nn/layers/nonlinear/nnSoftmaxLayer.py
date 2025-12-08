@@ -5,6 +5,7 @@ This class implements a softmax activation layer for neural networks.
 """
 
 import numpy as np
+import torch
 from .nnActivationLayer import nnActivationLayer
 
 
@@ -109,31 +110,41 @@ class nnSoftmaxLayer(nnActivationLayer):
         Evaluate sensitivity for the softmax function.
         
         Args:
-            S: sensitivity matrix
-            x: input data
+            S: sensitivity matrix (torch tensor)
+            x: input data (torch tensor)
             options: options dictionary
             
         Returns:
-            Updated sensitivity matrix
+            Updated sensitivity matrix (torch tensor)
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(S, np.ndarray):
+            S = torch.tensor(S, dtype=torch.float32)
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32)
+        
+        device = S.device
+        dtype = S.dtype
+        
         # MATLAB: sx = permute(obj.evaluateNumeric(x, options),[1 3 2]);
         # MATLAB: J = -pagemtimes(sx,'none',sx,'transpose') + sx.*eye(size(x,1));
         # MATLAB: S = pagemtimes(S,J);
 
         # Get softmax output and reshape to match MATLAB permute
         sx = self.evaluateNumeric(x, options)  # Shape: (num_neurons, batch_size)
-        sx = sx[:, np.newaxis, :]  # Shape: (num_neurons, 1, batch_size)
+        sx = sx.unsqueeze(1)  # Shape: (num_neurons, 1, batch_size)
         
         # Compute Jacobian of softmax using pagemtimes equivalent
         # J should be (num_neurons, num_neurons, batch_size)
         # First term: -pagemtimes(sx,'none',sx,'transpose') = -sx @ sx^T for each batch
-        J = -np.matmul(sx, np.transpose(sx, (0, 2, 1)))  # Shape: (num_neurons, num_neurons, batch_size)
+        sx_T = sx.permute(0, 2, 1)  # Shape: (num_neurons, batch_size, 1)
+        J = -torch.bmm(sx, sx_T)  # Shape: (num_neurons, num_neurons, batch_size)
         
         # Second term: sx.*eye(size(x,1)) = sx * identity matrix for each batch
         # eye(size(x,1)) should be (num_neurons, num_neurons)
-        identity = np.eye(sx.shape[0])  # Shape: (num_neurons, num_neurons)
+        identity = torch.eye(sx.shape[0], dtype=dtype, device=device)  # Shape: (num_neurons, num_neurons)
         # Reshape identity to (num_neurons, num_neurons, 1) for broadcasting
-        identity = identity[:, :, np.newaxis]  # Shape: (num_neurons, num_neurons, 1)
+        identity = identity.unsqueeze(2)  # Shape: (num_neurons, num_neurons, 1)
         # Add the identity term: sx * identity for each batch
         J = J + sx * identity  # Shape: (num_neurons, num_neurons, batch_size)
         
@@ -141,22 +152,16 @@ class nnSoftmaxLayer(nnActivationLayer):
         # S is (nK, input_dim, bSz), J is (output_dim, output_dim, bSz)
         # We need S @ J for each batch element, preserving batch dimension
         
-        # Debug: print dimensions to understand what's happening
-        print(f"DEBUG: Softmax evaluateSensitivity - S shape: {S.shape}, J shape: {J.shape}")
-        print(f"DEBUG: Softmax evaluateSensitivity - sx shape: {sx.shape}")
-        
-        # Use batch matrix multiplication equivalent to MATLAB's pagemtimes
+        # Use torch batch matrix multiplication equivalent to MATLAB's pagemtimes
         # For 3D tensors, we need to handle each batch element separately
         if S.ndim == 3 and J.ndim == 3:
             # S is (nK, input_dim, bSz), J is (output_dim, output_dim, bSz)
             # Result should be (nK, output_dim, bSz)
-            result = np.zeros((S.shape[0], J.shape[1], S.shape[2]))
-            for i in range(S.shape[2]):  # iterate over batch dimension
-                result[:, :, i] = S[:, :, i] @ J[:, :, i]
-            S = result
+            # Use einsum for batch matrix multiplication: 'ijk,jlk->ilk'
+            S = torch.einsum('ijk,jlk->ilk', S, J)
         else:
             # Fallback to regular matmul for non-3D cases
-            S = np.matmul(S, J)
+            S = torch.matmul(S, J)
         
         return S
     
@@ -165,15 +170,19 @@ class nnSoftmaxLayer(nnActivationLayer):
         Evaluate the softmax function numerically.
         
         Args:
-            input_data: input data
+            input_data: input data (numpy array or torch tensor) - converted to torch internally
             options: options dictionary
             
         Returns:
-            Output of the softmax function
+            Output of the softmax function (torch tensor)
         """
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
         # avoid numerical issues see [2, Chp. 4]
-        input_data = input_data - np.max(input_data)
-        return np.exp(input_data) / np.sum(np.exp(input_data))
+        input_data = input_data - torch.max(input_data)
+        return torch.exp(input_data) / torch.sum(torch.exp(input_data))
     
     def evaluatePolyZonotope(self, c, G, GI, E, id_, id__, ind, ind_, options):
         """

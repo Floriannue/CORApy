@@ -29,12 +29,13 @@ Last revision: ---
 """
 
 import numpy as np
+import torch
 from typing import Any, Dict, List, Optional, Tuple, Union
 from .neuralNetwork import NeuralNetwork
 
 
-def evaluateZonotopeBatch_(nn: NeuralNetwork, c: np.ndarray, G: np.ndarray, 
-                          options: Dict[str, Any], idxLayer: List[int]) -> Tuple[np.ndarray, np.ndarray]:
+def evaluateZonotopeBatch_(nn: NeuralNetwork, c, G, 
+                          options: Dict[str, Any], idxLayer: List[int]):
     """
     Evaluate neural network for a batch of zonotopes without setting default options.
     
@@ -42,12 +43,18 @@ def evaluateZonotopeBatch_(nn: NeuralNetwork, c: np.ndarray, G: np.ndarray,
         nn: NeuralNetwork object
         c, G: batch of zonotope; [n,q+1,b] = size([c G]),
            where n is the number of dims, q the number of generators, and b the batch size
+           (numpy arrays or torch tensors) - converted to torch internally
         options: parameter for neural network evaluation
         idxLayer: indices of layers that should be evaluated
         
     Returns:
-        c, G: batch of output sets
+        c, G: batch of output sets (torch tensors)
     """
+    # Convert numpy inputs to torch if needed
+    if isinstance(c, np.ndarray):
+        c = torch.tensor(c, dtype=torch.float32)
+    if isinstance(G, np.ndarray):
+        G = torch.tensor(G, dtype=torch.float32)
     # Validate layer indices
     num_layers = len(nn.layers)
     for idx in idxLayer:

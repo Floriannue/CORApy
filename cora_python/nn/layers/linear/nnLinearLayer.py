@@ -37,6 +37,7 @@ Note: Fixed tensor multiplication issues in backpropZonotopeBatch method by repl
 """
 
 import numpy as np
+import torch
 from typing import Any, Dict, List, Optional, Tuple, Union
 from ..nnLayer import nnLayer
 
@@ -81,36 +82,62 @@ class nnLinearLayer(nnLayer):
         # call super class constructor
         super().__init__(name)
         
-        self.W = W.astype(np.float64)
-        self.b = b.astype(np.float64)
+        # Convert to torch tensors - all internal operations use torch
+        if not isinstance(W, torch.Tensor):
+            W = torch.tensor(W, dtype=torch.float32)
+        else:
+            W = W.float()
+        if not isinstance(b, torch.Tensor):
+            b = torch.tensor(b, dtype=torch.float32)
+        else:
+            b = b.float()
+        
+        self.W = W
+        self.b = b
         self.d = []  # approx error (additive)
         self.inputSize = []  # matches MATLAB property
         
         # whether the layer is refinable
         self.is_refinable = False
     
-    def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
         """
         Evaluate numeric input
         
         Args:
-            input_data: Input data
+            input_data: Input data (numpy array or torch tensor) - converted to torch internally
             options: Evaluation options
             
         Returns:
-            r: Output after linear transformation
+            r: Output after linear transformation (torch tensor)
         """
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
+        # Get device and dtype from input
+        device = input_data.device
+        dtype = input_data.dtype
+        
+        # Move weights and bias to same device/dtype as input
+        W = self.W.to(device=device, dtype=dtype)
+        b = self.b.to(device=device, dtype=dtype)
+        
         # linear transformation
         if self._representsa_emptySet(input_data, eps=1e-10):
-            r = self.b * np.ones((1, input_data.shape[1]))
+            r = b * torch.ones((1, input_data.shape[1]), dtype=dtype, device=device)
         else:
-            r = self.W @ input_data + self.b
+            r = W @ input_data + b
         
         # add approx error
         if not self._representsa_emptySet(self.d, eps=1e-10):
             samples = self._randPoint(self.d, r.shape[1])
             # Only add samples if they have the right shape
             if samples.shape[0] > 0 and samples.shape == r.shape:
+                if isinstance(samples, np.ndarray):
+                    samples = torch.tensor(samples, dtype=dtype, device=device)
+                else:
+                    samples = samples.to(device=device, dtype=dtype)
                 r = r + samples
         
         return r
@@ -153,18 +180,29 @@ class nnLinearLayer(nnLayer):
         
         return bounds
     
-    def evaluateSensitivity(self, S: np.ndarray, x: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateSensitivity(self, S, x, options: Dict[str, Any]):
         """
         Evaluate sensitivity
         
         Args:
-            S: Sensitivity matrix with shape (nK, output_dim, bSz) - receives from next layer
+            S: Sensitivity matrix with shape (nK, output_dim, bSz) - receives from next layer (torch tensor)
             x: Input point (unused, kept for interface compatibility)
             options: Evaluation options
             
         Returns:
-            S: Updated sensitivity matrix with shape (nK, input_dim, bSz) - passes to previous layer
+            S: Updated sensitivity matrix with shape (nK, input_dim, bSz) - passes to previous layer (torch tensor)
         """
+        # Convert numpy to torch if needed
+        if isinstance(S, np.ndarray):
+            S = torch.tensor(S, dtype=torch.float32)
+        
+        # Get device and dtype from S
+        device = S.device
+        dtype = S.dtype
+        
+        # Move W to same device/dtype as S
+        W = self.W.to(device=device, dtype=dtype)
+        
         # MATLAB: S = pagemtimes(S,obj.W);
         # During backward propagation of sensitivity:
         # S has shape (nK, output_dim, bSz) where output_dim is this layer's output dimension
@@ -178,20 +216,12 @@ class nnLinearLayer(nnLayer):
             # W has shape (output_dim, input_dim)
             # Result: (nK, input_dim, bSz) - sensitivity to previous layer
             # For each batch b: S[:, :, b] @ W = (nK, output_dim) @ (output_dim, input_dim) = (nK, input_dim)
-            # Use einsum matching pagemtimes implementation: 'ijk,jl->ikl' where:
-            # - i = nK (first dimension of S)
-            # - j = output_dim (second dimension of S, matches W's first dim)
-            # - k = bSz (third dimension of S)
-            # - l = input_dim (second dimension of W)
-            # Result: [i, k, l] = (nK, bSz, input_dim) but we need (nK, input_dim, bSz)
-            # Actually, pagemtimes with 3D @ 2D gives (i, k, l) = (nK, bSz, input_dim)
-            # But we need (nK, input_dim, bSz), so we use 'ijk,jl->ikl' and then transpose
-            # OR: use 'ijk,jl->ilk' to get (nK, input_dim, bSz) directly
-            result = np.einsum('ijk,jl->ilk', S, self.W)
+            # Use torch einsum: 'ijk,jl->ilk'
+            result = torch.einsum('ijk,jl->ilk', S, W)
             return result
         else:
             # Handle 2D case: S @ W (no transpose needed)
-            return S @ self.W
+            return S @ W
     
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 
                             E: np.ndarray, id_: List[int], id_2: List[int], 
@@ -250,39 +280,54 @@ class nnLinearLayer(nnLayer):
         
         return c, G, GI, E, id_, id_2, ind, ind_2
     
-    def evaluateZonotopeBatch(self, c: np.ndarray, G: np.ndarray, 
-                             options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def evaluateZonotopeBatch(self, c, G, 
+                             options: Dict[str, Any]):
         """
         Evaluate zonotope batch (for training)
         
         Args:
-            c: Center
-            G: Generators
+            c: Center (numpy array or torch tensor) - converted to torch internally
+            G: Generators (numpy array or torch tensor) - converted to torch internally
             options: Evaluation options
             
         Returns:
-            Tuple of (c, G) results
+            Tuple of (c, G) results (torch tensors)
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(c, np.ndarray):
+            c = torch.tensor(c, dtype=torch.float32)
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
+        
+        device = c.device
+        dtype = c.dtype
+        W = self.W.to(device=device, dtype=dtype)
+        b = self.b.to(device=device, dtype=dtype)
         n, _, batchSize = G.shape
         
         if options.get('nn', {}).get('interval_center', False):
             cl = c[:, 0, :].reshape(n, batchSize)
             cu = c[:, 1, :].reshape(n, batchSize)
             # Ensure lower bounds are less than upper bounds
-            cl, cu = np.minimum(cl, cu), np.maximum(cl, cu)
-            c_result = self.evaluateInterval(Interval(cl, cu), options)
-            c = np.stack([c_result.inf, c_result.sup], axis=1)
+            cl, cu = torch.minimum(cl, cu), torch.maximum(cl, cu)
+            # Convert to numpy for Interval (Interval class uses numpy)
+            cl_np = cl.cpu().numpy()
+            cu_np = cu.cpu().numpy()
+            c_result = self.evaluateInterval(Interval(cl_np, cu_np), options)
+            # Convert back to torch
+            c = torch.stack([torch.tensor(c_result.inf, dtype=dtype, device=device), 
+                            torch.tensor(c_result.sup, dtype=dtype, device=device)], dim=1)
         else:
             # MATLAB: c = pagemtimes(obj.W, c) + obj.b;
             # Use einsum for page-wise matrix multiplication: W @ c for each batch
             if c.ndim == 3:
                 # c is (n_in, 1, batch), W is (n_out, n_in), result should be (n_out, 1, batch)
                 # einsum 'ij,jkb->ikb' performs W @ c[:,:,b] for each b
-                c = np.einsum('ij,jkb->ikb', self.W, c) + self.b.reshape(self.b.shape[0], self.b.shape[1], 1)
+                c = torch.einsum('ij,jkb->ikb', W, c) + b.reshape(b.shape[0], b.shape[1], 1)
             else:
                 # c is (n_in, batch), W is (n_out, n_in), result should be (n_out, batch)
                 # But we need to return (n_out, 1, batch) to match MATLAB format
-                c = self.W @ c + self.b
+                c = W @ c + b
                 # Reshape to (n_out, 1, batch) to match expected 3D format
                 if c.ndim == 2:
                     # Add middle dimension: (n_out, batch) -> (n_out, 1, batch)
@@ -292,11 +337,11 @@ class nnLinearLayer(nnLayer):
         if G.ndim == 3:
             # G is (n_in, q, batch), W is (n_out, n_in), result should be (n_out, q, batch)
             # einsum 'ij,jkb->ikb' performs W @ G[:,:,b] for each b
-            G = np.einsum('ij,jkb->ikb', self.W, G)
+            G = torch.einsum('ij,jkb->ikb', W, G)
         else:
             # G is (n_in, q), W is (n_out, n_in), result should be (n_out, q)
             # But we need to return (n_out, q, 1) to match expected 3D format
-            G = self.W @ G
+            G = W @ G
             # Reshape to (n_out, q, 1) to match expected 3D format
             if G.ndim == 2:
                 # Add batch dimension: (n_out, q) -> (n_out, q, 1)

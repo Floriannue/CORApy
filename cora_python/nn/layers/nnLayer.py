@@ -33,6 +33,7 @@ from abc import ABC, abstractmethod
 import copy
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
+import torch
 
 from cora_python.contSet.interval import Interval
 
@@ -180,30 +181,30 @@ class nnLayer(ABC):
         pass
     
     @abstractmethod
-    def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
         """
         Abstract method for numeric evaluation
         
         Args:
-            input_data: Input data
+            input_data: Input data (numpy array or torch tensor) - converted to torch internally
             options: Evaluation options
             
         Returns:
-            r: Numeric evaluation result
+            r: Numeric evaluation result (torch tensor)
         """
         pass
     
-    def evaluateSensitivity(self, S: np.ndarray, x: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateSensitivity(self, S, x, options: Dict[str, Any]):
         """
         Evaluate sensitivity (default implementation throws error)
         
         Args:
-            S: Sensitivity matrix
-            x: Input point
+            S: Sensitivity matrix (torch tensor)
+            x: Input point (torch tensor)
             options: Evaluation options
             
         Returns:
-            S: Sensitivity result
+            S: Sensitivity result (torch tensor)
             
         Raises:
             NotImplementedError: If sensitivity is not supported

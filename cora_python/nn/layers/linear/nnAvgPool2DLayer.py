@@ -35,6 +35,7 @@ Translation date: 2025-11-25
 """
 
 import numpy as np
+import torch
 from typing import List, Optional
 from .nnConv2DLayer import nnConv2DLayer
 
@@ -106,8 +107,8 @@ class nnAvgPool2DLayer(nnConv2DLayer):
         # Each channel is pooled independently
         # W should be [p_h, p_w, in_c, out_c] where W[:, :, i, i] = 1/(p_h*p_w) for all spatial positions
         # and W[:, :, i, j] = 0 for i != j
-        # Initialize with zeros
-        self.W = np.zeros((p_h, p_w, in_c, in_c), dtype=np.float64)
+        # Initialize with zeros - convert to torch
+        self.W = torch.zeros((p_h, p_w, in_c, in_c), dtype=torch.float32)
         # Set diagonal blocks: for each channel i, set all spatial positions to 1/(p_h*p_w)
         pool_value = 1.0 / (p_h * p_w)
         for i in range(in_c):
@@ -115,7 +116,7 @@ class nnAvgPool2DLayer(nnConv2DLayer):
         
         # Update bias to match number of output channels (in_c == out_c for AvgPool)
         # conv2d expects b to have size matching W.shape[3] (number of output channels)
-        self.b = np.zeros(in_c, dtype=np.float64)
+        self.b = torch.zeros(in_c, dtype=torch.float32)
         
         # Compute output size using parent method
         outputSize = super().getOutputSize(imgSize)

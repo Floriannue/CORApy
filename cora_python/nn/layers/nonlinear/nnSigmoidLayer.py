@@ -5,6 +5,7 @@ This class implements a sigmoid activation layer for neural networks.
 """
 
 import numpy as np
+import torch
 from typing import Any, Dict
 from .nnActivationLayer import nnActivationLayer
 
@@ -56,19 +57,23 @@ class nnSigmoidLayer(nnActivationLayer):
             {'l': 10, 'u': np.inf, 'p': [0.0000000000000000, 0.9999773010656487], 'd': 0.0000226989343513}
         ]
     
-    def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
         """
         Evaluate numeric input
         
         Args:
-            input_data: Input data
+            input_data: Input data (numpy array or torch tensor) - converted to torch internally
             options: Evaluation options
             
         Returns:
-            r: Output after sigmoid activation
+            r: Output after sigmoid activation (torch tensor)
         """
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
         # Use tanh for numeric stability
-        r = np.tanh(input_data/2) / 2 + 0.5
+        r = torch.tanh(input_data/2) / 2 + 0.5
         return r
     
     def getDf(self, i):
@@ -212,11 +217,15 @@ class nnSigmoidLayer(nnActivationLayer):
         Evaluate the sigmoid function numerically.
         
         Args:
-            input_data: input data
+            input_data: input data (numpy array or torch tensor) - converted to torch internally
             options: options dictionary
             
         Returns:
-            Output of the sigmoid function
+            Output of the sigmoid function (torch tensor)
         """
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
         # Use tanh for numeric stability
-        return np.tanh(input_data/2) / 2 + 0.5
+        return torch.tanh(input_data/2) / 2 + 0.5

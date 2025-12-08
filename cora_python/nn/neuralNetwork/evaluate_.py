@@ -28,6 +28,7 @@ Last revision: ---
 """
 
 import numpy as np
+import torch
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 # Import nnHelper methods for proper integration
@@ -59,7 +60,8 @@ def evaluate_(obj: 'NeuralNetwork', input_data: Any, options: Optional[Dict[str,
     
     # evaluate ----------------------------------------------------------------
     
-    if isinstance(input_data, np.ndarray):  # numeric ---
+    # Check if input is numpy array or torch tensor
+    if isinstance(input_data, (np.ndarray, torch.Tensor)):  # numeric ---
         r = aux_evaluateNumeric(obj, input_data, options, idxLayer)
     
     elif hasattr(input_data, 'inf') and hasattr(input_data, 'sup'):  # interval ---
@@ -82,20 +84,24 @@ def evaluate_(obj: 'NeuralNetwork', input_data: Any, options: Optional[Dict[str,
 
 # Auxiliary functions -----------------------------------------------------
 
-def aux_evaluateNumeric(obj: 'NeuralNetwork', input_data: np.ndarray, options: Dict[str, Any], 
-                        idxLayer: List[int]) -> np.ndarray:
+def aux_evaluateNumeric(obj: 'NeuralNetwork', input_data, options: Dict[str, Any], 
+                        idxLayer: List[int]):
     """
     Evaluate numeric input.
     
     Args:
         obj: Neural network object
-        input_data: Numeric input data
+        input_data: Numeric input data (numpy array or torch tensor) - converted to torch internally
         options: Evaluation options
         idxLayer: Layer indices to evaluate
         
     Returns:
-        Evaluation result
+        Evaluation result (torch tensor)
     """
+    # Convert numpy input to torch if needed
+    if isinstance(input_data, np.ndarray):
+        input_data = torch.tensor(input_data, dtype=torch.float32)
+    
     r = input_data
     for k in idxLayer:
         if 'nn' not in options:
@@ -196,26 +202,50 @@ def aux_evaluatePolyZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dic
         
         print(f"DEBUG: aux_evaluatePolyZonotope - After extraction: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}, E shape: {E.shape}")
         
+        # Convert inputs to torch if they're numpy (for internal operations)
+        # Note: PolyZonotope class may use numpy, but we'll work with torch internally where possible
+        if isinstance(c, np.ndarray):
+            c = torch.tensor(c, dtype=torch.float32)
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
+        if isinstance(GI, np.ndarray):
+            GI = torch.tensor(GI, dtype=torch.float32)
+        if isinstance(E, np.ndarray):
+            E = torch.tensor(E, dtype=torch.long)
+        if isinstance(id_, np.ndarray):
+            id_ = torch.tensor(id_, dtype=torch.long)
+        
+        # Get device and dtype
+        device = c.device if isinstance(c, torch.Tensor) else torch.device('cpu')
+        dtype = c.dtype if isinstance(c, torch.Tensor) else torch.float32
+        
         # make sure all properties have correct size
-        if G.size == 0:
-            G = np.zeros((c.shape[0], 0))
-            E = np.zeros((0, 0))
-            id_ = np.array([])
+        if G.numel() == 0:
+            G = torch.zeros((c.shape[0], 0), dtype=dtype, device=device)
+            E = torch.zeros((0, 0), dtype=torch.long, device=device)
+            id_ = torch.tensor([], dtype=torch.long, device=device)
             id_max = 1
         else:
-            id_max = int(np.max(id_)) if id_.size > 0 else 0
+            id_max = int(torch.max(id_).item()) if id_.numel() > 0 else 0
             
-        if GI.size == 0:
-            GI = np.zeros((c.shape[0], 0))
+        if GI.numel() == 0:
+            GI = torch.zeros((c.shape[0], 0), dtype=dtype, device=device)
         
         # find all even exponents, also save others
         # (TL: this was done for speed, not sure how important it really is...)
-        if E.size > 0:
-            ind = np.where(np.prod(np.ones_like(E) - (E % 2), axis=0) == 1)[0]
-            ind_ = np.setdiff1d(np.arange(E.shape[1]), ind)
+        if E.numel() > 0:
+            # Use torch operations
+            ones_like_E = torch.ones_like(E, dtype=torch.long)
+            prod_result = torch.prod(ones_like_E - (E % 2), dim=0)
+            ind = torch.where(prod_result == 1)[0]
+            all_indices = torch.arange(E.shape[1], device=device)
+            # Use torch operations for setdiff1d equivalent
+            mask = torch.ones(E.shape[1], dtype=torch.bool, device=device)
+            mask[ind] = False
+            ind_ = all_indices[mask]
         else:
-            ind = np.array([], dtype=int)
-            ind_ = np.array([], dtype=int)
+            ind = torch.tensor([], dtype=torch.long, device=device)
+            ind_ = torch.tensor([], dtype=torch.long, device=device)
         
         if options.get('nn', {}).get('order_reduction_sensitivity', False):
             # set sensitivity in each layer (used for order reduction)
@@ -228,14 +258,40 @@ def aux_evaluatePolyZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dic
             options['nn']['layer_k'] = k
             layer_k = obj.layers[k]  # Python uses 0-based indexing, idxLayer is already 0-based
             print(f"DEBUG: aux_evaluatePolyZonotope - Before layer {k}: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
-            c, G, GI, E, id_, id_max, ind, ind_ = layer_k.evaluatePolyZonotope(
-                c, G, GI, E, id_, id_max, ind, ind_, options)
+            
+            # Convert to numpy if layer expects numpy (check if layer's evaluatePolyZonotope signature expects numpy)
+            # For now, convert torch to numpy before passing to layer, then convert back
+            c_np = c.cpu().numpy() if isinstance(c, torch.Tensor) else c
+            G_np = G.cpu().numpy() if isinstance(G, torch.Tensor) else G
+            GI_np = GI.cpu().numpy() if isinstance(GI, torch.Tensor) else GI
+            E_np = E.cpu().numpy() if isinstance(E, torch.Tensor) else E
+            id_np = id_.cpu().numpy() if isinstance(id_, torch.Tensor) else id_
+            ind_np = ind.cpu().numpy() if isinstance(ind, torch.Tensor) else ind
+            ind__np = ind_.cpu().numpy() if isinstance(ind_, torch.Tensor) else ind_
+            
+            c_np, G_np, GI_np, E_np, id_np, id_max, ind_np, ind__np = layer_k.evaluatePolyZonotope(
+                c_np, G_np, GI_np, E_np, id_np, id_max, ind_np, ind__np, options)
+            
+            # Convert back to torch for internal operations
+            c = torch.tensor(c_np, dtype=dtype, device=device) if not isinstance(c_np, torch.Tensor) else c_np
+            G = torch.tensor(G_np, dtype=dtype, device=device) if not isinstance(G_np, torch.Tensor) else G_np
+            GI = torch.tensor(GI_np, dtype=dtype, device=device) if not isinstance(GI_np, torch.Tensor) else GI_np
+            E = torch.tensor(E_np, dtype=torch.long, device=device) if not isinstance(E_np, torch.Tensor) else E_np
+            id_ = torch.tensor(id_np, dtype=torch.long, device=device) if not isinstance(id_np, torch.Tensor) else id_np
+            ind = torch.tensor(ind_np, dtype=torch.long, device=device) if not isinstance(ind_np, torch.Tensor) else ind_np
+            ind_ = torch.tensor(ind__np, dtype=torch.long, device=device) if not isinstance(ind__np, torch.Tensor) else ind__np
+            
             print(f"DEBUG: aux_evaluatePolyZonotope - After layer {k}: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
             options = aux_updateOptions(obj, options, 'polyZonotope', k, layer_k)
         
-        # build result
+        # build result - convert back to numpy for PolyZonotope constructor
         from cora_python.contSet.polyZonotope.polyZonotope import PolyZonotope
-        r = PolyZonotope(c, G, GI, E, id_)
+        c_final = c.cpu().numpy() if isinstance(c, torch.Tensor) else c
+        G_final = G.cpu().numpy() if isinstance(G, torch.Tensor) else G
+        GI_final = GI.cpu().numpy() if isinstance(GI, torch.Tensor) else GI
+        E_final = E.cpu().numpy() if isinstance(E, torch.Tensor) else E
+        id_final = id_.cpu().numpy() if isinstance(id_, torch.Tensor) else id_
+        r = PolyZonotope(c_final, G_final, GI_final, E_final, id_final)
         
     except MemoryError:
         raise MemoryError("Out of memory while processing layer. Try to set options.nn.num_generators to a lower value.")

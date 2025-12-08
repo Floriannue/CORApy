@@ -33,6 +33,7 @@ Last revision: 10-August-2022 (renamed)
 """
 
 import numpy as np
+import torch
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from .nnActivationLayer import nnActivationLayer
 from cora_python.nn.nnHelper.minMaxDiffPoly import minMaxDiffPoly
@@ -65,18 +66,22 @@ class nnLeakyReLULayer(nnActivationLayer):
     
     # evaluate ----------------------------------------------------------------
     
-    def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
         """
         Evaluate numeric input
         
         Args:
-            input_data: Input data
+            input_data: Input data (numpy array or torch tensor) - converted to torch internally
             options: Evaluation options
             
         Returns:
-            r: Output after LeakyReLU activation
+            r: Output after LeakyReLU activation (torch tensor)
         """
-        r = np.maximum(self.alpha * input_data, input_data)
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
+        r = torch.maximum(self.alpha * input_data, input_data)
         return r
     
     # Auxiliary functions -----------------------------------------------------

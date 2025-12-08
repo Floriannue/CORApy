@@ -29,6 +29,7 @@ Last revision: 10-August-2022 (renamed)
 """
 
 import numpy as np
+import torch
 from typing import Any, Dict, List, Optional, Tuple, Union
 from .nnLeakyReLULayer import nnLeakyReLULayer
 from cora_python.g.functions.matlab.converter.CORAlinprog import CORAlinprog
@@ -55,18 +56,22 @@ class nnReLULayer(nnLeakyReLULayer):
     
     # evaluate ----------------------------------------------------------------
     
-    def evaluateNumeric(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
         """
         Evaluate numeric input
         
         Args:
-            input_data: Input data
+            input_data: Input data (numpy array or torch tensor) - converted to torch internally
             options: Evaluation options
             
         Returns:
-            r: Output after ReLU activation
+            r: Output after ReLU activation (torch tensor)
         """
-        r = np.maximum(0, input_data)
+        # Convert numpy input to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
+        r = torch.maximum(torch.tensor(0.0, dtype=input_data.dtype, device=input_data.device), input_data)
         return r
     
     def evaluateConZonotopeNeuron(self, c: np.ndarray, G: np.ndarray, C: np.ndarray,
