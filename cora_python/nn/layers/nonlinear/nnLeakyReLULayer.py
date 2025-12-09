@@ -94,28 +94,36 @@ class nnLeakyReLULayer(nnActivationLayer):
             i: Derivative order
             
         Returns:
-            df_i: Derivative function
+            df_i: Derivative function (torch-compatible)
         """
         if i == 0:
             df_i = self.f
         elif i == 1:
-            df_i = lambda x: 1 * (x > 0) + self.alpha * (x <= 0)
+            def leaky_relu_derivative(x):
+                # x is already torch (df is internal to nn)
+                return torch.where(x > 0, torch.tensor(1.0, dtype=x.dtype, device=x.device), 
+                                 torch.tensor(self.alpha, dtype=x.dtype, device=x.device))
+            df_i = leaky_relu_derivative
         else:
-            df_i = lambda x: 0
+            def zero_derivative(x):
+                # x is already torch (df is internal to nn)
+                return torch.zeros_like(x)
+            df_i = zero_derivative
         
         return df_i
     
-    def _df2(self, x: np.ndarray) -> np.ndarray:
+    def _df2(self, x):
         """
-        Second derivative of LeakyReLU (always 0)
+        Second derivative of LeakyReLU (always 0) - torch only (internal to nn)
         
         Args:
-            x: Input values
+            x: Input values (torch tensor)
             
         Returns:
-            Second derivative values (all zeros)
+            Second derivative values (all zeros, torch tensor)
         """
-        return np.zeros_like(x)
+        # x is already torch (internal to nn)
+        return torch.zeros_like(x)
     
     def getDerBounds(self, l: np.ndarray, u: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -183,41 +191,64 @@ class nnLeakyReLULayer(nnActivationLayer):
         
         return coeffs, d
     
-    def computeApproxError(self, l: np.ndarray, u: np.ndarray, coeffs: np.ndarray) -> Tuple[np.ndarray, float]:
+    def computeApproxError(self, l: Union[np.ndarray, torch.Tensor], u: Union[np.ndarray, torch.Tensor], 
+                          coeffs: Union[np.ndarray, torch.Tensor]) -> Tuple[Union[np.ndarray, torch.Tensor], float]:
         """
-        Compute approximation error
+        Compute approximation error - works with torch tensors internally
         
         Args:
-            l: Lower bounds
-            u: Upper bounds
-            coeffs: Polynomial coefficients
+            l: Lower bounds (torch tensor expected internally)
+            u: Upper bounds (torch tensor expected internally)
+            coeffs: Polynomial coefficients (torch tensor expected internally)
             
         Returns:
-            Tuple of (coeffs, d) updated coefficients and error bound
+            Tuple of (coeffs, d) updated coefficients and error bound (coeffs as torch tensor)
         """
-        # error can be computed exactly by checking each linear part
-        # according to [2, Sec. 3.2]
-        
-        # Convert coeffs to numpy array if it's a list
+        # Convert to torch if needed (internal to nn, so should already be torch)
         if isinstance(coeffs, list):
-            coeffs = np.array(coeffs)
+            coeffs = torch.tensor(coeffs, dtype=torch.float32)
+        elif isinstance(coeffs, np.ndarray):
+            coeffs = torch.tensor(coeffs, dtype=torch.float32)
         
-        # Make a copy to avoid modifying original
-        coeffs = coeffs.copy()
+        if isinstance(l, np.ndarray):
+            l = torch.tensor(l, dtype=torch.float32)
+        if isinstance(u, np.ndarray):
+            u = torch.tensor(u, dtype=torch.float32)
+        
+        # Make a copy to avoid modifying original - use torch clone
+        if isinstance(coeffs, torch.Tensor):
+            coeffs = coeffs.clone()
+        else:
+            coeffs = coeffs.copy()
+        
+        # Convert l, u to scalars if needed
+        l_val = l.item() if isinstance(l, torch.Tensor) and l.numel() == 1 else (float(l) if isinstance(l, (int, float)) else l)
+        u_val = u.item() if isinstance(u, torch.Tensor) and u.numel() == 1 else (float(u) if isinstance(u, (int, float)) else u)
         
         # x < 0: p(x) - alpha*x
         # MATLAB: minMaxDiffPoly(coeffs,[obj.alpha,0],l,0)
-        diffl1, diffu1 = minMaxDiffPoly(coeffs, np.array([self.alpha, 0]), l, 0)
+        # minMaxDiffPoly now handles torch/numpy conversion internally
+        # Use torch internally - minMaxDiffPoly will convert if needed
+        alpha_array = torch.tensor([self.alpha, 0], dtype=torch.float32)
+        diffl1, diffu1 = minMaxDiffPoly(coeffs, alpha_array, l_val, 0)
         
         # x > 0: p(x) - 1*x
         # MATLAB: minMaxDiffPoly(coeffs,[1,0],0,u)
-        diffl2, diffu2 = minMaxDiffPoly(coeffs, np.array([1, 0]), 0, u)
+        # Use torch internally - minMaxDiffPoly will convert if needed
+        ones_array = torch.tensor([1, 0], dtype=torch.float32)
+        diffl2, diffu2 = minMaxDiffPoly(coeffs, ones_array, 0, u_val)
         
         # compute final approx error
         diffl = min(diffl1, diffl2)
         diffu = max(diffu1, diffu2)
         diffc = (diffu + diffl) / 2
-        coeffs[-1] = coeffs[-1] - diffc
+        
+        # Update coeffs - handle both torch and numpy
+        if isinstance(coeffs, torch.Tensor):
+            coeffs[-1] = coeffs[-1] - diffc
+        else:
+            coeffs[-1] = coeffs[-1] - diffc
+        
         d = diffu - diffc  # error is radius then.
         
         return coeffs, d
@@ -233,20 +264,25 @@ class nnLeakyReLULayer(nnActivationLayer):
         fieldStruct['alpha'] = self.alpha
         return fieldStruct
     
-    def computeExtremePointsBatch(self, m: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def computeExtremePointsBatch(self, m: Union[np.ndarray, torch.Tensor], options: Dict[str, Any]) -> Tuple[Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor]]:
         """
-        Compute extreme points batch
+        Compute extreme points batch - works with torch tensors internally
         
         Args:
-            m: Input data
+            m: Input data (torch tensor expected internally)
             options: Options
             
         Returns:
-            Tuple of (xs, dxsdm) extreme points and derivatives
+            Tuple of (xs, dxsdm) extreme points and derivatives (torch tensors)
         """
+        # Convert to torch if needed (internal to nn, so should already be torch)
+        if isinstance(m, np.ndarray):
+            m = torch.tensor(m, dtype=torch.float32)
+        
         # MATLAB: xs = zeros(size(m),'like',m); dxsdm = xs;
-        xs = np.zeros_like(m)
-        dxsdm = np.zeros_like(m)
+        # Use torch internally
+        xs = torch.zeros_like(m)
+        dxsdm = torch.zeros_like(m)
         return xs, dxsdm
     
     def computeApproxPolyCustom(self, l: np.ndarray, u: np.ndarray, order: int, poly_method: str) -> Tuple[np.ndarray, float]:

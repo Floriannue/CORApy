@@ -67,9 +67,26 @@ class nnLinearLayer(nnLayer):
         if b is None:
             b = 0
         
+        # Convert inputs to torch immediately - all internal operations use torch
+        if not isinstance(W, torch.Tensor):
+            W = torch.tensor(W, dtype=torch.float32)
+        else:
+            W = W.float()
+        
         # check dimensions
         if np.isscalar(b) or (isinstance(b, np.ndarray) and b.size == 1):
-            b = b * np.ones((W.shape[0], 1))
+            # Convert to torch and create column vector
+            if isinstance(b, np.ndarray):
+                b_torch = torch.tensor(b, dtype=torch.float32)
+            else:
+                b_torch = torch.tensor(float(b), dtype=torch.float32)
+            b = b_torch * torch.ones((W.shape[0], 1), dtype=torch.float32)
+        else:
+            # Convert b to torch if needed
+            if not isinstance(b, torch.Tensor):
+                b = torch.tensor(b, dtype=torch.float32)
+            else:
+                b = b.float()
         
         # check that b is a column vector
         if b.shape[1] != 1:
@@ -81,16 +98,6 @@ class nnLinearLayer(nnLayer):
         
         # call super class constructor
         super().__init__(name)
-        
-        # Convert to torch tensors - all internal operations use torch
-        if not isinstance(W, torch.Tensor):
-            W = torch.tensor(W, dtype=torch.float32)
-        else:
-            W = W.float()
-        if not isinstance(b, torch.Tensor):
-            b = torch.tensor(b, dtype=torch.float32)
-        else:
-            b = b.float()
         
         self.W = W
         self.b = b
@@ -160,12 +167,36 @@ class nnLinearLayer(nnLayer):
         mu = (bounds.sup + bounds.inf) / 2
         r = (bounds.sup - bounds.inf) / 2
         
+        # Convert bounds to torch if needed
+        if isinstance(bounds.inf, np.ndarray):
+            bounds_inf = torch.tensor(bounds.inf, dtype=torch.float32)
+        else:
+            bounds_inf = bounds.inf
+        if isinstance(bounds.sup, np.ndarray):
+            bounds_sup = torch.tensor(bounds.sup, dtype=torch.float32)
+        else:
+            bounds_sup = bounds.sup
+        
+        # Compute center and radius.
+        mu = (bounds_sup + bounds_inf) / 2
+        r = (bounds_sup - bounds_inf) / 2
+        
+        device = mu.device if isinstance(mu, torch.Tensor) else torch.device('cpu')
+        dtype = mu.dtype if isinstance(mu, torch.Tensor) else torch.float32
+        
+        W = self.W.to(device=device, dtype=dtype)
+        b = self.b.to(device=device, dtype=dtype)
+        
         # Compute linear relaxation.
-        mu = self.W @ mu + self.b
-        r = np.abs(self.W) @ r
+        mu = W @ mu + b
+        r = torch.abs(W) @ r
+        
+        # Convert back to numpy only for Interval constructor (external interface)
+        mu_np = mu.cpu().numpy() if isinstance(mu, torch.Tensor) else mu
+        r_np = r.cpu().numpy() if isinstance(r, torch.Tensor) else r
         
         # Convert center and radius back to lower and upper bound.
-        bounds = Interval(mu - r, mu + r)
+        bounds = Interval(mu_np - r_np, mu_np + r_np)
         
         # add approx error
         if not self._representsa_emptySet(self.d, eps=1e-10):
@@ -388,87 +419,115 @@ class nnLinearLayer(nnLayer):
         
         return c, G, C, d, l, u
     
-    def backpropNumeric(self, input_data: np.ndarray, grad_out: np.ndarray, 
-                        options: Dict[str, Any]) -> np.ndarray:
+    def backpropNumeric(self, input_data, grad_out, 
+                        options: Dict[str, Any]):
         """
         Backpropagate numeric gradients
         
         Args:
-            input_data: Input data
-            grad_out: Output gradients
+            input_data: Input data (numpy array or torch tensor) - converted to torch internally
+            grad_out: Output gradients (numpy array or torch tensor) - converted to torch internally
             options: Backpropagation options
             
         Returns:
-            grad_in: Input gradients
+            grad_in: Input gradients (torch tensor)
         """
+        # Convert inputs to torch if needed
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        if isinstance(grad_out, np.ndarray):
+            grad_out = torch.tensor(grad_out, dtype=torch.float32)
+        
+        device = grad_out.device if isinstance(grad_out, torch.Tensor) else torch.device('cpu')
+        dtype = grad_out.dtype if isinstance(grad_out, torch.Tensor) else torch.float32
+        
+        W = self.W.to(device=device, dtype=dtype)
+        
         # update weights and bias
         self.updateGrad('W', grad_out @ input_data.T, options)
-        self.updateGrad('b', np.sum(grad_out, axis=1, keepdims=True), options)
+        self.updateGrad('b', torch.sum(grad_out, dim=1, keepdim=True), options)
         
         # backprop gradient
-        grad_in = self.W.T @ grad_out
+        grad_in = W.T @ grad_out
+        
+        # Return torch tensor - downstream code should handle torch
         return grad_in
     
-    def backpropIntervalBatch(self, l: np.ndarray, u: np.ndarray, gl: np.ndarray, 
-                             gu: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def backpropIntervalBatch(self, l, u, gl, 
+                             gu, options: Dict[str, Any]):
         """
         Backpropagate interval batch (see Gowal et al. 2019)
         
         Args:
-            l: Lower bounds
-            u: Upper bounds
-            gl: Lower bound gradients
-            gu: Upper bound gradients
+            l: Lower bounds (numpy array or torch tensor) - converted to torch internally
+            u: Upper bounds (numpy array or torch tensor) - converted to torch internally
+            gl: Lower bound gradients (numpy array or torch tensor) - converted to torch internally
+            gu: Upper bound gradients (numpy array or torch tensor) - converted to torch internally
             options: Backpropagation options
             
         Returns:
-            Tuple of (gl, gu) results
+            Tuple of (gl, gu) results (torch tensors)
         """
+        # Convert inputs to torch if needed
+        if isinstance(l, np.ndarray):
+            l = torch.tensor(l, dtype=torch.float32)
+        if isinstance(u, np.ndarray):
+            u = torch.tensor(u, dtype=torch.float32)
+        if isinstance(gl, np.ndarray):
+            gl = torch.tensor(gl, dtype=torch.float32)
+        if isinstance(gu, np.ndarray):
+            gu = torch.tensor(gu, dtype=torch.float32)
+        
+        device = gl.device if isinstance(gl, torch.Tensor) else torch.device('cpu')
+        dtype = gl.dtype if isinstance(gl, torch.Tensor) else torch.float32
+        
+        W = self.W.to(device=device, dtype=dtype)
+        
         mu = (u + l) / 2
         r = (u - l) / 2
         
         # Ensure dimensions match for broadcasting
-        if gl.shape[0] != self.W.shape[0]:
+        if gl.shape[0] != W.shape[0]:
             # Pad or truncate gl to match W dimensions
-            if gl.shape[0] < self.W.shape[0]:
+            if gl.shape[0] < W.shape[0]:
                 # Pad with zeros
-                gl_padded = np.zeros((self.W.shape[0], gl.shape[1]))
+                gl_padded = torch.zeros((W.shape[0], gl.shape[1]), dtype=dtype, device=device)
                 gl_padded[:gl.shape[0], :] = gl
                 gl = gl_padded
             else:
                 # Truncate
-                gl = gl[:self.W.shape[0], :]
+                gl = gl[:W.shape[0], :]
         
-        if gu.shape[0] != self.W.shape[0]:
+        if gu.shape[0] != W.shape[0]:
             # Pad or truncate gu to match W dimensions
-            if gu.shape[0] < self.W.shape[0]:
+            if gu.shape[0] < W.shape[0]:
                 # Pad with zeros
-                gu_padded = np.zeros((self.W.shape[0], gu.shape[1]))
+                gu_padded = torch.zeros((W.shape[0], gu.shape[1]), dtype=dtype, device=device)
                 gu_padded[:gu.shape[0], :] = gu
                 gu = gu_padded
             else:
                 # Truncate
-                gu = gu[:self.W.shape[0], :]
+                gu = gu[:W.shape[0], :]
         
         # update weights and bias
         # Ensure mu and r have correct dimensions for matrix operations
-        if mu.shape[0] != self.W.shape[1]:
+        if mu.shape[0] != W.shape[1]:
             # Pad or truncate mu to match W input dimensions
-            if mu.shape[0] < self.W.shape[1]:
-                mu_padded = np.zeros((self.W.shape[1], mu.shape[1]))
+            if mu.shape[0] < W.shape[1]:
+                mu_padded = torch.zeros((W.shape[1], mu.shape[1]), dtype=dtype, device=device)
                 mu_padded[:mu.shape[0], :] = mu
                 mu = mu_padded
             else:
-                mu = mu[:self.W.shape[1], :]
+                mu = mu[:W.shape[1], :]
         
-        if r.shape[0] != self.W.shape[1]:
+        if r.shape[0] != W.shape[1]:
             # Pad or truncate r to match W input dimensions
-            if r.shape[0] < self.W.shape[1]:
-                r_padded = np.zeros((self.W.shape[1], r.shape[1]))
+            if r.shape[0] < W.shape[1]:
+                r_padded = torch.zeros((W.shape[1], r.shape[1]), dtype=dtype, device=device)
                 r_padded[:r.shape[0], :] = r
                 r = r_padded
             else:
-                r = r[:self.W.shape[1], :]
+                r = r[:W.shape[1], :]
         
         # MATLAB: obj.updateGrad('W', (gu + gl)*mu' + (gu - gl)*r'.*sign(obj.W), options);
         # First compute (gu - gl)*r' (matrix multiplication), then element-wise multiply with sign(W)
@@ -476,85 +535,104 @@ class nnLinearLayer(nnLayer):
         # Result is (output_dim, input_dim)
         grad_W_term1 = (gu + gl) @ mu.T  # (output_dim, input_dim)
         grad_W_term2 = (gu - gl) @ r.T   # (output_dim, input_dim)
-        grad_W_term2 = grad_W_term2 * np.sign(self.W)  # Element-wise multiplication
+        grad_W_term2 = grad_W_term2 * torch.sign(W)  # Element-wise multiplication
         self.updateGrad('W', grad_W_term1 + grad_W_term2, options)
-        self.updateGrad('b', np.sum(gu + gl, axis=1, keepdims=True), options)
+        self.updateGrad('b', torch.sum(gu + gl, dim=1, keepdim=True), options)
         
         # backprop gradient
-        dmu = self.W.T @ (gu + gl) / 2
-        dr = np.abs(self.W.T) @ (gu - gl) / 2
+        dmu = W.T @ (gu + gl) / 2
+        dr = torch.abs(W.T) @ (gu - gl) / 2
         gl = dmu - dr
         gu = dmu + dr
         
+        # Return torch tensors - downstream code should handle torch
         return gl, gu
     
-    def backpropZonotopeBatch(self, c: np.ndarray, G: np.ndarray, gc: np.ndarray, 
-                              gG: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def backpropZonotopeBatch(self, c, G, gc, 
+                              gG, options: Dict[str, Any]):
         """
         Backpropagate zonotope batch
         
         Args:
-            c: Center
-            G: Generators
-            gc: Center gradients
-            gG: Generator gradients
+            c: Center (numpy array or torch tensor) - converted to torch internally
+            G: Generators (numpy array or torch tensor) - converted to torch internally
+            gc: Center gradients (numpy array or torch tensor) - converted to torch internally
+            gG: Generator gradients (numpy array or torch tensor) - converted to torch internally
             options: Backpropagation options
             
         Returns:
-            Tuple of (gc, gG) results
+            Tuple of (gc, gG) results (torch tensors)
         """
+        # Convert numpy inputs to torch if needed
+        if isinstance(c, np.ndarray):
+            c = torch.tensor(c, dtype=torch.float32)
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
+        if isinstance(gc, np.ndarray):
+            gc = torch.tensor(gc, dtype=torch.float32)
+        if isinstance(gG, np.ndarray):
+            gG = torch.tensor(gG, dtype=torch.float32)
+        
+        device = gc.device if isinstance(gc, torch.Tensor) else torch.device('cpu')
+        dtype = gc.dtype if isinstance(gc, torch.Tensor) else torch.float32
+        
         n, numGen, batchSize = G.shape
         
         # obtain indices of active generators
         genIds = self.backprop.get('store', {}).get('genIds', slice(None))
+        
+        # Move W to same device/dtype
+        W = self.W.to(device=device, dtype=dtype)
         
         zonotope_weight_update = options.get('nn', {}).get('train', {}).get('zonotope_weight_update', 'center')
         
         if zonotope_weight_update == 'center':
             # use the center to update the weights and biases
             weightsUpdate = gc @ c.T
-            biasUpdate = np.sum(gc, axis=1, keepdims=True)
+            biasUpdate = torch.sum(gc, dim=1, keepdim=True)
             
         elif zonotope_weight_update == 'sample':
             # sample random point factors
-            beta = 2 * np.random.rand(numGen, 1, batchSize).astype(c.dtype) - 1
+            beta = 2 * torch.rand(numGen, 1, batchSize, dtype=dtype, device=device) - 1
             
             # compute gradient samples
             # MATLAB: grads = gc + reshape(pagemtimes(gG,beta),size(c));
-            grads = gc + np.einsum('ijk,lkm->im', gG, beta).reshape(gc.shape)
+            # Use torch.einsum for batch matrix multiplication
+            grads = gc + torch.einsum('ijk,lkm->im', gG, beta).reshape(gc.shape)
             
             # compute input samples
             # MATLAB: inputs = inc + reshape(pagemtimes(G,beta),size(c));
-            inputs = c + np.einsum('ijk,lkm->im', G, beta).reshape(c.shape)
+            inputs = c + torch.einsum('ijk,lkm->im', G, beta).reshape(c.shape)
             
             # Compute weights and bias update
             weightsUpdate = grads @ inputs.T
-            biasUpdate = np.sum(grads, axis=1, keepdims=True)
+            biasUpdate = torch.sum(grads, dim=1, keepdim=True)
             
         elif zonotope_weight_update == 'extreme':
             numSamples = 1
             # sample a point that has only factors {-1,1}
-            beta = np.random.choice([-1, 1], size=(numGen, numSamples, batchSize))
+            # Use torch.randint to generate random choice of -1 or 1
+            beta = (torch.randint(0, 2, size=(numGen, numSamples, batchSize), dtype=torch.float32, device=device) * 2 - 1).to(dtype=dtype)
             
             # compute gradient samples
             # MATLAB: grads = permute(repmat(gc,1,1,numSamples),[1 3 2]) + pagemtimes(gG,beta);
             # This creates grads with shape (output_dim, numSamples, batchSize)
-            grads = np.tile(gc[:, :, np.newaxis], (1, 1, numSamples)) + np.einsum('ijk,lkm->im', gG, beta).reshape(gc.shape[0], numSamples, gc.shape[1])
+            grads = gc.unsqueeze(2).repeat(1, 1, numSamples) + torch.einsum('ijk,lkm->im', gG, beta).reshape(gc.shape[0], numSamples, gc.shape[1])
             
             # compute input samples
             # MATLAB: inputs = permute(repmat(c,1,1,numSamples),[1 3 2]) + pagemtimes(G,beta);
             # This creates inputs with shape (input_dim, numSamples, batchSize)
-            inputs = np.tile(c[:, :, np.newaxis], (1, 1, numSamples)) + np.einsum('ijk,lkm->im', G, beta).reshape(c.shape[0], numSamples, c.shape[1])
+            inputs = c.unsqueeze(2).repeat(1, 1, numSamples) + torch.einsum('ijk,lkm->im', G, beta).reshape(c.shape[0], numSamples, c.shape[1])
             
             # Compute weights and bias update
             # MATLAB: weightsUpdate = squeeze(mean(pagemtimes(grads,'none', inputs,'transpose'),3));
             # This is equivalent to computing grads @ inputs.T for each batch and taking the mean
             # For each batch element, compute grads[:,:,k] @ inputs[:,:,k].T
-            weightsUpdate = np.zeros((grads.shape[0], inputs.shape[0]))
+            weightsUpdate = torch.zeros((grads.shape[0], inputs.shape[0]), dtype=dtype, device=device)
             for k in range(batchSize):
                 weightsUpdate += grads[:, :, k] @ inputs[:, :, k].T
             weightsUpdate /= batchSize
-            biasUpdate = np.sum(np.mean(grads, axis=2), axis=1, keepdims=True)
+            biasUpdate = torch.sum(torch.mean(grads, dim=2), dim=1, keepdim=True)
             
         elif zonotope_weight_update == 'outer_product':
             # compute outer product of gradient and input zonotope
@@ -565,14 +643,14 @@ class nnLinearLayer(nnLayer):
             # MATLAB: gensTerm = 1/3*sum(pagemtimes(gG(:,genIds,:),'none', G(:,genIds,:),'transpose'),3);
             # This computes gG @ G.T for each batch element, then sums over the batch
             # For each batch element, compute gG[:,:,k] @ G[:,:,k].T
-            gensTerm = np.zeros((gG.shape[0], G.shape[0]))
+            gensTerm = torch.zeros((gG.shape[0], G.shape[0]), dtype=dtype, device=device)
             for k in range(batchSize):
                 gensTerm += gG[:, genIds, k] @ G[:, genIds, k].T
             gensTerm = 1/3 * gensTerm
             
             # Compute weights and bias update
             weightsUpdate = centerTerm + gensTerm
-            biasUpdate = np.sum(gc, axis=1, keepdims=True)
+            biasUpdate = torch.sum(gc, dim=1, keepdim=True)
             
         elif zonotope_weight_update == 'sum':
             # compute outer product of gradient and input zonotope
@@ -583,20 +661,22 @@ class nnLinearLayer(nnLayer):
                 gl = gc[:, 0, :].reshape(gc.shape[0], batchSize)
                 gu = gc[:, 1, :].reshape(gc.shape[0], batchSize)
                 
+                # backpropIntervalBatch now works with torch internally and returns torch
                 gl, gu = self.backpropIntervalBatch(cl, cu, gl, gu, options)
-                gc = np.stack([gl, gu], axis=1)
+                
+                gc = torch.stack([gl, gu], dim=1)
                 
                 # (2) outer product between generator matrices
                 # MATLAB: gensTerm = sum(pagemtimes(gG(:,genIds,:),'none', G(:,genIds,:),'transpose'),3);
                 # This computes gG @ G.T for each batch element, then sums over the batch
                 # For each batch element, compute gG[:,:,k] @ G[:,:,k].T
-                gensTerm = np.zeros((gG.shape[0], G.shape[0]))
+                gensTerm = torch.zeros((gG.shape[0], G.shape[0]), dtype=dtype, device=device)
                 for k in range(batchSize):
                     gensTerm += gG[:, genIds, k] @ G[:, genIds, k].T
                 
                 # Compute weights and bias update
                 weightsUpdate = gensTerm
-                biasUpdate = 0
+                biasUpdate = torch.tensor(0, dtype=dtype, device=device)
             else:
                 # (1) outer product between centers
                 centerTerm = gc @ c.T
@@ -605,13 +685,13 @@ class nnLinearLayer(nnLayer):
                 # MATLAB: gensTerm = sum(pagemtimes(gG(:,genIds,:),'none', G(:,genIds,:),'transpose'),3);
                 # This computes gG @ G.T for each batch element, then sums over the batch
                 # For each batch element, compute gG[:,:,k] @ G[:,:,k].T
-                gensTerm = np.zeros((gG.shape[0], G.shape[0]))
+                gensTerm = torch.zeros((gG.shape[0], G.shape[0]), dtype=dtype, device=device)
                 for k in range(batchSize):
                     gensTerm += gG[:, genIds, k] @ G[:, genIds, k].T
                 
                 # Compute weights and bias update
                 weightsUpdate = centerTerm + gensTerm
-                biasUpdate = np.sum(gc, axis=1, keepdims=True)
+                biasUpdate = torch.sum(gc, dim=1, keepdim=True)
         else:
             raise ValueError("Only supported values for zonotope_weight_update are 'center', 'sample', 'extreme', 'outer_product', and 'sum'!")
         
@@ -621,7 +701,7 @@ class nnLinearLayer(nnLayer):
         
         # linear map of the out-going gradient
         if not options.get('nn', {}).get('interval_center', False):
-            gc = self.W.T @ gc
+            gc = W.T @ gc
         
         # MATLAB: gG = pagemtimes(obj.W',gG);
         # This is batch matrix multiplication: W.T @ gG for each batch element
@@ -632,7 +712,7 @@ class nnLinearLayer(nnLayer):
         # Implement pagemtimes equivalent: W.T @ gG for each batch
         # Use einsum for efficient batch matrix multiplication
         # 'ij,jkl->ikl' means: for each batch k, compute W.T @ gG[:,:,k]
-        gG = np.einsum('ij,jkl->ikl', self.W.T, gG)
+        gG = torch.einsum('ij,jkl->ikl', W.T, gG)
         
         # Clear backprop storage.
         if 'store' in self.backprop:

@@ -152,9 +152,19 @@ class nnConv2DLayer(nnLayer):
         
         self.W = W
         self.b = b
-        self.padding = np.asarray(padding, dtype=int)
-        self.stride = np.asarray(stride, dtype=int)
-        self.dilation = np.asarray(dilation, dtype=int)
+        # Convert to torch tensors - all internal operations use torch
+        if isinstance(padding, (list, tuple, np.ndarray)):
+            self.padding = torch.tensor(padding, dtype=torch.int64)
+        else:
+            self.padding = torch.tensor([padding], dtype=torch.int64) if np.isscalar(padding) else padding
+        if isinstance(stride, (list, tuple, np.ndarray)):
+            self.stride = torch.tensor(stride, dtype=torch.int64)
+        else:
+            self.stride = torch.tensor([stride], dtype=torch.int64) if np.isscalar(stride) else stride
+        if isinstance(dilation, (list, tuple, np.ndarray)):
+            self.dilation = torch.tensor(dilation, dtype=torch.int64)
+        else:
+            self.dilation = torch.tensor([dilation], dtype=torch.int64) if np.isscalar(dilation) else dilation
         
         # Initialize properties to match other layers
         self.inputSize = []  # matches MATLAB property
@@ -177,7 +187,9 @@ class nnConv2DLayer(nnLayer):
             # size was set.
             nin = self.inputSize[0] * self.inputSize[1] * self.inputSize[2]
             outputSize = self.getOutputSize(self.inputSize)
-            nout = np.prod(outputSize)
+            # Convert to torch for prod, then back to int
+            outputSize_torch = torch.tensor(outputSize, dtype=torch.int64)
+            nout = torch.prod(outputSize_torch).item()
             return int(nin), int(nout)
     
     def getOutputSize(self, inImgSize: List[int]) -> List[int]:
@@ -228,7 +240,9 @@ class nnConv2DLayer(nnLayer):
         self.checkInputSize()
         # IBP (see Gowal et al. 2018)
         mu, _ = self.conv2d((bounds.sup + bounds.inf) / 2, 'sparseIdx')
-        r, _ = self.conv2d((bounds.sup - bounds.inf) / 2, 'sparseIdx', np.abs(self.W), None)
+        # Convert W to torch for abs operation
+        W_torch = self.W if isinstance(self.W, torch.Tensor) else torch.tensor(self.W, dtype=torch.float32)
+        r, _ = self.conv2d((bounds.sup - bounds.inf) / 2, 'sparseIdx', torch.abs(W_torch), None)
         
         l = mu - r
         u = mu + r
@@ -1377,10 +1391,13 @@ class nnConv2DLayer(nnLayer):
         # Convert to torch for multiplication
         if isinstance(dWr_np, np.ndarray):
             dWr_np = torch.tensor(dWr_np, dtype=dtype, device=device)
+        # W should always be torch tensor, but handle both cases for safety
         if isinstance(self.W, torch.Tensor):
             dWr = dWr_np * torch.sign(self.W)
         else:
-            dWr = dWr_np * np.sign(self.W)
+            # Convert to torch if not already
+            W_torch = torch.tensor(self.W, dtype=torch.float32)
+            dWr = dWr_np * torch.sign(W_torch)
         
         # Compute size of gradient.
         out_h, out_w, out_c = self.aux_computeOutputSize()
@@ -1390,23 +1407,15 @@ class nnConv2DLayer(nnLayer):
         gl_reshaped = gl.reshape(out_h, out_w, out_c, batchSize)
         db = torch.sum(gl_reshaped, dim=(0, 1, 3))  # squeeze(sum(...,[1 2 4]))
         
-        # Convert back to numpy if needed for updateGrad
-        if hasattr(self, 'updateGrad'):
-            db_np = db.cpu().numpy() if isinstance(db, torch.Tensor) else db
-            dWmu_np = dWmu if isinstance(dWmu, np.ndarray) else dWmu.cpu().numpy() if isinstance(dWmu, torch.Tensor) else dWmu
-            dWr_np_final = dWr.cpu().numpy() if isinstance(dWr, torch.Tensor) else dWr
-        else:
-            db_np = db
-            dWmu_np = dWmu
-            dWr_np_final = dWr
-        
-        # Update weights and bias.
+        # Update weights and bias - keep as torch tensors
         self.updateGrad('W', dWmu + dWr, options)
         self.updateGrad('b', db, options)
         
         # Use transposed convolutions to backprop gradients.
         dmu = self.transconv2d((gu + gl) / 2, 'sparseIdx', self.W, None)
-        dr = self.transconv2d((gu - gl) / 2, 'sparseIdx', np.abs(self.W), None)
+        # Convert W to torch for abs operation if needed
+        W_torch = self.W if isinstance(self.W, torch.Tensor) else torch.tensor(self.W, dtype=torch.float32)
+        dr = self.transconv2d((gu - gl) / 2, 'sparseIdx', torch.abs(W_torch), None)
         gl = dmu - dr
         gu = dmu + dr
         
@@ -1523,7 +1532,7 @@ class nnConv2DLayer(nnLayer):
             
             # Compute bias update.
             gc_reshaped = gc.reshape(out_h, out_w, out_c, batchSize)
-            biasUpdate = np.sum(gc_reshaped, axis=(0, 1, 3))
+            biasUpdate = torch.sum(gc_reshaped, dim=(0, 1, 3))
             
             self.updateGrad('W', weightsUpdate, options)
             self.updateGrad('b', biasUpdate, options)

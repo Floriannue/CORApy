@@ -8,35 +8,37 @@ Authors: MATLAB: Tobias Ladner
 """
 
 import numpy as np
-from typing import Tuple
+import torch
+from typing import Tuple, Union
 from .getOrderIndicesG import getOrderIndicesG
 
 
-def getOrderIndicesGI(GI: np.ndarray, G: np.ndarray, order: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def getOrderIndicesGI(GI: Union[np.ndarray, torch.Tensor], G: Union[np.ndarray, torch.Tensor], order: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate the start and end indices for polynomial evaluation.
+    Works with both numpy and torch (internal to nn, so torch is expected).
     
     Args:
-        GI: ind. generator matrix
-        G: generator matrix
+        GI: ind. generator matrix (torch tensor or numpy array - torch expected internally)
+        G: generator matrix (torch tensor or numpy array - torch expected internally)
         order: order of polynomial
         
     Returns:
-        GI_start: start indices of GI^i, i \in 1:order
-        GI_end: end indices of GI^i, i \in 1:order
-        GI_ext_start: start indices of extended GI^i, i \in 1:order
-        GI_ext_end: end indices of extended GI^i, i \in 1:order
+        GI_start: start indices of GI^i, i \in 1:order (numpy array for compatibility)
+        GI_end: end indices of GI^i, i \in 1:order (numpy array for compatibility)
+        GI_ext_start: start indices of extended GI^i, i \in 1:order (numpy array for compatibility)
+        GI_ext_end: end indices of extended GI^i, i \in 1:order (numpy array for compatibility)
             - where 'extended' refers to GI5_ext = [GI2_ext, GI3_ext, GI5]
             
     See also: nnActivationLayer/evaluatePolyZonotope
     """
-    # init
+    # init - return numpy arrays for compatibility (only used for indexing calculations)
     GI_start = np.zeros(order, dtype=int)
     GI_end = np.zeros(order, dtype=int)
     GI_ext_start = np.zeros(order, dtype=int)
     GI_ext_end = np.zeros(order, dtype=int)
     
-    # init linear terms
+    # init linear terms - works with both torch and numpy (only uses shape)
     n = GI.shape[1]
     GI_start[0] = 1
     GI_end[0] = n

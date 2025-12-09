@@ -282,22 +282,22 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             checkSpecs = torch.all(dyi - dri < 0, dim=0).cpu().numpy()
         unknown = checkSpecs
         
-        # MATLAB lines 162-164: Convert to numpy only for aux_split (which may expect numpy)
-        xi_np = xi.cpu().numpy()
-        ri_np = ri.cpu().numpy()
-        sens_np = sens.cpu().numpy()
+        # MATLAB lines 162-164: _aux_split now works with torch internally
+        # sens has shape (cbSz, n0), need to transpose to (n0, cbSz) for aux_split
+        sens_T = sens.T  # (n0, cbSz) - use torch transpose
         
         # MATLAB lines 166-167: Create new splits
         # MATLAB: [xis,ris] = aux_split(xi(:,unknown),ri(:,unknown),sens(:,unknown), nSplits,nDims);
-        # sens has shape (cbSz, n0), need to transpose to (n0, cbSz) for aux_split
-        sens_T = sens_np.T  # (n0, cbSz)
-        xis, ris = _aux_split(xi_np[:, unknown], ri_np[:, unknown], sens_T[:, unknown], nSplits, nDims)
+        # Convert unknown to torch tensor for indexing
+        if isinstance(unknown, np.ndarray):
+            unknown_torch = torch.tensor(unknown, dtype=torch.bool, device=device)
+        else:
+            unknown_torch = unknown
+        xis, ris = _aux_split(xi[:, unknown_torch], ri[:, unknown_torch], sens_T[:, unknown_torch], nSplits, nDims)
         
-        # MATLAB lines 169-170: Add new splits to the queue - convert back to torch
-        xis_torch = torch.tensor(xis, dtype=torch.float32, device=device)
-        ris_torch = torch.tensor(ris, dtype=torch.float32, device=device)
-        xs = torch.cat([xis_torch, xs], dim=1)
-        rs = torch.cat([ris_torch, rs], dim=1)
+        # MATLAB lines 169-170: Add new splits to the queue - xis, ris are already torch tensors
+        xs = torch.cat([xis, xs], dim=1)
+        rs = torch.cat([ris, rs], dim=1)
         
         # MATLAB lines 172-173
         totalNumSplits = totalNumSplits + xis.shape[1]
@@ -312,5 +312,11 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         res = 'VERIFIED'
         x_ = None
         y_ = None
+    
+    # Ensure x_ and y_ are numpy arrays at final boundary (for external interface)
+    if x_ is not None and isinstance(x_, torch.Tensor):
+        x_ = x_.cpu().numpy()
+    if y_ is not None and isinstance(y_, torch.Tensor):
+        y_ = y_.cpu().numpy()
     
     return res, x_, y_

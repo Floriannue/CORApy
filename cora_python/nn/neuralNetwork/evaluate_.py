@@ -119,6 +119,9 @@ def aux_evaluateNumeric(obj: 'NeuralNetwork', input_data, options: Dict[str, Any
         r = layer_k.evaluateNumeric(r, options)
         options = aux_updateOptions(obj, options, 'numeric', k, layer_k)
     
+    # Convert torch to numpy at final boundary (for external interface)
+    if isinstance(r, torch.Tensor):
+        r = r.cpu().numpy()
     return r
 
 
@@ -259,27 +262,9 @@ def aux_evaluatePolyZonotope(obj: 'NeuralNetwork', input_data: Any, options: Dic
             layer_k = obj.layers[k]  # Python uses 0-based indexing, idxLayer is already 0-based
             print(f"DEBUG: aux_evaluatePolyZonotope - Before layer {k}: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
             
-            # Convert to numpy if layer expects numpy (check if layer's evaluatePolyZonotope signature expects numpy)
-            # For now, convert torch to numpy before passing to layer, then convert back
-            c_np = c.cpu().numpy() if isinstance(c, torch.Tensor) else c
-            G_np = G.cpu().numpy() if isinstance(G, torch.Tensor) else G
-            GI_np = GI.cpu().numpy() if isinstance(GI, torch.Tensor) else GI
-            E_np = E.cpu().numpy() if isinstance(E, torch.Tensor) else E
-            id_np = id_.cpu().numpy() if isinstance(id_, torch.Tensor) else id_
-            ind_np = ind.cpu().numpy() if isinstance(ind, torch.Tensor) else ind
-            ind__np = ind_.cpu().numpy() if isinstance(ind_, torch.Tensor) else ind_
-            
-            c_np, G_np, GI_np, E_np, id_np, id_max, ind_np, ind__np = layer_k.evaluatePolyZonotope(
-                c_np, G_np, GI_np, E_np, id_np, id_max, ind_np, ind__np, options)
-            
-            # Convert back to torch for internal operations
-            c = torch.tensor(c_np, dtype=dtype, device=device) if not isinstance(c_np, torch.Tensor) else c_np
-            G = torch.tensor(G_np, dtype=dtype, device=device) if not isinstance(G_np, torch.Tensor) else G_np
-            GI = torch.tensor(GI_np, dtype=dtype, device=device) if not isinstance(GI_np, torch.Tensor) else GI_np
-            E = torch.tensor(E_np, dtype=torch.long, device=device) if not isinstance(E_np, torch.Tensor) else E_np
-            id_ = torch.tensor(id_np, dtype=torch.long, device=device) if not isinstance(id_np, torch.Tensor) else id_np
-            ind = torch.tensor(ind_np, dtype=torch.long, device=device) if not isinstance(ind_np, torch.Tensor) else ind_np
-            ind_ = torch.tensor(ind__np, dtype=torch.long, device=device) if not isinstance(ind__np, torch.Tensor) else ind__np
+            # Layers work with torch internally - pass torch tensors directly
+            c, G, GI, E, id_, id_max, ind, ind_ = layer_k.evaluatePolyZonotope(
+                c, G, GI, E, id_, id_max, ind, ind_, options)
             
             print(f"DEBUG: aux_evaluatePolyZonotope - After layer {k}: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
             options = aux_updateOptions(obj, options, 'polyZonotope', k, layer_k)

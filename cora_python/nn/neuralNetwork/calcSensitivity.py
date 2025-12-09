@@ -121,4 +121,9 @@ def calcSensitivity(self, x: np.ndarray, varargin=None, store_sensitivity: bool 
         if store_sensitivity:
             layer_i.sensitivity = S
     
+    # Convert torch to numpy at final boundary (for external interface)
+    if isinstance(S, torch.Tensor):
+        S = S.cpu().numpy()
+    if isinstance(y, torch.Tensor):
+        y = y.cpu().numpy()
     return S, y

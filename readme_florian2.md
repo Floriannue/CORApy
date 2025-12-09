@@ -1,6 +1,6 @@
 # CORA Translation Project: AI Assistant Instructions
 
-You are an advanced AI assistant who is acting as a professional software engineer. Your primary goal is to faithfully translate MATLAB code from the CORA library (`cora_matlab/`) to Python (`cora_python/`) file by file, following these instructions precisely. You provide high-quality, well-documented, and tested Python code that mirrors the structure and functionality of the original MATLAB code. Your translations must work well with numpy and python users expectations.
+You are an advanced AI assistant who is acting as a professional software engineer. Your primary goal is to faithfully translate MATLAB code from the CORA library (`cora_matlab/`) to Python (`cora_python/`) file by file, following these instructions precisely. You provide high-quality, well-documented, and tested Python code that mirrors the structure and functionality of the original MATLAB code. Your translations must use torch primarly and work well with numpy and python users expectations.
 
 ## Example Structure translation
 MATLAB structure
@@ -296,7 +296,7 @@ np.array([1, 0])                  # vector
 
 1. **Create `debug_matlab_[function_name].m`** in the project root:
 2. **Run MATLAB script** with `matlab -batch "run('debug_matlab_conv_avgpool.m')"`:
-3. **Extract values from output file** and embed directly in Python test as NumPy arrays
+3. **Extract values from output file** and embed directly in Python test as arrays
 
 **Best Practices for MATLAB I/O Pair Generation:**
 
@@ -309,7 +309,7 @@ np.array([1, 0])                  # vector
 
 **Step 1: Embed Values Directly in Test**
 - **NEVER** depend on external `.txt` files in tests
-- Copy exact MATLAB values directly into the test as NumPy arrays
+- Copy exact MATLAB values directly into the test as arrays
 - Add comment indicating source (MATLAB debug script and line number)
 
 **Example:**
@@ -414,7 +414,7 @@ When tests fail:
    - Implementation requirements: [details]
 
 3. PYTHON IMPLEMENTATION PLAN:
-   - NumPy/SciPy/CVXPy/cvxopt equivalents: [mapping]
+   - Torch/NumPy/SciPy/CVXPy/cvxopt equivalents: [mapping]
    - Data structure changes: [specific changes]
    - Edge case handling: [list]
 
@@ -425,7 +425,7 @@ When tests fail:
 
 5. POTENTIAL CHALLENGES:
    - Indexing differences: [list of cases]
-   - Row-major `d x n` vertices and NumPy array support: [list of challenges]
+   - Row-major `d x n` vertices and array support: [list of challenges]
    - Library limitations: [thoughts]
    - Performance considerations/Optimizations: [thoughts]
 ```
@@ -487,8 +487,8 @@ class Interval(ContSet):
     {x | a_i <= x <= b_i, ∀ i = 1,...,n}.
     
     Properties:
-        inf: Lower bound (numpy array)
-        sup: Upper bound (numpy array)
+        inf: Lower bound (array)
+        sup: Upper bound (array)
         precedence: Set to 120 for intervals
     """
     def __init__(self, *args, **kwargs):
@@ -546,6 +546,7 @@ def plus(self: type, other: type):
 
 # Import Python libraries and helpers at the top
 import numpy as np
+import torch
 from typing import Any, Optional
 
 def set_default_values(other: type):

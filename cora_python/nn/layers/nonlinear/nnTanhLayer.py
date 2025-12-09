@@ -62,20 +62,29 @@ class nnTanhLayer(nnActivationLayer):
             i: order of derivative (0, 1, 2)
             
         Returns:
-            Function handle for the i-th derivative
+            Function handle for the i-th derivative (torch-compatible)
         """
         if i == 0:
             return self.f
         elif i == 1:
-            # Return the tanh derivative function directly
+            # Return the tanh derivative function - torch only (internal to nn)
             def tanh_derivative(x):
-                return 1 - np.tanh(x)**2
+                # x is already torch (df is internal to nn)
+                return 1 - torch.tanh(x)**2
             return tanh_derivative
         elif i == 2:
-            return self._df2
+            # Second derivative - torch only (internal to nn)
+            def tanh_second_derivative(x):
+                # x is already torch (df is internal to nn)
+                t = torch.tanh(x)
+                return -2 * t * (1 - t**2)
+            return tanh_second_derivative
         else:
-            # Higher order derivatives are 0 for tanh
-            return lambda x: np.zeros_like(x)
+            # Higher order derivatives are 0 for tanh - torch only (internal to nn)
+            def zero_derivative(x):
+                # x is already torch (df is internal to nn)
+                return torch.zeros_like(x)
+            return zero_derivative
     
     def getDerBounds(self, l, u):
         """
@@ -162,30 +171,38 @@ class nnTanhLayer(nnActivationLayer):
     def computeExtremePointsBatch(self, m, options):
         """
         Compute extreme points of tanh - mx+t for batch processing.
+        Works with torch tensors internally.
         
         Args:
-            m: slope values
+            m: slope values (torch tensor expected internally)
             options: options dictionary
             
         Returns:
-            Tuple of (xs, dxsdm) where xs are the extreme points and dxsdm are their derivatives
+            Tuple of (xs, dxsdm) where xs are the extreme points and dxsdm are their derivatives (torch tensors)
         """
+        # Convert to torch if needed (internal to nn, so should already be torch)
+        if isinstance(m, np.ndarray):
+            m = torch.tensor(m, dtype=torch.float32)
+        
+        device = m.device
+        dtype = m.dtype
+        
         # Compute extreme points of tanh - mx+t; there are two solutions: xu and xl
-        m = np.maximum(np.minimum(1, m), np.finfo(m.dtype).eps)
+        m = torch.maximum(torch.minimum(torch.tensor(1, dtype=dtype, device=device), m), torch.finfo(dtype).eps)
         
         # Prevent division by zero
-        m_safe = np.maximum(2 * m * np.sqrt(1 - m), np.finfo(m.dtype).eps)
+        m_safe = torch.maximum(2 * m * torch.sqrt(1 - m), torch.finfo(dtype).eps)
         
-        xu = np.arctanh(np.sqrt(1 - m))  # point with max. upper error
+        xu = torch.atanh(torch.sqrt(1 - m))  # point with max. upper error
         xl = -xu  # point with max. lower error
         
         # List of extreme points
-        xs = np.stack([xl, xu], axis=2)
+        xs = torch.stack([xl, xu], dim=2)
         
         # Compute derivative wrt. slope m; needed for backpropagation
         dxu = -1 / m_safe
         dxl = -dxu
-        dxsdm = np.stack([dxl, dxu], axis=2)
+        dxsdm = torch.stack([dxl, dxu], dim=2)
         
         return xs, dxsdm
     

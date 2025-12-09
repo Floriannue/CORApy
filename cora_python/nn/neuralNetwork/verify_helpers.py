@@ -4,25 +4,27 @@ These functions are used by verify.py for the zonotack refinement method.
 """
 
 import numpy as np
-from typing import Tuple, Optional, Dict, Any, List, TYPE_CHECKING
+import torch
+from typing import Tuple, Optional, Dict, Any, List, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .neuralNetwork import NeuralNetwork
 
-# Try to import PyTorch for GPU support
-try:
-    import torch
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
 
-
-def _aux_matchBatchSize(c: np.ndarray, G: np.ndarray, bSz: int, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+def _aux_matchBatchSize(c: Union[np.ndarray, torch.Tensor], G: Union[np.ndarray, torch.Tensor], 
+                       bSz: int, options: Dict[str, Any]) -> Tuple[Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor]]:
     """
     Replicate a zonotope batch for splitting.
+    Internal to nn - works with torch tensors.
     
     MATLAB: function [c,G] = aux_matchBatchSize(c,G,bSz,options)
     """
+    # Convert to torch if needed (internal to nn, so should already be torch)
+    if isinstance(c, np.ndarray):
+        c = torch.tensor(c, dtype=torch.float32)
+    if isinstance(G, np.ndarray):
+        G = torch.tensor(G, dtype=torch.float32)
+    
     from ..layers.linear.nnGeneratorReductionLayer import repelem
     
     if bSz != G.shape[2]:  # iff newSplits > 1
@@ -38,9 +40,11 @@ def _aux_matchBatchSize(c: np.ndarray, G: np.ndarray, bSz: int, options: Dict[st
     return c, G
 
 
-def _aux_scaleAndOffsetZonotope(c: np.ndarray, G: np.ndarray, bc: np.ndarray, br: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def _aux_scaleAndOffsetZonotope(c: Union[np.ndarray, torch.Tensor], G: Union[np.ndarray, torch.Tensor], 
+                               bc: Union[np.ndarray, torch.Tensor], br: Union[np.ndarray, torch.Tensor]) -> Tuple[Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor]]:
     """
     Scale and offset the zonotope to a new hypercube with center bc and radius br.
+    Internal to nn - works with torch tensors.
     
     MATLAB: function [c,G] = aux_scaleAndOffsetZonotope(c,G,bc,br)
     
@@ -57,6 +61,16 @@ def _aux_scaleAndOffsetZonotope(c: np.ndarray, G: np.ndarray, bc: np.ndarray, br
         end
         G(:,qiIds,:) = G(:,qiIds,:).*br_;
     """
+    # Convert to torch if needed (internal to nn, so should already be torch)
+    if isinstance(c, np.ndarray):
+        c = torch.tensor(c, dtype=torch.float32)
+    if isinstance(G, np.ndarray):
+        G = torch.tensor(G, dtype=torch.float32)
+    if isinstance(bc, np.ndarray):
+        bc = torch.tensor(bc, dtype=torch.float32)
+    if isinstance(br, np.ndarray):
+        br = torch.tensor(br, dtype=torch.float32)
+    
     from ..layers.linear.nnGeneratorReductionLayer import pagemtimes
     
     # Obtain indices of generator.
@@ -66,10 +80,10 @@ def _aux_scaleAndOffsetZonotope(c: np.ndarray, G: np.ndarray, bc: np.ndarray, br
     
     # MATLAB: bc_ = permute(bc(qiIds,:),[1 3 2]);
     # bc(qiIds,:) is 2D (qiIds, bSz), permute([1 3 2]) makes it (qiIds, 1, bSz)
-    bc_ = np.expand_dims(bc[:qiIds, :], axis=1)  # (qiIds, 1, bSz_bc)
+    bc_ = torch.unsqueeze(bc[:qiIds, :], dim=1)  # (qiIds, 1, bSz_bc) - use torch
     # MATLAB: br_ = permute(br(qiIds,:),[3 1 2]);
     # br(qiIds,:) is 2D (qiIds, bSz), permute([3 1 2]) makes it (1, qiIds, bSz)
-    br_ = np.expand_dims(br[:qiIds, :], axis=0)  # (1, qiIds, bSz_bc)
+    br_ = torch.unsqueeze(br[:qiIds, :], dim=0)  # (1, qiIds, bSz_bc) - use torch
     
     # Scale and offset the zonotope to a new hypercube with center bc and radius br.
     # MATLAB: offset = pagemtimes(G_,bc_);
@@ -175,31 +189,53 @@ def _aux_patchWeightMask(imgSize: tuple, ph: int, pw: int, l: float, u: float) -
     return imgM
 
 
-def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: np.ndarray, u: np.ndarray, 
-                          dr: np.ndarray, sens: np.ndarray, grad: Any,
-                          sim: Optional[np.ndarray] = None, prevNrXs: Optional[np.ndarray] = None,
-                          neuronIds: Optional[np.ndarray] = None, onlyUnstable: bool = True,
+def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: Union[np.ndarray, torch.Tensor], u: Union[np.ndarray, torch.Tensor], 
+                          dr: Union[np.ndarray, torch.Tensor], sens: Union[np.ndarray, torch.Tensor], grad: Any,
+                          sim: Optional[Union[np.ndarray, torch.Tensor]] = None, prevNrXs: Optional[Union[np.ndarray, torch.Tensor]] = None,
+                          neuronIds: Optional[Union[np.ndarray, torch.Tensor]] = None, onlyUnstable: bool = True,
                           layerDiscount: float = 1.0, imgSz: Optional[Any] = None,
-                          patchSz: Optional[Any] = None, patchScore: Optional[Any] = None) -> np.ndarray:
+                          patchSz: Optional[Any] = None, patchScore: Optional[Any] = None) -> torch.Tensor:
     """
     Compute heuristic for splitting.
+    Internal to nn - uses torch tensors.
     
     MATLAB: function h = aux_computeHeuristic(heuristic,layerIdx,l,u,dr,sens,grad,varargin)
     """
+    # Convert to torch if needed (internal to nn, so should already be torch)
+    if isinstance(l, np.ndarray):
+        l = torch.tensor(l, dtype=torch.float32)
+    if isinstance(u, np.ndarray):
+        u = torch.tensor(u, dtype=torch.float32)
+    if isinstance(dr, np.ndarray):
+        dr = torch.tensor(dr, dtype=torch.float32)
+    if isinstance(sens, np.ndarray):
+        sens = torch.tensor(sens, dtype=torch.float32)
+    if isinstance(grad, np.ndarray):
+        grad = torch.tensor(grad, dtype=torch.float32)
+    if isinstance(sim, np.ndarray):
+        sim = torch.tensor(sim, dtype=torch.float32) if sim is not None else None
+    if isinstance(prevNrXs, np.ndarray):
+        prevNrXs = torch.tensor(prevNrXs, dtype=torch.float32) if prevNrXs is not None else None
+    if isinstance(neuronIds, np.ndarray):
+        neuronIds = torch.tensor(neuronIds, dtype=torch.long) if neuronIds is not None else None
+    
+    device = l.device
+    dtype = l.dtype
+    
     # Compute the heuristic.
     if heuristic == 'least-unstable':
         # Least unstable neuron (normalize the un-stability).
-        minBnd = 1.0 / np.maximum(np.minimum(-l, u), 1e-10)  # Avoid division by zero
+        minBnd = 1.0 / torch.maximum(torch.minimum(-l, u), torch.tensor(1e-10, dtype=dtype, device=device))  # Avoid division by zero
         # Compute the heuristic.
         h = minBnd * sens
     elif heuristic == 'least-unstable-gradient':
         # Take the absolute value and add small epsilon to avoid numerical problems.
         if isinstance(grad, (int, float)):
-            grad = np.abs(grad) + 1e-3
+            grad = torch.tensor(np.abs(grad) + 1e-3, dtype=dtype, device=device)
         else:
-            grad = np.abs(grad) + 1e-3
+            grad = torch.abs(grad) + 1e-3
         # Least unstable neuron (normalize the un-stability).
-        minBnd = 1.0 / np.maximum(np.minimum(-l, u), 1e-10)
+        minBnd = 1.0 / torch.maximum(torch.minimum(-l, u), torch.tensor(1e-10, dtype=dtype, device=device))
         # Compute the heuristic.
         h = minBnd * grad
     elif heuristic == 'most-sensitive-approx-error':
@@ -213,9 +249,9 @@ def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: np.ndarray, u: np.nd
     elif heuristic == 'zono-norm-gradient':
         # Take the absolute value and add small epsilon to avoid numerical problems.
         if isinstance(grad, (int, float)):
-            grad = np.abs(grad) + 1e-3
+            grad = torch.tensor(np.abs(grad) + 1e-3, dtype=dtype, device=device)
         else:
-            grad = np.abs(grad) + 1e-3
+            grad = torch.abs(grad) + 1e-3
         # Compute the radius.
         r = dr  # 1/2*(u - l);
         # Compute the heuristic.
@@ -230,26 +266,26 @@ def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: np.ndarray, u: np.nd
         # Flag unstable neurons.
         unstable = (l < 0) & (0 < u)
         # Only consider unstable neurons.
-        h = np.where(unstable, h, -np.inf)
+        h = torch.where(unstable, h, torch.tensor(-float('inf'), dtype=dtype, device=device))
     
     if layerDiscount != 1.0:
         # Prefer earlier layers.
         h = h * (layerDiscount ** layerIdx)
     
-    # Convert prevNrXs, sim, and neuronIds to numpy arrays if they're lists (MATLAB passes [] as empty array)
+    # Convert prevNrXs, sim, and neuronIds to torch tensors if they're lists (MATLAB passes [] as empty array)
     if isinstance(prevNrXs, list):
-        prevNrXs = np.array(prevNrXs) if len(prevNrXs) > 0 else np.array([])
+        prevNrXs = torch.tensor(prevNrXs, dtype=dtype, device=device) if len(prevNrXs) > 0 else torch.empty((0,), dtype=dtype, device=device)
     if isinstance(sim, list):
-        sim = np.array(sim) if len(sim) > 0 else np.array([])
+        sim = torch.tensor(sim, dtype=dtype, device=device) if len(sim) > 0 else torch.empty((0,), dtype=dtype, device=device)
     if isinstance(neuronIds, list):
-        neuronIds = np.array(neuronIds) if len(neuronIds) > 0 else np.array([])
+        neuronIds = torch.tensor(neuronIds, dtype=torch.long, device=device) if len(neuronIds) > 0 else torch.empty((0,), dtype=torch.long, device=device)
     
-    if prevNrXs is not None and (hasattr(prevNrXs, 'size') and prevNrXs.size > 0):
+    if prevNrXs is not None and (hasattr(prevNrXs, 'numel') and prevNrXs.numel() > 0):
         # Obtain the batch size.
         bSz = prevNrXs.shape[1] if prevNrXs.ndim > 1 else 1
         
         # We floor all entries. We mark unnecessary splits with decimal numbers.
-        prevNrXs_floor = np.floor(prevNrXs)
+        prevNrXs_floor = torch.floor(prevNrXs)
         # Reduce redundancy by not add constraints for split neurons.
         if h.shape[1] > prevNrXs.shape[1]:
             newSplits = h.shape[1] // prevNrXs.shape[1]
@@ -260,15 +296,15 @@ def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: np.ndarray, u: np.nd
         
         # Identify already split neurons.
         if neuronIds is not None:
-            wasSplit = np.any(np.abs(prevNrXs_) == neuronIds.reshape(-1, 1, 1), axis=0)
+            wasSplit = torch.any(torch.abs(prevNrXs_) == neuronIds.reshape(-1, 1, 1), dim=0)
             # There is no similarity; just prevent splitting the same neuron twice.
-            h = np.where(wasSplit, -np.inf, h)
-            if sim is not None and sim.size > 0:
+            h = torch.where(wasSplit, torch.tensor(-float('inf'), dtype=dtype, device=device), h)
+            if sim is not None and sim.numel() > 0:
                 # Specify a tolerance for similarity.
                 tol = 1e-3
                 # Reduce the heuristic based on the similarity to already split neurons.
-                simSplit = np.any((sim > 1 - tol) & wasSplit.reshape(1, -1, 1), axis=1)
-                h = np.where(simSplit, -np.inf, h)
+                simSplit = torch.any((sim > 1 - tol) & wasSplit.reshape(1, -1, 1), dim=1)
+                h = torch.where(simSplit, torch.tensor(-float('inf'), dtype=dtype, device=device), h)
         else:
             # No neuron IDs provided, skip this check
             pass
@@ -284,8 +320,9 @@ def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: np.ndarray, u: np.nd
         highScore = patchScore[1] if patchScore is not None and len(patchScore) > 1 else 1.0
         # Compute a patch-wise weight mask to avoid splitting many similar input dimensions.
         imgM = _aux_patchWeightMask(imgSz, ph, pw, lowScore, highScore)
-        # Convert to the correct data type.
-        imgM = imgM.astype(h.dtype)
+        # Convert to torch tensor and correct data type.
+        if isinstance(imgM, np.ndarray):
+            imgM = torch.tensor(imgM, dtype=dtype, device=device)
         # Weight the heuristic by the patch-wise mask.
         # MATLAB: h = h.*imgM(:);
         h = h * imgM.flatten().reshape(-1, 1)
@@ -293,13 +330,21 @@ def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: np.ndarray, u: np.nd
     return h
 
 
-def _aux_dimSplitConstraints(hi: np.ndarray, nSplits: int, nDims: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _aux_dimSplitConstraints(hi: Union[np.ndarray, torch.Tensor], nSplits: int, nDims: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Construct dimension split constraints that splits #nDims dimensions into #nSplits pieces.
+    Internal to nn - uses torch tensors.
     
     MATLAB: function [Ai,bi,dimIds,hi] = aux_dimSplitConstraints(hi,nSplits,nDims)
     """
     from ..layers.linear.nnGeneratorReductionLayer import sub2ind, repelem
+    
+    # Convert to torch if needed (internal to nn, so should already be torch)
+    if isinstance(hi, np.ndarray):
+        hi = torch.tensor(hi, dtype=torch.float32)
+    
+    device = hi.device
+    dtype = hi.dtype
     
     # Obtain the number of dimensions and batch size.
     n, bSz = hi.shape
@@ -307,8 +352,8 @@ def _aux_dimSplitConstraints(hi: np.ndarray, nSplits: int, nDims: int) -> Tuple[
     
     # Split each input in the batch into nSplits parts.
     # 1. Find the input dimension with the largest heuristic.
-    sortDims = np.argsort(hi, axis=0)[::-1]  # Sort descending
-    hi_sorted = np.sort(hi, axis=0)[::-1]  # Sort descending
+    sortDims = torch.argsort(hi, dim=0, descending=True)  # Sort descending
+    hi_sorted, _ = torch.sort(hi, dim=0, descending=True)  # Sort descending
     dimIds = sortDims[:nDims, :]  # (nDims, batch)
     hi = hi_sorted[:nDims, :]  # (nDims, batch)
     
@@ -316,12 +361,12 @@ def _aux_dimSplitConstraints(hi: np.ndarray, nSplits: int, nDims: int) -> Tuple[
     # MATLAB: dimIdx = sub2ind([nDims n bSz],repelem((1:nDims)',1,bSz),dimIds,repelem(1:bSz,nDims,1));
     # dimIds is already 0-based from argsort, need to convert to 1-based for MATLAB sub2ind
     dimIdx = sub2ind((nDims, n, bSz),
-                     repelem(np.arange(1, nDims + 1), 1, bSz),  # 1-based
-                     (dimIds + 1).flatten('F'),  # Convert to 1-based, then flatten
-                     repelem(np.arange(1, bSz + 1), nDims, 1).flatten('F'))  # 1-based
+                     repelem(torch.arange(1, nDims + 1, dtype=torch.long, device=device), 1, bSz),  # 1-based
+                     (dimIds + 1).flatten(),  # Convert to 1-based, then flatten (torch uses row-major by default)
+                     repelem(torch.arange(1, bSz + 1, dtype=torch.long, device=device), nDims, 1).flatten())  # 1-based
     
     # 2. Construct the constraints.
-    Ai = np.zeros((nDims, n, bSz), dtype=hi.dtype)
+    Ai = torch.zeros((nDims, n, bSz), dtype=dtype, device=device)
     # Set non-zero entries
     # sub2ind already returns 0-based indices, so use directly
     Ai_flat = Ai.flatten()
@@ -329,9 +374,9 @@ def _aux_dimSplitConstraints(hi: np.ndarray, nSplits: int, nDims: int) -> Tuple[
     Ai = Ai_flat.reshape(nDims, n, bSz)
     
     # Specify offsets: repelem(-1 + (1:(nSplits-1)).*(2/nSplits),nDims,1,bSz)
-    offsets = -1 + np.arange(1, nSplits) * (2.0 / nSplits)  # (nSplits-1,)
-    bi = np.tile(offsets.reshape(-1, 1, 1), (1, nDims, bSz))  # (nSplits-1, nDims, bSz)
-    bi = np.transpose(bi, (1, 0, 2))  # (nDims, nSplits-1, bSz)
+    offsets = -1 + torch.arange(1, nSplits, dtype=dtype, device=device) * (2.0 / nSplits)  # (nSplits-1,)
+    bi = offsets.unsqueeze(1).unsqueeze(2).repeat(1, nDims, bSz)  # (nSplits-1, nDims, bSz)
+    bi = bi.permute(1, 0, 2)  # (nDims, nSplits-1, bSz)
     
     return Ai, bi, dimIds, hi
 
@@ -474,16 +519,32 @@ def _aux_pop(xs: np.ndarray, rs: np.ndarray, nrXs: np.ndarray, bSz: int, options
     return xi, ri, nrXi, xs, rs, nrXs, qIdx
 
 
-def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: np.ndarray, ri: np.ndarray,
-                                  batchG: np.ndarray, sens: Optional[np.ndarray], grad: Optional[np.ndarray],
-                                  numInitGens: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: Union[np.ndarray, torch.Tensor], ri: Union[np.ndarray, torch.Tensor],
+                                  batchG: Union[np.ndarray, torch.Tensor], sens: Optional[Union[np.ndarray, torch.Tensor]], grad: Optional[Union[np.ndarray, torch.Tensor]],
+                                  numInitGens: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Construct input zonotope (MATLAB aux_constructInputZonotope equivalent)
+    Internal to nn - uses torch tensors.
     
     MATLAB signature:
     function [cxi,Gxi,dimIdx] = aux_constructInputZonotope(options,heuristic,xi,ri,batchG,sens,grad,numInitGens)
     """
     from ..layers.linear.nnGeneratorReductionLayer import sub2ind, repelem
+    
+    # Convert to torch if needed (internal to nn, so should already be torch)
+    if isinstance(xi, np.ndarray):
+        xi = torch.tensor(xi, dtype=torch.float32)
+    if isinstance(ri, np.ndarray):
+        ri = torch.tensor(ri, dtype=torch.float32)
+    if isinstance(batchG, np.ndarray):
+        batchG = torch.tensor(batchG, dtype=torch.float32)
+    if isinstance(sens, np.ndarray):
+        sens = torch.tensor(sens, dtype=torch.float32) if sens is not None else None
+    if isinstance(grad, np.ndarray):
+        grad = torch.tensor(grad, dtype=torch.float32) if grad is not None else None
+    
+    device = xi.device
+    dtype = xi.dtype
     
     # Obtain the number of input dimensions and the batch size.
     n0, bSz = xi.shape
@@ -494,40 +555,53 @@ def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: np.
     if numInitGens >= n0:
         # We create a generator for each input dimension.
         # MATLAB: dimIdx = repmat((1:n0)',1,bSz);
-        dimIdx = np.tile(np.arange(1, n0 + 1).reshape(-1, 1), (1, bSz))  # 1-based: (n0, bSz)
+        dimIdx = torch.tile(torch.arange(1, n0 + 1, dtype=torch.long, device=device).unsqueeze(1), (1, bSz))  # 1-based: (n0, bSz)
     else:
         # Compute the heuristic.
         # MATLAB: hi = aux_computeHeuristic(heuristic,0,xi-ri,xi+ri,ri,sens,grad,[],[],[],false,1);
         hi = _aux_computeHeuristic(heuristic, 0, xi - ri, xi + ri, ri, sens, grad, [], [], [], False, 1)
+        # Convert hi to torch if needed
+        if isinstance(hi, np.ndarray):
+            hi = torch.tensor(hi, dtype=dtype, device=device)
         
         # Find the input pixels that affect the output the most.
         # MATLAB: [~,dimIdx] = sort(hi,'descend');
-        sortIdx = np.argsort(hi, axis=0)[::-1]  # Sort descending along axis=0 (rows)
+        sortIdx = torch.argsort(hi, dim=0, descending=True)  # Sort descending along dim=0 (rows)
         # MATLAB: dimIdx = dimIdx(1:numInitGens,:);
         dimIdx = sortIdx[:numInitGens, :] + 1  # Convert to 1-based: (numInitGens, bSz)
     
     # Compute indices for non-zero entries.
     # MATLAB: gIdx = sub2ind(size(Gxi),dimIdx, repmat((1:numInitGens)',1,bSz),repelem(1:bSz,numInitGens,1));
-    dimIdx_flat = dimIdx.flatten('F')  # Column-major flatten, 1-based
-    genIdx_flat = np.tile(np.arange(1, numInitGens + 1), (1, bSz)).flatten('F')  # 1-based
-    batchIdx_flat = repelem(np.arange(1, bSz + 1), numInitGens, 1).flatten('F')  # 1-based
+    # Convert to torch if needed
+    if isinstance(dimIdx, np.ndarray):
+        dimIdx = torch.tensor(dimIdx, dtype=torch.long, device=Gxi.device)
+    if isinstance(ri, np.ndarray):
+        ri = torch.tensor(ri, dtype=Gxi.dtype, device=Gxi.device)
+    
+    device = Gxi.device
+    dtype_long = torch.long
+    
+    dimIdx_flat = dimIdx.flatten()  # Flatten, 1-based
+    genIdx_flat = torch.tile(torch.arange(1, numInitGens + 1, dtype=dtype_long, device=device).unsqueeze(1), (1, bSz)).flatten()  # 1-based
+    batchIdx_flat = repelem(torch.arange(1, bSz + 1, dtype=dtype_long, device=device), numInitGens, 1).flatten()  # 1-based
     gIdx = sub2ind(Gxi.shape, dimIdx_flat, genIdx_flat, batchIdx_flat)  # 0-based linear indices (sub2ind converts internally)
     
     # Set non-zero generator entries.
     # MATLAB: Gxi(gIdx) = ri(sub2ind(size(ri),dimIdx,repelem(1:bSz,numInitGens,1)));
-    ri_dimIdx_flat = dimIdx.flatten('F')  # Column-major flatten, 1-based
-    ri_batchIdx_flat = repelem(np.arange(1, bSz + 1), numInitGens, 1).flatten('F')  # 1-based
+    ri_dimIdx_flat = dimIdx.flatten()  # Flatten, 1-based
+    ri_batchIdx_flat = repelem(torch.arange(1, bSz + 1, dtype=dtype_long, device=device), numInitGens, 1).flatten()  # 1-based
     ri_gIdx = sub2ind(ri.shape, ri_dimIdx_flat, ri_batchIdx_flat)  # 0-based linear indices (sub2ind converts internally)
     # sub2ind already returns 0-based indices, so use directly
-    # Use Fortran order to match MATLAB's column-major indexing
-    Gxi_flat = Gxi.flatten('F')
-    ri_flat = ri.flatten('F')
+    # Use column-major order to match MATLAB's column-major indexing
+    # For torch, we need to manually compute column-major indices
+    Gxi_flat = Gxi.permute(1, 0, 2).flatten()  # Permute to (numGen, n0, bSz) then flatten for column-major
+    ri_flat = ri.T.flatten()  # Transpose then flatten for column-major
     Gxi_flat[gIdx] = ri_flat[ri_gIdx]  # Both are already 0-based
-    Gxi = Gxi_flat.reshape(Gxi.shape, order='F')
+    Gxi = Gxi_flat.reshape(Gxi.shape[1], Gxi.shape[0], Gxi.shape[2]).permute(1, 0, 2)  # Reshape back and permute
     
     # Sum generators to compute remaining set.
     # MATLAB: ri_ = (ri - reshape(sum(Gxi,2),[n0 bSz]));
-    Gxi_sum = np.sum(Gxi, axis=1)  # Sum over generators: (n0, bSz)
+    Gxi_sum = torch.sum(Gxi, dim=1)  # Sum over generators: (n0, bSz)
     ri_ = ri - Gxi_sum
     
     # DEBUG: Log ri_ values for comparison with MATLAB (first few iterations only)
@@ -536,15 +610,15 @@ def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: np.
     debug_iteration = options.get('_debug_iteration', None)
     if debug_iteration is not None and debug_iteration <= 10:
         print(f"SPLITTING DEBUG (iteration {debug_iteration}):")
-        print(f"  ri shape: {ri.shape}, ri (first 3 dims, first 3 batches): {ri[:min(3, ri.shape[0]), :min(3, ri.shape[1])].flatten()}")
-        print(f"  Gxi_sum shape: {Gxi_sum.shape}, Gxi_sum (first 3 dims, first 3 batches): {Gxi_sum[:min(3, Gxi_sum.shape[0]), :min(3, Gxi_sum.shape[1])].flatten()}")
-        print(f"  ri_ shape: {ri_.shape}, ri_ (first 3 dims, first 3 batches): {ri_[:min(3, ri_.shape[0]), :min(3, ri_.shape[1])].flatten()}")
-        print(f"  ri_ min/max: min={np.min(ri_)}, max={np.max(ri_)}")
-        if np.any(ri_ < 1e-6):
-            zero_count = np.sum(ri_ < 1e-6)
+        print(f"  ri shape: {ri.shape}, ri (first 3 dims, first 3 batches): {ri[:min(3, ri.shape[0]), :min(3, ri.shape[1])].flatten().cpu().numpy()}")
+        print(f"  Gxi_sum shape: {Gxi_sum.shape}, Gxi_sum (first 3 dims, first 3 batches): {Gxi_sum[:min(3, Gxi_sum.shape[0]), :min(3, Gxi_sum.shape[1])].flatten().cpu().numpy()}")
+        print(f"  ri_ shape: {ri_.shape}, ri_ (first 3 dims, first 3 batches): {ri_[:min(3, ri_.shape[0]), :min(3, ri_.shape[1])].flatten().cpu().numpy()}")
+        print(f"  ri_ min/max: min={torch.min(ri_).item()}, max={torch.max(ri_).item()}")
+        if torch.any(ri_ < 1e-6):
+            zero_count = torch.sum(ri_ < 1e-6).item()
             print(f"  WARNING: {zero_count} entries have ri_ < 1e-6 (very small remaining radius)!")
-            zero_indices = np.where(ri_ < 1e-6)
-            print(f"  Zero ri_ locations (first 5): dims={zero_indices[0][:5]}, batches={zero_indices[1][:5]}")
+            zero_indices = torch.where(ri_ < 1e-6)
+            print(f"  Zero ri_ locations (first 5): dims={zero_indices[0][:5].cpu().numpy()}, batches={zero_indices[1][:5].cpu().numpy()}")
     
     # Construct the center.
     if options.get('nn', {}).get('interval_center', False):
@@ -554,7 +628,7 @@ def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: np.
         # permute([1 3 2]) gives (n0, 2, bSz)
         cxi_lower = xi - ri_  # (n0, bSz)
         cxi_upper = xi + ri_  # (n0, bSz)
-        cxi = np.stack([cxi_lower, cxi_upper], axis=1)  # (n0, 2, bSz)
+        cxi = torch.stack([cxi_lower, cxi_upper], dim=1)  # (n0, 2, bSz)
     else:
         # The center is just a vector.
         # MATLAB: cxi = xi;
@@ -563,80 +637,94 @@ def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: np.
     return cxi, Gxi, dimIdx
 
 
-def _aux_split_with_dim(xi: np.ndarray, ri: np.ndarray, his: np.ndarray, nSplits: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _aux_split_with_dim(xi: Union[np.ndarray, torch.Tensor], ri: Union[np.ndarray, torch.Tensor], his: Union[np.ndarray, torch.Tensor], nSplits: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Split the input for verification and return the dimension ID (MATLAB aux_split equivalent for naive refinement)
+    Internal to nn - uses torch tensors.
     
     MATLAB signature:
     function [xis,ris,dimId] = aux_split(xis,ris,his,nSplits)
     """
     from ..layers.linear.nnGeneratorReductionLayer import sub2ind, repelem
     
+    # Convert to torch if needed (internal to nn, so should already be torch)
+    if isinstance(xi, np.ndarray):
+        xi = torch.tensor(xi, dtype=torch.float32)
+    if isinstance(ri, np.ndarray):
+        ri = torch.tensor(ri, dtype=torch.float32)
+    if isinstance(his, np.ndarray):
+        his = torch.tensor(his, dtype=torch.float32)
+    
+    device = xi.device
+    dtype = torch.long
+    
     n, bs = xi.shape
     # Find the input dimension with the largest heuristic.
     # MATLAB: [~,sortDims] = sort(abs(his),1,'descend');
-    sortDims = np.argsort(np.abs(his), axis=0)[::-1]  # Sort descending along axis=0 (rows), returns 0-based indices
+    sortDims = torch.argsort(torch.abs(his), dim=0, descending=True)  # Sort descending along dim=0 (rows), returns 0-based indices
     # MATLAB: dimId = sortDims(1,:);
     # MATLAB returns 1-based indices, Python returns 0-based, so add 1 to convert
     dimId = sortDims[0, :] + 1  # Shape: (batch,), 1-based dimension indices
     
     # MATLAB: splitsIdx = repmat(1:nSplits,1,bs);
-    splitsIdx = np.tile(np.arange(1, nSplits + 1), bs)  # 1-based like MATLAB: (nSplits*bs,)
+    splitsIdx = torch.tile(torch.arange(1, nSplits + 1, dtype=dtype, device=device), (bs,))  # 1-based like MATLAB: (nSplits*bs,)
     # MATLAB: bsIdx = repelem((1:bs)',nSplits);
-    bsIdx = repelem(np.arange(1, bs + 1), nSplits)  # 1-based: (bs*nSplits,)
+    bsIdx = repelem(torch.arange(1, bs + 1, dtype=dtype, device=device), nSplits)  # 1-based: (bs*nSplits,)
     
     # MATLAB: linIdx = sub2ind([n bs nSplits], repelem(dimId,nSplits),bsIdx(:)',splitsIdx(:)');
     dim_repeated = repelem(dimId, nSplits)  # Shape: (batch*nSplits,), 1-based
     linIdx = sub2ind((n, bs, nSplits), dim_repeated, bsIdx, splitsIdx)  # 0-based linear indices (sub2ind converts internally)
     
     # 2. Split the selected dimension.
-    xi_ = xi.copy()
-    ri_ = ri.copy()
+    xi_ = xi.clone()
+    ri_ = ri.clone()
     # Shift to the lower bound.
-    dimIdx = sub2ind((n, bs), dimId, np.arange(1, bs + 1))  # 0-based linear indices (sub2ind converts internally)
+    dimIdx = sub2ind((n, bs), dimId, torch.arange(1, bs + 1, dtype=dtype, device=device))  # 0-based linear indices (sub2ind converts internally)
     # sub2ind already returns 0-based indices, so use directly
-    # Use Fortran order to match MATLAB's column-major indexing
-    xi_flat = xi_.flatten('F')
-    ri_flat = ri.flatten('F')  # Use ORIGINAL ri for shift, not ri_!
+    # Use column-major order to match MATLAB's column-major indexing
+    # For torch, we need to manually compute column-major indices
+    xi_flat = xi_.T.flatten()  # Transpose then flatten for column-major order
+    ri_flat = ri.T.flatten()  # Use ORIGINAL ri for shift, not ri_!
     xi_flat[dimIdx] = xi_flat[dimIdx] - ri_flat[dimIdx]
-    xi_ = xi_flat.reshape((n, bs), order='F')
-    ri_flat = ri_.flatten('F')  # Now use ri_ for reduction
+    xi_ = xi_flat.reshape(bs, n).T  # Reshape back and transpose
+    ri_flat = ri_.T.flatten()  # Now use ri_ for reduction
     ri_flat[dimIdx] = ri_flat[dimIdx] / nSplits
-    ri_ = ri_flat.reshape((n, bs), order='F')
+    ri_ = ri_flat.reshape(bs, n).T  # Reshape back and transpose
     
     # MATLAB: xis = repmat(xi_,1,1,nSplits);
-    xis = np.tile(xi_.reshape(n, bs, 1), (1, 1, nSplits))  # Shape: (n, bs, nSplits)
+    xis = xi_.unsqueeze(2).repeat(1, 1, nSplits)  # Shape: (n, bs, nSplits)
     # MATLAB: ris = repmat(ri_,1,1,nSplits);
-    ris = np.tile(ri_.reshape(n, bs, 1), (1, 1, nSplits))  # Shape: (n, bs, nSplits)
+    ris = ri_.unsqueeze(2).repeat(1, 1, nSplits)  # Shape: (n, bs, nSplits)
     
     # MATLAB: xis(linIdx(:)) = xis(linIdx(:)) + (2*splitsIdx(:) - 1).*ris(linIdx(:));
     # sub2ind already returns 0-based indices, so use directly
     # splitsIdx is 1-based (1, 2, ..., nSplits) matching MATLAB, use directly in formula
-    # Use Fortran order to match MATLAB's column-major indexing
-    xis_flat = xis.flatten('F')
-    ris_flat = ris.flatten('F')
-    xis_flat[linIdx] = xis_flat[linIdx] + (2 * splitsIdx - 1) * ris_flat[linIdx]
-    xis = xis_flat.reshape((n, bs, nSplits), order='F')
+    # Use column-major order to match MATLAB's column-major indexing
+    xis_flat = xis.permute(1, 0, 2).flatten()  # Permute to (bs, n, nSplits) then flatten for column-major
+    ris_flat = ris.permute(1, 0, 2).flatten()  # Same for ris
+    xis_flat[linIdx] = xis_flat[linIdx] + (2 * splitsIdx.float() - 1) * ris_flat[linIdx]
+    xis = xis_flat.reshape(bs, n, nSplits).permute(1, 0, 2)  # Reshape back and permute
     
     # MATLAB: xis = xis(:,:); ris = ris(:,:);
     xis = xis.reshape(n, -1)
     ris = ris.reshape(n, -1)
     
     # Debug: Check if any values are outside reasonable bounds
-    if np.any(np.abs(xis) > 100):
+    if torch.any(torch.abs(xis) > 100):
         print(f"WARNING: aux_split produced extreme values!")
-        print(f"  xis range: [{np.min(xis)}, {np.max(xis)}]")
-        print(f"  ris range: [{np.min(ris)}, {np.max(ris)}]")
+        print(f"  xis range: [{torch.min(xis).item()}, {torch.max(xis).item()}]")
+        print(f"  ris range: [{torch.min(ris).item()}, {torch.max(ris).item()}]")
         print(f"  dimId (1-based): {dimId}")
-        print(f"  Input xi range: [{np.min(xi)}, {np.max(xi)}]")
-        print(f"  Input ri range: [{np.min(ri)}, {np.max(ri)}]")
+        print(f"  Input xi range: [{torch.min(xi).item()}, {torch.max(xi).item()}]")
+        print(f"  Input ri range: [{torch.min(ri).item()}, {torch.max(ri).item()}]")
     
     return xis, ris, dimId
 
 
-def _aux_split(xi: np.ndarray, ri: np.ndarray, sens: np.ndarray, nSplits: int, nDims: int) -> Tuple[np.ndarray, np.ndarray]:
+def _aux_split(xi: torch.Tensor, ri: torch.Tensor, sens: torch.Tensor, nSplits: int, nDims: int) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Split the input for verification (MATLAB aux_split equivalent)
+    Internal to nn - only uses torch tensors.
     
     MATLAB signature:
     function [xis,ris] = aux_split(xi,ri,sens,nSplits,nDims)
@@ -652,16 +740,16 @@ def _aux_split(xi: np.ndarray, ri: np.ndarray, sens: np.ndarray, nSplits: int, n
     # MATLAB: [~,sortDims] = sort(abs(sens.*ri),1,'descend');
     # sens and ri both have shape (input_dim, batch)
     # sort along dimension 1 (columns), descending
-    sortDims = np.argsort(np.abs(sens * ri), axis=0)[::-1]  # Sort descending along axis=0 (rows), returns 0-based indices
+    sortDims = torch.argsort(torch.abs(sens * ri), dim=0, descending=True)  # Sort descending along dim=0 (rows), returns 0-based indices
     # MATLAB: dimIds = sortDims(1:nDims,:);
     # MATLAB returns 1-based indices, Python returns 0-based, so add 1 to convert
     dimIds = sortDims[:nDims, :] + 1  # Shape: (nDims, batch), 1-based dimension indices
     
     # MATLAB: splitsIdx = repmat(1:nSplits,1,bs);
-    splitsIdx = np.tile(np.arange(1, nSplits + 1), bs)  # 1-based like MATLAB: (nSplits*bs,)
+    splitsIdx = torch.tile(torch.arange(1, nSplits + 1, dtype=torch.long, device=xi.device), (bs,))  # 1-based like MATLAB: (nSplits*bs,)
     # MATLAB: bsIdx = repelem((1:bs)',nSplits);
     # (1:bs)' is a column vector, repelem repeats each element nSplits times
-    bsIdx = repelem(np.arange(1, bs + 1), nSplits)  # 1-based: (bs*nSplits,)
+    bsIdx = repelem(torch.arange(1, bs + 1, dtype=torch.long, device=xi.device), nSplits)  # 1-based: (bs*nSplits,)
     
     # MATLAB: dim = dimIds(1,:);
     dim = dimIds[0, :]  # Shape: (batch,), 1-based dimension indices
@@ -675,37 +763,39 @@ def _aux_split(xi: np.ndarray, ri: np.ndarray, sens: np.ndarray, nSplits: int, n
     
     # 2. Split the selected dimension.
     # MATLAB: xi_ = xi; ri_ = ri;
-    xi_ = xi.copy()
-    ri_ = ri.copy()
+    xi_ = xi.clone()
+    ri_ = ri.clone()
     # Shift to the lower bound.
     # MATLAB: dimIdx = sub2ind([n bs],dim,1:bs);
-    dimIdx = sub2ind((n, bs), dim, np.arange(1, bs + 1))  # 0-based linear indices (sub2ind converts internally)
+    dimIdx = sub2ind((n, bs), dim, torch.arange(1, bs + 1, dtype=torch.long, device=xi.device))  # 0-based linear indices (sub2ind converts internally)
     # MATLAB: xi_(dimIdx) = xi_(dimIdx) - ri(dimIdx);
     # sub2ind already returns 0-based indices, so use directly
     # Use Fortran order to match MATLAB's column-major indexing
-    xi_flat = xi_.flatten('F')
-    ri_flat = ri_.flatten('F')
+    # For torch, we need to manually compute Fortran-order indices
+    # Fortran order: column-major, so index = row + col * n_rows
+    xi_flat = xi_.T.flatten()  # Transpose then flatten for column-major order
+    ri_flat = ri.T.flatten()  # Use ORIGINAL ri for shift, not ri_!
     xi_flat[dimIdx] = xi_flat[dimIdx] - ri_flat[dimIdx]
-    xi_ = xi_flat.reshape((n, bs), order='F')
+    xi_ = xi_flat.reshape(bs, n).T  # Reshape back and transpose
     # MATLAB: ri_(dimIdx) = ri_(dimIdx)/nSplits;
-    ri_flat = ri_.flatten('F')
+    ri_flat = ri_.T.flatten()  # Now use ri_ for reduction
     ri_flat[dimIdx] = ri_flat[dimIdx] / nSplits
-    ri_ = ri_flat.reshape((n, bs), order='F')
+    ri_ = ri_flat.reshape(bs, n).T  # Reshape back and transpose
     
     # MATLAB: xis = repmat(xi_,1,1,nSplits);
-    xis = np.tile(xi_.reshape(n, bs, 1), (1, 1, nSplits))  # Shape: (n, bs, nSplits)
+    xis = xi_.unsqueeze(2).repeat(1, 1, nSplits)  # Shape: (n, bs, nSplits)
     # MATLAB: ris = repmat(ri_,1,1,nSplits);
-    ris = np.tile(ri_.reshape(n, bs, 1), (1, 1, nSplits))  # Shape: (n, bs, nSplits)
+    ris = ri_.unsqueeze(2).repeat(1, 1, nSplits)  # Shape: (n, bs, nSplits)
     
     # MATLAB: xis(linIdx(:)) = xis(linIdx(:)) + (2*splitsIdx(:) - 1).*ris(linIdx(:));
     # Offset the center.
     # sub2ind already returns 0-based indices, so use directly
     # splitsIdx is 1-based (1, 2, ..., nSplits) matching MATLAB, use directly in formula
     # Use Fortran order to match MATLAB's column-major indexing
-    xis_flat = xis.flatten('F')
-    ris_flat = ris.flatten('F')
-    xis_flat[linIdx] = xis_flat[linIdx] + (2 * splitsIdx - 1) * ris_flat[linIdx]
-    xis = xis_flat.reshape((n, bs, nSplits), order='F')
+    xis_flat = xis.permute(1, 0, 2).flatten()  # Permute to (bs, n, nSplits) then flatten for column-major
+    ris_flat = ris.permute(1, 0, 2).flatten()  # Same for ris
+    xis_flat[linIdx] = xis_flat[linIdx] + (2 * splitsIdx.float() - 1) * ris_flat[linIdx]
+    xis = xis_flat.reshape(bs, n, nSplits).permute(1, 0, 2)  # Reshape back and permute
     
     # MATLAB: xis = xis(:,:); ris = ris(:,:);
     # Flatten last two dimensions: (n, bs, nSplits) -> (n, bs*nSplits)

@@ -8,33 +8,35 @@ Authors: MATLAB: Tobias Ladner
 """
 
 import numpy as np
-from typing import Tuple
+import torch
+from typing import Tuple, Union
 
 
-def getOrderIndicesG(G: np.ndarray, order: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def getOrderIndicesG(G: Union[np.ndarray, torch.Tensor], order: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate the start and end indices for polynomial evaluation.
+    Works with both numpy and torch (internal to nn, so torch is expected).
     
     Args:
-        G: generator matrix
+        G: generator matrix (torch tensor or numpy array - torch expected internally)
         order: order of polynomial
         
     Returns:
-        G_start: start indices of G^i, i \in 1:order
-        G_end: end indices of G^i, i \in 1:order
-        G_ext_start: start indices of extended G^i, i \in 1:order
-        G_ext_end: end indices of extended G^i, i \in 1:order
+        G_start: start indices of G^i, i \in 1:order (numpy array for compatibility)
+        G_end: end indices of G^i, i \in 1:order (numpy array for compatibility)
+        G_ext_start: start indices of extended G^i, i \in 1:order (numpy array for compatibility)
+        G_ext_end: end indices of extended G^i, i \in 1:order (numpy array for compatibility)
             - where 'extended' refers to G5_ext = [G2_ext, G3_ext, G5]
             
     See also: nnActivationLayer/evaluatePolyZonotope
     """
-    # init
+    # init - return numpy arrays for compatibility (only used for indexing calculations)
     G_start = np.zeros(order, dtype=int)
     G_end = np.zeros(order, dtype=int)
     G_ext_start = np.zeros(order, dtype=int)
     G_ext_end = np.zeros(order, dtype=int)
     
-    # init linear terms
+    # init linear terms - works with both torch and numpy (only uses shape)
     n = G.shape[1]
     G_start[0] = 1
     G_end[0] = n

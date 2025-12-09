@@ -10,32 +10,40 @@ Authors: MATLAB: Niklas Kochdumper, Tobias Ladner
 """
 
 import numpy as np
-from typing import Tuple, Optional
+import torch
+from typing import Tuple, Optional, Union
 
 
-def reducePolyZono(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray, 
-                   id_: np.ndarray, nrGen: int, S: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def reducePolyZono(c: torch.Tensor, G: torch.Tensor, 
+                   GI: torch.Tensor, E: torch.Tensor, 
+                   id_: torch.Tensor, nrGen: int, 
+                   S: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Reduce the number of generators of a polynomial zonotope.
+    Internal to nn - only works with torch tensors.
     
     Args:
-        c: center of polyZonotope
-        G: dep. generator of polyZonotope
-        GI: indep. generator of polyZonotope
-        E: exponential matrix of polyZonotope
-        id_: ids
+        c: center of polyZonotope (torch tensor)
+        G: dep. generator of polyZonotope (torch tensor)
+        GI: indep. generator of polyZonotope (torch tensor)
+        E: exponential matrix of polyZonotope (torch tensor)
+        id_: ids (torch tensor)
         nrGen: number of generators
-        S: sensitivity (optional, default: 1)
+        S: sensitivity (optional, default: 1) (torch tensor)
         
     Returns:
-        c, G, GI, E, id_, d: reduced polynomial zonotope
+        c, G, GI, E, id_, d: reduced polynomial zonotope (torch tensors)
         
     See also: -
     """
     if S is None:
-        S = 1
+        S = torch.tensor(1.0, dtype=c.dtype, device=c.device)
+    elif not isinstance(S, torch.Tensor):
+        S = torch.tensor(S, dtype=c.dtype, device=c.device)
     
-    d = np.zeros_like(c)
+    device = c.device
+    dtype = c.dtype
+    d = torch.zeros_like(c)
     
     if nrGen < G.shape[1] + GI.shape[1]:
         # extract dimensions
@@ -46,23 +54,23 @@ def reducePolyZono(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
         
         # number of generators that stay unreduced (N generators are added again
         # after reduction)
-        K = max(0, int(np.floor(N * order - N)))
+        K = max(0, int(torch.floor(torch.tensor(N * order - N, dtype=dtype, device=device)).item()))
         
         # check if it is necessary to reduce the order
         if P + Q > N * order and K >= 0:
-            
+            # Use torch operations only
             # concatenate all generators, weighted by sensitivity
-            SG = S * np.hstack([G, GI])
+            SG = S * torch.cat([G, GI], dim=1)
             
             # half the generator length for exponents that are all even
-            ind_even = ~np.any(E % 2, axis=0)
+            ind_even = ~torch.any(E % 2, dim=0)
             SG[:, ind_even] = 0.5 * SG[:, ind_even]
             
             # calculate the length of the generator vectors with a special metric
-            len_vals = np.sum(SG**2, axis=0)
+            len_vals = torch.sum(SG**2, dim=0)
             
             # determine the smallest generators (= generators that are removed)
-            ind_smallest = np.argsort(len_vals)[::-1]  # descending order
+            ind_smallest = torch.argsort(len_vals, descending=True)  # descending order
             ind_smallest = ind_smallest[K:]
             
             # split the indices into the ones for dependent and independent
@@ -74,26 +82,32 @@ def reducePolyZono(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
             # construct a zonotope from the generators that are removed
             G_rem = G[:, ind_dep]
             GI_rem = GI[:, ind_ind]
-            c_red = np.zeros((N, 1))
+            c_red = torch.zeros((N, 1), dtype=dtype, device=device)
             
             # half generators with all even exponents
             ind_even_rem = ind_even[ind_dep]
             G_rem[:, ind_even_rem] = 0.5 * G_rem[:, ind_even_rem]
-            c_red = c_red + np.sum(0.5 * G_rem[:, ind_even_rem], axis=1, keepdims=True)
+            c_red = c_red + torch.sum(0.5 * G_rem[:, ind_even_rem], dim=1, keepdims=True)
             
             # remove the generators that got reduced from the generator matrices
-            G = np.delete(G, ind_dep, axis=1)
-            E = np.delete(E, ind_dep, axis=1)
-            GI = np.delete(GI, ind_ind, axis=1)
+            # Use torch indexing to remove columns
+            keep_dep = torch.ones(P, dtype=torch.bool, device=device)
+            keep_dep[ind_dep] = False
+            G = G[:, keep_dep]
+            E = E[:, keep_dep]
+            
+            keep_ind = torch.ones(Q, dtype=torch.bool, device=device)
+            keep_ind[ind_ind] = False
+            GI = GI[:, keep_ind]
             
             # add shifted center
             c = c + c_red
             
             # box over-approximation as approx error
-            d = np.sum(np.abs(np.hstack([G_rem, GI_rem])), axis=1, keepdims=True)
+            d = torch.sum(torch.abs(torch.cat([G_rem, GI_rem], dim=1)), dim=1, keepdims=True)
         
         # remove all exponent vector dimensions that have no entries
-        ind = np.sum(E, axis=1) > 0
+        ind = torch.sum(E, dim=1) > 0
         E = E[ind, :]
         id_ = id_[ind]
     

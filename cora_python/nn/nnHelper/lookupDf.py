@@ -10,6 +10,7 @@ Authors: MATLAB: Tobias Ladner
 
 from typing import Any, Dict, Callable
 import numpy as np
+import torch
 import sympy as sp
 from sympy import symbols, diff
 
@@ -59,14 +60,24 @@ def lookupDf(layer: Any, i: int) -> Callable:
             # Compute first derivative symbolically
             df1_sym = diff(f_sym, x)
             
-            # Convert to lambda function for evaluation
-            df1_lambda = sp.lambdify(x, df1_sym, modules=['numpy'])
+            # Convert to lambda function for evaluation - prefer torch
+            try:
+                df1_lambda = sp.lambdify(x, df1_sym, modules=['torch'])
+            except (TypeError, AttributeError):
+                # Fallback to numpy if torch doesn't work, wrap to convert result to torch
+                df1_lambda_np = sp.lambdify(x, df1_sym, modules=['numpy'])
+                def df1_lambda(x_torch):
+                    # Convert torch to numpy for numpy function, then convert result back to torch
+                    x_np = x_torch.cpu().numpy()
+                    result_np = df1_lambda_np(x_np)
+                    return torch.tensor(result_np, dtype=x_torch.dtype, device=x_torch.device)
             
             layerStruct[1] = {'df': df1_lambda}
         else:
-            # Fallback: create a simple numerical derivative
+            # Fallback: create a simple numerical derivative - torch only
             def numerical_df(x):
-                h = 1e-8
+                # x is already torch (df is internal to nn)
+                h = torch.tensor(1e-8, dtype=x.dtype, device=x.device)
                 return (layer.f(x + h) - layer.f(x - h)) / (2 * h)
             layerStruct[1] = {'df': numerical_df}
         
@@ -104,13 +115,23 @@ def lookupDf(layer: Any, i: int) -> Callable:
                 for _ in range(j):
                     df_j_sym = diff(df_j_sym, x)
                 
-                # Convert to lambda function
-                df_j_lambda = sp.lambdify(x, df_j_sym, modules=['numpy'])
+                # Convert to lambda function - prefer torch
+                try:
+                    df_j_lambda = sp.lambdify(x, df_j_sym, modules=['torch'])
+                except (TypeError, AttributeError):
+                    # Fallback to numpy if torch doesn't work, wrap to convert result to torch
+                    df_j_lambda_np = sp.lambdify(x, df_j_sym, modules=['numpy'])
+                    def df_j_lambda(x_torch):
+                        # Convert torch to numpy for numpy function, then convert result back to torch
+                        x_np = x_torch.cpu().numpy()
+                        result_np = df_j_lambda_np(x_np)
+                        return torch.tensor(result_np, dtype=x_torch.dtype, device=x_torch.device)
                 layerStruct[j] = {'df': df_j_lambda}
             else:
-                # Fallback: numerical differentiation
+                # Fallback: numerical differentiation - torch only
                 def numerical_df_j(x):
-                    h = 1e-8
+                    # x is already torch (df is internal to nn)
+                    h = torch.tensor(1e-8, dtype=x.dtype, device=x.device)
                     return (df_j1(x + h) - df_j1(x - h)) / (2 * h)
                 
                 layerStruct[j] = {'df': numerical_df_j}

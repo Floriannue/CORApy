@@ -232,19 +232,41 @@ class nnActivationLayer(nnLayer):
             bounds: Output interval bounds
         """
         if options.get('nn', {}).get('reuse_bounds', False):
-            # save bounds
+            # Convert bounds to torch immediately - all internal operations use torch
+            if isinstance(bounds.inf, np.ndarray):
+                bounds_inf = torch.tensor(bounds.inf, dtype=torch.float32)
+            else:
+                bounds_inf = bounds.inf if isinstance(bounds.inf, torch.Tensor) else torch.tensor(bounds.inf, dtype=torch.float32)
+            if isinstance(bounds.sup, np.ndarray):
+                bounds_sup = torch.tensor(bounds.sup, dtype=torch.float32)
+            else:
+                bounds_sup = bounds.sup if isinstance(bounds.sup, torch.Tensor) else torch.tensor(bounds.sup, dtype=torch.float32)
+            
+            # save bounds - store as torch tensors
             if (not self.l or not self.u or 
-                not all(size == size_old for size, size_old in zip(bounds.inf.shape, self.l.shape))):
-                self.l = bounds.inf
-                self.u = bounds.sup
+                not all(size == size_old for size, size_old in zip(bounds_inf.shape, self.l.shape if isinstance(self.l, torch.Tensor) else ()))):
+                self.l = bounds_inf
+                self.u = bounds_sup
                 
                 # set bounds
             elif (bounds.representsa_('emptySet', 1e-10) and 
-                  any(np.isnan(self.l)) and any(np.isnan(self.u))):
-                bounds = Interval(self.l, self.u)
+                  any(torch.isnan(self.l).cpu().numpy() if isinstance(self.l, torch.Tensor) else np.isnan(self.l)) and 
+                  any(torch.isnan(self.u).cpu().numpy() if isinstance(self.u, torch.Tensor) else np.isnan(self.u))):
+                # Convert to numpy for Interval constructor (external interface)
+                l_np = self.l.cpu().numpy() if isinstance(self.l, torch.Tensor) else self.l
+                u_np = self.u.cpu().numpy() if isinstance(self.u, torch.Tensor) else self.u
+                bounds = Interval(l_np, u_np)
             
-            self.l = np.maximum(self.l, bounds.inf)
-            self.u = np.minimum(self.u, bounds.sup)
+            # Ensure self.l and self.u are torch tensors
+            if isinstance(self.l, np.ndarray):
+                self.l = torch.tensor(self.l, dtype=torch.float32)
+            if isinstance(self.u, np.ndarray):
+                self.u = torch.tensor(self.u, dtype=torch.float32)
+            
+            self.l = torch.maximum(self.l, bounds_inf)
+            self.u = torch.minimum(self.u, bounds_sup)
+            
+            # Keep as torch tensors internally - only convert to numpy when needed for external interfaces
         
         # propagate through layer
         bounds = super().evaluateInterval(bounds, options)
@@ -323,10 +345,8 @@ class nnActivationLayer(nnLayer):
             #             self.backprop['store']['du_l'] = self.du_l
             #             self.backprop['store']['du_u'] = self.du_u
         
-        # Convert back to numpy for return (if caller expects numpy)
-        rc_np = rc.cpu().numpy() if isinstance(rc, torch.Tensor) else rc
-        rG_np = rG.cpu().numpy() if isinstance(rG, torch.Tensor) else rG
-        return rc_np, rG_np
+        # Return torch tensors directly - downstream code expects torch tensors
+        return rc, rG
     
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
                             id: np.ndarray, id_: np.ndarray, ind: np.ndarray, ind_: np.ndarray,
@@ -351,6 +371,27 @@ class nnActivationLayer(nnLayer):
         """
         print(f"DEBUG: evaluatePolyZonotope - Input: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
         
+        # Convert inputs to torch immediately - all internal operations use torch
+        if isinstance(c, np.ndarray):
+            c = torch.tensor(c, dtype=torch.float32)
+        if isinstance(G, np.ndarray):
+            G = torch.tensor(G, dtype=torch.float32)
+        if isinstance(GI, np.ndarray):
+            GI = torch.tensor(GI, dtype=torch.float32)
+        if isinstance(E, np.ndarray):
+            E = torch.tensor(E, dtype=torch.long)
+        if isinstance(id, np.ndarray):
+            id = torch.tensor(id, dtype=torch.long)
+        if isinstance(id_, np.ndarray):
+            id_ = torch.tensor(id_, dtype=torch.long)
+        if isinstance(ind, np.ndarray):
+            ind = torch.tensor(ind, dtype=torch.long)
+        if isinstance(ind_, np.ndarray):
+            ind_ = torch.tensor(ind_, dtype=torch.long)
+        
+        device = c.device if isinstance(c, torch.Tensor) else torch.device('cpu')
+        dtype = c.dtype if isinstance(c, torch.Tensor) else torch.float32
+        
         # Get dimensions
         n = c.shape[0]
         
@@ -370,12 +411,12 @@ class nnActivationLayer(nnLayer):
         G_start, G_end, G_ext_start, G_ext_end = getOrderIndicesG(G, maxOrder)
         _, GI_end, _, _ = getOrderIndicesGI(GI, G, maxOrder)
         
-        # Preallocate output sizes
-        c_out = np.zeros((n, 1))
-        G_out = np.zeros((n, G_end[-1]))
-        GI_out = np.zeros((n, GI_end[-1]))
+        # Preallocate output sizes - always use torch
+        c_out = torch.zeros((n, 1), dtype=dtype, device=device)
+        G_out = torch.zeros((n, G_end[-1]), dtype=dtype, device=device)
+        GI_out = torch.zeros((n, GI_end[-1]), dtype=dtype, device=device)
+        d = torch.zeros((n, 1), dtype=dtype, device=device)
         E_out = self._aux_computeE_out(E, maxOrder, G_start, G_end)
-        d = np.zeros((n, 1))
         
         print(f"DEBUG: evaluatePolyZonotope - Before loop: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
         print(f"DEBUG: evaluatePolyZonotope - n={n}, G_end[-1]={G_end[-1]}, GI_end[-1]={GI_end[-1]}")
@@ -427,19 +468,34 @@ class nnActivationLayer(nnLayer):
         prod_result = torch.prod(ones_like_E - E_mod, dim=0)
         ind_torch = torch.where(prod_result == 1)[0]
         
-        # Convert back to numpy for return
-        ind = ind_torch.cpu().numpy() if isinstance(ind_torch, torch.Tensor) else ind_torch
-        all_indices = np.arange(E.shape[1])
-        ind_ = np.setdiff1d(all_indices, ind)
+        # Compute set difference using torch operations (before converting to numpy)
+        all_indices = torch.arange(E.shape[1], dtype=torch.long, device=device)
+        # Find elements in all_indices that are not in ind_torch
+        if hasattr(torch, 'isin'):
+            mask = ~torch.isin(all_indices, ind_torch)
+            ind_ = all_indices[mask]
+        else:
+            # Manual implementation: check if each element in all_indices is in ind_torch
+            all_expanded = all_indices.unsqueeze(1)  # (n, 1)
+            ind_expanded = ind_torch.unsqueeze(0)  # (1, m)
+            mask = ~(all_expanded == ind_expanded).any(dim=1)
+            ind_ = all_indices[mask]
+        
+        # Return torch tensors (internal to nn) - conversion to numpy happens at final boundary in evaluate_.py
+        ind = ind_torch  # Already torch
+        # ind_ is already torch from torch operations above
         
         return c, G, GI, E, id, id_, ind, ind_
     
-    def _aux_preOrderReduction(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
-                              id: np.ndarray, id_: np.ndarray, ind: np.ndarray, ind_: np.ndarray,
-                              options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray,
-                                                             np.ndarray, np.ndarray, np.ndarray,
-                                                             np.ndarray, np.ndarray]:
-        """Order reduction prior to evaluation using nnHelper"""
+    def _aux_preOrderReduction(self, c: torch.Tensor, G: torch.Tensor, GI: torch.Tensor, E: torch.Tensor,
+                              id: torch.Tensor, id_: Optional[torch.Tensor], ind: torch.Tensor, ind_: torch.Tensor,
+                              options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor,
+                                                             torch.Tensor, torch.Tensor, Optional[int],
+                                                             torch.Tensor, torch.Tensor]:
+        """Order reduction prior to evaluation using nnHelper - always receives torch tensors"""
+        device = c.device
+        dtype = c.dtype
+        
         # Read number of generators
         n, h = G.shape
         q = GI.shape[1]
@@ -468,94 +524,126 @@ class nnActivationLayer(nnLayer):
         if h + q > nrMaxGen:
             print(f"DEBUG: _aux_preOrderReduction - CALLING reducePolyZono!")
             # Reduce using nnHelper
+            # reducePolyZono now works with torch only (internal to nn)
             c, G, GI, E, id, d = reducePolyZono(c, G, GI, E, id, nrMaxGen, self.sensitivity)
             
-            # Convert to torch for internal computation
-            if isinstance(d, np.ndarray):
-                d_torch = torch.tensor(d, dtype=torch.float32)
-            else:
-                d_torch = d
-            if isinstance(GI, np.ndarray):
-                GI_torch = torch.tensor(GI, dtype=torch.float32)
-            else:
-                GI_torch = GI
-            
-            device = d_torch.device if isinstance(d_torch, torch.Tensor) else torch.device('cpu')
-            dtype = d_torch.dtype if isinstance(d_torch, torch.Tensor) else torch.float32
-            
-            # Add to GI
-            D = torch.diag(d_torch.flatten())
-            d_mask = d_torch > 0
-            GI_torch = torch.cat([GI_torch, D[:, d_mask.flatten()]], dim=1)
-            
-            # Convert back to numpy for return
-            GI = GI_torch.cpu().numpy() if isinstance(GI_torch, torch.Tensor) else GI_torch
+            # Add to GI - all operations use torch
+            D = torch.diag(d.flatten())
+            d_mask = d > 0
+            GI = torch.cat([GI, D[:, d_mask.flatten()]], dim=1)
             
             # Update number of generators
             h = G.shape[1]
             q = GI.shape[1]
             
-            # Update max id
-            id_ = max(np.max(id), id_)
-            if id_ is None:
-                id_ = np.max(id)
+            # Update max id - use torch operations
+            id_max = torch.max(id).item()
+            if id_ is not None:
+                id__val = id_.item() if isinstance(id_, torch.Tensor) else id_
+                id_ = max(id_max, id__val)
+            else:
+                id_ = id_max
         else:
             print(f"DEBUG: _aux_preOrderReduction - NOT calling reducePolyZono")
         
         print(f"DEBUG: _aux_preOrderReduction - Output: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}")
         
-        # Update auxiliary variables (matches MATLAB exactly)
-        id_ = max(np.max(id), id_)
-        if id_ is None:
-            id_ = 0
+        # Update auxiliary variables (matches MATLAB exactly) - use torch
+        id_max = torch.max(id).item()
+        if id_ is not None:
+            id__val = id_.item() if isinstance(id_, torch.Tensor) else id_
+            id_ = max(id_max, id__val)
+        else:
+            id_ = id_max
         
-        # Compute indices of all-even exponents (for zonotope encl.)
-        ind = np.where(np.prod(np.ones_like(E) - np.mod(E, 2), axis=0) == 1)[0]
-        ind_ = np.setdiff1d(np.arange(E.shape[1]), ind)
+        # Compute indices of all-even exponents (for zonotope encl.) - use torch
+        E_mod = E % 2
+        ones_like_E = torch.ones_like(E, dtype=torch.long)
+        prod_result = torch.prod(ones_like_E - E_mod, dim=0)
+        ind = torch.where(prod_result == 1)[0]
+        
+        # Compute set difference using torch operations
+        all_indices = torch.arange(E.shape[1], dtype=torch.long, device=device)
+        # Find elements in all_indices that are not in ind
+        # Use torch.isin if available, otherwise use manual comparison
+        if hasattr(torch, 'isin'):
+            mask = ~torch.isin(all_indices, ind)
+            ind_ = all_indices[mask]
+        else:
+            # Manual implementation: check if each element in all_indices is in ind
+            # Expand dimensions for broadcasting: (len(all_indices), 1) vs (1, len(ind))
+            all_expanded = all_indices.unsqueeze(1)  # (n, 1)
+            ind_expanded = ind.unsqueeze(0)  # (1, m)
+            # Check equality: (n, m) -> any along dim=1 -> (n,)
+            mask = ~(all_expanded == ind_expanded).any(dim=1)
+            ind_ = all_indices[mask]
         
         print(f"DEBUG: _aux_preOrderReduction - Final: ind shape: {ind.shape}, ind_ shape: {ind_.shape}")
         
+        # Return torch tensors - caller will convert if needed
         return c, G, GI, E, id, id_, ind, ind_
     
-    def _aux_sort(self, G: np.ndarray, E: np.ndarray, maxOrder: int) -> Tuple[np.ndarray, np.ndarray]:
-        """Sort columns of exponent matrix"""
+    def _aux_sort(self, G: torch.Tensor, E: torch.Tensor, maxOrder: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Sort columns of exponent matrix - always receives torch tensors"""
+        device = G.device
+        
         # Sort by order first, then by exponent values
         order_indices = []
         for i in range(maxOrder):  # 0-based indexing like Python
-            start_idx = np.where(E == i + 1)[1]  # +1 because E stores 1-based order values
+            # Use torch operations
+            mask = E == (i + 1)  # +1 because E stores 1-based order values
+            start_idx = torch.where(mask)[1]  # Get column indices
             if len(start_idx) > 0:
-                order_indices.extend(start_idx)
+                order_indices.extend(start_idx.cpu().numpy().tolist())
         
         # Sort within each order
         for i in range(maxOrder):  # 0-based indexing like Python
-            mask = E == i + 1  # +1 because E stores 1-based order values
-            if np.any(mask):
-                # Sort by exponent values
-                sorted_indices = np.lexsort(E[mask])
-                order_indices.extend(np.where(mask)[1][sorted_indices])
+            mask = E == (i + 1)  # +1 because E stores 1-based order values
+            if torch.any(mask):
+                # Sort by exponent values - use torch operations
+                mask_cols = torch.where(mask)[1]
+                E_masked = E[:, mask_cols]
+                # Use torch sort instead of lexsort
+                _, sorted_indices = torch.sort(E_masked[0, :])  # Sort by first row
+                order_indices.extend(mask_cols[sorted_indices].cpu().numpy().tolist())
         
-        return G[:, order_indices], E[:, order_indices]
+        # Convert indices back to torch for indexing
+        order_indices_torch = torch.tensor(order_indices, dtype=torch.long, device=device)
+        G_sorted = G[:, order_indices_torch]
+        E_sorted = E[:, order_indices_torch]
+        
+        # Return torch tensors - caller will convert if needed
+        return G_sorted, E_sorted
     
-    def _aux_sortPost(self, G: np.ndarray, E: np.ndarray, maxOrder: int, G_start: np.ndarray,
-                      G_end: np.ndarray, G_ext_start: np.ndarray, G_ext_end: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """Sort columns after evaluation"""
+    def _aux_sortPost(self, G: torch.Tensor, E: torch.Tensor, maxOrder: int, G_start: torch.Tensor,
+                      G_end: torch.Tensor, G_ext_start: torch.Tensor, G_ext_end: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Sort columns after evaluation - always receives torch tensors"""
         # Sort by order first, then by exponent values
         for i in range(maxOrder):  # 0-based indexing like Python
             if G_start[i + 1] < G_end[i + 1]:  # +1 because G_start/G_end store 1-based indices
-                start_idx = G_start[i + 1]
-                end_idx = G_end[i + 1]
-                sorted_indices = np.lexsort(E[:, start_idx:end_idx])
+                start_idx = int(G_start[i + 1].item() if isinstance(G_start, torch.Tensor) else G_start[i + 1])
+                end_idx = int(G_end[i + 1].item() if isinstance(G_end, torch.Tensor) else G_end[i + 1])
+                # Use torch sort instead of lexsort
+                E_slice = E[:, start_idx:end_idx]
+                # Sort by first row (lexsort equivalent)
+                _, sorted_indices = torch.sort(E_slice[0, :])
                 G[:, start_idx:end_idx] = G[:, start_idx:end_idx][:, sorted_indices]
                 E[:, start_idx:end_idx] = E[:, start_idx:end_idx][:, sorted_indices]
         
+        # Return torch tensors - caller will convert if needed
         return G, E
     
-    def _aux_computeE_out(self, E: np.ndarray, order: int, G_start: np.ndarray, G_end: np.ndarray) -> np.ndarray:
-        """Compute output exponential matrix using nnHelper"""
-        # Initialize
-        E_out = np.zeros((E.shape[0], G_end[-1]))
+    def _aux_computeE_out(self, E: torch.Tensor, order: int, G_start: torch.Tensor, G_end: torch.Tensor) -> torch.Tensor:
+        """Compute output exponential matrix using nnHelper - always receives torch tensors"""
+        device = E.device
+        dtype = E.dtype
+        
+        # Initialize - use torch
+        G_end_last = int(G_end[-1].item() if isinstance(G_end, torch.Tensor) else G_end[-1])
+        E_out = torch.zeros((E.shape[0], G_end_last), dtype=dtype, device=device)
         E_ext = [None] * order
-        E_out[:, :G_end[0]] = E
+        G_end_0 = int(G_end[0].item() if isinstance(G_end, torch.Tensor) else G_end[0])
+        E_out[:, :G_end_0] = E
         E_ext[0] = E
         
         for i in range(1, order):  # Start from 1 because we need to skip the 0th order
@@ -566,14 +654,18 @@ class nnActivationLayer(nnLayer):
             Ei1_ext = E_ext[i1]
             Ei2_ext = E_ext[i2]
             Ei = calcSquaredE(Ei1_ext, Ei2_ext, i1 == i2)
-            E_ext[i] = np.hstack([Ei1_ext, Ei2_ext, Ei])
+            # Use torch.cat instead of np.hstack
+            E_ext[i] = torch.cat([Ei1_ext, Ei2_ext, Ei], dim=1)
             
             if i1 < i2:
                 # Free memory
                 E_ext[i1] = None
             
-            E_out[:, G_start[i]:G_end[i]] = Ei
+            G_start_i = int(G_start[i].item() if isinstance(G_start, torch.Tensor) else G_start[i])
+            G_end_i = int(G_end[i].item() if isinstance(G_end, torch.Tensor) else G_end[i])
+            E_out[:, G_start_i:G_end_i] = Ei
         
+        # Return torch tensor - caller will convert if needed
         return E_out
     
     def _aux_postOrderReduction(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
@@ -597,23 +689,11 @@ class nnActivationLayer(nnLayer):
         
         return c, G, GI, E, id, d, id_
     
-    def _aux_addApproxError(self, d: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
-                           id: np.ndarray, id_: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Add approximation error using nnHelper"""
-        # Convert inputs to torch if needed
-        if isinstance(d, np.ndarray):
-            d = torch.tensor(d, dtype=torch.float32)
-        if isinstance(G, np.ndarray):
-            G = torch.tensor(G, dtype=torch.float32)
-        if isinstance(E, np.ndarray):
-            E = torch.tensor(E, dtype=torch.int64)
-        if isinstance(GI, np.ndarray):
-            GI = torch.tensor(GI, dtype=torch.float32)
-        if isinstance(id, np.ndarray):
-            id = torch.tensor(id, dtype=torch.int64)
-        
-        device = d.device if isinstance(d, torch.Tensor) else torch.device('cpu')
-        dtype = d.dtype if isinstance(d, torch.Tensor) else torch.float32
+    def _aux_addApproxError(self, d: torch.Tensor, G: torch.Tensor, GI: torch.Tensor, E: torch.Tensor,
+                           id: torch.Tensor, id_: Optional[torch.Tensor], options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, Optional[int]]:
+        """Add approximation error using nnHelper - always receives torch tensors"""
+        device = d.device
+        dtype = d.dtype
         
         # Add error terms to generators
         error_mask = d > 0
@@ -633,10 +713,11 @@ class nnActivationLayer(nnLayer):
             
             # Update id
             if id_ is not None:
-                id_ = max(id_.item() if isinstance(id_, torch.Tensor) else id_, torch.max(id).item() + 1)
+                id_ = max(id_.item(), torch.max(id).item() + 1)
             else:
                 id_ = torch.max(id).item() + 1
         
+        # Return torch tensors - caller will convert if needed
         return G, GI, E, id, id_
     
     def evaluatePolyZonotopeNeuron(self, c: float, G: np.ndarray, GI: np.ndarray, E: np.ndarray, 
@@ -664,9 +745,9 @@ class nnActivationLayer(nnLayer):
         
         l, u = compBoundsPolyZono(c, G, GI, E, ind, ind_, True)
         
-        # Extract scalar bounds for this specific neuron
-        l_scalar = float(l[0, 0]) if l.size > 0 else 0.0
-        u_scalar = float(u[0, 0]) if u.size > 0 else 0.0
+        # Extract scalar bounds for this specific neuron - l, u are now torch tensors
+        l_scalar = float(l[0, 0].item()) if l.numel() > 0 else 0.0
+        u_scalar = float(u[0, 0].item()) if u.numel() > 0 else 0.0
         
         # Compute polynomial approximation
         coeffs, d = self.computeApproxPoly(l_scalar, u_scalar, order)
@@ -689,10 +770,12 @@ class nnActivationLayer(nnLayer):
             G_start, G_end, G_ext_start, G_ext_end = getOrderIndicesG(G, order)
             GI_start, GI_end, GI_ext_start, GI_ext_end = getOrderIndicesGI(GI, G, order)
             
-            # Initialize output arrays
+            # Initialize output arrays - always use torch
             c_out = 0.0  # scalar output
-            G_out = np.zeros(G_ext_end[-1])  # row vector output
-            GI_out = np.zeros(GI_ext_end[-1])  # row vector output
+            device = G.device if isinstance(G, torch.Tensor) else torch.device('cpu')
+            dtype = G.dtype if isinstance(G, torch.Tensor) else torch.float32
+            G_out = torch.zeros(G_ext_end[-1], dtype=dtype, device=device)  # row vector output
+            GI_out = torch.zeros(GI_ext_end[-1], dtype=dtype, device=device)  # row vector output
             
             # Compute polynomial terms for each order
             for i in range(order):  # 0-based indexing like Python
@@ -704,8 +787,8 @@ class nnActivationLayer(nnLayer):
                     # Compute polynomial coefficients for this order
                     coeff_i = coeffs[i] if i < len(coeffs) else 0
                     
-                    # Add contribution
-                    c_out += coeff_i * np.sum(G_i)
+                    # Add contribution - always use torch
+                    c_out += coeff_i * torch.sum(G_i).item()
                     G_out[G_start[i + 1]:G_end[i + 1]] = coeff_i * G_i
                     GI_out[GI_start[i + 1]:GI_end[i + 1]] = coeff_i * GI_i
         
@@ -714,10 +797,10 @@ class nnActivationLayer(nnLayer):
     def _computePolynomialTerms(self, c: float, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
                                coeffs: np.ndarray, order: int) -> Tuple[float, np.ndarray, np.ndarray]:
         """Compute polynomial terms using nnHelper methods"""
-        # Initialize
+        # Initialize - always use torch
         c_out = 0.0  # scalar output
-        G_out = np.zeros_like(G)  # row vector output
-        GI_out = np.zeros_like(GI)  # row vector output
+        G_out = torch.zeros_like(G)  # row vector output
+        GI_out = torch.zeros_like(GI)  # row vector output
         
         # For each order, compute the contribution
         for i in range(order):  # 0-based indexing like Python
@@ -771,10 +854,19 @@ class nnActivationLayer(nnLayer):
         # compute approx poly + error
         coeffs, d = self.computeApproxPoly(l, u, order, options['nn']['poly_method'])
         
-        # evaluate
-        r = coeffs[-1] + Interval(-d, d)
-        for i in range(len(coeffs) - 1):
-            r = r + coeffs[-(i + 1)] * (input_data ** (i + 1))
+        # evaluate - convert coeffs to numpy for Interval (external interface)
+        if isinstance(coeffs, torch.Tensor):
+            coeffs_np = coeffs.cpu().numpy()
+        else:
+            coeffs_np = coeffs
+        if isinstance(d, torch.Tensor):
+            d_np = d.item() if d.numel() == 1 else d.cpu().numpy()
+        else:
+            d_np = d
+        
+        r = coeffs_np[-1] + Interval(-d_np, d_np)
+        for i in range(len(coeffs_np) - 1):
+            r = r + coeffs_np[-(i + 1)] * (input_data ** (i + 1))
         
         return r
     
@@ -1118,13 +1210,26 @@ class nnActivationLayer(nnLayer):
         """
         # bound approximation error according to [1, Sec. 3.2]
         
-        # Make a copy to avoid modifying original
-        coeffs = coeffs.copy()
+        # Make a copy to avoid modifying original - use torch clone
+        if isinstance(coeffs, torch.Tensor):
+            coeffs = coeffs.clone()
+        else:
+            coeffs = coeffs.copy()
+        
+        # Convert l, u to torch if needed (internal to nn)
+        if isinstance(l, np.ndarray):
+            l = torch.tensor(l, dtype=torch.float32)
+        if isinstance(u, np.ndarray):
+            u = torch.tensor(u, dtype=torch.float32)
+        if not isinstance(l, torch.Tensor):
+            l = torch.tensor(l, dtype=torch.float32)
+        if not isinstance(u, torch.Tensor):
+            u = torch.tensor(u, dtype=torch.float32)
         
         # compute the difference between activation function and quad. fit
         df_l, df_u = self.getDerBounds(l, u)
         
-        # Use the proper nnHelper function like MATLAB
+        # Use the proper nnHelper function like MATLAB - now works with torch
         diffl, diffu = minMaxDiffOrder(coeffs, l, u, self.f, df_l, df_u)
         
         # change polynomial s.t. lower and upper error are equal
@@ -1215,12 +1320,14 @@ class nnActivationLayer(nnLayer):
                     # No lower order polynomial will recover d to be below tol
                     break
             
-            # Next polynomial
+            # Next polynomial - convert torch to numpy for storage (external interface)
+            p_np = p.cpu().numpy() if isinstance(p, torch.Tensor) else p
+            d_np = d.item() if isinstance(d, torch.Tensor) and d.numel() == 1 else (d.cpu().numpy() if isinstance(d, torch.Tensor) else d)
             coeffs.append({
                 'l': l,
                 'u': u_i,
-                'p': p,
-                'd': d
+                'p': p_np,
+                'd': d_np
             })
             
             # Move to next region
@@ -1341,31 +1448,72 @@ class nnActivationLayer(nnLayer):
         num_points = 10 * (order + 1)
         
         if poly_method == 'regression':
-            x = np.linspace(l, u, num_points)
-            y = self.f(x)
+            # Use torch internally - convert l, u to torch if needed
+            if isinstance(l, np.ndarray):
+                l = torch.tensor(l, dtype=torch.float32)
+            if isinstance(u, np.ndarray):
+                u = torch.tensor(u, dtype=torch.float32)
+            if not isinstance(l, torch.Tensor):
+                l = torch.tensor(l, dtype=torch.float32)
+            if not isinstance(u, torch.Tensor):
+                u = torch.tensor(u, dtype=torch.float32)
+            
+            device = l.device
+            dtype = l.dtype
+            x = torch.linspace(l.item() if l.numel() == 1 else l, u.item() if u.numel() == 1 else u, num_points, dtype=dtype, device=device)
+            y = self.f(x)  # f works with torch
             
             # compute polynomial that best fits the activation function
-            coeffs = leastSquarePolyFunc(x, y, order)
+            coeffs = leastSquarePolyFunc(x, y, order)  # Returns torch tensor
             
         elif poly_method == 'ridgeregression':
-            x = np.linspace(l, u, num_points)
-            y = self.f(x)
+            # Use torch internally - convert l, u to torch if needed
+            if isinstance(l, np.ndarray):
+                l = torch.tensor(l, dtype=torch.float32)
+            if isinstance(u, np.ndarray):
+                u = torch.tensor(u, dtype=torch.float32)
+            if not isinstance(l, torch.Tensor):
+                l = torch.tensor(l, dtype=torch.float32)
+            if not isinstance(u, torch.Tensor):
+                u = torch.tensor(u, dtype=torch.float32)
             
-            coeffs = leastSquareRidgePolyFunc(x, y, order)
+            device = l.device
+            dtype = l.dtype
+            x = torch.linspace(l.item() if l.numel() == 1 else l, u.item() if u.numel() == 1 else u, num_points, dtype=dtype, device=device)
+            y = self.f(x)  # f works with torch
+            
+            coeffs = leastSquareRidgePolyFunc(x, y, order)  # Returns torch tensor
             
         elif poly_method == 'taylor':
-            # taylor series expansion at middle point
+            # taylor series expansion at middle point - use torch internally
+            # Convert l, u to torch if needed
+            if isinstance(l, np.ndarray):
+                l = torch.tensor(l, dtype=torch.float32)
+            if isinstance(u, np.ndarray):
+                u = torch.tensor(u, dtype=torch.float32)
+            if not isinstance(l, torch.Tensor):
+                l = torch.tensor(l, dtype=torch.float32)
+            if not isinstance(u, torch.Tensor):
+                u = torch.tensor(u, dtype=torch.float32)
+            
+            device = l.device
+            dtype = l.dtype
             c = (l + u) / 2
             
-            # init
+            # init - use torch
             P = [1]  # pascal's triangle
-            coeffs = np.zeros(order + 1)
+            coeffs = torch.zeros(order + 1, dtype=dtype, device=device)
             
             # taylor series expansion
             for i in range(order + 1):
                 df_i = self.getDf(i)
-                coeffs[-(i+1):] = coeffs[-(i+1):] + \
-                    (np.array(P) * (-c) ** np.arange(i+1)) * df_i(c) / np.math.factorial(i)
+                # Convert P to torch tensor
+                P_torch = torch.tensor(P, dtype=dtype, device=device)
+                arange_torch = torch.arange(i+1, dtype=dtype, device=device)
+                # Compute coefficient update - df_i works with torch
+                coeff_update = (P_torch * (-c) ** arange_torch) * df_i(c) / np.math.factorial(i)
+                # Update coeffs (backward indexing)
+                coeffs[-(i+1):] = coeffs[-(i+1):] + coeff_update
                 
                 # prepare for next iteration
                 P = [1] + [P[j] + P[j+1] for j in range(len(P)-1)] + [1]
@@ -1416,16 +1564,16 @@ class nnActivationLayer(nnLayer):
         # The base implementation returns empty coefficients
         return coeffs, d
     
-    def computeExtremePointsBatch(self, m: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def computeExtremePointsBatch(self, m: Union[np.ndarray, torch.Tensor], options: Dict[str, Any]) -> Tuple[Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor]]:
         """
-        Compute extreme points batch
+        Compute extreme points batch - works with torch tensors internally
         
         Args:
-            m: Input data
+            m: Input data (torch tensor expected internally)
             options: Options
             
         Returns:
-            Tuple of (xs, dxsdm) extreme points and derivatives
+            Tuple of (xs, dxsdm) extreme points and derivatives (torch tensors)
         """
         raise CORAerror('CORA:notDefined', 'computeExtremePointsBatch not implemented in base class')
     
@@ -1443,7 +1591,7 @@ class nnActivationLayer(nnLayer):
             extremePoints: Extreme points function
             
         Returns:
-            Tuple of (rc, rG, coeffs, d) results (torch tensors, converted back to numpy if needed)
+            Tuple of (rc, rG, coeffs, d) results (torch tensors)
         """
         # Convert numpy inputs to torch if needed
         if isinstance(c, np.ndarray):
@@ -1788,32 +1936,35 @@ class nnActivationLayer(nnLayer):
                 # Append generators for the approximation errors
                 rG = torch.cat([rG, torch.zeros((n, len(approxErrGenIds), batchSize), dtype=dtype, device=device)], dim=1)
             
-            # Convert dl, du, dlIdx, duIdx to numpy for complex indexing operations (ravel_multi_index, unravel_index)
-            dl_np = dl.cpu().numpy() if isinstance(dl, torch.Tensor) else dl
-            du_np = du.cpu().numpy() if isinstance(du, torch.Tensor) else du
-            dlIdx_np = dlIdx.cpu().numpy() if isinstance(dlIdx, torch.Tensor) else dlIdx
-            duIdx_np = duIdx.cpu().numpy() if isinstance(duIdx, torch.Tensor) else duIdx
-            
+            # Use torch for indexing operations - keep tensors as torch
             # Obtain the dn largest approximation errors.
             # [~,dDims] = sort(1/2*(du - dl),1,'descend');
-            dDims = np.tile(np.arange(n).reshape(-1, 1), (1, batchSize))
-            dDimsIdx = np.ravel_multi_index([dDims, np.tile(np.arange(batchSize), (n, 1))], (n, batchSize))
+            # Use torch.arange and torch operations instead of numpy
+            dDims = torch.arange(n, dtype=torch.long, device=device).unsqueeze(1).repeat(1, batchSize)
+            batch_indices = torch.arange(batchSize, dtype=torch.long, device=device).unsqueeze(0).repeat(n, 1)
+            # Compute linear indices: dDimsIdx = dDims * batchSize + batch_indices
+            dDimsIdx = dDims * batchSize + batch_indices
             notdDimsIdx = dDimsIdx[dn:, :]
-            # set not considered approx. error to 0
-            # Convert linear indices back to 2D indices for dl, du (n, 1) arrays
-            # and 3D indices for c, m (n, 1, b) arrays
-            notd_i, notd_b = np.unravel_index(notdDimsIdx.flatten(), (n, batchSize))
             
-            # Convert c and m to numpy for f function call
-            c_np = c.cpu().numpy() if isinstance(c, torch.Tensor) else c
-            m_np = m.cpu().numpy() if isinstance(m, torch.Tensor) else m
+            # Convert linear indices back to 2D indices using torch operations
+            # notd_i = notdDimsIdx // batchSize, notd_b = notdDimsIdx % batchSize
+            notdDimsIdx_flat = notdDimsIdx.flatten()
+            notd_i = notdDimsIdx_flat // batchSize  # Keep as torch tensor
+            notd_b = notdDimsIdx_flat % batchSize   # Keep as torch tensor
             
-            dl_np[notd_i, 0] = f(c_np[notd_i, 0, notd_b]) - m_np[notd_i, 0, notd_b] * c_np[notd_i, 0, notd_b]
-            du_np[notd_i, 0] = dl_np[notd_i, 0]
+            # Use torch indexing to get values from c and m
+            # c has shape (n, 1, batchSize), m has shape (n, 1, batchSize)
+            c_selected = c[notd_i, 0, notd_b]  # Shape: (len(notd_i),)
+            m_selected = m[notd_i, 0, notd_b]  # Shape: (len(notd_i),)
             
-            # Convert back to torch
-            dl = torch.tensor(dl_np, dtype=dtype, device=device)
-            du = torch.tensor(du_np, dtype=dtype, device=device)
+            # f now works with torch tensors directly (it calls evaluateNumeric which handles torch)
+            f_values = f(c_selected) - m_selected * c_selected
+            
+            # Use torch indexing: dl[notd_i, 0] = f_values
+            dl = dl.clone()  # Ensure we have a copy to modify
+            du = du.clone()
+            dl[notd_i, 0] = f_values
+            du[notd_i, 0] = f_values
             
             # shift y-intercept by center of approximation errors
             # t should have same shape as c (n, 1, b), but du and dl are (n, 1)
@@ -1834,87 +1985,174 @@ class nnActivationLayer(nnLayer):
             # matrix.
             if dn > 0 and len(approxErrGenIds) > 0:
                 # MATLAB: sub2ind([n p batchSize], repmat(1:n,1,batchSize), reshape(dDims(1:dn,:),1,[]), repmat(approxErrGenIds,1,batchSize), repelem(1:batchSize,1,n))
-                # Convert to 0-based indexing and fix parameter order
-                GdIdx = np.ravel_multi_index([
-                    np.tile(np.arange(n, dtype=int), batchSize),  # repmat(1:n,1,batchSize) -> 0-based
-                    np.tile(np.array(approxErrGenIds, dtype=int) - 1, batchSize),  # repmat(approxErrGenIds,1,batchSize) -> 0-based  
-                    np.repeat(np.arange(batchSize, dtype=int), n)  # repelem(1:batchSize,1,n) -> 0-based
-                ], (n, p, batchSize))
-                GdIdx = GdIdx.reshape(dn, batchSize)
+                # Use torch operations for indexing
+                # repmat(1:n,1,batchSize) -> tile n indices batchSize times
+                idx0 = torch.arange(n, dtype=torch.long, device=device).repeat(batchSize)
+                # repmat(approxErrGenIds,1,batchSize) -> tile approxErrGenIds batchSize times
+                approxErrGenIds_torch = torch.tensor(approxErrGenIds, dtype=torch.long, device=device) - 1  # 0-based
+                idx1 = approxErrGenIds_torch.repeat(batchSize)
+                # repelem(1:batchSize,1,n) -> repeat each batch index n times
+                idx2 = torch.arange(batchSize, dtype=torch.long, device=device).repeat_interleave(n)
+                
+                # Compute linear indices: idx0 * (p * batchSize) + idx1 * batchSize + idx2
+                GdIdx_flat = idx0 * (p * batchSize) + idx1 * batchSize + idx2
+                GdIdx = GdIdx_flat.reshape(dn, batchSize)  # Keep as torch tensor
             else:
-                GdIdx = np.array([], dtype=int).reshape(0, batchSize)
+                # Create empty torch tensor instead of numpy array
+                GdIdx = torch.empty((0, batchSize), dtype=torch.long, device=device)
             # Store indices of approximation error in generator matrix.
-            self.backprop['store']['GdIdx'] = GdIdx
+            # Convert to numpy for storage (compatibility with existing code that retrieves them)
+            self.backprop['store']['GdIdx'] = GdIdx.cpu().numpy() if isinstance(GdIdx, torch.Tensor) else GdIdx
             dDimsIdx = dDimsIdx[:dn, :]
-            self.backprop['store']['dDimsIdx'] = dDimsIdx
-            # Add approximation errors to the generators.
-            # Convert to numpy for flat indexing, then convert back
-            rG_np = rG.cpu().numpy() if isinstance(rG, torch.Tensor) else rG
-            d_np = d.cpu().numpy() if isinstance(d, torch.Tensor) else d
-            rG_np.flat[GdIdx] = d_np  # (dDimsIdx);
-            rG = torch.tensor(rG_np, dtype=dtype, device=device)
+            self.backprop['store']['dDimsIdx'] = dDimsIdx.cpu().numpy() if isinstance(dDimsIdx, torch.Tensor) else dDimsIdx
+            # Add approximation errors to the generators using torch indexing
+            if dn > 0 and len(approxErrGenIds) > 0:
+                # Get the actual shape of rG
+                n_rG, q_rG, batchSize_rG = rG.shape
+                
+                # Recompute indices for actual rG shape using torch
+                # repmat(1:n,1,batchSize) -> tile n indices batchSize times
+                idx0 = torch.arange(n, dtype=torch.long, device=device).repeat(batchSize)
+                # repmat(approxErrGenIds,1,batchSize) -> tile approxErrGenIds batchSize times
+                approxErrGenIds_torch = torch.tensor(approxErrGenIds, dtype=torch.long, device=device) - 1  # 0-based
+                idx1 = approxErrGenIds_torch.repeat(batchSize)
+                # repelem(1:batchSize,1,n) -> repeat each batch index n times
+                idx2 = torch.arange(batchSize, dtype=torch.long, device=device).repeat_interleave(n)
+                
+                # Compute linear indices for rG shape: (n, q_rG, batchSize)
+                # The flattened index for rG[i, j, k] is i * (q_rG * batchSize) + j * batchSize + k
+                GdIdx_rG = idx0 * (q_rG * batchSize) + idx1 * batchSize + idx2
+                GdIdx_rG = GdIdx_rG.reshape(dn, batchSize)
+                
+                # Get values from d using dDimsIdx (which selects the first dn rows)
+                # d has shape (n, 1, batchSize) after broadcasting
+                # dDimsIdx has shape (n, batchSize) and contains linear indices
+                # We need to select the first dn rows from dDimsIdx and use them to index into d
+                dDimsIdx_selected = dDimsIdx[:dn, :]  # Shape: (dn, batchSize)
+                dDimsIdx_flat = dDimsIdx_selected.flatten()  # Shape: (dn * batchSize,)
+                
+                # d has shape (n, 1, batchSize), so we need to map dDimsIdx to the correct positions
+                # dDimsIdx contains linear indices for shape (n, batchSize), but d is (n, 1, batchSize)
+                # For d[i, 0, k], the flattened index is i * (1 * batchSize) + 0 * batchSize + k = i * batchSize + k
+                # But dDimsIdx was computed for (n, batchSize), so it's already i * batchSize + k
+                # However, d is (n, 1, batchSize), so the actual flattened index is i * batchSize + k (same!)
+                # So we can use dDimsIdx_flat directly
+                d_flat = d.flatten()  # Flatten d to 1D
+                d_values = d_flat[dDimsIdx_flat]  # Shape: (dn * batchSize,)
+                
+                # Set values in rG at positions GdIdx_rG
+                rG_flat = rG.flatten()
+                rG_flat[GdIdx_rG.flatten()] = d_values
+                rG = rG_flat.reshape(rG.shape)
+            else:
+                # No approximation errors to add
+                pass
             
             # compute gradients
             if options['nn']['train']['backprop'] and options['nn']['train']['exact_backprop']:
+                # Convert G to torch if needed, use torch operations
+                G_torch = G if isinstance(G, torch.Tensor) else torch.tensor(G, dtype=dtype, device=device)
                 # derivative of radius wrt. generators
-                r_G = np.sign(G)
+                r_G = torch.sign(G_torch)
+                
+                # df and ddf now handle torch tensors directly - no conversion needed
                 # Compute gradient of the slope.
                 if options['nn']['poly_method'] == 'bounds':
-                    m_c = (df(u) - df(l)) / (2 * r)
-                    m_G = r_G * np.transpose((df(u) + df(l) - 2 * m) / (2 * r), (1, 2, 0))
+                    # df now works with torch tensors directly
+                    df_u = df(u)
+                    df_l = df(l)
+                    
+                    # Use torch operations for computation
+                    m_c = (df_u - df_l) / (2 * r)
+                    m_G = (df_u + df_l - 2 * m) / (2 * r)
+                    m_G = r_G * m_G.permute(1, 2, 0)
+                    
                     # prevent numerical issues
                     ddf = self.getDf(2)
-                    m_c[idxBoundsEq] = df(c[idxBoundsEq])
-                    m_G = np.transpose(m_G, (1, 0, 2))
-                    r_G = np.transpose(r_G, (1, 0, 2))
-                    m_G[:, idxBoundsEq] = r_G[:, idxBoundsEq] * ddf(c[idxBoundsEq]).T
-                    m_G = np.transpose(m_G, (1, 0, 2))
-                    r_G = np.transpose(r_G, (1, 0, 2))
+                    c_selected = c[idxBoundsEq]
+                    df_c_selected = df(c_selected)
+                    m_c[idxBoundsEq] = df_c_selected
+                    
+                    m_G = m_G.permute(1, 0, 2)
+                    r_G = r_G.permute(1, 0, 2)
+                    
+                    ddf_c_selected = ddf(c_selected)
+                    m_G[:, idxBoundsEq] = r_G[:, idxBoundsEq] * ddf_c_selected.T
+                    m_G = m_G.permute(1, 0, 2)
+                    r_G = r_G.permute(1, 0, 2)
                 elif options['nn']['poly_method'] == 'center':
                     ddf = self.getDf(2)
-                    m_c = ddf(c) * np.ones_like(c)
-                    m_G = np.zeros_like(G)
+                    # ddf now works with torch tensors directly
+                    ddf_c = ddf(c)
+                    m_c = ddf_c * torch.ones_like(c)
+                    m_G = torch.zeros_like(G_torch)
                 elif options['nn']['poly_method'] == 'singh':
-                    lu = np.concatenate([l.reshape(l.shape[0], l.shape[1], 1), 
-                                       u.reshape(u.shape[0], u.shape[1], 1)], axis=2)
-                    mIdx = np.argmin(df(lu), axis=2)
+                    # Use torch.cat for concatenation
+                    l_reshaped = l.reshape(l.shape[0], l.shape[1], 1)
+                    u_reshaped = u.reshape(u.shape[0], u.shape[1], 1)
+                    lu = torch.cat([l_reshaped, u_reshaped], dim=2)
+                    
+                    # df now works with torch tensors directly
+                    df_lu = df(lu)
+                    mIdx = torch.argmin(df_lu, dim=2)
+                    
                     ddf = self.getDf(2)
-                    m_c = ddf(lu[mIdx]) * np.ones_like(c)
-                    m_G = np.transpose(-1 * (mIdx == 0).astype(float) * m_c, (1, 2, 0)) * r_G
+                    # ddf now works with torch tensors directly
+                    lu_selected = lu[mIdx]
+                    ddf_lu_selected = ddf(lu_selected)
+                    m_c = ddf_lu_selected * torch.ones_like(c)
+                    m_G = (-1 * (mIdx == 0).float() * m_c).permute(1, 2, 0) * r_G
                 else:
                     raise CORAerror('CORA:notSupported', f"Unsupported 'options.nn.poly_method': {options['nn']['poly_method']}")
                 
-                # Add gradients for interval bounds.
+                # Add gradients for interval bounds - use torch operations
                 if options['nn']['poly_method'] == 'bounds':
                     # We only consider the lower bound. The approximation
                     # error at the lower and upper bound is equal.
-                    x_c = np.concatenate([xs_m.reshape(xs_m.shape[0], xs_m.shape[1], 1) * m_c, 
-                                        np.ones_like(l).reshape(l.shape[0], l.shape[1], 1)], axis=2)
-                    x_G = np.concatenate([np.transpose(xs_m.reshape(xs_m.shape[0], xs_m.shape[1], 1), (1, 2, 3, 0)) * 
-                                        np.transpose(m_G, (1, 2, 0)),
-                                        -np.transpose(r_G, (1, 2, 0))], axis=3)
+                    xs_m_reshaped = xs_m.reshape(xs_m.shape[0], xs_m.shape[1], 1)
+                    l_reshaped = l.reshape(l.shape[0], l.shape[1], 1)
+                    x_c = torch.cat([xs_m_reshaped * m_c, torch.ones_like(l_reshaped)], dim=2)
+                    
+                    # Use torch operations for x_G
+                    xs_m_4d = xs_m.reshape(xs_m.shape[0], xs_m.shape[1], 1, 1)
+                    x_G = torch.cat([xs_m_4d.permute(1, 2, 3, 0) * m_G.permute(1, 2, 0),
+                                    -r_G.permute(1, 2, 0).unsqueeze(3)], dim=3)
                 else:
-                    x_c = np.concatenate([xs_m.reshape(xs_m.shape[0], xs_m.shape[1], 1) * m_c, 
-                                        np.ones_like(l).reshape(l.shape[0], l.shape[1], 1),
-                                        np.ones_like(u).reshape(u.shape[0], u.shape[1], 1)], axis=2)
-                    x_G = np.concatenate([np.transpose(xs_m.reshape(xs_m.shape[0], xs_m.shape[1], 1), (1, 2, 3, 0)) * 
-                                        np.transpose(m_G, (1, 2, 0)),
-                                        -np.transpose(r_G, (1, 2, 0)),
-                                        np.transpose(r_G, (1, 2, 0))], axis=3)
-                x_G = np.transpose(x_G, (2, 0, 1, 3))
+                    xs_m_reshaped = xs_m.reshape(xs_m.shape[0], xs_m.shape[1], 1)
+                    l_reshaped = l.reshape(l.shape[0], l.shape[1], 1)
+                    u_reshaped = u.reshape(u.shape[0], u.shape[1], 1)
+                    x_c = torch.cat([xs_m_reshaped * m_c, torch.ones_like(l_reshaped), torch.ones_like(u_reshaped)], dim=2)
+                    
+                    xs_m_4d = xs_m.reshape(xs_m.shape[0], xs_m.shape[1], 1, 1)
+                    x_G = torch.cat([xs_m_4d.permute(1, 2, 3, 0) * m_G.permute(1, 2, 0),
+                                    -r_G.permute(1, 2, 0).unsqueeze(3),
+                                    r_G.permute(1, 2, 0).unsqueeze(3)], dim=3)
+                x_G = x_G.permute(2, 0, 1, 3)
                 
-                # Compute gradient of the approximation errors.
-                xl = xs.flat[dlIdx]
-                dfxlm = df(xl) - m
-                dl_c = dfxlm * x_c.flat[dlIdx] - m_c * xl
-                xl_G = np.reshape(x_G[:, dlIdx], (q, n, batchSize))
-                dl_G = np.transpose(dfxlm, (2, 0, 1)) * xl_G - np.transpose(m_G, (1, 0, 2)) * np.transpose(xl, (2, 0, 1))
+                # Compute gradient of the approximation errors - use torch operations
+                # Convert dlIdx and duIdx to numpy for indexing if they're stored as numpy
+                dlIdx_torch = torch.tensor(dlIdx, dtype=torch.long, device=device) if isinstance(dlIdx, np.ndarray) else dlIdx
+                duIdx_torch = torch.tensor(duIdx, dtype=torch.long, device=device) if isinstance(duIdx, np.ndarray) else duIdx
                 
-                xu = xs.flat[duIdx]
-                dfxum = df(xu) - m
-                du_c = dfxum * x_c.flat[duIdx] - m_c * xu
-                xu_G = np.reshape(x_G[:, duIdx], (q, n, batchSize))
-                du_G = np.transpose(dfxum, (2, 0, 1)) * xu_G - np.transpose(m_G, (1, 0, 2)) * np.transpose(xu, (2, 0, 1))
+                # Use torch advanced indexing instead of .flat
+                xs_flat = xs.flatten()
+                x_c_flat = x_c.flatten()
+                xl = xs_flat[dlIdx_torch]
+                # df now works with torch tensors directly
+                dfxlm = df(xl)
+                dl_c = dfxlm * x_c_flat[dlIdx_torch] - m_c * xl
+                
+                # Use torch reshape and permute instead of numpy
+                xl_G = x_G[:, dlIdx_torch].reshape(q, n, batchSize)
+                dl_G = dfxlm.permute(2, 0, 1) * xl_G - m_G.permute(1, 0, 2) * xl.permute(2, 0, 1)
+                
+                xu = xs_flat[duIdx_torch]
+                # df now works with torch tensors directly
+                dfxum = df(xu)
+                du_c = dfxum * x_c_flat[duIdx_torch] - m_c * xu
+                
+                xu_G = x_G[:, duIdx_torch].reshape(q, n, batchSize)
+                du_G = dfxum.permute(2, 0, 1) * xu_G - m_G.permute(1, 0, 2) * xu.permute(2, 0, 1)
                 
                 # Compute components for the backpropagation.
                 self.backprop['store']['m_c'] = m_c
@@ -1950,17 +2188,9 @@ class nnActivationLayer(nnLayer):
         # Add y-intercept.
         rc = rc + t
         
-        # Convert back to numpy for return (if caller expects numpy)
-        # This maintains compatibility with existing code
-        rc_np = rc.cpu().numpy() if isinstance(rc, torch.Tensor) else rc
-        rG_np = rG.cpu().numpy() if isinstance(rG, torch.Tensor) else rG
-        coeffs_np = coeffs.cpu().numpy() if isinstance(coeffs, torch.Tensor) else coeffs
-        if isinstance(d, torch.Tensor):
-            d_np = d.cpu().numpy() if d.numel() > 1 else d.cpu().item()
-        else:
-            d_np = d
-        
-        return rc_np, rG_np, coeffs_np, d_np
+        # Return torch tensors directly - downstream code expects torch tensors
+        # No conversion needed as all internal operations use torch
+        return rc, rG, coeffs, d
     
 
 

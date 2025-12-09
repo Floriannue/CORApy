@@ -26,37 +26,48 @@ Last revision: 28-March-2022 (TL)
 """
 
 import numpy as np
+import torch
 from typing import Union
 
-def leastSquareRidgePolyFunc(x: Union[float, np.ndarray], y: Union[float, np.ndarray], n: int, lambda_reg: float = 0.001) -> np.ndarray:
+def leastSquareRidgePolyFunc(x: Union[float, np.ndarray, torch.Tensor], y: Union[float, np.ndarray, torch.Tensor], n: int, lambda_reg: float = 0.001) -> Union[np.ndarray, torch.Tensor]:
     """
-    Determine the optimal polynomial function fit using ridge regression
+    Determine the optimal polynomial function fit using ridge regression.
+    Internal to nn - works with torch tensors.
     
     Args:
-        x: x values
-        y: y values
+        x: x values (torch tensor expected internally)
+        y: y values (torch tensor expected internally)
         n: polynomial order
         lambda_reg: coefficient of Tikhonov regularization, default to 0.001
         
     Returns:
-        coeffs: coefficients of resulting polynomial
+        coeffs: coefficients of resulting polynomial (torch tensor)
     """
-    # Convert to numpy arrays (no validation like MATLAB)
-    x = np.asarray(x)
-    y = np.asarray(y)
+    # Convert to torch if needed (internal to nn, so should already be torch)
+    if isinstance(x, np.ndarray):
+        x = torch.tensor(x, dtype=torch.float32)
+    if isinstance(y, np.ndarray):
+        y = torch.tensor(y, dtype=torch.float32)
+    if not isinstance(x, torch.Tensor):
+        x = torch.tensor(x, dtype=torch.float32)
+    if not isinstance(y, torch.Tensor):
+        y = torch.tensor(y, dtype=torch.float32)
     
-    # Match MATLAB exactly: A = x'.^(0:n)
-    A = np.column_stack([x ** i for i in range(n + 1)])
+    device = x.device
+    dtype = x.dtype
+    
+    # Match MATLAB exactly: A = x'.^(0:n) - use torch
+    A = torch.stack([x ** i for i in range(n + 1)], dim=1)
     
     # Match MATLAB exactly: coeffs = (A' * A + lambda * eye(n+1)) \ A' * y'
-    # Ridge regression: (A^T A + λI)^(-1) A^T y
+    # Ridge regression: (A^T A + λI)^(-1) A^T y - use torch
     ATA = A.T @ A
     ATy = A.T @ y
-    regularization = lambda_reg * np.eye(n + 1)
+    regularization = lambda_reg * torch.eye(n + 1, dtype=dtype, device=device)
     
-    coeffs = np.linalg.solve(ATA + regularization, ATy)
+    coeffs = torch.linalg.solve(ATA + regularization, ATy)
     
-    # Match MATLAB exactly: coeffs = fliplr(coeffs')
-    coeffs = np.flip(coeffs)
+    # Match MATLAB exactly: coeffs = fliplr(coeffs') - use torch
+    coeffs = torch.flip(coeffs, dims=[0])
     
     return coeffs

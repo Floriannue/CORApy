@@ -84,21 +84,30 @@ class nnSigmoidLayer(nnActivationLayer):
             i: order of derivative (0, 1, 2)
             
         Returns:
-            Function handle for the i-th derivative
+            Function handle for the i-th derivative (torch-compatible)
         """
         if i == 0:
             return self.f
         elif i == 1:
-            # Return the sigmoid derivative function directly
+            # Return the sigmoid derivative function - torch only (internal to nn)
             def sigmoid_derivative(x):
-                s = np.tanh(x/2) / 2 + 0.5
+                # x is already torch (df is internal to nn)
+                s = torch.tanh(x/2) / 2 + 0.5
                 return s * (1 - s)
             return sigmoid_derivative
         elif i == 2:
-            return self._df2
+            # Second derivative - torch only (internal to nn)
+            def sigmoid_second_derivative(x):
+                # x is already torch (df is internal to nn)
+                s = torch.tanh(x/2) / 2 + 0.5
+                return s * (1 - s) * (1 - 2*s)
+            return sigmoid_second_derivative
         else:
-            # Higher order derivatives are 0 for sigmoid
-            return lambda x: np.zeros_like(x)
+            # Higher order derivatives are 0 for sigmoid - torch only (internal to nn)
+            def zero_derivative(x):
+                # x is already torch (df is internal to nn)
+                return torch.zeros_like(x)
+            return zero_derivative
     
     def getDerBounds(self, l, u):
         """
@@ -185,30 +194,38 @@ class nnSigmoidLayer(nnActivationLayer):
     def computeExtremePointsBatch(self, m, options):
         """
         Compute extreme points of sigmoid - mx+t for batch processing.
+        Works with torch tensors internally.
         
         Args:
-            m: slope values
+            m: slope values (torch tensor expected internally)
             options: options dictionary
             
         Returns:
-            Tuple of (xs, dxsdm) where xs are the extreme points and dxsdm are their derivatives
+            Tuple of (xs, dxsdm) where xs are the extreme points and dxsdm are their derivatives (torch tensors)
         """
+        # Convert to torch if needed (internal to nn, so should already be torch)
+        if isinstance(m, np.ndarray):
+            m = torch.tensor(m, dtype=torch.float32)
+        
+        device = m.device
+        dtype = m.dtype
+        
         # Compute extreme points of sigmoid - mx+t; there are two solutions: xu and xl
-        m = np.minimum(1/4, m)
+        m = torch.minimum(torch.tensor(1/4, dtype=dtype, device=device), m)
         
         # Prevent division by zero
-        m_safe = np.maximum(m * np.sqrt(1 - 4*m), np.finfo(m.dtype).eps)
+        m_safe = torch.maximum(m * torch.sqrt(1 - 4*m), torch.finfo(dtype).eps)
         
-        xu = 2 * np.arctanh(np.sqrt(1 - 4*m))  # point with max. upper error
+        xu = 2 * torch.atanh(torch.sqrt(1 - 4*m))  # point with max. upper error
         xl = -xu  # point with max. lower error
         
         # List of extreme points
-        xs = np.stack([xl, xu], axis=2)
+        xs = torch.stack([xl, xu], dim=2)
         
         # Compute derivative wrt. slope m; needed for backpropagation
         dxu = -1 / m_safe
         dxl = -dxu
-        dxsdm = np.stack([dxl, dxu], axis=2)
+        dxsdm = torch.stack([dxl, dxu], dim=2)
         
         return xs, dxsdm
     

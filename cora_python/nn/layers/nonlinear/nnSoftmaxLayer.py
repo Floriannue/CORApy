@@ -60,17 +60,22 @@ class nnSoftmaxLayer(nnActivationLayer):
             return self.f
         elif i == 1:
             def deriv(x):
-                sx = np.exp(x - np.max(x)) / np.sum(np.exp(x - np.max(x)))
-                sx = np.transpose(sx, [0, 2, 1])
+                # x is already torch (df is internal to nn)
+                sx = torch.exp(x - torch.max(x)) / torch.sum(torch.exp(x - torch.max(x)))
+                sx = sx.permute(0, 2, 1)
                 # compute Jacobian of softmax
                 # J = -sx * sx^T + sx * I
-                J = -np.einsum('ijk,ilk->ijl', sx, sx) + sx * np.eye(sx.shape[0])[:, :, np.newaxis]
-                r = np.reshape(np.einsum('ijk,ilk->ij', J, np.transpose(x, [0, 2, 1])), x.shape)
+                eye = torch.eye(sx.shape[0], dtype=sx.dtype, device=sx.device).unsqueeze(2)
+                J = -torch.einsum('ijk,ilk->ijl', sx, sx) + sx * eye
+                r = torch.einsum('ijk,ilk->ij', J, x.permute(0, 2, 1)).reshape(x.shape)
                 return r
             return deriv
         else:
-            # Higher order derivatives are not supported for softmax
-            return lambda x: np.zeros_like(x)
+            # Higher order derivatives are not supported for softmax - torch only (internal to nn)
+            def zero_derivative(x):
+                # x is already torch (df is internal to nn)
+                return torch.zeros_like(x)
+            return zero_derivative
     
     def getDerBounds(self, l, u):
         """
@@ -312,13 +317,21 @@ class nnSoftmaxLayer(nnActivationLayer):
     def computeExtremePointsBatch(self, m, options=None):
         """
         Compute extreme points for batch processing.
+        Works with torch tensors internally.
         
         Args:
-            m: slope values
+            m: slope values (torch tensor expected internally)
             options: options dictionary
             
         Returns:
-            Extreme points (not implemented for softmax)
+            Extreme points (not implemented for softmax) (torch tensor)
         """
+        # Convert to torch if needed (internal to nn, so should already be torch)
+        if isinstance(m, np.ndarray):
+            m = torch.tensor(m, dtype=torch.float32)
+        
+        device = m.device
+        dtype = m.dtype
+        
         # do not consider approximation errors...
-        return np.inf * m
+        return torch.tensor(float('inf'), dtype=dtype, device=device) * m

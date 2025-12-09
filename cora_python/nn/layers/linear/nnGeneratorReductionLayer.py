@@ -27,29 +27,33 @@ Last revision: ---
 
 import numpy as np
 import torch
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from .nnIdentityLayer import nnIdentityLayer
 from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
 
 
-def sub2ind(shape: Tuple[int, ...], *subscripts: np.ndarray) -> np.ndarray:
+def sub2ind(shape: Tuple[int, ...], *subscripts: torch.Tensor) -> torch.Tensor:
     """
     Convert subscripts to linear indices (MATLAB sub2ind equivalent)
+    Internal to nn - only uses torch tensors.
     
     Args:
         shape: Shape of the array
-        *subscripts: Subscript arrays (one per dimension)
+        *subscripts: Subscript arrays (one per dimension) - must be torch tensors
         
     Returns:
-        indices: Linear indices
+        indices: Linear indices as torch tensor (0-based for Python indexing)
     """
     if len(subscripts) != len(shape):
         raise ValueError(f"Number of subscript arrays ({len(subscripts)}) must match number of dimensions ({len(shape)})")
     
-    # Convert to numpy arrays and ensure they're 1D
-    subscripts = [np.asarray(s).flatten() for s in subscripts]
+    # Convert all to torch and ensure they're 1D
+    device = subscripts[0].device
+    dtype = subscripts[0].dtype
+    subscripts = [s.flatten() if isinstance(s, torch.Tensor) else torch.tensor(s, dtype=dtype, device=device).flatten() 
+                 for s in subscripts]
     
-    # Compute linear indices
+    # Compute linear indices using torch
     # MATLAB uses 1-based indexing, Python uses 0-based
     # But MATLAB sub2ind also uses 1-based, so we need to convert
     indices = subscripts[0] - 1  # Convert to 0-based
@@ -59,76 +63,72 @@ def sub2ind(shape: Tuple[int, ...], *subscripts: np.ndarray) -> np.ndarray:
         multiplier *= shape[i-1]
         indices = indices + (subscripts[i] - 1) * multiplier
     
-    # Convert back to 1-based for MATLAB compatibility (if needed)
-    # Actually, for array indexing in Python we want 0-based, so keep as is
-    return indices.astype(int)
+    return indices.long()
 
 
-def repelem(arr: np.ndarray, *repeats: int) -> np.ndarray:
+def repelem(arr: torch.Tensor, *repeats: int) -> torch.Tensor:
     """
     Repeat elements of array (MATLAB repelem equivalent)
+    Internal to nn - only uses torch tensors.
     
     Args:
-        arr: Input array
+        arr: Input array (must be torch tensor)
         *repeats: Number of repeats for each dimension
         
     Returns:
-        result: Array with repeated elements
+        result: Array with repeated elements as torch tensor
     """
-    arr = np.asarray(arr)
-    
     # Ensure array has at least as many dimensions as repeats
     # MATLAB treats scalars and 1D arrays as 2D when needed
     if arr.ndim < len(repeats):
         # Add singleton dimensions to match number of repeats
-        arr = arr.reshape(arr.shape + (1,) * (len(repeats) - arr.ndim))
+        new_shape = arr.shape + (1,) * (len(repeats) - arr.ndim)
+        arr = arr.reshape(new_shape)
     
     if len(repeats) == 1:
         # 1D case: repeat each element
-        return np.repeat(arr, repeats[0])
+        return arr.repeat(repeats[0])
     elif len(repeats) == 2:
         # 2D case: repeat along rows and columns
-        result = np.repeat(arr, repeats[0], axis=0)
-        result = np.repeat(result, repeats[1], axis=1)
+        result = arr.repeat(repeats[0], dim=0)
+        result = result.repeat(repeats[1], dim=1)
         return result
     else:
         # General case
         result = arr
         for i, rep in enumerate(repeats):
-            result = np.repeat(result, rep, axis=i)
+            result = result.repeat(rep, dim=i)
         return result
 
 
-def pagemtimes(A: np.ndarray, transA: Optional[str], B: np.ndarray, transB: Optional[str]) -> np.ndarray:
+def pagemtimes(A: torch.Tensor, transA: Optional[str], B: torch.Tensor, transB: Optional[str]) -> torch.Tensor:
     """
     Batch matrix multiplication (MATLAB pagemtimes equivalent)
+    Internal to nn - only uses torch tensors.
     
     Args:
-        A: First array (can be 2D or 3D)
+        A: First array (can be 2D or 3D) - must be torch tensor
         transA: 'transpose' or 'none' for A
-        B: Second array (can be 2D or 3D)
+        B: Second array (can be 2D or 3D) - must be torch tensor
         transB: 'transpose' or 'none' for B
         
     Returns:
-        result: Batch matrix multiplication result
+        result: Batch matrix multiplication result as torch tensor
     """
-    A = np.asarray(A)
-    B = np.asarray(B)
-    
     # Handle transpose
     if transA == 'transpose':
-        A = np.swapaxes(A, -2, -1)
+        A = A.transpose(-2, -1)
     if transB == 'transpose':
-        B = np.swapaxes(B, -2, -1)
+        B = B.transpose(-2, -1)
     
     # Use einsum for efficient batch matrix multiplication
     # MATLAB pagemtimes performs C(:,:,k) = A(:,:,k) * B(:,:,k) for each page k
     if A.ndim == 2 and B.ndim == 3:
         # A is 2D, B is 3D: A @ B for each batch
-        return np.einsum('ij,jkl->ikl', A, B)
+        return torch.einsum('ij,jkl->ikl', A, B)
     elif A.ndim == 3 and B.ndim == 2:
         # A is 3D, B is 2D: A @ B for each batch
-        return np.einsum('ijk,jl->ikl', A, B)
+        return torch.einsum('ijk,jl->ikl', A, B)
     elif A.ndim == 3 and B.ndim == 3:
         # Both 3D: batch matrix multiplication
         # For each batch k: C(:,:,k) = A(:,:,k) @ B(:,:,k)
@@ -139,17 +139,17 @@ def pagemtimes(A: np.ndarray, transA: Optional[str], B: np.ndarray, transB: Opti
         B_batch = B.shape[2]
         if A_batch == B_batch:
             # Same batch size, use einsum directly
-            return np.einsum('ijk,jlk->ilk', A, B)
+            return torch.einsum('ijk,jlk->ilk', A, B)
         elif A_batch == 1:
             # A has batch size 1, broadcast to B's batch size
             # Squeeze A's batch dimension and use 2D @ 3D case
             A_2d = A[:, :, 0]
-            return np.einsum('ij,jlk->ilk', A_2d, B)
+            return torch.einsum('ij,jlk->ilk', A_2d, B)
         elif B_batch == 1:
             # B has batch size 1, broadcast to A's batch size
             # Squeeze B's batch dimension and use 3D @ 2D case
             B_2d = B[:, :, 0]
-            return np.einsum('ijk,jl->ilk', A, B_2d)
+            return torch.einsum('ijk,jl->ilk', A, B_2d)
         else:
             # Different batch sizes, need to replicate the smaller one
             # MATLAB pagemtimes would automatically broadcast/replicate
@@ -158,12 +158,12 @@ def pagemtimes(A: np.ndarray, transA: Optional[str], B: np.ndarray, transB: Opti
                 # Replicate A to match B's batch size
                 nReps = B_batch // A_batch
                 A_rep = repelem(A, 1, 1, nReps)
-                return np.einsum('ijk,jlk->ilk', A_rep, B)
+                return torch.einsum('ijk,jlk->ilk', A_rep, B)
             elif B_batch < A_batch and A_batch % B_batch == 0:
                 # Replicate B to match A's batch size
                 nReps = A_batch // B_batch
                 B_rep = repelem(B, 1, 1, nReps)
-                return np.einsum('ijk,jlk->ilk', A, B_rep)
+                return torch.einsum('ijk,jlk->ilk', A, B_rep)
             else:
                 # Batch sizes don't divide evenly, this is an error
                 raise ValueError(f"pagemtimes: batch size mismatch {A_batch} vs {B_batch} - sizes don't divide evenly")
@@ -172,21 +172,21 @@ def pagemtimes(A: np.ndarray, transA: Optional[str], B: np.ndarray, transB: Opti
         return A @ B
 
 
-def pagetranspose(A: np.ndarray) -> np.ndarray:
+def pagetranspose(A: torch.Tensor) -> torch.Tensor:
     """
     Batch transpose (MATLAB pagetranspose equivalent)
+    Internal to nn - only uses torch tensors.
     
     Args:
-        A: Input array (2D or 3D)
+        A: Input array (2D or 3D) - must be torch tensor
         
     Returns:
-        result: Transposed array
+        result: Transposed array as torch tensor
     """
-    A = np.asarray(A)
     if A.ndim == 2:
         return A.T
     elif A.ndim == 3:
-        return np.swapaxes(A, 1, 2)
+        return A.transpose(1, 2)
     else:
         raise ValueError(f"pagetranspose only supports 2D or 3D arrays, got {A.ndim}D")
 

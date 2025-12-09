@@ -8,27 +8,39 @@ Authors: MATLAB: Tobias Ladner
 """
 
 import numpy as np
-from typing import Optional
+import torch
+from typing import Optional, Union
 
 
-def calcSquaredG(G1: np.ndarray, G2: np.ndarray, isEqual: Optional[bool] = None) -> np.ndarray:
+def calcSquaredG(G1: Union[np.ndarray, torch.Tensor], G2: Union[np.ndarray, torch.Tensor], 
+                 isEqual: Optional[bool] = None) -> Union[np.ndarray, torch.Tensor]:
     """
     Compute the multiplicative G1' * G2.
+    Internal to nn - works with torch tensors.
     
     Args:
-        G1: row vector of generator matrix 1
-        G2: row vector of generator matrix 2
+        G1: row vector of generator matrix 1 (torch tensor expected internally)
+        G2: row vector of generator matrix 2 (torch tensor expected internally)
         isEqual: whether they are equal for optimizations (default: False)
         
     Returns:
-        G_quad: result of G1' * G2 as row vector
+        G_quad: result of G1' * G2 as row vector (torch tensor)
         
     See also: polyZonotope/quadMap, nnHelper/calcSquared
     """
+    # Convert to torch if needed (internal to nn, so should already be torch)
+    if isinstance(G1, np.ndarray):
+        G1 = torch.tensor(G1, dtype=torch.float32)
+    if isinstance(G2, np.ndarray):
+        G2 = torch.tensor(G2, dtype=torch.float32)
+    
     if isEqual is None:
         isEqual = False
     
-    if G1.size > 0 and G2.size > 0:
+    device = G1.device
+    dtype = G1.dtype
+    
+    if G1.numel() > 0 and G2.numel() > 0:
         if isEqual:
             temp = G1.T @ G2
             
@@ -36,7 +48,7 @@ def calcSquaredG(G1: np.ndarray, G2: np.ndarray, isEqual: Optional[bool] = None)
             # as it's the same as the right upper triangle
             # -> double right upper triangle
             n = G1.shape[1]
-            G_quad = np.zeros((1, int(0.5 * n * (n + 1))))
+            G_quad = torch.zeros((1, int(0.5 * n * (n + 1))), dtype=dtype, device=device)
             cnt = n
             
             for i in range(n - 1):
@@ -49,6 +61,6 @@ def calcSquaredG(G1: np.ndarray, G2: np.ndarray, isEqual: Optional[bool] = None)
             G_quad = G1.T @ G2
             G_quad = G_quad.reshape(1, -1)  # row vector
     else:
-        G_quad = np.array([]).reshape(1, 0)
+        G_quad = torch.empty((1, 0), dtype=dtype, device=device)
     
     return G_quad
