@@ -49,7 +49,11 @@ def castWeights(nn: NeuralNetwork, x: Union[np.ndarray, np.dtype], idxLayer: Opt
     
     # Determine the target dtype
     print(f"DEBUG: x type: {type(x)}, x value: {x}")
-    if hasattr(x, 'dtype') and not isinstance(x, type):
+    if isinstance(x, str) and x == 'gpu_float32':
+        # Special case: GPU float32 - use numpy float32 for dtype mapping
+        target_dtype = np.float32
+        print(f"DEBUG: x is 'gpu_float32' string, using: {target_dtype}")
+    elif hasattr(x, 'dtype') and not isinstance(x, type):
         # x is a numpy array (instance), use its dtype
         target_dtype = x.dtype
         print(f"DEBUG: x has dtype attribute: {target_dtype}")
@@ -83,26 +87,37 @@ def castWeights(nn: NeuralNetwork, x: Union[np.ndarray, np.dtype], idxLayer: Opt
         # move all learnable parameters to gpu
         names = layeri.getLearnableParamNames()
         for j in range(len(names)):
-            # cast learnable weights
-            if hasattr(layeri, names[j]):
-                current_value = getattr(layeri, names[j])
-                # Cast to target dtype (equivalent to MATLAB's cast(..., 'like', x))
-                try:
-                    if hasattr(current_value, 'astype'):
-                        # numpy array or similar
-                        setattr(layeri, names[j], current_value.astype(target_dtype))
-                    elif isinstance(current_value, (int, float, np.number)):
-                        # scalar values
-                        setattr(layeri, names[j], target_dtype.type(current_value))
-                    else:
-                        # other types, try to convert
-                        setattr(layeri, names[j], target_dtype.type(current_value))
-                except (TypeError, ValueError) as e:
-                    # Log the error instead of silently failing
-                    print(f"Warning: Failed to cast parameter '{names[j]}' in layer {i} from type {type(current_value)} to {target_dtype}: {e}")
-                    print(f"  Parameter value: {current_value}")
-                    # Keep original value but log the issue
-                    continue
+                # cast learnable weights
+                if hasattr(layeri, names[j]):
+                    current_value = getattr(layeri, names[j])
+                    # Cast to target dtype (equivalent to MATLAB's cast(..., 'like', x))
+                    try:
+                        import torch
+                        if isinstance(current_value, torch.Tensor):
+                            # PyTorch tensor - convert dtype but keep as tensor
+                            # Map numpy dtype to torch dtype
+                            if target_dtype == np.float32:
+                                torch_dtype = torch.float32
+                            elif target_dtype == np.float64:
+                                torch_dtype = torch.float64
+                            else:
+                                torch_dtype = torch.float32  # default
+                            setattr(layeri, names[j], current_value.to(dtype=torch_dtype))
+                        elif hasattr(current_value, 'astype'):
+                            # numpy array or similar
+                            setattr(layeri, names[j], current_value.astype(target_dtype))
+                        elif isinstance(current_value, (int, float, np.number)):
+                            # scalar values
+                            setattr(layeri, names[j], target_dtype.type(current_value))
+                        else:
+                            # other types, try to convert
+                            setattr(layeri, names[j], target_dtype.type(current_value))
+                    except (TypeError, ValueError) as e:
+                        # Log the error instead of silently failing
+                        print(f"Warning: Failed to cast parameter '{names[j]}' in layer {i} from type {type(current_value)} to {target_dtype}: {e}")
+                        print(f"  Parameter value: {current_value}")
+                        # Keep original value but log the issue
+                        continue
         
         # Notify layer
         if hasattr(layeri, 'castWeights'):

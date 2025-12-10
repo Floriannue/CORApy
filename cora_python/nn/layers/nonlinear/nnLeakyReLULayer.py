@@ -66,21 +66,19 @@ class nnLeakyReLULayer(nnActivationLayer):
     
     # evaluate ----------------------------------------------------------------
     
-    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate numeric input
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: Input data (numpy array or torch tensor) - converted to torch internally
+            input_data: Input data (torch tensor)
             options: Evaluation options
             
         Returns:
             r: Output after LeakyReLU activation (torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
-        
+        # Internal to nn - input_data is always torch tensor
         r = torch.maximum(self.alpha * input_data, input_data)
         return r
     

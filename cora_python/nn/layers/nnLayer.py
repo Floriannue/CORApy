@@ -181,12 +181,13 @@ class nnLayer(ABC):
         pass
     
     @abstractmethod
-    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Abstract method for numeric evaluation
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: Input data (numpy array or torch tensor) - converted to torch internally
+            input_data: Input data (torch tensor)
             options: Evaluation options
             
         Returns:
@@ -194,9 +195,10 @@ class nnLayer(ABC):
         """
         pass
     
-    def evaluateSensitivity(self, S, x, options: Dict[str, Any]):
+    def evaluateSensitivity(self, S: torch.Tensor, x: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate sensitivity (default implementation throws error)
+        Internal to nn - S and x are always torch tensors
         
         Args:
             S: Sensitivity matrix (torch tensor)
@@ -260,18 +262,19 @@ class nnLayer(ABC):
         """
         raise NotImplementedError(f"PolyZonotope evaluation not supported for {self.__class__.__name__}")
     
-    def evaluateZonotopeBatch(self, c: np.ndarray, G: np.ndarray, 
-                             options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def evaluateZonotopeBatch(self, c: torch.Tensor, G: torch.Tensor, 
+                             options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Evaluate zonotope batch (default implementation throws error)
+        Internal to nn - c and G are always torch tensors
         
         Args:
-            c: Center
-            G: Generators
+            c: Center (torch tensor)
+            G: Generators (torch tensor)
             options: Evaluation options
             
         Returns:
-            Tuple of (c, G) results
+            Tuple of (c, G) results (torch tensors)
             
         Raises:
             NotImplementedError: If zonotope batch evaluation is not supported
@@ -319,58 +322,61 @@ class nnLayer(ABC):
         """
         raise NotImplementedError(f"Constraint zonotope evaluation not supported for {self.__class__.__name__}")
     
-    def backpropNumeric(self, input_data: np.ndarray, grad_out: np.ndarray, 
-                        options: Dict[str, Any]) -> np.ndarray:
+    def backpropNumeric(self, input_data: torch.Tensor, grad_out: torch.Tensor, 
+                        options: Dict[str, Any]) -> torch.Tensor:
         """
         Backpropagate numeric gradients (default implementation throws error)
+        Internal to nn - input_data and grad_out are always torch tensors
         
         Args:
-            input_data: Input data
-            grad_out: Output gradients
+            input_data: Input data (torch tensor)
+            grad_out: Output gradients (torch tensor)
             options: Backpropagation options
             
         Returns:
-            grad_in: Input gradients
+            grad_in: Input gradients (torch tensor)
             
         Raises:
             NotImplementedError: If numeric backpropagation is not supported
         """
         raise NotImplementedError(f"Numeric backpropagation not supported for {self.__class__.__name__}")
     
-    def backpropIntervalBatch(self, l: np.ndarray, u: np.ndarray, gl: np.ndarray, 
-                             gu: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def backpropIntervalBatch(self, l: torch.Tensor, u: torch.Tensor, gl: torch.Tensor, 
+                             gu: torch.Tensor, options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Backpropagate interval batch (default implementation throws error)
+        Internal to nn - all inputs are always torch tensors
         
         Args:
-            l: Lower bounds
-            u: Upper bounds
-            gl: Lower bound gradients
-            gu: Upper bound gradients
+            l: Lower bounds (torch tensor)
+            u: Upper bounds (torch tensor)
+            gl: Lower bound gradients (torch tensor)
+            gu: Upper bound gradients (torch tensor)
             options: Backpropagation options
             
         Returns:
-            Tuple of (l, u) results
+            Tuple of (gl_in, gu_in) results (torch tensors)
             
         Raises:
             NotImplementedError: If interval batch backpropagation is not supported
         """
         raise NotImplementedError(f"Interval batch backpropagation not supported for {self.__class__.__name__}")
     
-    def backpropZonotopeBatch(self, c: np.ndarray, G: np.ndarray, gc: np.ndarray, 
-                              gG: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def backpropZonotopeBatch(self, c: torch.Tensor, G: torch.Tensor, gc: torch.Tensor, 
+                              gG: torch.Tensor, options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Backpropagate zonotope batch (default implementation throws error)
+        Internal to nn - all inputs are always torch tensors
         
         Args:
-            c: Center
-            G: Generators
-            gc: Center gradients
-            gG: Generator gradients
+            c: Center (torch tensor)
+            G: Generators (torch tensor)
+            gc: Center gradients (torch tensor)
+            gG: Generator gradients (torch tensor)
             options: Backpropagation options
             
         Returns:
-            Tuple of (c, G) results
+            Tuple of (gc_in, gG_in) results (torch tensors)
             
         Raises:
             NotImplementedError: If zonotope batch backpropagation is not supported

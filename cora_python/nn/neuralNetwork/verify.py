@@ -36,7 +36,7 @@ import torch
 
 # Import CORA Python modules
 from ..nnHelper.validateNNoptions import validateNNoptions
-from .verify_helpers import _aux_split
+from .verify_helpers import _aux_split, _aux_pop_simple
 
 if TYPE_CHECKING:
     from .neuralNetwork import NeuralNetwork
@@ -60,29 +60,34 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
     # Validate options
     options = validateNNoptions(options, True)
     
-    # Ensure x and r are 2D column vectors like MATLAB
-    x = np.asarray(x, dtype=np.float32)
-    r = np.asarray(r, dtype=np.float32)
-    A = np.asarray(A, dtype=np.float32)
-    b = np.asarray(b, dtype=np.float32)
-    if x.ndim == 1:
-        x = x.reshape(-1, 1)
-    if np.isscalar(r) or (isinstance(r, np.ndarray) and r.ndim == 0):
-        r = np.full((x.shape[0], 1), float(r), dtype=np.float32)
-    elif r.ndim == 1:
-        r = r.reshape(-1, 1)
-    if x.shape[0] != r.shape[0]:
-        raise ValueError(f"x and r must have the same number of rows: x.shape={x.shape}, r.shape={r.shape}")
+    # Ensure x and r are 2D column vectors like MATLAB (numpy for validation, then convert to torch)
+    x_np = np.asarray(x, dtype=np.float32)
+    r_np = np.asarray(r, dtype=np.float32)
+    A_np = np.asarray(A, dtype=np.float32)
+    b_np = np.asarray(b, dtype=np.float32)
+    if x_np.ndim == 1:
+        x_np = x_np.reshape(-1, 1)
+    if np.isscalar(r_np) or (isinstance(r_np, np.ndarray) and r_np.ndim == 0):
+        r_np = np.full((x_np.shape[0], 1), float(r_np), dtype=np.float32)
+    elif r_np.ndim == 1:
+        r_np = r_np.reshape(-1, 1)
+    if x_np.shape[0] != r_np.shape[0]:
+        raise ValueError(f"x and r must have the same number of rows: x.shape={x_np.shape}, r.shape={r_np.shape}")
     
     # Ensure b has correct shape for broadcasting
-    b = np.asarray(b, dtype=np.float32)
-    if b.ndim == 0:
-        b = b.reshape(1, 1)
-    elif b.ndim == 1:
-        b = b.reshape(-1, 1)
-    elif b.ndim == 2:
-        if b.shape[0] == 1 and b.shape[1] > 1:
-            b = b.T
+    if b_np.ndim == 0:
+        b_np = b_np.reshape(1, 1)
+    elif b_np.ndim == 1:
+        b_np = b_np.reshape(-1, 1)
+    elif b_np.ndim == 2:
+        if b_np.shape[0] == 1 and b_np.shape[1] > 1:
+            b_np = b_np.T
+    
+    # Store numpy versions for external interface (return values)
+    x = x_np
+    r = r_np
+    A = A_np
+    b = b_np
     
     # MATLAB lines 38-39
     nSplits = 5
@@ -150,14 +155,12 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         
         # MATLAB lines 96-100: Pop next batch from the queue
         # MATLAB: [xi,ri,xs,rs] = aux_pop(xs,rs,bs);
-        bs_actual = min(bs, xs.shape[1])
-        idx = torch.arange(bs_actual, device=device)
-        xi = xs[:, idx].clone()
-        # Use torch indexing for queue management
-        remaining_idx = torch.arange(bs_actual, xs.shape[1], device=device)
-        xs = xs[:, remaining_idx]
-        ri = rs[:, idx].clone()
-        rs = rs[:, remaining_idx]
+        xi, ri, xs, rs = _aux_pop_simple(xs, rs, bs)
+        # MATLAB lines 99-100: Move the batch to the GPU (cast to match inputDataClass)
+        # In Python, tensors are already on the correct device from _aux_pop_simple,
+        # but we ensure dtype matches (torch.float32)
+        xi = xi.to(dtype=torch.float32, device=device)
+        ri = ri.to(dtype=torch.float32, device=device)
         
         # MATLAB lines 102-131: Falsification
         # MATLAB line 105: Compute the sensitivity
@@ -203,16 +206,22 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         
         if safeSet:
             # MATLAB: checkSpecs = any(A*yi + b >= 0,1);
-            checkSpecs = torch.any(ld_yi >= 0, dim=0).cpu().numpy()
+            checkSpecs = torch.any(ld_yi >= 0, dim=0)  # Keep as torch tensor
         else:
             # MATLAB: checkSpecs = all(A*yi + b <= 0,1);
-            checkSpecs = torch.all(ld_yi <= 0, dim=0).cpu().numpy()
-        
+            checkSpecs = torch.all(ld_yi <= 0, dim=0)  # Keep as torch tensor
+
         # MATLAB lines 120-130
         if torch.any(checkSpecs):
+            if verbose:
+                print(f"FALSIFICATION: Found counterexample in falsification phase")
+                print(f"  ld_yi (A*yi + b) = {ld_yi.cpu().numpy().flatten()}")
+                print(f"  b = {b_torch.cpu().numpy().flatten()}")
+                print(f"  checkSpecs = {checkSpecs.cpu().numpy()}")
+                print(f"  safeSet = {safeSet}")
             res = 'COUNTEREXAMPLE'
             idNzEntry = torch.where(checkSpecs)[0]
-            id_ = idNzEntry[0].item() if isinstance(idNzEntry, torch.Tensor) else idNzEntry[0]
+            id_ = idNzEntry[0].item() if len(idNzEntry) > 0 else 0
             x_ = zi[:, id_].cpu().numpy().reshape(-1, 1)
             nn.castWeights(np.float32)
             y_ = nn.evaluate_(x_, options, idxLayer)
@@ -276,24 +285,35 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         # MATLAB lines 156-160: Check specification
         if safeSet:
             # MATLAB: checkSpecs = any(dyi(:,:) + dri(:,:) > 0,1);
-            checkSpecs = torch.any(dyi + dri > 0, dim=0).cpu().numpy()
+            checkSpecs = torch.any(dyi + dri > 0, dim=0)  # Keep as torch tensor
         else:
             # MATLAB: checkSpecs = all(dyi(:,:) - dri(:,:) < 0,1);
-            checkSpecs = torch.all(dyi - dri < 0, dim=0).cpu().numpy()
+            checkSpecs = torch.all(dyi - dri < 0, dim=0)  # Keep as torch tensor
+        # Keep as torch tensor - use directly for indexing
         unknown = checkSpecs
         
-        # MATLAB lines 162-164: _aux_split now works with torch internally
-        # sens has shape (cbSz, n0), need to transpose to (n0, cbSz) for aux_split
-        sens_T = sens.T  # (n0, cbSz) - use torch transpose
+        # MATLAB lines 162-164: Gather from GPU before split (matching MATLAB exactly)
+        # MATLAB: xi = gather(xi); ri = gather(ri); sens = gather(sens);
+        # In Python, gather means move from GPU to CPU, but _aux_split can work on GPU
+        # However, to match MATLAB exactly, we gather (move to CPU) before split
+        # Note: _aux_split will move back to GPU if needed, but we match MATLAB's gather here
+        xi_gathered = xi.cpu() if device.type == 'cuda' else xi
+        ri_gathered = ri.cpu() if device.type == 'cuda' else ri
+        sens_gathered = sens.cpu() if device.type == 'cuda' else sens
+        unknown_gathered = unknown.cpu() if device.type == 'cuda' else unknown
         
         # MATLAB lines 166-167: Create new splits
         # MATLAB: [xis,ris] = aux_split(xi(:,unknown),ri(:,unknown),sens(:,unknown), nSplits,nDims);
-        # Convert unknown to torch tensor for indexing
-        if isinstance(unknown, np.ndarray):
-            unknown_torch = torch.tensor(unknown, dtype=torch.bool, device=device)
-        else:
-            unknown_torch = unknown
-        xis, ris = _aux_split(xi[:, unknown_torch], ri[:, unknown_torch], sens_T[:, unknown_torch], nSplits, nDims)
+        # sens has shape (cbSz, n0), need to transpose to (n0, cbSz) for aux_split
+        sens_T = sens_gathered.T  # (n0, cbSz) - use torch transpose
+        
+        # Use torch boolean indexing directly
+        xis, ris = _aux_split(xi_gathered[:, unknown_gathered], ri_gathered[:, unknown_gathered], sens_T[:, unknown_gathered], nSplits, nDims)
+        
+        # Move results back to original device (GPU if originally on GPU)
+        if device.type == 'cuda':
+            xis = xis.to(device)
+            ris = ris.to(device)
         
         # MATLAB lines 169-170: Add new splits to the queue - xis, ris are already torch tensors
         xs = torch.cat([xis, xs], dim=1)
@@ -301,6 +321,7 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         
         # MATLAB lines 172-173
         totalNumSplits = totalNumSplits + xis.shape[1]
+        # unknown is torch tensor, use torch.sum
         verifiedPatches = verifiedPatches + xi.shape[1] - torch.sum(unknown).item()
         
         # MATLAB lines 175-177: To save memory, we clear all variables that are no longer used

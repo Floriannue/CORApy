@@ -73,25 +73,25 @@ class nnIdentityLayer(nnLayer):
         """
         return inputSize
     
-    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate layer numerically - return identity
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: input data (numpy array or torch tensor) - converted to torch internally
+            input_data: input data (torch tensor)
             options: evaluation options
             
         Returns:
             output: same as input (identity transformation, torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Internal to nn - input_data is always torch tensor
         return input_data
     
-    def evaluateSensitivity(self, S, x, options: Dict[str, Any]):
+    def evaluateSensitivity(self, S: torch.Tensor, x: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate sensitivity - return identity
+        Internal to nn - S and x are always torch tensors
         
         Args:
             S: sensitivity matrix (torch tensor)
@@ -101,9 +101,7 @@ class nnIdentityLayer(nnLayer):
         Returns:
             S: same as input (identity transformation, torch tensor)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(S, np.ndarray):
-            S = torch.tensor(S, dtype=torch.float32)
+        # Internal to nn - S and x are always torch tensors
         return S
     
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 

@@ -43,12 +43,18 @@ def test_nnAvgPool2DLayer():
     """
     # Simple example - test constructor
     layer = nnAvgPool2DLayer([2, 2])
-    assert np.allclose(layer.W, 0.25 * np.ones((2, 2))), "Weight matrix should be 0.25 * ones(2,2)"
-    assert np.array_equal(layer.stride, [2, 2]), "Stride should be [2, 2]"
+    # Convert torch tensors to numpy for comparison
+    W_np = layer.W.cpu().numpy() if hasattr(layer.W, 'cpu') else layer.W
+    stride_np = layer.stride.cpu().numpy() if hasattr(layer.stride, 'cpu') else layer.stride
+    assert np.allclose(W_np, 0.25 * np.ones((2, 2))), "Weight matrix should be 0.25 * ones(2,2)"
+    assert np.array_equal(stride_np, [2, 2]), "Stride should be [2, 2]"
     
     layer = nnAvgPool2DLayer([1, 1])
-    assert np.allclose(layer.W, 1), "Weight matrix should be 1"
-    assert np.array_equal(layer.stride, [1, 1]), "Stride should be [1, 1]"
+    # Convert torch tensors to numpy for comparison
+    W_np = layer.W.cpu().numpy() if hasattr(layer.W, 'cpu') else layer.W
+    stride_np = layer.stride.cpu().numpy() if hasattr(layer.stride, 'cpu') else layer.stride
+    assert np.allclose(W_np, 1), "Weight matrix should be 1"
+    assert np.array_equal(stride_np, [1, 1]), "Stride should be [1, 1]"
     
     # Check evaluate
     layer = nnAvgPool2DLayer([2, 2])

@@ -207,20 +207,19 @@ class nnConv2DLayer(nnLayer):
     
     # evaluate ------------------------------------------------------------
     
-    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate numeric input
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: Input data (flattened, shape: [n, batchSize]) - converted to torch internally
+            input_data: Input data (flattened, shape: [n, batchSize]) (torch tensor)
             options: Evaluation options
             
         Returns:
             r: Output data (flattened, torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Internal to nn - input_data is always torch tensor
         
         self.checkInputSize()
         r, _ = self.conv2d(input_data, 'sparseIdx')
@@ -260,12 +259,7 @@ class nnConv2DLayer(nnLayer):
         Returns:
             S: Output sensitivity (torch tensor)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(S, np.ndarray):
-            S = torch.tensor(S, dtype=torch.float32)
-        if isinstance(x, np.ndarray):
-            x = torch.tensor(x, dtype=torch.float32)
-        
+        # Internal to nn - S and x are always torch tensors
         self.checkInputSize()
         
         vK, vk, batchSize = S.shape
@@ -325,11 +319,7 @@ class nnConv2DLayer(nnLayer):
             c: Output center (torch tensor)
             G: Output generators (torch tensor)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(c, np.ndarray):
-            c = torch.tensor(c, dtype=torch.float32)
-        if isinstance(G, np.ndarray):
-            G = torch.tensor(G, dtype=torch.float32)
+        # Internal to nn - c and G are always torch tensors
         self.checkInputSize()
         
         if options.get('nn', {}).get('interval_center', False):
@@ -1300,8 +1290,8 @@ class nnConv2DLayer(nnLayer):
     
     # backprop ------------------------------------------------------------
     
-    def backpropNumeric(self, input_data: np.ndarray, grad_out: np.ndarray, 
-                        options: Dict[str, Any]) -> np.ndarray:
+    def backpropNumeric(self, input_data: torch.Tensor, grad_out: torch.Tensor, 
+                        options: Dict[str, Any]) -> torch.Tensor:
         """
         Backpropagate numeric gradients
         
@@ -1347,8 +1337,8 @@ class nnConv2DLayer(nnLayer):
         grad_in = self.transconv2d(grad_out, 'sparseIdx', self.W, None)
         return grad_in
     
-    def backpropIntervalBatch(self, l: np.ndarray, u: np.ndarray, gl: np.ndarray, 
-                             gu: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def backpropIntervalBatch(self, l: torch.Tensor, u: torch.Tensor, gl: torch.Tensor, 
+                             gu: torch.Tensor, options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Backpropagate interval batch gradients
         
@@ -1362,15 +1352,7 @@ class nnConv2DLayer(nnLayer):
         Returns:
             gl, gu: Backpropagated gradients
         """
-        # Convert inputs to torch if needed
-        if isinstance(l, np.ndarray):
-            l = torch.tensor(l, dtype=torch.float32)
-        if isinstance(u, np.ndarray):
-            u = torch.tensor(u, dtype=torch.float32)
-        if isinstance(gl, np.ndarray):
-            gl = torch.tensor(gl, dtype=torch.float32)
-        if isinstance(gu, np.ndarray):
-            gu = torch.tensor(gu, dtype=torch.float32)
+        # Internal to nn - all inputs are always torch tensors
         
         device = l.device if isinstance(l, torch.Tensor) else torch.device('cpu')
         dtype = l.dtype if isinstance(l, torch.Tensor) else torch.float32
@@ -1421,8 +1403,8 @@ class nnConv2DLayer(nnLayer):
         
         return gl, gu
     
-    def backpropZonotopeBatch(self, c: np.ndarray, G: np.ndarray, gc: np.ndarray, 
-                              gG: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def backpropZonotopeBatch(self, c: torch.Tensor, G: torch.Tensor, gc: torch.Tensor, 
+                              gG: torch.Tensor, options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Backpropagate zonotope batch gradients
         

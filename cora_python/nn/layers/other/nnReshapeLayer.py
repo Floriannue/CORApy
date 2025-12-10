@@ -25,7 +25,6 @@ Last revision: 10-August-2022 (renamed)
                 Automatic python translation: Florian Nüssel BA 2025
 """
 
-import numpy as np
 import torch
 from typing import Any, Dict, List, Optional, Tuple
 from ..nnLayer import nnLayer
@@ -73,25 +72,30 @@ class nnReshapeLayer(nnLayer):
         """
         self.inputSize = inputSize
         if isinstance(self.idx_out, list) and (-1 in self.idx_out):
-            return [int(np.prod(inputSize)), 1]
-        idx = np.array(self.idx_out)
-        num = int(idx.size)
+            # Calculate product manually
+            prod = 1
+            for dim in inputSize:
+                prod *= int(dim)
+            return [prod, 1]
+        # idx_out is a list/tuple, get its length
+        if isinstance(self.idx_out, (list, tuple)):
+            num = len(self.idx_out)
+        else:
+            num = 1
         return [num, 1]
     
-    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate layer numerically
         
         Args:
-            input_data: input data (numpy array or torch tensor) - converted to torch internally
+            input_data: input data (torch tensor) - internal to nn, always torch
             options: evaluation options
             
         Returns:
             output: reshaped input data (torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Internal to nn - input_data is always torch tensor
         # Debug output
         if hasattr(options, 'debug') and options.get('debug', False):
             print(f"DEBUG ReshapeLayer: input_data shape: {input_data.shape}, idx_out: {self.idx_out}")
@@ -161,7 +165,7 @@ class nnReshapeLayer(nnLayer):
             
             return result
     
-    def evaluateSensitivity(self, S, x, options: Dict[str, Any]):
+    def evaluateSensitivity(self, S: torch.Tensor, x: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate sensitivity
         
@@ -173,11 +177,7 @@ class nnReshapeLayer(nnLayer):
         Returns:
             S: reshaped sensitivity matrix with shape (nK, input_dim, bSz) (torch tensor)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(S, np.ndarray):
-            S = torch.tensor(S, dtype=torch.float32)
-        if isinstance(x, np.ndarray):
-            x = torch.tensor(x, dtype=torch.float32)
+        # Internal to nn - S and x are always torch tensors
         # MATLAB: S_ = permute(S,[2 1 3]); S_ = obj.aux_embed(S_,inSize); S = permute(S_,[2 1 3]);
         # This swaps first two dims, embeds according to input size, then swaps back
         
@@ -196,14 +196,20 @@ class nnReshapeLayer(nnLayer):
                     self.inputSize = [1]
         
         inSize = self.inputSize
-        prod_inSize = np.prod(inSize)
+        # Calculate product manually (inSize is always a list/tuple)
+        prod_inSize = 1
+        for dim in inSize:
+            prod_inSize *= int(dim)
+        
+        device = S.device
+        dtype = S.dtype
         
         # Step 1: permute(S, [2 1 3]) - swap first two dimensions
         # S has shape (nK, output_dim, bSz) -> (output_dim, nK, bSz)
         if S.ndim == 3:
-            S_perm = np.transpose(S, (1, 0, 2))  # (output_dim, nK, bSz)
+            S_perm = S.permute(1, 0, 2)  # (output_dim, nK, bSz) - use torch permute
         elif S.ndim == 2:
-            S_perm = S.T  # (output_dim, nK)
+            S_perm = S.T  # (output_dim, nK) - torch transpose
         else:
             # 1D or scalar - shouldn't happen but handle it
             S_perm = S
@@ -216,8 +222,10 @@ class nnReshapeLayer(nnLayer):
         if S_perm.ndim == 3:
             # 3D case: (output_dim, nK, bSz)
             n, q, bSz = S_perm.shape
-            # Reshape to 2D: (n, q*bSz) - MATLAB input(:,:)
-            S_2d = S_perm.reshape(n, q * bSz, order='F')
+            # Reshape to 2D: (n, q*bSz) - MATLAB input(:,:) with column-major order
+            # For torch, column-major reshape: transpose first, then reshape
+            S_perm_T = S_perm.permute(2, 1, 0)  # (bSz, nK, output_dim) for column-major
+            S_2d = S_perm_T.reshape(bSz * q, n).T  # (n, q*bSz) - transpose back
         elif S_perm.ndim == 2:
             # 2D case: (output_dim, nK)
             S_2d = S_perm
@@ -230,20 +238,21 @@ class nnReshapeLayer(nnLayer):
             bSz = 1
         
         # Get idx_vec from idx_out (1-based, column-major)
-        idx_vec = np.array(self.idx_out)
+        idx_vec = torch.tensor(self.idx_out, dtype=torch.long, device=device)
         if idx_vec.ndim > 1:
-            idx_vec = idx_vec.flatten(order='F')
+            # Column-major flatten for torch: transpose then flatten
+            idx_vec = idx_vec.T.flatten()
         else:
             idx_vec = idx_vec.flatten()
         # Convert to 0-based
         idx0 = idx_vec - 1
-        idx0 = np.clip(idx0, 0, prod_inSize - 1)
+        idx0 = torch.clamp(idx0, 0, prod_inSize - 1)  # Use torch.clamp
         
         # Create output: (prod(inSize), q*bSz) or (prod(inSize), q)
         if S_perm.ndim == 3:
-            r = np.zeros((prod_inSize, q * bSz), dtype=S_2d.dtype)
+            r = torch.zeros((prod_inSize, q * bSz), dtype=dtype, device=device)
         else:
-            r = np.zeros((prod_inSize, q), dtype=S_2d.dtype)
+            r = torch.zeros((prod_inSize, q), dtype=dtype, device=device)
         
         # Set r(idx_vec, :) = input
         # MATLAB: r(idx_vec, :) = input
@@ -260,12 +269,13 @@ class nnReshapeLayer(nnLayer):
             # This might not be correct, but let's see what happens
             if n <= prod_inSize:
                 # Use consecutive indices starting from idx0[0]
-                idx0_expanded = np.arange(idx0[0], idx0[0] + n, dtype=int)
-                idx0_expanded = np.clip(idx0_expanded, 0, prod_inSize - 1)
+                idx0_expanded = torch.arange(idx0[0].item(), idx0[0].item() + n, dtype=torch.long, device=device)
+                idx0_expanded = torch.clamp(idx0_expanded, 0, prod_inSize - 1)
                 r[idx0_expanded, :] = S_2d
             else:
                 # n > prod_inSize, this shouldn't happen but handle it
-                r[idx0[0]:idx0[0]+min(n, prod_inSize-idx0[0]), :] = S_2d[:min(n, prod_inSize-idx0[0]), :]
+                end_idx = min(idx0[0].item() + n, prod_inSize)
+                r[idx0[0].item():end_idx, :] = S_2d[:end_idx - idx0[0].item(), :]
         else:
             # Other mismatch cases
             min_len = min(len(idx0), n)
@@ -273,21 +283,25 @@ class nnReshapeLayer(nnLayer):
         
         # Reshape back if was 3D
         if S_perm.ndim == 3:
-            r = r.reshape(prod_inSize, q, bSz, order='F')
+            # Column-major reshape: transpose, reshape, transpose back
+            r_T = r.T  # (q*bSz, prod_inSize)
+            r = r_T.reshape(q, bSz, prod_inSize).permute(2, 0, 1)  # (prod_inSize, q, bSz)
         
         # Step 3: permute back: (prod_inSize, nK, bSz) -> (nK, prod_inSize, bSz)
         if r.ndim == 3:
-            S_result = np.transpose(r, (1, 0, 2))  # (nK, prod_inSize, bSz)
+            S_result = r.permute(1, 0, 2)  # (nK, prod_inSize, bSz) - use torch permute
         elif r.ndim == 2:
-            S_result = r.T  # (nK, prod_inSize)
+            S_result = r.T  # (nK, prod_inSize) - torch transpose
         else:
             S_result = r
         
         return S_result
     
-    def evaluateZonotopeBatch(self, c, G, options: Dict[str, Any]):
+    def evaluateZonotopeBatch(self, c: torch.Tensor, G: torch.Tensor, options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Evaluate reshape for a batch of zonotopes (centers c and generators G).
+        Internal to nn - c and G are always torch tensors.
+        
         MATLAB behavior: calls aux_reshape which reshapes to 2D, indexes, then reshapes back.
         Shapes: typically c in R^{n x 1 x b} (or n x 1), G in R^{n x q x b} (or n x q)
         
@@ -363,37 +377,38 @@ class nnReshapeLayer(nnLayer):
         
         return c_result, G_result
 
-    def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 
-                            E: np.ndarray, id: np.ndarray, id_: np.ndarray, 
-                            ind: np.ndarray, ind_: np.ndarray, 
-                            options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
-                                                           np.ndarray, np.ndarray, np.ndarray, 
-                                                           np.ndarray, np.ndarray]:
+    def evaluatePolyZonotope(self, c: torch.Tensor, G: torch.Tensor, GI: torch.Tensor, 
+                            E: torch.Tensor, id_: torch.Tensor, id_max: int, 
+                            ind: torch.Tensor, ind_: torch.Tensor, 
+                            options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, 
+                                                           torch.Tensor, torch.Tensor, int, 
+                                                           torch.Tensor, torch.Tensor]:
         """
         Evaluate layer with polynomial zonotope
+        Internal to nn - all inputs are torch tensors (except id_max which is int)
         
         Args:
-            c: center
-            G: generators
-            GI: independent generators
-            E: exponents
-            id: identifiers
-            id_: independent identifiers
-            ind: indices
-            ind_: independent indices
+            c: center (torch tensor)
+            G: generators (torch tensor)
+            GI: independent generators (torch tensor)
+            E: exponents (torch tensor)
+            id_: identifiers (torch tensor)
+            id_max: maximum identifier (int)
+            ind: indices (torch tensor)
+            ind_: independent indices (torch tensor)
             options: evaluation options
             
         Returns:
-            c, G, GI, E, id, id_, ind, ind_: reshaped polynomial zonotope
+            c, G, GI, E, id_, id_max, ind, ind_: reshaped polynomial zonotope
         """
         # Reshape all components according to idx_out
         c = c.reshape(self.idx_out)
         G = G.reshape(self.idx_out + list(G.shape[1:]))
         GI = GI.reshape(self.idx_out + list(GI.shape[1:]))
         
-        return c, G, GI, E, id, id_, ind, ind_
+        return c, G, GI, E, id_, id_max, ind, ind_
     
-    def evaluateTaylm(self, input_data: np.ndarray, options: Dict[str, Any]) -> np.ndarray:
+    def evaluateTaylm(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate layer with Taylor model
         
@@ -406,11 +421,11 @@ class nnReshapeLayer(nnLayer):
         """
         return input_data.reshape(self.idx_out)
     
-    def evaluateConZonotope(self, c: np.ndarray, G: np.ndarray, C: np.ndarray, 
-                           d: np.ndarray, l: np.ndarray, u: np.ndarray, 
-                           j: int, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, 
-                                                                   np.ndarray, np.ndarray, 
-                                                                   np.ndarray, np.ndarray]:
+    def evaluateConZonotope(self, c: torch.Tensor, G: torch.Tensor, C: torch.Tensor,
+                           d: torch.Tensor, l: torch.Tensor, u: torch.Tensor,
+                           options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor,
+                                                                  torch.Tensor, torch.Tensor,
+                                                                  torch.Tensor, torch.Tensor]:
         """
         Evaluate layer with constrained zonotope
         

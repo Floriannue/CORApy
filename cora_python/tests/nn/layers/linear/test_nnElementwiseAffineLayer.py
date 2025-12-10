@@ -20,8 +20,11 @@ class TestNnElementwiseAffineLayer:
         layer = nnElementwiseAffineLayer(scale, offset)
         
         # matches MATLAB: assert(layer.scale == scale); assert(layer.offset == offset);
-        assert layer.scale == scale
-        assert layer.offset == offset
+        # Convert torch tensors to numpy for comparison
+        scale_np = layer.scale.cpu().numpy() if hasattr(layer.scale, 'cpu') else layer.scale
+        offset_np = layer.offset.cpu().numpy() if hasattr(layer.offset, 'cpu') else layer.offset
+        assert scale_np == scale
+        assert offset_np == offset
     
     def test_nnElementwiseAffineLayer_constructor_basic_vector(self):
         """Test basic constructor with vector values - matches MATLAB test exactly"""
@@ -31,8 +34,11 @@ class TestNnElementwiseAffineLayer:
         layer = nnElementwiseAffineLayer(scale, offset)
         
         # matches MATLAB: assert(compareMatrices(layer.scale, scale)); assert(compareMatrices(layer.offset, offset));
-        np.testing.assert_array_equal(layer.scale, scale)
-        np.testing.assert_array_equal(layer.offset, offset)
+        # Convert torch tensors to numpy for comparison
+        scale_np = layer.scale.cpu().numpy() if hasattr(layer.scale, 'cpu') else layer.scale
+        offset_np = layer.offset.cpu().numpy() if hasattr(layer.offset, 'cpu') else layer.offset
+        np.testing.assert_array_equal(scale_np, scale)
+        np.testing.assert_array_equal(offset_np, offset)
     
     def test_nnElementwiseAffineLayer_constructor_different_dimensions(self):
         """Test with different dimensions - matches MATLAB test exactly"""
@@ -51,7 +57,9 @@ class TestNnElementwiseAffineLayer:
         layer = nnElementwiseAffineLayer(scale)
         
         # Check that offset is zero when not provided
-        assert np.sum(layer.offset) == 0
+        # Convert torch tensors to numpy for comparison
+        offset_np = layer.offset.cpu().numpy() if hasattr(layer.offset, 'cpu') else layer.offset
+        assert np.sum(offset_np) == 0
     
     def test_nnElementwiseAffineLayer_constructor_name(self):
         """Test constructor with name parameter - matches MATLAB test exactly"""

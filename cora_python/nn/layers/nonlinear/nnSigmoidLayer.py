@@ -57,20 +57,19 @@ class nnSigmoidLayer(nnActivationLayer):
             {'l': 10, 'u': np.inf, 'p': [0.0000000000000000, 0.9999773010656487], 'd': 0.0000226989343513}
         ]
     
-    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate numeric input
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: Input data (numpy array or torch tensor) - converted to torch internally
+            input_data: Input data (torch tensor)
             options: Evaluation options
             
         Returns:
             r: Output after sigmoid activation (torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Internal to nn - input_data is always torch tensor
         
         # Use tanh for numeric stability
         r = torch.tanh(input_data/2) / 2 + 0.5
@@ -229,20 +228,19 @@ class nnSigmoidLayer(nnActivationLayer):
         
         return xs, dxsdm
     
-    def evaluateNumeric(self, input_data, options):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate the sigmoid function numerically.
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: input data (numpy array or torch tensor) - converted to torch internally
+            input_data: input data (torch tensor)
             options: options dictionary
             
         Returns:
             Output of the sigmoid function (torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Internal to nn - input_data is always torch tensor
         
         # Use tanh for numeric stability
         return torch.tanh(input_data/2) / 2 + 0.5

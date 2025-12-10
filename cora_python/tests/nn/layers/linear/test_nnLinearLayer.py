@@ -36,8 +36,11 @@ class TestNnLinearLayerComplete:
         b = np.array([[0.1], [0.2]])
         
         layer = nnLinearLayer(W, b)
-        assert layer.W.shape == (2, 2)
-        assert layer.b.shape == (2, 1)
+        # Convert torch tensors to numpy for comparison
+        W_np = layer.W.cpu().numpy() if hasattr(layer.W, 'cpu') else layer.W
+        b_np = layer.b.cpu().numpy() if hasattr(layer.b, 'cpu') else layer.b
+        assert W_np.shape == (2, 2)
+        assert b_np.shape == (2, 1)
         assert layer.is_refinable == False
     
     def test_constructor_scalar_bias(self):
@@ -46,8 +49,10 @@ class TestNnLinearLayerComplete:
         b = 0.5
         
         layer = nnLinearLayer(W, b)
-        assert layer.b.shape == (2, 1)
-        assert np.allclose(layer.b, 0.5)
+        # Convert torch tensors to numpy for comparison
+        b_np = layer.b.cpu().numpy() if hasattr(layer.b, 'cpu') else layer.b
+        assert b_np.shape == (2, 1)
+        assert np.allclose(b_np, 0.5)
     
     def test_constructor_name(self):
         """Test constructor with custom name"""
@@ -133,13 +138,17 @@ class TestNnLinearLayerComplete:
         """Test constructor with all MATLAB functionality"""
         # Test with scalar bias (should be expanded)
         layer_scalar = nnLinearLayer(self.W, 0.5)
-        assert layer_scalar.b.shape == (3, 1)
-        assert np.allclose(layer_scalar.b, 0.5)
+        # Convert torch tensors to numpy for comparison
+        b_scalar_np = layer_scalar.b.cpu().numpy() if hasattr(layer_scalar.b, 'cpu') else layer_scalar.b
+        assert b_scalar_np.shape == (3, 1)
+        assert np.allclose(b_scalar_np, 0.5)
         
         # Test with column vector bias
         layer_col = nnLinearLayer(self.W, self.b)
-        assert layer_col.b.shape == (3, 1)
-        assert np.allclose(layer_col.b, self.b)
+        # Convert torch tensors to numpy for comparison
+        b_col_np = layer_col.b.cpu().numpy() if hasattr(layer_col.b, 'cpu') else layer_col.b
+        assert b_col_np.shape == (3, 1)
+        assert np.allclose(b_col_np, self.b)
         
         # Test with custom name
         layer_name = nnLinearLayer(self.W, self.b, "custom_name")
@@ -516,9 +525,12 @@ class TestNnLinearLayerComplete:
         assert 'd' in fieldStruct
         
         # Verify field values (matching MATLAB exactly)
+        # Convert torch tensors to numpy for comparison
+        W_np = self.layer.W.cpu().numpy() if hasattr(self.layer.W, 'cpu') else self.layer.W
+        b_np = self.layer.b.cpu().numpy() if hasattr(self.layer.b, 'cpu') else self.layer.b
         assert fieldStruct['size_W'] == self.W.shape
-        assert np.allclose(fieldStruct['W'], self.W)
-        assert np.allclose(fieldStruct['b'], self.b)
+        assert np.allclose(fieldStruct['W'], W_np)
+        assert np.allclose(fieldStruct['b'], b_np)
         assert fieldStruct['d'] == self.layer.d
     
     # ============================================================================
@@ -633,7 +645,10 @@ class TestNnLinearLayerComplete:
         
         # Test evaluateNumeric matches MATLAB: obj.W * input + obj.b
         result = self.layer.evaluateNumeric(x, {})
-        expected = self.W @ x + self.b
+        # Convert torch tensors to numpy for comparison
+        W_np = self.layer.W.cpu().numpy() if hasattr(self.layer.W, 'cpu') else self.layer.W
+        b_np = self.layer.b.cpu().numpy() if hasattr(self.layer.b, 'cpu') else self.layer.b
+        expected = W_np @ x + b_np
         assert np.allclose(result, expected)
         
         # Test getNumNeurons matches MATLAB: [size(obj.W, 2), size(obj.W, 1)]
@@ -654,8 +669,11 @@ def test_nnLinearLayer_constructor_basic():
     b = np.random.rand(4, 1)
     layer = nnLinearLayer(W, b)
     
-    assert np.allclose(W, layer.W)
-    assert np.allclose(b, layer.b)
+    # Convert torch tensors to numpy for comparison
+    W_np = layer.W.cpu().numpy() if hasattr(layer.W, 'cpu') else layer.W
+    b_np = layer.b.cpu().numpy() if hasattr(layer.b, 'cpu') else layer.b
+    assert np.allclose(W, W_np)
+    assert np.allclose(b, b_np)
 
 def test_nnLinearLayer_constructor_variable_input():
     """Test constructor with variable input like MATLAB test"""

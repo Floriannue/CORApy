@@ -206,19 +206,18 @@ class nnTanhLayer(nnActivationLayer):
         
         return xs, dxsdm
     
-    def evaluateNumeric(self, input_data, options):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate the tanh function numerically.
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: input data (numpy array or torch tensor) - converted to torch internally
+            input_data: input data (torch tensor)
             options: options dictionary
             
         Returns:
             Output of the tanh function (torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Internal to nn - input_data is always torch tensor
         
         return torch.tanh(input_data)

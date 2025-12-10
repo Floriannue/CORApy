@@ -124,20 +124,19 @@ class nnElementwiseAffineLayer(nnLayer):
         self.scale = self.scale.astype(target_dtype)
         self.offset = self.offset.astype(target_dtype)
     
-    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate layer numerically
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: input data (numpy array or torch tensor) - converted to torch internally
+            input_data: input data (torch tensor)
             options: evaluation options
             
         Returns:
             r: scaled and offset input data (torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Internal to nn - input_data is always torch tensor
         
         device = input_data.device
         dtype = input_data.dtype
@@ -167,11 +166,7 @@ class nnElementwiseAffineLayer(nnLayer):
         Returns:
             S: updated sensitivity matrix (torch tensor)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(S, np.ndarray):
-            S = torch.tensor(S, dtype=torch.float32)
-        if isinstance(x, np.ndarray):
-            x = torch.tensor(x, dtype=torch.float32)
+        # Internal to nn - S and x are always torch tensors
         
         device = S.device
         dtype = S.dtype
@@ -253,23 +248,20 @@ class nnElementwiseAffineLayer(nnLayer):
         # For now, return bounds unchanged
         return bounds
     
-    def evaluateZonotopeBatch(self, c, G, options: Dict[str, Any]):
+    def evaluateZonotopeBatch(self, c: torch.Tensor, G: torch.Tensor, options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Evaluate layer with zonotope batch (for training)
+        Internal to nn - c and G are always torch tensors
         
         Args:
-            c: center (numpy array or torch tensor) - converted to torch internally
-            G: generators (numpy array or torch tensor) - converted to torch internally
+            c: center (torch tensor)
+            G: generators (torch tensor)
             options: evaluation options
             
         Returns:
             c, G: updated zonotope batch (torch tensors)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(c, np.ndarray):
-            c = torch.tensor(c, dtype=torch.float32)
-        if isinstance(G, np.ndarray):
-            G = torch.tensor(G, dtype=torch.float32)
+        # Internal to nn - c and G are always torch tensors
         
         device = c.device
         dtype = c.dtype
@@ -365,7 +357,7 @@ class nnElementwiseAffineLayer(nnLayer):
         grad_in = self.scale * grad_out
         return grad_in
     
-    def backpropIntervalBatch(self, l: np.ndarray, u: np.ndarray, gl: np.ndarray, gu: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def backpropIntervalBatch(self, l: torch.Tensor, u: torch.Tensor, gl: torch.Tensor, gu: torch.Tensor, options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Backpropagation for interval batch
         
@@ -383,7 +375,7 @@ class nnElementwiseAffineLayer(nnLayer):
         gu = self.scale * gu
         return gl, gu
     
-    def backpropZonotopeBatch(self, c: np.ndarray, G: np.ndarray, gc: np.ndarray, gG: np.ndarray, options: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    def backpropZonotopeBatch(self, c: torch.Tensor, G: torch.Tensor, gc: torch.Tensor, gG: torch.Tensor, options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Backpropagation for zonotope batch
         

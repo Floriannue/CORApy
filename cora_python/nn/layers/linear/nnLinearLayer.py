@@ -107,20 +107,19 @@ class nnLinearLayer(nnLayer):
         # whether the layer is refinable
         self.is_refinable = False
     
-    def evaluateNumeric(self, input_data, options: Dict[str, Any]):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate numeric input
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: Input data (numpy array or torch tensor) - converted to torch internally
+            input_data: Input data (torch tensor)
             options: Evaluation options
             
         Returns:
             r: Output after linear transformation (torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Internal to nn - input_data is always torch tensor
         
         # Get device and dtype from input
         device = input_data.device
@@ -214,18 +213,17 @@ class nnLinearLayer(nnLayer):
     def evaluateSensitivity(self, S, x, options: Dict[str, Any]):
         """
         Evaluate sensitivity
+        Internal to nn - S and x are always torch tensors
         
         Args:
             S: Sensitivity matrix with shape (nK, output_dim, bSz) - receives from next layer (torch tensor)
-            x: Input point (unused, kept for interface compatibility)
+            x: Input point (unused, kept for interface compatibility) (torch tensor)
             options: Evaluation options
             
         Returns:
             S: Updated sensitivity matrix with shape (nK, input_dim, bSz) - passes to previous layer (torch tensor)
         """
-        # Convert numpy to torch if needed
-        if isinstance(S, np.ndarray):
-            S = torch.tensor(S, dtype=torch.float32)
+        # Internal to nn - S and x are always torch tensors
         
         # Get device and dtype from S
         device = S.device
@@ -311,24 +309,21 @@ class nnLinearLayer(nnLayer):
         
         return c, G, GI, E, id_, id_2, ind, ind_2
     
-    def evaluateZonotopeBatch(self, c, G, 
-                             options: Dict[str, Any]):
+    def evaluateZonotopeBatch(self, c: torch.Tensor, G: torch.Tensor, 
+                             options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Evaluate zonotope batch (for training)
+        Internal to nn - c and G are always torch tensors
         
         Args:
-            c: Center (numpy array or torch tensor) - converted to torch internally
-            G: Generators (numpy array or torch tensor) - converted to torch internally
+            c: Center (torch tensor)
+            G: Generators (torch tensor)
             options: Evaluation options
             
         Returns:
             Tuple of (c, G) results (torch tensors)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(c, np.ndarray):
-            c = torch.tensor(c, dtype=torch.float32)
-        if isinstance(G, np.ndarray):
-            G = torch.tensor(G, dtype=torch.float32)
+        # Internal to nn - c and G are always torch tensors
         
         device = c.device
         dtype = c.dtype
@@ -419,27 +414,23 @@ class nnLinearLayer(nnLayer):
         
         return c, G, C, d, l, u
     
-    def backpropNumeric(self, input_data, grad_out, 
-                        options: Dict[str, Any]):
+    def backpropNumeric(self, input_data: torch.Tensor, grad_out: torch.Tensor, 
+                        options: Dict[str, Any]) -> torch.Tensor:
         """
         Backpropagate numeric gradients
+        Internal to nn - input_data and grad_out are always torch tensors
         
         Args:
-            input_data: Input data (numpy array or torch tensor) - converted to torch internally
-            grad_out: Output gradients (numpy array or torch tensor) - converted to torch internally
+            input_data: Input data (torch tensor)
+            grad_out: Output gradients (torch tensor)
             options: Backpropagation options
             
         Returns:
             grad_in: Input gradients (torch tensor)
         """
-        # Convert inputs to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
-        if isinstance(grad_out, np.ndarray):
-            grad_out = torch.tensor(grad_out, dtype=torch.float32)
-        
-        device = grad_out.device if isinstance(grad_out, torch.Tensor) else torch.device('cpu')
-        dtype = grad_out.dtype if isinstance(grad_out, torch.Tensor) else torch.float32
+        # Internal to nn - input_data and grad_out are always torch tensors
+        device = grad_out.device
+        dtype = grad_out.dtype
         
         W = self.W.to(device=device, dtype=dtype)
         
@@ -453,33 +444,25 @@ class nnLinearLayer(nnLayer):
         # Return torch tensor - downstream code should handle torch
         return grad_in
     
-    def backpropIntervalBatch(self, l, u, gl, 
-                             gu, options: Dict[str, Any]):
+    def backpropIntervalBatch(self, l: torch.Tensor, u: torch.Tensor, gl: torch.Tensor, 
+                             gu: torch.Tensor, options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Backpropagate interval batch (see Gowal et al. 2019)
+        Internal to nn - all inputs are always torch tensors
         
         Args:
-            l: Lower bounds (numpy array or torch tensor) - converted to torch internally
-            u: Upper bounds (numpy array or torch tensor) - converted to torch internally
-            gl: Lower bound gradients (numpy array or torch tensor) - converted to torch internally
-            gu: Upper bound gradients (numpy array or torch tensor) - converted to torch internally
+            l: Lower bounds (torch tensor)
+            u: Upper bounds (torch tensor)
+            gl: Lower bound gradients (torch tensor)
+            gu: Upper bound gradients (torch tensor)
             options: Backpropagation options
             
         Returns:
-            Tuple of (gl, gu) results (torch tensors)
+            Tuple of (gl_in, gu_in) results (torch tensors)
         """
-        # Convert inputs to torch if needed
-        if isinstance(l, np.ndarray):
-            l = torch.tensor(l, dtype=torch.float32)
-        if isinstance(u, np.ndarray):
-            u = torch.tensor(u, dtype=torch.float32)
-        if isinstance(gl, np.ndarray):
-            gl = torch.tensor(gl, dtype=torch.float32)
-        if isinstance(gu, np.ndarray):
-            gu = torch.tensor(gu, dtype=torch.float32)
-        
-        device = gl.device if isinstance(gl, torch.Tensor) else torch.device('cpu')
-        dtype = gl.dtype if isinstance(gl, torch.Tensor) else torch.float32
+        # Internal to nn - all inputs are always torch tensors
+        device = gl.device
+        dtype = gl.dtype
         
         W = self.W.to(device=device, dtype=dtype)
         
@@ -552,29 +535,21 @@ class nnLinearLayer(nnLayer):
                               gG, options: Dict[str, Any]):
         """
         Backpropagate zonotope batch
+        Internal to nn - all inputs are always torch tensors
         
         Args:
-            c: Center (numpy array or torch tensor) - converted to torch internally
-            G: Generators (numpy array or torch tensor) - converted to torch internally
-            gc: Center gradients (numpy array or torch tensor) - converted to torch internally
-            gG: Generator gradients (numpy array or torch tensor) - converted to torch internally
+            c: Center (torch tensor)
+            G: Generators (torch tensor)
+            gc: Center gradients (torch tensor)
+            gG: Generator gradients (torch tensor)
             options: Backpropagation options
             
         Returns:
-            Tuple of (gc, gG) results (torch tensors)
+            Tuple of (gc_in, gG_in) results (torch tensors)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(c, np.ndarray):
-            c = torch.tensor(c, dtype=torch.float32)
-        if isinstance(G, np.ndarray):
-            G = torch.tensor(G, dtype=torch.float32)
-        if isinstance(gc, np.ndarray):
-            gc = torch.tensor(gc, dtype=torch.float32)
-        if isinstance(gG, np.ndarray):
-            gG = torch.tensor(gG, dtype=torch.float32)
-        
-        device = gc.device if isinstance(gc, torch.Tensor) else torch.device('cpu')
-        dtype = gc.dtype if isinstance(gc, torch.Tensor) else torch.float32
+        # Internal to nn - all inputs are always torch tensors
+        device = gc.device
+        dtype = gc.dtype
         
         n, numGen, batchSize = G.shape
         

@@ -97,9 +97,10 @@ class nnActivationLayer(nnLayer):
     
     # evaluate (element-wise) -------------------------------------------------
     
-    def evaluateSensitivity(self, S, x, options: Dict[str, Any]):
+    def evaluateSensitivity(self, S: torch.Tensor, x: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate sensitivity
+        Internal to nn - S and x are always torch tensors
         
         Args:
             S: Sensitivity matrix with shape (nK, layer_output_dim, bSz) (torch tensor)
@@ -109,11 +110,7 @@ class nnActivationLayer(nnLayer):
         Returns:
             S: Updated sensitivity matrix (torch tensor)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(S, np.ndarray):
-            S = torch.tensor(S, dtype=torch.float32)
-        if isinstance(x, np.ndarray):
-            x = torch.tensor(x, dtype=torch.float32)
+        # Internal to nn - S and x are always torch tensors
         
         device = S.device
         dtype = S.dtype

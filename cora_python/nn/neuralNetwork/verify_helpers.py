@@ -231,7 +231,7 @@ def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: Union[np.ndarray, to
     elif heuristic == 'least-unstable-gradient':
         # Take the absolute value and add small epsilon to avoid numerical problems.
         if isinstance(grad, (int, float)):
-            grad = torch.tensor(np.abs(grad) + 1e-3, dtype=dtype, device=device)
+            grad = torch.tensor(abs(grad) + 1e-3, dtype=dtype, device=device)  # Use Python abs instead of np.abs
         else:
             grad = torch.abs(grad) + 1e-3
         # Least unstable neuron (normalize the un-stability).
@@ -249,7 +249,7 @@ def _aux_computeHeuristic(heuristic: str, layerIdx: int, l: Union[np.ndarray, to
     elif heuristic == 'zono-norm-gradient':
         # Take the absolute value and add small epsilon to avoid numerical problems.
         if isinstance(grad, (int, float)):
-            grad = torch.tensor(np.abs(grad) + 1e-3, dtype=dtype, device=device)
+            grad = torch.tensor(abs(grad) + 1e-3, dtype=dtype, device=device)  # Use Python abs instead of np.abs
         else:
             grad = torch.abs(grad) + 1e-3
         # Compute the radius.
@@ -381,15 +381,29 @@ def _aux_dimSplitConstraints(hi: Union[np.ndarray, torch.Tensor], nSplits: int, 
     return Ai, bi, dimIds, hi
 
 
-def _aux_constructUnsafeOutputSet(options: Dict[str, Any], y: np.ndarray, Gy: np.ndarray,
-                                   A: np.ndarray, b: np.ndarray, safeSet: bool,
+def _aux_constructUnsafeOutputSet(options: Dict[str, Any], y: Union[np.ndarray, torch.Tensor], Gy: Union[np.ndarray, torch.Tensor],
+                                   A: Union[np.ndarray, torch.Tensor], b: Union[np.ndarray, torch.Tensor], safeSet: bool,
                                    numUnionConst: int) -> Dict[str, Any]:
     """
     Construct unsafe output set.
+    Internal to nn - uses torch tensors.
     
     MATLAB: function uYi = aux_constructUnsafeOutputSet(options,y,Gy,A,b,safeSet,numUnionConstraint)
     """
     from ..layers.linear.nnGeneratorReductionLayer import pagemtimes
+    
+    # Convert to torch if needed (internal to nn, so should already be torch)
+    if isinstance(y, np.ndarray):
+        y = torch.tensor(y, dtype=torch.float32)
+    if isinstance(Gy, np.ndarray):
+        Gy = torch.tensor(Gy, dtype=torch.float32)
+    if isinstance(A, np.ndarray):
+        A = torch.tensor(A, dtype=torch.float32)
+    if isinstance(b, np.ndarray):
+        b = torch.tensor(b, dtype=torch.float32)
+    
+    device = y.device if isinstance(y, torch.Tensor) else torch.device('cpu')
+    dtype = y.dtype if isinstance(y, torch.Tensor) else torch.float32
     
     # Obtain the number of output dimensions and batch size.
     nK, _, bSz = Gy.shape
@@ -403,10 +417,10 @@ def _aux_constructUnsafeOutputSet(options: Dict[str, Any], y: np.ndarray, Gy: np
         # MATLAB: yc = y; where y is (nK, bSz)
         # If y is 3D (nK, 1, bSz), squeeze the middle dimension
         if y.ndim == 3 and y.shape[1] == 1:
-            yc = y.squeeze(axis=1)  # (nK, bSz)
+            yc = y.squeeze(dim=1)  # (nK, bSz) - use torch squeeze
         else:
             yc = y
-        yr = np.zeros((nK, 1, bSz), dtype=y.dtype)
+        yr = torch.zeros((nK, 1, bSz), dtype=dtype, device=device)
     
     # Compute the output constraints (logit difference).
     # This matches aux_computeLogitDifference logic
@@ -416,7 +430,7 @@ def _aux_constructUnsafeOutputSet(options: Dict[str, Any], y: np.ndarray, Gy: np
     else:
         # MATLAB: yic = yi; where yi is (nK, bSz) when interval_center is False
         yic = yc  # Already reshaped above to (nK, bSz)
-        yid = np.zeros((nK, 1, bSz), dtype=y.dtype)
+        yid = torch.zeros((nK, 1, bSz), dtype=dtype, device=device)
     
     # Compute logit difference
     ld_yi = A @ yic  # (spec_dim, batch)
@@ -424,9 +438,9 @@ def _aux_constructUnsafeOutputSet(options: Dict[str, Any], y: np.ndarray, Gy: np
     
     # Compute logit difference of approximation errors
     # MATLAB: ld_Gyi_err = sum(abs(A.*permute(yid,[2 1 3])),2);
-    yid_perm = np.transpose(yid, (1, 0, 2))  # (1, nK, bSz)
-    A_yid = A[:, :, np.newaxis] * yid_perm  # (spec_dim, nK, bSz)
-    ld_Gyi_err = np.sum(np.abs(A_yid), axis=1)  # (spec_dim, bSz)
+    yid_perm = yid.permute(1, 0, 2)  # (1, nK, bSz) - use torch permute
+    A_yid = A.unsqueeze(2) * yid_perm  # (spec_dim, nK, bSz) - use torch unsqueeze
+    ld_Gyi_err = torch.sum(torch.abs(A_yid), dim=1)  # (spec_dim, bSz) - use torch operations
     
     # Compute output constraints.
     if safeSet:
@@ -517,6 +531,47 @@ def _aux_pop(xs: np.ndarray, rs: np.ndarray, nrXs: np.ndarray, bSz: int, options
         nrXs = np.zeros((0, xs.shape[1]), dtype=xs.dtype)
     
     return xi, ri, nrXi, xs, rs, nrXs, qIdx
+
+
+def _aux_pop_simple(xs: torch.Tensor, rs: torch.Tensor, bs: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Pop elements from the queue (MATLAB aux_pop equivalent for simple verify)
+    Internal to nn - only uses torch tensors.
+    
+    MATLAB signature:
+    function [xi,ri,xs,rs] = aux_pop(xs,rs,bs)
+    
+    MATLAB code (lines 192-205):
+        bs = min(bs,size(xs,2));
+        idx = 1:bs;
+        xi = xs(:,idx);
+        xs(:,idx) = [];
+        ri = rs(:,idx);
+        rs(:,idx) = [];
+    """
+    # MATLAB: bs = min(bs,size(xs,2));
+    bs_actual = min(bs, xs.shape[1])
+    
+    # MATLAB: idx = 1:bs;
+    # Python uses 0-based indexing, so idx = 0:bs_actual
+    idx = torch.arange(bs_actual, device=xs.device)
+    
+    # MATLAB: xi = xs(:,idx);
+    xi = xs[:, idx].clone()
+    
+    # MATLAB: xs(:,idx) = [];
+    # Remove columns at idx
+    remaining_idx = torch.arange(bs_actual, xs.shape[1], device=xs.device)
+    xs = xs[:, remaining_idx]
+    
+    # MATLAB: ri = rs(:,idx);
+    ri = rs[:, idx].clone()
+    
+    # MATLAB: rs(:,idx) = [];
+    # Remove columns at idx
+    rs = rs[:, remaining_idx]
+    
+    return xi, ri, xs, rs
 
 
 def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: Union[np.ndarray, torch.Tensor], ri: Union[np.ndarray, torch.Tensor],
@@ -2006,7 +2061,7 @@ def _aux_updateGradients(nn: 'NeuralNetwork', options: Dict[str, Any], idxLayer:
         # For interval backprop, grad typically represents the gradient w.r.t. input
         # We combine gl and gu (taking the maximum absolute value for each dimension)
         if gl.ndim > 0 and gu.ndim > 0:
-            grad = np.maximum(np.abs(gl), np.abs(gu))
+            grad = torch.maximum(torch.abs(gl), torch.abs(gu))
         else:
             grad = None
     else:
@@ -2037,11 +2092,11 @@ def _aux_updateGradients(nn: 'NeuralNetwork', options: Dict[str, Any], idxLayer:
                 # Get stored input from forward pass
                 if hasattr(layer_k, 'backprop') and isinstance(layer_k.backprop, dict):
                     store = layer_k.backprop.get('store', {})
-                    c_in = store.get('inc', np.zeros_like(gc))
-                    G_in = store.get('inG', np.zeros_like(gG))
+                    c_in = store.get('inc', torch.zeros_like(gc))
+                    G_in = store.get('inG', torch.zeros_like(gG))
                 else:
-                    c_in = np.zeros_like(gc)
-                    G_in = np.zeros_like(gG)
+                    c_in = torch.zeros_like(gc)
+                    G_in = torch.zeros_like(gG)
                 gc, gG = layer_k.backpropZonotopeBatch(c_in, G_in, gc, gG, options)
         # The gradient at the input is the result
         # gG has shape (input_dim, numGen, batch) - this is the gradient w.r.t. generators

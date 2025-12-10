@@ -273,10 +273,11 @@ class nnGeneratorReductionLayer(nnIdentityLayer):
         
         return c, G
     
-    def backpropZonotopeBatch(self, c, G, gc, 
-                              gG, options: Dict[str, Any]):
+    def backpropZonotopeBatch(self, c: torch.Tensor, G: torch.Tensor, gc: torch.Tensor, 
+                              gG: torch.Tensor, options: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Backpropagate zonotope batch gradients
+        Internal to nn - all inputs are always torch tensors
         
         Args:
             c: Center (torch tensor)
@@ -289,15 +290,7 @@ class nnGeneratorReductionLayer(nnIdentityLayer):
             gc: Center gradients (unchanged, torch tensor)
             gG: Backpropagated generator gradients (torch tensor)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(c, np.ndarray):
-            c = torch.tensor(c, dtype=torch.float32)
-        if isinstance(G, np.ndarray):
-            G = torch.tensor(G, dtype=torch.float32)
-        if isinstance(gc, np.ndarray):
-            gc = torch.tensor(gc, dtype=torch.float32)
-        if isinstance(gG, np.ndarray):
-            gG = torch.tensor(gG, dtype=torch.float32)
+        # Internal to nn - all inputs are always torch tensors
         
         # Extract indices of reduced generators.
         keepGensIdx = self.backprop['store']['keepGensIdx']

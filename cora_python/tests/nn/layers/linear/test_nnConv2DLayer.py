@@ -21,16 +21,20 @@ class TestNnConv2DLayer:
         # Reshape to 4D: (kernel_height, kernel_width, in_channels, num_filters)
         W = W.reshape(3, 3, 1, 1)
         layer = nnConv2DLayer(W)
+        # Convert torch tensors to numpy for comparison
+        b_np = layer.b.cpu().numpy() if hasattr(layer.b, 'cpu') else layer.b
         assert layer.W.shape == (3, 3, 1, 1)
-        assert layer.b.shape == (1,)
-        assert np.allclose(layer.b, 0)
+        assert b_np.shape == (1,)
+        assert np.allclose(b_np, 0)
     
     def test_constructor_with_bias(self):
         """Test constructor with bias"""
         W = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float64).reshape(3, 3, 1, 1)
         b = np.array([1.0])
         layer = nnConv2DLayer(W, b)
-        assert np.allclose(layer.b, b)
+        # Convert torch tensors to numpy for comparison
+        b_np = layer.b.cpu().numpy() if hasattr(layer.b, 'cpu') else layer.b
+        assert np.allclose(b_np, b)
     
     def test_constructor_with_padding(self):
         """Test constructor with padding"""
@@ -38,7 +42,9 @@ class TestNnConv2DLayer:
         b = np.array([1.0])
         padding = np.array([1, 1, 1, 1])  # [left, top, right, bottom]
         layer = nnConv2DLayer(W, b, padding)
-        assert np.allclose(layer.padding, padding)
+        # Convert torch tensors to numpy for comparison
+        padding_np = layer.padding.cpu().numpy() if hasattr(layer.padding, 'cpu') else layer.padding
+        assert np.allclose(padding_np, padding)
     
     def test_constructor_with_stride(self):
         """Test constructor with stride"""
