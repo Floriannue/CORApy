@@ -131,6 +131,12 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
     # Convert A and b to torch for internal computations
     A_torch = torch.tensor(A, dtype=torch.float32, device=device)
     b_torch = torch.tensor(b, dtype=torch.float32, device=device)
+    # Ensure b_torch is a column vector (num_constraints, 1) for proper broadcasting
+    if b_torch.ndim == 1:
+        b_torch = b_torch.unsqueeze(1)  # (num_constraints,) -> (num_constraints, 1)
+    elif b_torch.ndim == 2 and b_torch.shape[1] != 1:
+        # If b is (num_constraints, batch_size), take first column
+        b_torch = b_torch[:, 0:1]  # (num_constraints, 1)
     
     # MATLAB line 76
     res = None
@@ -174,16 +180,20 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         # MATLAB lines 108-109
         # MATLAB: sens = permute(sum(abs(S)),[2 1 3]);
         # MATLAB: sens = sens(:,:);
-        S_abs = torch.abs(S)
-        sens_sum = torch.sum(S_abs, dim=0)  # (n0, cbSz)
-        sens = sens_sum.permute(1, 0)  # (cbSz, n0)
+        # S has shape (num_outputs, num_inputs, batch_size) = (nK, n0, bSz)
+        # For the attack, we need sensitivity per INPUT dimension
+        # So we sum along OUTPUTS (dim=0) to get (1, num_inputs, batch_size)
+        # Then permute([2 1 3]) to get (batch_size, num_inputs, 1) -> squeeze -> (batch_size, num_inputs)
+        S_abs = torch.abs(S)  # (num_outputs, num_inputs, batch_size)
+        sens_sum = torch.sum(S_abs, dim=0, keepdim=True)  # (1, num_inputs, batch_size)
+        sens = sens_sum.permute(2, 1, 0).squeeze(0)  # (batch_size, num_inputs)
         
         # MATLAB line 112: Compute adversarial attacks
         # MATLAB: zi = xi + ri.*sign(sens);
-        # sens has shape (cbSz, n0), need to transpose for element-wise multiplication
-        # xi and ri have shape (n0, cbSz)
-        sens_sign = torch.sign(sens)  # (cbSz, n0)
-        sens_sign_T = sens_sign.T  # (n0, cbSz)
+        # sens has shape (batch_size, num_inputs), need to transpose for element-wise multiplication
+        # xi and ri have shape (num_inputs, batch_size)
+        sens_sign = torch.sign(sens)  # (batch_size, num_inputs)
+        sens_sign_T = sens_sign.T  # (num_inputs, batch_size)
         zi = xi + ri * sens_sign_T
         
         # MATLAB line 114: Check adversarial examples
@@ -202,23 +212,53 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             yi_torch = yi_torch.squeeze(1) if yi_torch.shape[1] == 1 else yi_torch.reshape(yi_torch.shape[0], -1)
         
         # Compute logit difference using torch
-        ld_yi = A_torch @ yi_torch + b_torch  # (num_constraints, batch_size)
+        # MATLAB: A*yi + b
+        # A_torch: (num_constraints, num_outputs)
+        # yi_torch: (num_outputs, batch_size)
+        # b_torch: (num_constraints, 1) - already ensured at initialization
+        # Result: (num_constraints, batch_size)
+        ld_yi = A_torch @ yi_torch + b_torch  # Broadcasting: (num_constraints, batch_size) + (num_constraints, 1)
         
         if safeSet:
             # MATLAB: checkSpecs = any(A*yi + b >= 0,1);
-            checkSpecs = torch.any(ld_yi >= 0, dim=0)  # Keep as torch tensor
+            # MATLAB checks along dimension 1 (columns), which is dim=0 in Python (first dimension after transpose)
+            # ld_yi is (num_constraints, batch_size), so dim=0 checks across constraints
+            checkSpecs = torch.any(ld_yi >= 0, dim=0)  # (batch_size,)
         else:
             # MATLAB: checkSpecs = all(A*yi + b <= 0,1);
-            checkSpecs = torch.all(ld_yi <= 0, dim=0)  # Keep as torch tensor
+            # For unsafeSet, check if ALL constraints are <= 0
+            checkSpecs = torch.all(ld_yi <= 0, dim=0)  # (batch_size,)
 
         # MATLAB lines 120-130
+        # Always print debug output for falsification (critical for debugging)
+        print(f"\nFALSIFICATION DEBUG (safeSet={safeSet}):")
+        print(f"  A_torch shape: {A_torch.shape}, yi_torch shape: {yi_torch.shape}, b_torch shape: {b_torch.shape}")
+        print(f"  ld_yi shape: {ld_yi.shape}")
+        ld_yi_np = ld_yi.cpu().numpy()
+        print(f"  ld_yi values:\n{ld_yi_np}")
+        if ld_yi.shape[1] > 5:
+            print(f"  ld_yi (first 5 cols only):\n{ld_yi_np[:, :5]}")
+        print(f"  b_torch: {b_torch.cpu().numpy().flatten()}")
+        if safeSet:
+            print(f"  For safeSet: checking any(ld_yi >= 0) along dim=0")
+            ld_yi_ge_0 = (ld_yi >= 0).cpu().numpy()
+            print(f"  ld_yi >= 0:\n{ld_yi_ge_0}")
+            print(f"  any(ld_yi >= 0) per sample: {np.any(ld_yi_ge_0, axis=0)}")
+        else:
+            print(f"  For unsafeSet: checking all(ld_yi <= 0) along dim=0")
+            ld_yi_le_0 = (ld_yi <= 0).cpu().numpy()
+            print(f"  ld_yi <= 0:\n{ld_yi_le_0}")
+            print(f"  all(ld_yi <= 0) per sample: {np.all(ld_yi_le_0, axis=0)}")
+        checkSpecs_np = checkSpecs.cpu().numpy()
+        print(f"  checkSpecs shape: {checkSpecs.shape}, checkSpecs: {checkSpecs_np}")
+        print(f"  torch.any(checkSpecs): {torch.any(checkSpecs).item()}\n")
+        
         if torch.any(checkSpecs):
-            if verbose:
-                print(f"FALSIFICATION: Found counterexample in falsification phase")
-                print(f"  ld_yi (A*yi + b) = {ld_yi.cpu().numpy().flatten()}")
-                print(f"  b = {b_torch.cpu().numpy().flatten()}")
-                print(f"  checkSpecs = {checkSpecs.cpu().numpy()}")
-                print(f"  safeSet = {safeSet}")
+            print(f"FALSIFICATION: Found counterexample in falsification phase")
+            print(f"  ld_yi (A*yi + b) = {ld_yi.cpu().numpy().flatten()}")
+            print(f"  b = {b_torch.cpu().numpy().flatten()}")
+            print(f"  checkSpecs = {checkSpecs.cpu().numpy()}")
+            print(f"  safeSet = {safeSet}")
             res = 'COUNTEREXAMPLE'
             idNzEntry = torch.where(checkSpecs)[0]
             id_ = idNzEntry[0].item() if len(idNzEntry) > 0 else 0
@@ -303,12 +343,20 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         unknown_gathered = unknown.cpu() if device.type == 'cuda' else unknown
         
         # MATLAB lines 166-167: Create new splits
-        # MATLAB: [xis,ris] = aux_split(xi(:,unknown),ri(:,unknown),sens(:,unknown), nSplits,nDims);
+        # MATLAB: [xis,ris] = aux_split(xi(:,unknown),ri(:,unknown),sens(:,unknown), nSplits,nDims);   
         # sens has shape (cbSz, n0), need to transpose to (n0, cbSz) for aux_split
         sens_T = sens_gathered.T  # (n0, cbSz) - use torch transpose
-        
-        # Use torch boolean indexing directly
-        xis, ris = _aux_split(xi_gathered[:, unknown_gathered], ri_gathered[:, unknown_gathered], sens_T[:, unknown_gathered], nSplits, nDims)
+
+        # Convert boolean mask to indices for proper indexing
+        # unknown_gathered has shape (batch_size,), convert to indices
+        unknown_indices = torch.where(unknown_gathered)[0]  # Get indices where True
+        if len(unknown_indices) > 0:
+            # Index using integer indices
+            xis, ris = _aux_split(xi_gathered[:, unknown_indices], ri_gathered[:, unknown_indices], sens_T[:, unknown_indices], nSplits, nDims)
+        else:
+            # No unknown samples to split
+            xis = torch.empty((xi_gathered.shape[0], 0), dtype=xi_gathered.dtype, device=xi_gathered.device)
+            ris = torch.empty((ri_gathered.shape[0], 0), dtype=ri_gathered.dtype, device=ri_gathered.device)
         
         # Move results back to original device (GPU if originally on GPU)
         if device.type == 'cuda':

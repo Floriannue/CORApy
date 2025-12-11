@@ -110,9 +110,10 @@ class nnSoftmaxLayer(nnActivationLayer):
         # For now, return a small default value
         return 0.0001
     
-    def evaluateSensitivity(self, S, x, options):
+    def evaluateSensitivity(self, S: torch.Tensor, x: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate sensitivity for the softmax function.
+        Internal to nn - S and x are always torch tensors
         
         Args:
             S: sensitivity matrix (torch tensor)
@@ -122,11 +123,7 @@ class nnSoftmaxLayer(nnActivationLayer):
         Returns:
             Updated sensitivity matrix (torch tensor)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(S, np.ndarray):
-            S = torch.tensor(S, dtype=torch.float32)
-        if isinstance(x, np.ndarray):
-            x = torch.tensor(x, dtype=torch.float32)
+        # Internal to nn - S and x are always torch tensors
         
         device = S.device
         dtype = S.dtype
@@ -170,20 +167,19 @@ class nnSoftmaxLayer(nnActivationLayer):
         
         return S
     
-    def evaluateNumeric(self, input_data, options):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate the softmax function numerically.
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: input data (numpy array or torch tensor) - converted to torch internally
+            input_data: input data (torch tensor)
             options: options dictionary
             
         Returns:
             Output of the softmax function (torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Internal to nn - input_data is always torch tensor
         
         # avoid numerical issues see [2, Chp. 4]
         input_data = input_data - torch.max(input_data)

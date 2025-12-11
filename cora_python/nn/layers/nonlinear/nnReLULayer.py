@@ -68,7 +68,14 @@ class nnReLULayer(nnLeakyReLULayer):
         Returns:
             r: Output after ReLU activation (torch tensor)
         """
-        # Internal to nn - input_data is always torch tensor
+        # Internal to nn - input_data should be torch tensor, but handle numpy conversion
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        elif not isinstance(input_data, torch.Tensor):
+            # Fallback: convert to torch
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        
+        # Now input_data is definitely torch.Tensor
         r = torch.maximum(torch.tensor(0.0, dtype=input_data.dtype, device=input_data.device), input_data)
         return r
     

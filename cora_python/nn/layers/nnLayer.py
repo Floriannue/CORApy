@@ -227,11 +227,26 @@ class nnLayer(ABC):
 
         
         # Convert interval to numeric bounds and evaluate
-        bounds_numeric = np.stack([bounds.inf, bounds.sup], axis=2)
+        # Convert to torch for internal evaluation
+        if isinstance(bounds.inf, np.ndarray):
+            bounds_inf = torch.tensor(bounds.inf, dtype=torch.float32)
+        else:
+            bounds_inf = torch.tensor(bounds.inf, dtype=torch.float32) if not isinstance(bounds.inf, torch.Tensor) else bounds.inf
+        if isinstance(bounds.sup, np.ndarray):
+            bounds_sup = torch.tensor(bounds.sup, dtype=torch.float32)
+        else:
+            bounds_sup = torch.tensor(bounds.sup, dtype=torch.float32) if not isinstance(bounds.sup, torch.Tensor) else bounds.sup
+        
+        # Stack using torch
+        bounds_numeric = torch.stack([bounds_inf, bounds_sup], dim=2)
         bounds_result = self.evaluateNumeric(bounds_numeric, options)
         
-        # Convert back to interval
-        bounds = Interval(bounds_result[:, :, 0], bounds_result[:, :, 1])
+        # Convert back to interval (Interval expects numpy)
+        if isinstance(bounds_result, torch.Tensor):
+            bounds_result_np = bounds_result.cpu().numpy()
+        else:
+            bounds_result_np = bounds_result
+        bounds = Interval(bounds_result_np[:, :, 0], bounds_result_np[:, :, 1])
         return bounds
     
     def evaluatePolyZonotope(self, c: np.ndarray, G: np.ndarray, GI: np.ndarray, 

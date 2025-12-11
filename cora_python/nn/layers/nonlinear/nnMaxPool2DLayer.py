@@ -114,31 +114,30 @@ class nnMaxPool2DLayer(nnLayer):
         outputSize = np.array([out_h, out_w, out_c])
         return outputSize
     
-    def evaluateNumeric(self, input_data, options=None):
+    def evaluateNumeric(self, input_data: torch.Tensor, options: Optional[Dict[str, Any]] = None) -> torch.Tensor:
         """
         Evaluate layer numerically
+        Internal to nn - input_data is always torch tensor
         
         Args:
-            input_data: Input data (column vector, all dimensions (h,w,c) flattened) - converted to torch internally
+            input_data: Input data (column vector, all dimensions (h,w,c) flattened) (torch tensor)
             options: Evaluation options
             
         Returns:
             r: Output after max pooling (torch tensor)
         """
-        # Convert numpy input to torch if needed
-        if isinstance(input_data, np.ndarray):
-            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Internal to nn - input_data is always torch tensor
         
         num_samples = input_data.shape[1] if input_data.ndim > 1 else 1
         if input_data.ndim == 1:
             input_data = input_data.reshape(-1, 1)
         
         # Move adjacent pixels next to each other
-        id_mpp = self._aux_computePermutationMatrix()
+        id_mpp = self._aux_computePermutationMatrix()  # Returns torch tensor
         
-        # Convert id_mpp to torch if needed
-        if isinstance(id_mpp, np.ndarray):
-            id_mpp = torch.tensor(id_mpp, dtype=torch.long, device=input_data.device)
+        # Ensure id_mpp is on the same device as input_data
+        if id_mpp.device != input_data.device:
+            id_mpp = id_mpp.to(device=input_data.device)
         
         # Rearrange
         input_rearranged = input_data[id_mpp, :]
@@ -153,9 +152,10 @@ class nnMaxPool2DLayer(nnLayer):
         
         return r
     
-    def evaluateSensitivity(self, S, x, options):
+    def evaluateSensitivity(self, S: torch.Tensor, x: torch.Tensor, options: Dict[str, Any]) -> torch.Tensor:
         """
         Evaluate sensitivity
+        Internal to nn - S and x are always torch tensors
         
         Args:
             S: Sensitivity matrix (torch tensor)
@@ -165,12 +165,7 @@ class nnMaxPool2DLayer(nnLayer):
         Returns:
             S: Updated sensitivity matrix (torch tensor)
         """
-        # Convert numpy inputs to torch if needed
-        if isinstance(S, np.ndarray):
-            S = torch.tensor(S, dtype=torch.float32)
-        if isinstance(x, np.ndarray):
-            x = torch.tensor(x, dtype=torch.float32)
-        
+        # Internal to nn - S and x are always torch tensors
         # This is a simplified implementation
         # Full implementation would require backpropagation storage
         raise NotImplementedError("Sensitivity evaluation for MaxPool2D not yet fully implemented")
@@ -198,14 +193,15 @@ class nnMaxPool2DLayer(nnLayer):
     
     # Internal functions
     
-    def _aux_computePermutationMatrixForChannel(self):
+    def _aux_computePermutationMatrixForChannel(self) -> torch.Tensor:
         """
         Compute permutation matrix to permute an input vector such that
         pooled elements are adjacent. Only computes permutation matrix
         for a single channel.
+        Internal to nn - returns torch tensor.
         
         Returns:
-            Wmp: Permutation matrix for single channel
+            Wmp: Permutation matrix for single channel (torch tensor)
         """
         # Read out properties
         img_h = self.inputSize[0]
@@ -214,53 +210,73 @@ class nnMaxPool2DLayer(nnLayer):
         pool_w = self.poolSize[1]
         
         # Compute number of pooling operations
-        num_pools_h = int(np.floor(img_h / pool_h))
-        num_pools_w = int(np.floor(img_w / pool_w))
+        num_pools_h = int(torch.floor(torch.tensor(img_h / pool_h)).item())
+        num_pools_w = int(torch.floor(torch.tensor(img_w / pool_w)).item())
         
-        pools_h = np.eye(num_pools_h)
+        pools_h = torch.eye(num_pools_h, dtype=torch.float32)
         
         def unitvector(i, n):
-            """Create unit vector"""
-            return ((np.arange(n) == i) * 1.0).reshape(-1, 1)
+            """Create unit vector - torch version"""
+            vec = torch.zeros(n, dtype=torch.float32)
+            vec[i] = 1.0
+            return vec.reshape(-1, 1)
+        
+        def torch_kron(A, B):
+            """Kronecker product using torch"""
+            # A is (m, n), B is (p, q), result is (m*p, n*q)
+            m, n = A.shape
+            p, q = B.shape
+            # Reshape and expand
+            A_expanded = A.unsqueeze(2).unsqueeze(3).expand(m, n, p, q)
+            B_expanded = B.unsqueeze(0).unsqueeze(1).expand(m, n, p, q)
+            # Element-wise multiply and reshape
+            result = (A_expanded * B_expanded).reshape(m * p, n * q)
+            return result
         
         pools_hw = []
         # Go along width and construct pooling
         for j in range(pool_w):
-            pools_hj = np.kron(pools_h, unitvector(j, pool_w))
-            entries_hj = np.kron(pools_hj, np.eye(pool_h))
-            entries_hj = np.hstack([
-                entries_hj,
-                np.zeros((entries_hj.shape[0], img_h - (pool_h * num_pools_h)))
-            ])
+            pools_hj = torch_kron(pools_h, unitvector(j, pool_w))
+            entries_hj = torch_kron(pools_hj, torch.eye(pool_h, dtype=torch.float32))
+            # Pad with zeros
+            padding = torch.zeros((entries_hj.shape[0], img_h - (pool_h * num_pools_h)), dtype=torch.float32)
+            entries_hj = torch.cat([entries_hj, padding], dim=1)
             pools_hw.append(entries_hj)
         
         # Gather
-        pools_hw = np.hstack(pools_hw)
+        pools_hw = torch.cat(pools_hw, dim=1)
         
         # Compute pooling
-        Wmp = np.kron(np.eye(num_pools_w), pools_hw)
-        Wmp = np.hstack([Wmp, np.zeros((Wmp.shape[0], img_h * (img_w - (pool_w * num_pools_w))))])
+        Wmp = torch_kron(torch.eye(num_pools_w, dtype=torch.float32), pools_hw)
+        padding = torch.zeros((Wmp.shape[0], img_h * (img_w - (pool_w * num_pools_w))), dtype=torch.float32)
+        Wmp = torch.cat([Wmp, padding], dim=1)
         
         return Wmp
     
-    def _aux_computePermutationMatrix(self):
+    def _aux_computePermutationMatrix(self) -> torch.Tensor:
         """
         Compute permutation matrix for entire input vector
+        Internal to nn - returns torch tensor.
         
         Returns:
-            id_mpp: Permutation indices
+            id_mpp: Permutation indices (torch tensor)
         """
         # Compute permutation matrix for single channel
         Wmp = self._aux_computePermutationMatrixForChannel()
         
         # Construct permutation matrix for entire input
         c_in = self.inputSize[2]
-        id_mpp = np.arange(np.prod(self.inputSize))
+        total_size = 1
+        for dim in self.inputSize:
+            total_size *= dim
+        id_mpp = torch.arange(total_size, dtype=torch.long)
         id_mpp = id_mpp.reshape(-1, c_in)
-        id_mpp = Wmp @ id_mpp
+        # Convert to float for matrix multiplication, then back to long
+        id_mpp_float = id_mpp.float()
+        id_mpp = (Wmp @ id_mpp_float).long()
         id_mpp = id_mpp.reshape(-1)
         
-        return id_mpp.astype(int)
+        return id_mpp
 
 
 # ------------------------------ END OF CODE ------------------------------

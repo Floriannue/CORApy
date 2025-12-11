@@ -248,10 +248,19 @@ class nnGeneratorReductionLayer(nnIdentityLayer):
         #     repmat(1:n,1,batchSize), ...
         #     repmat(1:n,1,batchSize), ...
         #     repelem(1:batchSize,1,n)),[n batchSize]);
-        i_idx = np.tile(np.arange(1, n+1), batchSize)  # repmat(1:n,1,batchSize)
-        j_idx = np.tile(np.arange(1, n+1), batchSize)  # repmat(1:n,1,batchSize)
-        k_idx = np.repeat(np.arange(1, batchSize+1), n)  # repelem(1:batchSize,1,n)
-        GdIdx = sub2ind((n, q+n, batchSize), i_idx, j_idx, k_idx)
+        # Use torch operations internally
+        device = G_.device
+        i_idx = torch.tile(torch.arange(1, n+1, device=device), (batchSize,))  # repmat(1:n,1,batchSize)
+        j_idx = torch.tile(torch.arange(1, n+1, device=device), (batchSize,))  # repmat(1:n,1,batchSize)
+        k_idx = torch.repeat_interleave(torch.arange(1, batchSize+1, device=device), n)  # repelem(1:batchSize,1,n)
+        # sub2ind expects numpy, so convert temporarily
+        i_idx_np = i_idx.cpu().numpy() if isinstance(i_idx, torch.Tensor) else i_idx
+        j_idx_np = j_idx.cpu().numpy() if isinstance(j_idx, torch.Tensor) else j_idx
+        k_idx_np = k_idx.cpu().numpy() if isinstance(k_idx, torch.Tensor) else k_idx
+        GdIdx = sub2ind((n, q+n, batchSize), i_idx_np, j_idx_np, k_idx_np)
+        # Convert back to torch
+        if isinstance(GdIdx, np.ndarray):
+            GdIdx = torch.tensor(GdIdx, dtype=torch.long, device=device)
         GdIdx = GdIdx.reshape(n, batchSize)
         
         # Append generators for the approximation errors.
@@ -349,28 +358,32 @@ class nnGeneratorReductionLayer(nnIdentityLayer):
         # Sort the generators by their length.
         idx = torch.argsort(genLens, dim=0)  # Sort along first axis (generators)
         # MATLAB: idx = reshape(sub2ind([q batchSize], idx,repmat(1:batchSize,q,1)),size(idx));
-        i_idx = idx.flatten().cpu().numpy()
-        j_idx = np.tile(np.arange(1, batchSize+1), q)
-        idx_flat = sub2ind((q, batchSize), i_idx+1, j_idx)  # +1 for 1-based indexing
+        # Use torch operations internally
+        device = G.device
+        i_idx = idx.flatten() + 1  # Convert to 1-based for sub2ind (torch tensor)
+        j_idx = torch.tile(torch.arange(1, batchSize+1, device=device), (q,))  # repmat(1:batchSize,q,1)
+        # sub2ind expects torch tensors
+        idx_flat = sub2ind((q, batchSize), i_idx, j_idx)
         idx = idx_flat.reshape(idx.shape)
         
         # Identify the generators to keep.
-        keepGensIdx = idx[:maxGens - n, :]
-        # Convert keepGensIdx to torch for indexing
-        keepGensIdx_torch = torch.tensor(keepGensIdx.flatten(), dtype=torch.long, device=G.device)
-        G_ = G[:, keepGensIdx_torch].reshape(n, -1, batchSize)
+        keepGensIdx = idx[:maxGens - n, :]  # Already torch tensor
+        # Flatten for indexing
+        keepGensIdx_flat = keepGensIdx.flatten().long()
+        G_ = G[:, keepGensIdx_flat].reshape(n, -1, batchSize)
         
         # Identify generators to reduce.
-        reduceGensIdx = idx[maxGens - n:, :]
-        reduceGensIdx_torch = torch.tensor(reduceGensIdx.flatten(), dtype=torch.long, device=G.device)
-        Gred = G[:, reduceGensIdx_torch].reshape(n, -1, batchSize)
+        reduceGensIdx = idx[maxGens - n:, :]  # Already torch tensor
+        reduceGensIdx_flat = reduceGensIdx.flatten().long()
+        Gred = G[:, reduceGensIdx_flat].reshape(n, -1, batchSize)
         I = torch.sum(torch.abs(Gred), dim=1).reshape(n, batchSize)
         
         return G_, I, keepGensIdx, reduceGensIdx
     
-    def aux_reducePCA(self, G):
+    def aux_reducePCA(self, G: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Reduce generators using PCA method
+        Internal to nn - G is always torch tensor
         
         Args:
             G: Generators (n, q, batchSize) (torch tensor)
@@ -379,9 +392,7 @@ class nnGeneratorReductionLayer(nnIdentityLayer):
             G_: Reduced generators (torch tensor)
             U: Transformation matrix (torch tensor)
         """
-        # Convert numpy to torch if needed
-        if isinstance(G, np.ndarray):
-            G = torch.tensor(G, dtype=torch.float32)
+        # Internal to nn - G is always torch tensor
         
         # Obtain number of dimensions and generators.
         n, _, batchSize = G.shape
