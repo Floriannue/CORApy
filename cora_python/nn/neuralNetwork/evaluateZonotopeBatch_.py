@@ -63,6 +63,11 @@ def evaluateZonotopeBatch_(nn: NeuralNetwork, c, G,
 
     for i in idxLayer:
         layeri = nn.layers[i]
+        # Debug generator stats before layer propagation (match MATLAB tracing intent)
+        if options.get('nn', {}).get('_debug_verify', False):
+            g_min = float(G.min()) if isinstance(G, torch.Tensor) else float(np.min(G))
+            g_max = float(G.max()) if isinstance(G, torch.Tensor) else float(np.max(G))
+            print(f"[DEBUG zonotope layer {i}] G min/max {g_min}/{g_max}")
         # Store input for backpropagation
         if options.get('nn', {}).get('train', {}).get('backprop', False):
             if not hasattr(layeri, 'backprop') or not isinstance(layeri.backprop, dict):

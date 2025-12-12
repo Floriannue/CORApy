@@ -391,16 +391,44 @@ def aux_checkCounterexample(nn, A, b, safeSet, x_, y_):
     # else
     #     violates = all(A*yi + b <= 0,1);
     # end
+    # Ensure shapes are correct for matrix multiplication
+    # A: (num_constraints, num_outputs)
+    # yi: (num_outputs, 1) or (num_outputs,)
+    # b: (num_constraints, 1) or (num_constraints,)
+    if yi.ndim == 1:
+        yi = yi.reshape(-1, 1)  # (num_outputs,) -> (num_outputs, 1)
+    if b.ndim == 1:
+        b = b.reshape(-1, 1)  # (num_constraints,) -> (num_constraints, 1)
+    
+    # Compute A*yi + b
+    # A @ yi: (num_constraints, num_outputs) @ (num_outputs, 1) = (num_constraints, 1)
+    # A @ yi + b: (num_constraints, 1) + (num_constraints, 1) = (num_constraints, 1)
+    ld = A @ yi + b  # (num_constraints, 1)
+    
+    # Debug output
+    print(f"\naux_checkCounterexample DEBUG:")
+    print(f"  A shape: {A.shape}, yi shape: {yi.shape}, b shape: {b.shape}")
+    print(f"  ld shape: {ld.shape}, ld values: {ld.flatten()}")
+    print(f"  safeSet: {safeSet}")
+    print(f"  y_ shape: {y_.shape}, yi shape: {yi.shape}")
+    print(f"  y_ values: {y_.flatten()}")
+    print(f"  yi values: {yi.flatten()}")
+    print(f"  abs(y_ - yi): {np.abs(y_ - yi).flatten()}")
+    
     if safeSet:
         # For safe set: violation means any(A*yi + b >= 0)
         # MATLAB: violates = any(A*yi + b >= 0,1);
-        # A*yi has shape (num_constraints, batch_size), check along axis=0 (constraints)
-        violates = np.any(A @ yi + b >= 0)
+        # MATLAB checks along dimension 1 (columns), which is axis=1 in Python
+        # But since ld is (num_constraints, 1), we check all elements
+        violates = np.any(ld >= 0)
+        print(f"  For safeSet: any(ld >= 0) = {violates}")
     else:
         # For unsafe set: violation means all(A*yi + b <= 0)
         # MATLAB: violates = all(A*yi + b <= 0,1);
-        # A*yi has shape (num_constraints, batch_size), check along axis=0 (constraints)
-        violates = np.all(A @ yi + b <= 0)
+        # MATLAB checks along dimension 1 (columns), which is axis=1 in Python
+        # But since ld is (num_constraints, 1), we check all elements
+        violates = np.all(ld <= 0)
+        print(f"  For unsafeSet: all(ld <= 0) = {violates}, ld <= 0: {(ld <= 0).flatten()}")
     
     # MATLAB: assert(res & violates);
     assert res and violates, f"Counterexample check failed: res={res}, violates={violates}"

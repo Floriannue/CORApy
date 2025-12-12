@@ -36,7 +36,7 @@ import torch
 
 # Import CORA Python modules
 from ..nnHelper.validateNNoptions import validateNNoptions
-from .verify_helpers import _aux_split, _aux_pop_simple
+from .verify_helpers import _aux_split, _aux_split_with_dim, _aux_pop_simple
 
 if TYPE_CHECKING:
     from .neuralNetwork import NeuralNetwork
@@ -60,11 +60,14 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
     # Validate options
     options = validateNNoptions(options, True)
     
-    # Ensure x and r are 2D column vectors like MATLAB (numpy for validation, then convert to torch)
+    # Convert inputs to torch tensors for GPU support
+    # Use numpy for initial validation, then convert to torch immediately
     x_np = np.asarray(x, dtype=np.float32)
     r_np = np.asarray(r, dtype=np.float32)
     A_np = np.asarray(A, dtype=np.float32)
     b_np = np.asarray(b, dtype=np.float32)
+    
+    # Validate and reshape inputs
     if x_np.ndim == 1:
         x_np = x_np.reshape(-1, 1)
     if np.isscalar(r_np) or (isinstance(r_np, np.ndarray) and r_np.ndim == 0):
@@ -98,10 +101,11 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
     verifiedPatches = 0
     
     # MATLAB line 45: Extract parameters
-    bs = options.get('nn', {}).get('train', {}).get('mini_batch_size', 32)
+    # MATLAB: bs = options.nn.train.mini_batch_size; (tests set this to 512)
+    bs = options.get('nn', {}).get('train', {}).get('mini_batch_size', 512)
     
     # MATLAB lines 47-55: To speed up computations and reduce gpu memory, we only use single precision
-    inputDataClass = np.float32  # MATLAB: single(1)
+    # Use torch for all internal computations
     useGpu = options.get('nn', {}).get('train', {}).get('use_gpu', False)
     device = torch.device('cuda' if (useGpu and torch.cuda.is_available()) else 'cpu')
     
@@ -125,6 +129,8 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
     # MATLAB lines 70-72: Initialize queue - use torch internally
     xs = torch.tensor(x, dtype=torch.float32, device=device)
     rs = torch.tensor(r, dtype=torch.float32, device=device)
+    # Scale initial generators by radii (per batch element) to match MATLAB zonotope construction
+    Gs = rs.reshape(rs.shape[0], 1, rs.shape[1]) * batchG[:, :, :rs.shape[1]]
     # MATLAB line 74: Obtain number of input dimensions
     n0 = x.shape[0]
     
@@ -158,18 +164,27 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         if verbose:
             rs_mean = torch.mean(rs).cpu().item()
             print(f'Queue / Verified / Total: {xs.shape[1]:07d} / {verifiedPatches:07d} / {totalNumSplits:07d} [Avg. radius: {rs_mean:.5f}]')
+        if options.get('nn', {}).get('_debug_verify', False):
+            print(f'ITER DEBUG: queue={xs.shape[1]} verified={verifiedPatches} totalSplits={totalNumSplits}')
         
-        # MATLAB lines 96-100: Pop next batch from the queue
-        # MATLAB: [xi,ri,xs,rs] = aux_pop(xs,rs,bs);
-        xi, ri, xs, rs = _aux_pop_simple(xs, rs, bs)
+        # MATLAB lines 96-100: Pop next batch from the queue (front)
+        bs_actual = min(bs, xs.shape[1])
+        idx = torch.arange(bs_actual, device=xs.device)
+        xi = xs[:, idx].clone()
+        ri = rs[:, idx].clone()
+        Gi = Gs[:, :, idx].clone()
+        remaining_idx = torch.arange(bs_actual, xs.shape[1], device=xs.device)
+        xs = xs[:, remaining_idx]
+        rs = rs[:, remaining_idx]
+        Gs = Gs[:, :, remaining_idx]
         # MATLAB lines 99-100: Move the batch to the GPU (cast to match inputDataClass)
-        # In Python, tensors are already on the correct device from _aux_pop_simple,
-        # but we ensure dtype matches (torch.float32)
         xi = xi.to(dtype=torch.float32, device=device)
         ri = ri.to(dtype=torch.float32, device=device)
+        Gi = Gi.to(dtype=torch.float32, device=device)
         
         # MATLAB lines 102-131: Falsification
         # MATLAB line 105: Compute the sensitivity
+        options.setdefault('nn', {})['_debug_iteration'] = totalNumSplits
         S, _ = nn.calcSensitivity(xi, options, store_sensitivity=False)
         
         # MATLAB line 106
@@ -177,94 +192,103 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             S = torch.tensor(S, dtype=torch.float32, device=device)
         S = torch.maximum(S, torch.tensor(1e-3, dtype=torch.float32, device=device))
         
-        # MATLAB lines 108-109
-        # MATLAB: sens = permute(sum(abs(S)),[2 1 3]);
-        # MATLAB: sens = sens(:,:);
-        # S has shape (num_outputs, num_inputs, batch_size) = (nK, n0, bSz)
-        # For the attack, we need sensitivity per INPUT dimension
-        # So we sum along OUTPUTS (dim=0) to get (1, num_inputs, batch_size)
-        # Then permute([2 1 3]) to get (batch_size, num_inputs, 1) -> squeeze -> (batch_size, num_inputs)
-        S_abs = torch.abs(S)  # (num_outputs, num_inputs, batch_size)
-        sens_sum = torch.sum(S_abs, dim=0, keepdim=True)  # (1, num_inputs, batch_size)
-        sens = sens_sum.permute(2, 1, 0).squeeze(0)  # (batch_size, num_inputs)
+        # MATLAB lines 108-109: sens = permute(sum(abs(S)),[2 1 3]); sens = sens(:,:);
+        # S shape: (num_outputs, num_inputs, batch_size) -> sum over outputs -> (num_inputs, batch_size)
+        sens = torch.sum(torch.abs(S), dim=0)  # (n0, bSz)
+        sens = sens.reshape(sens.shape[0], -1)  # sens(:,:) flatten to 2D (n0, bSz)
         
-        # MATLAB line 112: Compute adversarial attacks
-        # MATLAB: zi = xi + ri.*sign(sens);
-        # sens has shape (batch_size, num_inputs), need to transpose for element-wise multiplication
-        # xi and ri have shape (num_inputs, batch_size)
-        sens_sign = torch.sign(sens)  # (batch_size, num_inputs)
-        sens_sign_T = sens_sign.T  # (num_inputs, batch_size)
-        zi = xi + ri * sens_sign_T
+        # MATLAB line 112: zi = xi + ri.*sign(sens);  (all are (n0, bSz))
+        sens_sign = torch.sign(sens)  # (n0, bSz)
+        zi = xi + ri * sens_sign
         
-        # MATLAB line 114: Check adversarial examples
+        # MATLAB line 114: Check adversarial examples (single FGSM direction)
         yi = nn.evaluate_(zi, options, idxLayer)
         
-        # MATLAB lines 115-119: Use torch for all computations
         if isinstance(yi, torch.Tensor):
-            yi_torch = yi
+            yi_torch = yi.to(dtype=torch.float32, device=device)
         else:
             yi_torch = torch.tensor(yi, dtype=torch.float32, device=device)
         
-        # Ensure yi is 2D: (num_outputs, batch_size)
-        if yi_torch.ndim == 1:
-            yi_torch = yi_torch.unsqueeze(1)
-        elif yi_torch.ndim == 3:
-            yi_torch = yi_torch.squeeze(1) if yi_torch.shape[1] == 1 else yi_torch.reshape(yi_torch.shape[0], -1)
+        num_outputs = A_torch.shape[1]
+        yi_torch = yi_torch.reshape(num_outputs, -1)
         
-        # Compute logit difference using torch
-        # MATLAB: A*yi + b
-        # A_torch: (num_constraints, num_outputs)
-        # yi_torch: (num_outputs, batch_size)
-        # b_torch: (num_constraints, 1) - already ensured at initialization
-        # Result: (num_constraints, batch_size)
-        ld_yi = A_torch @ yi_torch + b_torch  # Broadcasting: (num_constraints, batch_size) + (num_constraints, 1)
-        
+        # MATLAB: checkSpecs = any(A*yi + b >= 0,1) for safeSet, all(A*yi + b <= 0,1) otherwise
+        ld_yi = A_torch @ yi_torch + b_torch  # (num_constraints, batch_size)
         if safeSet:
-            # MATLAB: checkSpecs = any(A*yi + b >= 0,1);
-            # MATLAB checks along dimension 1 (columns), which is dim=0 in Python (first dimension after transpose)
-            # ld_yi is (num_constraints, batch_size), so dim=0 checks across constraints
-            checkSpecs = torch.any(ld_yi >= 0, dim=0)  # (batch_size,)
+            checkSpecs = torch.any(ld_yi >= 0, dim=0)
         else:
-            # MATLAB: checkSpecs = all(A*yi + b <= 0,1);
-            # For unsafeSet, check if ALL constraints are <= 0
-            checkSpecs = torch.all(ld_yi <= 0, dim=0)  # (batch_size,)
-
-        # MATLAB lines 120-130
-        # Always print debug output for falsification (critical for debugging)
-        print(f"\nFALSIFICATION DEBUG (safeSet={safeSet}):")
-        print(f"  A_torch shape: {A_torch.shape}, yi_torch shape: {yi_torch.shape}, b_torch shape: {b_torch.shape}")
-        print(f"  ld_yi shape: {ld_yi.shape}")
-        ld_yi_np = ld_yi.cpu().numpy()
-        print(f"  ld_yi values:\n{ld_yi_np}")
-        if ld_yi.shape[1] > 5:
-            print(f"  ld_yi (first 5 cols only):\n{ld_yi_np[:, :5]}")
-        print(f"  b_torch: {b_torch.cpu().numpy().flatten()}")
-        if safeSet:
-            print(f"  For safeSet: checking any(ld_yi >= 0) along dim=0")
-            ld_yi_ge_0 = (ld_yi >= 0).cpu().numpy()
-            print(f"  ld_yi >= 0:\n{ld_yi_ge_0}")
-            print(f"  any(ld_yi >= 0) per sample: {np.any(ld_yi_ge_0, axis=0)}")
-        else:
-            print(f"  For unsafeSet: checking all(ld_yi <= 0) along dim=0")
-            ld_yi_le_0 = (ld_yi <= 0).cpu().numpy()
-            print(f"  ld_yi <= 0:\n{ld_yi_le_0}")
-            print(f"  all(ld_yi <= 0) per sample: {np.all(ld_yi_le_0, axis=0)}")
-        checkSpecs_np = checkSpecs.cpu().numpy()
-        print(f"  checkSpecs shape: {checkSpecs.shape}, checkSpecs: {checkSpecs_np}")
-        print(f"  torch.any(checkSpecs): {torch.any(checkSpecs).item()}\n")
+            checkSpecs = torch.all(ld_yi <= 0, dim=0)
         
         if torch.any(checkSpecs):
-            print(f"FALSIFICATION: Found counterexample in falsification phase")
-            print(f"  ld_yi (A*yi + b) = {ld_yi.cpu().numpy().flatten()}")
-            print(f"  b = {b_torch.cpu().numpy().flatten()}")
-            print(f"  checkSpecs = {checkSpecs.cpu().numpy()}")
-            print(f"  safeSet = {safeSet}")
-            res = 'COUNTEREXAMPLE'
+            if verbose:
+                print("FALSIFICATION: Found potential counterexample in falsification phase")
+                print(f"  ld_yi (A*yi + b) = {ld_yi.cpu().numpy().flatten()}")
+                print(f"  b = {b_torch.cpu().numpy().flatten()}")
+                print(f"  checkSpecs = {checkSpecs.cpu().numpy()}")
+                print(f"  safeSet = {safeSet}")
             idNzEntry = torch.where(checkSpecs)[0]
             id_ = idNzEntry[0].item() if len(idNzEntry) > 0 else 0
             x_ = zi[:, id_].cpu().numpy().reshape(-1, 1)
             nn.castWeights(np.float32)
             y_ = nn.evaluate_(x_, options, idxLayer)
+            if isinstance(y_, torch.Tensor):
+                y_ = y_.cpu().numpy()
+            if y_.ndim == 1:
+                y_ = y_.reshape(-1, 1)
+            res = 'COUNTEREXAMPLE'
+            break
+
+        # MATLAB lines 120-130
+        # Always print debug output for falsification (critical for debugging)
+        if verbose:
+            print(f"\nFALSIFICATION DEBUG (safeSet={safeSet}):")
+            print(f"  A_torch shape: {A_torch.shape}, yi_torch shape: {yi_torch.shape}, b_torch shape: {b_torch.shape}")
+            print(f"  ld_yi shape: {ld_yi.shape}")
+            ld_yi_np = ld_yi.cpu().numpy()
+            print(f"  ld_yi values:\n{ld_yi_np}")
+            if ld_yi.shape[1] > 5:
+                print(f"  ld_yi (first 5 cols only):\n{ld_yi_np[:, :5]}")
+            print(f"  b_torch: {b_torch.cpu().numpy().flatten()}")
+            if safeSet:
+                print(f"  For safeSet: checking any(ld_yi >= 0) along dim=0")
+                ld_yi_ge_0 = (ld_yi >= 0).cpu().numpy()
+                print(f"  ld_yi >= 0:\n{ld_yi_ge_0}")
+                print(f"  any(ld_yi >= 0) per sample: {np.any(ld_yi_ge_0, axis=0)}")
+            else:
+                print(f"  For unsafeSet: checking all(ld_yi <= 0) along dim=0")
+                ld_yi_le_0 = (ld_yi <= 0).cpu().numpy()
+                print(f"  ld_yi <= 0:\n{ld_yi_le_0}")
+                print(f"  all(ld_yi <= 0) per sample: {np.all(ld_yi_le_0, axis=0)}")
+            checkSpecs_np = checkSpecs.cpu().numpy()
+            print(f"  checkSpecs shape: {checkSpecs.shape}, checkSpecs: {checkSpecs_np}")
+            print(f"  torch.any(checkSpecs): {torch.any(checkSpecs).item()}\n")
+        
+        if torch.any(checkSpecs):
+            if verbose:
+                print(f"FALSIFICATION: Found potential counterexample in falsification phase")
+                print(f"  ld_yi (A*yi + b) = {ld_yi.cpu().numpy().flatten()}")
+                print(f"  b = {b_torch.cpu().numpy().flatten()}")
+                print(f"  checkSpecs = {checkSpecs.cpu().numpy()}")
+                print(f"  safeSet = {safeSet}")
+            idNzEntry = torch.where(checkSpecs)[0]
+            id_ = idNzEntry[0].item() if len(idNzEntry) > 0 else 0
+            # MATLAB: x_ = zi(:,id); - extract column vector (num_inputs, 1)
+            x_ = zi[:, id_].cpu().numpy().reshape(-1, 1)
+            # MATLAB: nn.castWeights(single(1));
+            nn.castWeights(np.float32)
+            # MATLAB: y_ = nn.evaluate_(gather(x_),options,idxLayer); % yi(:,id);
+            # MATLAB re-evaluates for precision, but comment suggests using yi(:,id) directly
+            # To match MATLAB exactly, we re-evaluate the network with the counterexample input
+            # This ensures precision and matches MATLAB's behavior
+            y_ = nn.evaluate_(x_, options, idxLayer)
+            # Ensure y_ is a column vector (num_outputs, 1)
+            if isinstance(y_, torch.Tensor):
+                y_ = y_.cpu().numpy()
+            if y_.ndim == 1:
+                y_ = y_.reshape(-1, 1)
+            elif y_.ndim == 2 and y_.shape[1] != 1:
+                y_ = y_.T if y_.shape[0] == 1 else y_.reshape(-1, 1)
+            res = 'COUNTEREXAMPLE'
             break
         
         # MATLAB lines 133-160: Verification
@@ -276,15 +300,21 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             cxi = cxi.permute(0, 2, 1)
         
         # MATLAB line 140
-        ri_perm = ri.reshape(ri.shape[0], 1, ri.shape[1])
-        batchG_subset = batchG[:, :, :ri.shape[1]]
-        Gxi = ri_perm * batchG_subset
+        # Use propagated generators Gi (already scaled to current radii)
+        Gxi = Gi
+        if options.get('nn', {}).get('_debug_verify', False):
+            print(f"[DEBUG zonotope pre] Gxi min/max {float(Gxi.min())}/{float(Gxi.max())} "
+                  f"ri min/max {float(ri.min())}/{float(ri.max())}")
         
         if cxi.ndim == 2:
             cxi = cxi.reshape(cxi.shape[0], 1, cxi.shape[1])
         
         # MATLAB line 141
         yi, Gyi = nn.evaluateZonotopeBatch_(cxi, Gxi, options, idxLayer)
+        if options.get('nn', {}).get('_debug_verify', False):
+            gyi_min = float(Gyi.min()) if hasattr(Gyi, 'min') else None
+            gyi_max = float(Gyi.max()) if hasattr(Gyi, 'max') else None
+            print(f"[DEBUG zonotope post] Gyi min/max {gyi_min}/{gyi_max}")
         
         # MATLAB lines 143-154: Compute logit-difference using torch
         if not options.get('nn', {}).get('interval_center', False):
@@ -308,7 +338,7 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         else:
             # MATLAB lines 148-153
             if isinstance(yi, torch.Tensor):
-                yi_torch = yi
+                yi_torch = yi.to(dtype=torch.float32, device=device)
             else:
                 yi_torch = torch.tensor(yi, dtype=torch.float32, device=device)
             yic = 0.5 * (yi_torch[:, 1, :] + yi_torch[:, 0, :])
@@ -318,19 +348,22 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             ld_Gyi = torch.einsum('ij,jkb->ikb', A_torch, Gyi)
             # Use torch permute for pagetranspose equivalent
             yid_trans = yid.permute(1, 0)  # (batch, num_outputs) -> (num_outputs, batch)
-            # A_yid = A[:, :, np.newaxis] * yid_trans
+            # Use torch unsqueeze instead of np.newaxis
             A_yid = A_torch.unsqueeze(2) * yid_trans.unsqueeze(0)  # (num_constraints, num_outputs, batch)
             dri = torch.sum(torch.abs(ld_Gyi), dim=1) + torch.sum(torch.abs(A_yid), dim=1)  # (num_constraints, batch)
         
-        # MATLAB lines 156-160: Check specification
+        # MATLAB lines 156-160: Check specification (pure MATLAB logic)
         if safeSet:
             # MATLAB: checkSpecs = any(dyi(:,:) + dri(:,:) > 0,1);
-            checkSpecs = torch.any(dyi + dri > 0, dim=0)  # Keep as torch tensor
+            checkSpecs = torch.any(dyi + dri > 0, dim=0)
         else:
             # MATLAB: checkSpecs = all(dyi(:,:) - dri(:,:) < 0,1);
-            checkSpecs = torch.all(dyi - dri < 0, dim=0)  # Keep as torch tensor
-        # Keep as torch tensor - use directly for indexing
+            checkSpecs = torch.all(dyi - dri < 0, dim=0)
         unknown = checkSpecs
+        if options.get('nn', {}).get('_debug_verify', False):
+            print(f'ITER DEBUG dyi min/max {float(dyi.min())}/{float(dyi.max())} '
+                  f'dri min/max {float(dri.min())}/{float(dri.max())} '
+                  f'unknown_count {int(torch.sum(unknown))}')
         
         # MATLAB lines 162-164: Gather from GPU before split (matching MATLAB exactly)
         # MATLAB: xi = gather(xi); ri = gather(ri); sens = gather(sens);
@@ -343,29 +376,81 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         unknown_gathered = unknown.cpu() if device.type == 'cuda' else unknown
         
         # MATLAB lines 166-167: Create new splits
-        # MATLAB: [xis,ris] = aux_split(xi(:,unknown),ri(:,unknown),sens(:,unknown), nSplits,nDims);   
-        # sens has shape (cbSz, n0), need to transpose to (n0, cbSz) for aux_split
-        sens_T = sens_gathered.T  # (n0, cbSz) - use torch transpose
-
+        # MATLAB: [xis,ris] = aux_split(xi(:,unknown),ri(:,unknown),sens(:,unknown), nSplits,nDims);
+        # sens is already (n0, batch); slice columns directly
         # Convert boolean mask to indices for proper indexing
         # unknown_gathered has shape (batch_size,), convert to indices
         unknown_indices = torch.where(unknown_gathered)[0]  # Get indices where True
         if len(unknown_indices) > 0:
-            # Index using integer indices
-            xis, ris = _aux_split(xi_gathered[:, unknown_indices], ri_gathered[:, unknown_indices], sens_T[:, unknown_indices], nSplits, nDims)
+            # Index using integer indices; ensure sens shape aligns with unknown batch
+            sens_unknown = sens_gathered[:, unknown_indices]  # (n0, batch_unknown)
+            # Heuristic for splitting: scale sensitivity by current radii (matches MATLAB intent)
+            hi_unknown = ri_gathered[:, unknown_indices] * sens_unknown
+            Gi_unknown = Gi[:, :, unknown_indices] if 'Gi' in locals() else batchG[:, :, :len(unknown_indices)]
+            # Debug: log radii before split
+            if options.get('nn', {}).get('_debug_verify', False):
+                print(f"[DEBUG split pre] xi min/max {float(xi_gathered[:, unknown_indices].min())}/{float(xi_gathered[:, unknown_indices].max())} "
+                      f"ri min/max {float(ri_gathered[:, unknown_indices].min())}/{float(ri_gathered[:, unknown_indices].max())}")
+            # Split centers/radii and get split dims (MATLAB: [xis,ris,dimId] = aux_split(xis,ris,his,nSplits))
+            xis, ris, dimIds = _aux_split_with_dim(
+                xi_gathered[:, unknown_indices],
+                ri_gathered[:, unknown_indices],
+                hi_unknown,
+                nSplits
+            )
+            if options.get('nn', {}).get('_debug_verify', False) and totalNumSplits < 50:
+                print(f"[DEBUG split dims] dimIds (1-based) {dimIds.flatten().tolist()}")
+            # Split generators: scale rows to match new radii for each child (preserve other dims)
+            n0 = xi_gathered.shape[0]
+            numGen = Gi_unknown.shape[1]
+            batch_unknown = Gi_unknown.shape[2]
+            Gis_children = []
+            # Use device-consistent radii for scaling
+            if device.type == 'cuda':
+                unknown_idx_dev = unknown_indices.to(device)
+                ris_for_scale = ris.to(device)
+                parent_r_for_scale = ri[:, unknown_idx_dev]
+            else:
+                unknown_idx_dev = unknown_indices
+                ris_for_scale = ris
+                parent_r_for_scale = ri_gathered[:, unknown_idx_dev]
+            dimIds0 = dimIds - 1  # 0-based dims for generator scaling
+            for j in range(batch_unknown):
+                parent_ri = parent_r_for_scale[:, j].reshape(n0, 1)  # (n0,1)
+                d = dimIds0[j].item()
+                for s in range(nSplits):
+                    child_idx = j * nSplits + s
+                    Gi_child = Gi_unknown[:, :, j].clone()
+                    parent_r_dim = parent_ri[d, 0]
+                    child_r_dim = ris_for_scale[d, child_idx]
+                    if parent_r_dim != 0:
+                        scale_dim = child_r_dim / parent_r_dim
+                        Gi_child[d, :] = Gi_child[d, :] * scale_dim
+                    else:
+                        Gi_child[d, :] = 0.0
+                    Gis_children.append(Gi_child.unsqueeze(2))
+            Gis = torch.cat(Gis_children, dim=2) if Gis_children else torch.empty((n0, numGen, 0), device=xi_gathered.device)
+            # Debug: log radii after split
+            if options.get('nn', {}).get('_debug_verify', False):
+                print(f"[DEBUG split post] xis min/max {float(xis.min())}/{float(xis.max())} "
+                      f"ris min/max {float(ris.min())}/{float(ris.max())} "
+                      f"Gis min/max {float(Gis.min())}/{float(Gis.max())}")
         else:
             # No unknown samples to split
             xis = torch.empty((xi_gathered.shape[0], 0), dtype=xi_gathered.dtype, device=xi_gathered.device)
             ris = torch.empty((ri_gathered.shape[0], 0), dtype=ri_gathered.dtype, device=ri_gathered.device)
+            Gis = torch.empty((batchG.shape[0], batchG.shape[1], 0), dtype=batchG.dtype, device=batchG.device)
         
         # Move results back to original device (GPU if originally on GPU)
         if device.type == 'cuda':
             xis = xis.to(device)
             ris = ris.to(device)
+            Gis = Gis.to(device)
         
         # MATLAB lines 169-170: Add new splits to the queue - xis, ris are already torch tensors
         xs = torch.cat([xis, xs], dim=1)
         rs = torch.cat([ris, rs], dim=1)
+        Gs = torch.cat([Gis, Gs], dim=2)
         
         # MATLAB lines 172-173
         totalNumSplits = totalNumSplits + xis.shape[1]
@@ -374,7 +459,7 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
         
         # MATLAB lines 175-177: To save memory, we clear all variables that are no longer used
         # Note: MATLAB clears 'xGi' but it's never defined, so we skip it
-        del xi, ri, yi, Gyi, dyi, dri
+        del xi, ri, Gi, yi, Gyi, dyi, dri
     
     # MATLAB lines 181-185: Verified
     if res is None:

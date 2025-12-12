@@ -503,17 +503,17 @@ class nnConv2DLayer(nnLayer):
         pad_r = int(padding[2])
         pad_b = int(padding[3])
         
-        # Reshape input to image format: [height, width, channels, batchSize]
-        # MATLAB uses column-major (Fortran) order, so we must use permute to match
-        # Flatten first to ensure consistent ordering, then reshape
-        input_flat = input_data.flatten()  # Flatten in row-major (C) order
-        # For column-major (Fortran) order in torch, we need to reshape then permute
-        # MATLAB: reshape(input, [h, w, c, batch]) with Fortran order
-        # In torch: reshape to (h*w*c, batch) then reshape to (h, w, c, batch)
-        total_size = input_flat.shape[0] // batchSize
-        inputImg = input_flat.reshape(total_size, batchSize).T.reshape(batchSize, *inImgSize)
-        # Permute to (h, w, c, batch) format
-        inputImg = inputImg.permute(1, 2, 3, 0)  # (batch, h, w, c) -> (h, w, c, batch)
+        # Reshape input to image format with channel-first ordering (NCHW) for consistency
+        # Flatten vector stores data as (C, H, W) per batch (channel-major), so reconstruct accordingly
+        input_flat = input_data.flatten()  # (n * batch)
+        if len(inImgSize) == 4:
+            _, in_c, in_h, in_w = inImgSize  # assume NCHW from ONNX
+        else:
+            in_h, in_w, in_c = int(inImgSize[0]), int(inImgSize[1]), int(inImgSize[2])
+        in_h, in_w, in_c = int(in_h), int(in_w), int(in_c)
+        inputImg = input_flat.reshape(batchSize, in_c, in_h, in_w)
+        # Permute to (H, W, C, batch) to match internal loops
+        inputImg = inputImg.permute(2, 3, 1, 0)
         
         # Apply padding
         if pad_t > 0 or pad_b > 0 or pad_l > 0 or pad_r > 0:
@@ -589,7 +589,10 @@ class nnConv2DLayer(nnLayer):
         # Output shape is [out_h, out_w, out_c, batchSize]
         # MATLAB: r = reshape(extractdata(rImg),[],batchSize) - column-major flatten
         # For torch, permute then flatten: (h, w, c, batch) -> (batch, h, w, c) -> flatten -> (h*w*c, batch)
-        r = output.permute(3, 0, 1, 2).reshape(-1, batchSize).T  # Transpose to get (h*w*c, batch)
+        # Flatten to match ONNX (NCHW) and MATLAB ordering.
+        # output is (out_h, out_w, out_c, batch) -> permute to (batch, out_c, out_h, out_w)
+        # then reshape to (out_c*out_h*out_w, batch).
+        r = output.permute(3, 2, 0, 1).reshape(batchSize, -1).T
         
         return r, None
     
@@ -1000,18 +1003,21 @@ class nnConv2DLayer(nnLayer):
         if dilation is None:
             dilation = self.dilation
         
-        in_h = inImgSize[0]
-        in_w = inImgSize[1]
+        # Ensure scalar floats to avoid NumPy interacting with torch tensors
+        in_h = float(inImgSize[0]) if hasattr(inImgSize[0], "item") else float(inImgSize[0])
+        in_w = float(inImgSize[1]) if hasattr(inImgSize[1], "item") else float(inImgSize[1])
         f_h, f_w = self.aux_getFilterSize(Filter, dilation)
+        f_h = float(f_h)
+        f_w = float(f_w)
         
         # padding [left,top,right,bottom]
-        pad_l = padding[0]
-        pad_t = padding[1]
-        pad_r = padding[2]
-        pad_b = padding[3]
+        pad_l = float(padding[0]) if hasattr(padding[0], "item") else float(padding[0])
+        pad_t = float(padding[1]) if hasattr(padding[1], "item") else float(padding[1])
+        pad_r = float(padding[2]) if hasattr(padding[2], "item") else float(padding[2])
+        pad_b = float(padding[3]) if hasattr(padding[3], "item") else float(padding[3])
         # stride
-        stride_h = stride[0]
-        stride_w = stride[1]
+        stride_h = float(stride[0]) if hasattr(stride[0], "item") else float(stride[0])
+        stride_w = float(stride[1]) if hasattr(stride[1], "item") else float(stride[1])
         
         out_h = int(np.floor((in_h - f_h + pad_t + pad_b) / stride_h) + 1)
         out_w = int(np.floor((in_w - f_w + pad_l + pad_r) / stride_w) + 1)

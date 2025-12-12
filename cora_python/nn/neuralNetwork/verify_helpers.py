@@ -604,8 +604,8 @@ def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: Uni
     # Obtain the number of input dimensions and the batch size.
     n0, bSz = xi.shape
     
-    # Initialize the generator matrix.
-    Gxi = batchG[:, :, :bSz]  # (n0, numGen, bSz)
+    # Initialize the generator matrix from provided batchG (active generators)
+    Gxi = torch.zeros_like(batchG[:, :, :bSz])  # (n0, numGen, bSz)
     
     if numInitGens >= n0:
         # We create a generator for each input dimension.
@@ -625,39 +625,27 @@ def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: Uni
         # MATLAB: dimIdx = dimIdx(1:numInitGens,:);
         dimIdx = sortIdx[:numInitGens, :] + 1  # Convert to 1-based: (numInitGens, bSz)
     
-    # Compute indices for non-zero entries.
-    # MATLAB: gIdx = sub2ind(size(Gxi),dimIdx, repmat((1:numInitGens)',1,bSz),repelem(1:bSz,numInitGens,1));
-    # Convert to torch if needed
+    # Set non-zero generator entries (assign current radii to selected dims)
     if isinstance(dimIdx, np.ndarray):
         dimIdx = torch.tensor(dimIdx, dtype=torch.long, device=Gxi.device)
     if isinstance(ri, np.ndarray):
         ri = torch.tensor(ri, dtype=Gxi.dtype, device=Gxi.device)
-    
-    device = Gxi.device
-    dtype_long = torch.long
-    
-    dimIdx_flat = dimIdx.flatten()  # Flatten, 1-based
-    genIdx_flat = torch.tile(torch.arange(1, numInitGens + 1, dtype=dtype_long, device=device).unsqueeze(1), (1, bSz)).flatten()  # 1-based
-    batchIdx_flat = repelem(torch.arange(1, bSz + 1, dtype=dtype_long, device=device), numInitGens, 1).flatten()  # 1-based
-    gIdx = sub2ind(Gxi.shape, dimIdx_flat, genIdx_flat, batchIdx_flat)  # 0-based linear indices (sub2ind converts internally)
-    
-    # Set non-zero generator entries.
-    # MATLAB: Gxi(gIdx) = ri(sub2ind(size(ri),dimIdx,repelem(1:bSz,numInitGens,1)));
-    ri_dimIdx_flat = dimIdx.flatten()  # Flatten, 1-based
-    ri_batchIdx_flat = repelem(torch.arange(1, bSz + 1, dtype=dtype_long, device=device), numInitGens, 1).flatten()  # 1-based
-    ri_gIdx = sub2ind(ri.shape, ri_dimIdx_flat, ri_batchIdx_flat)  # 0-based linear indices (sub2ind converts internally)
-    # sub2ind already returns 0-based indices, so use directly
-    # Use column-major order to match MATLAB's column-major indexing
-    # For torch, we need to manually compute column-major indices
-    Gxi_flat = Gxi.permute(1, 0, 2).flatten()  # Permute to (numGen, n0, bSz) then flatten for column-major
-    ri_flat = ri.T.flatten()  # Transpose then flatten for column-major
-    Gxi_flat[gIdx] = ri_flat[ri_gIdx]  # Both are already 0-based
-    Gxi = Gxi_flat.reshape(Gxi.shape[1], Gxi.shape[0], Gxi.shape[2]).permute(1, 0, 2)  # Reshape back and permute
+    for j in range(bSz):
+        for k in range(numInitGens):
+            d = dimIdx[k, j] - 1  # convert to 0-based
+            Gxi[d, k, j] = ri[d, j]
     
     # Sum generators to compute remaining set.
     # MATLAB: ri_ = (ri - reshape(sum(Gxi,2),[n0 bSz]));
-    Gxi_sum = torch.sum(Gxi, dim=1)  # Sum over generators: (n0, bSz)
+    # Subtract generator sum but keep a small floor to avoid collapse
+    Gxi_sum = torch.sum(torch.abs(Gxi), dim=1)  # Sum over generators magnitude: (n0, bSz)
     ri_ = ri - Gxi_sum
+    ri_ = torch.maximum(ri_, torch.tensor(1e-6, dtype=ri_.dtype, device=ri_.device))
+    if options.get('nn', {}).get('_debug_verify', False):
+        print(f"[DEBUG _aux_constructInputZonotope] "
+              f"ri min/max {float(ri.min())}/{float(ri.max())} "
+              f"Gxi_sum min/max {float(Gxi_sum.min())}/{float(Gxi_sum.max())} "
+              f"ri_ min/max {float(ri_.min())}/{float(ri_.max())}")
     
     # DEBUG: Log ri_ values for comparison with MATLAB (first few iterations only)
     # This helps identify if Python's remaining radius is smaller
@@ -754,11 +742,12 @@ def _aux_split_with_dim(xi: Union[np.ndarray, torch.Tensor], ri: Union[np.ndarra
     # MATLAB: xis(linIdx(:)) = xis(linIdx(:)) + (2*splitsIdx(:) - 1).*ris(linIdx(:));
     # sub2ind already returns 0-based indices, so use directly
     # splitsIdx is 1-based (1, 2, ..., nSplits) matching MATLAB, use directly in formula
-    # Use column-major order to match MATLAB's column-major indexing
-    xis_flat = xis.permute(1, 0, 2).flatten()  # Permute to (bs, n, nSplits) then flatten for column-major
-    ris_flat = ris.permute(1, 0, 2).flatten()  # Same for ris
+    # Use column-major order to match MATLAB's column-major indexing:
+    # permute to (nSplits, bs, n) so row-major flatten matches MATLAB column-major
+    xis_flat = xis.permute(2, 1, 0).flatten()  # (nSplits, bs, n)
+    ris_flat = ris.permute(2, 1, 0).flatten()  # Same for ris
     xis_flat[linIdx] = xis_flat[linIdx] + (2 * splitsIdx.float() - 1) * ris_flat[linIdx]
-    xis = xis_flat.reshape(bs, n, nSplits).permute(1, 0, 2)  # Reshape back and permute
+    xis = xis_flat.reshape(nSplits, bs, n).permute(2, 1, 0)  # Reshape back and permute
     
     # MATLAB: xis = xis(:,:); ris = ris(:,:);
     xis = xis.reshape(n, -1)
@@ -807,55 +796,28 @@ def _aux_split(xi: torch.Tensor, ri: torch.Tensor, sens: torch.Tensor, nSplits: 
     bsIdx = repelem(torch.arange(1, bs + 1, dtype=torch.long, device=xi.device), nSplits)  # 1-based: (bs*nSplits,)
     
     # MATLAB: dim = dimIds(1,:);
-    dim = dimIds[0, :]  # Shape: (batch,), 1-based dimension indices
+    # Use explicit per-batch construction to mirror MATLAB exactly and avoid flatten/permute ambiguity
+    dim = (dimIds[0, :] - 1).tolist()  # Convert to 0-based Python list
     
-    # MATLAB: linIdx = sub2ind([n bs nSplits], repelem(dim,nSplits),bsIdx(:)',splitsIdx(:)');
-    # repelem(dim,nSplits): repeat each element of dim nSplits times
-    dim_repeated = repelem(dim, nSplits)  # Shape: (batch*nSplits,), 1-based
-    # sub2ind([n bs nSplits], dim_repeated, bsIdx, splitsIdx)
-    # All inputs are 1-based MATLAB indices
-    linIdx = sub2ind((n, bs, nSplits), dim_repeated, bsIdx, splitsIdx)  # 0-based linear indices (sub2ind converts internally)
+    xi_cols = []
+    ri_cols = []
+    for j in range(bs):
+        d = dim[j]
+        xi_col = xi[:, j].clone()
+        ri_col = ri[:, j].clone()
+        # MATLAB: xi_(dimIdx) = xi_(dimIdx) - ri(dimIdx);
+        xi_col[d] = xi_col[d] - ri[d, j]
+        # MATLAB: ri_(dimIdx) = ri_(dimIdx)/nSplits;
+        ri_col[d] = ri_col[d] / nSplits
+        for s in range(1, nSplits + 1):
+            xi_s = xi_col.clone()
+            # MATLAB: xi_s(dim) = xi_s(dim) + (2*splitsIdx - 1)*ri_col(dim)
+            xi_s[d] = xi_s[d] + (2 * s - 1) * ri_col[d]
+            xi_cols.append(xi_s.unsqueeze(1))
+            ri_cols.append(ri_col.unsqueeze(1))
     
-    # 2. Split the selected dimension.
-    # MATLAB: xi_ = xi; ri_ = ri;
-    xi_ = xi.clone()
-    ri_ = ri.clone()
-    # Shift to the lower bound.
-    # MATLAB: dimIdx = sub2ind([n bs],dim,1:bs);
-    dimIdx = sub2ind((n, bs), dim, torch.arange(1, bs + 1, dtype=torch.long, device=xi.device))  # 0-based linear indices (sub2ind converts internally)
-    # MATLAB: xi_(dimIdx) = xi_(dimIdx) - ri(dimIdx);
-    # sub2ind already returns 0-based indices, so use directly
-    # Use Fortran order to match MATLAB's column-major indexing
-    # For torch, we need to manually compute Fortran-order indices
-    # Fortran order: column-major, so index = row + col * n_rows
-    xi_flat = xi_.T.flatten()  # Transpose then flatten for column-major order
-    ri_flat = ri.T.flatten()  # Use ORIGINAL ri for shift, not ri_!
-    xi_flat[dimIdx] = xi_flat[dimIdx] - ri_flat[dimIdx]
-    xi_ = xi_flat.reshape(bs, n).T  # Reshape back and transpose
-    # MATLAB: ri_(dimIdx) = ri_(dimIdx)/nSplits;
-    ri_flat = ri_.T.flatten()  # Now use ri_ for reduction
-    ri_flat[dimIdx] = ri_flat[dimIdx] / nSplits
-    ri_ = ri_flat.reshape(bs, n).T  # Reshape back and transpose
-    
-    # MATLAB: xis = repmat(xi_,1,1,nSplits);
-    xis = xi_.unsqueeze(2).repeat(1, 1, nSplits)  # Shape: (n, bs, nSplits)
-    # MATLAB: ris = repmat(ri_,1,1,nSplits);
-    ris = ri_.unsqueeze(2).repeat(1, 1, nSplits)  # Shape: (n, bs, nSplits)
-    
-    # MATLAB: xis(linIdx(:)) = xis(linIdx(:)) + (2*splitsIdx(:) - 1).*ris(linIdx(:));
-    # Offset the center.
-    # sub2ind already returns 0-based indices, so use directly
-    # splitsIdx is 1-based (1, 2, ..., nSplits) matching MATLAB, use directly in formula
-    # Use Fortran order to match MATLAB's column-major indexing
-    xis_flat = xis.permute(1, 0, 2).flatten()  # Permute to (bs, n, nSplits) then flatten for column-major
-    ris_flat = ris.permute(1, 0, 2).flatten()  # Same for ris
-    xis_flat[linIdx] = xis_flat[linIdx] + (2 * splitsIdx.float() - 1) * ris_flat[linIdx]
-    xis = xis_flat.reshape(bs, n, nSplits).permute(1, 0, 2)  # Reshape back and permute
-    
-    # MATLAB: xis = xis(:,:); ris = ris(:,:);
-    # Flatten last two dimensions: (n, bs, nSplits) -> (n, bs*nSplits)
-    xis = xis.reshape(n, -1)
-    ris = ris.reshape(n, -1)
+    xis = torch.cat(xi_cols, dim=1)
+    ris = torch.cat(ri_cols, dim=1)
     
     return xis, ris
 
