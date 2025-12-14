@@ -36,7 +36,7 @@ import torch
 
 # Import CORA Python modules
 from ..nnHelper.validateNNoptions import validateNNoptions
-from .verify_helpers import _aux_split, _aux_split_with_dim, _aux_pop_simple
+from .verify_helpers import _aux_split, _aux_split_with_dim, _aux_constructInputZonotope, _aux_pop_simple
 
 if TYPE_CHECKING:
     from .neuralNetwork import NeuralNetwork
@@ -400,35 +400,26 @@ def verify(nn: 'NeuralNetwork', x: np.ndarray, r: np.ndarray, A: np.ndarray, b: 
             )
             if options.get('nn', {}).get('_debug_verify', False) and totalNumSplits < 50:
                 print(f"[DEBUG split dims] dimIds (1-based) {dimIds.flatten().tolist()}")
-            # Split generators: scale rows to match new radii for each child (preserve other dims)
+            # Rebuild zonotope from scratch for new splits (match MATLAB aux_constructInputZonotope)
+            # Use numInitGens = n0 (one generator per input dim)
             n0 = xi_gathered.shape[0]
-            numGen = Gi_unknown.shape[1]
-            batch_unknown = Gi_unknown.shape[2]
+            numInitGens = numGen  # match MATLAB: use all available generators
+            cxi_children = []
             Gis_children = []
-            # Use device-consistent radii for scaling
-            if device.type == 'cuda':
-                unknown_idx_dev = unknown_indices.to(device)
-                ris_for_scale = ris.to(device)
-                parent_r_for_scale = ri[:, unknown_idx_dev]
-            else:
-                unknown_idx_dev = unknown_indices
-                ris_for_scale = ris
-                parent_r_for_scale = ri_gathered[:, unknown_idx_dev]
-            dimIds0 = dimIds - 1  # 0-based dims for generator scaling
-            for j in range(batch_unknown):
-                parent_ri = parent_r_for_scale[:, j].reshape(n0, 1)  # (n0,1)
-                d = dimIds0[j].item()
-                for s in range(nSplits):
-                    child_idx = j * nSplits + s
-                    Gi_child = Gi_unknown[:, :, j].clone()
-                    parent_r_dim = parent_ri[d, 0]
-                    child_r_dim = ris_for_scale[d, child_idx]
-                    if parent_r_dim != 0:
-                        scale_dim = child_r_dim / parent_r_dim
-                        Gi_child[d, :] = Gi_child[d, :] * scale_dim
-                    else:
-                        Gi_child[d, :] = 0.0
-                    Gis_children.append(Gi_child.unsqueeze(2))
+            for child_idx in range(ris.shape[1]):
+                cxi_child, Gi_child, _ = _aux_constructInputZonotope(
+                    options,  # pass full options (MATLAB passes options)
+                    'linf',
+                    xis[:, child_idx:child_idx+1],
+                    ris[:, child_idx:child_idx+1],
+                    batchG[:, :, :numInitGens],
+                    None,
+                    None,
+                    numInitGens
+                )
+                cxi_children.append(cxi_child)
+                Gis_children.append(Gi_child)
+            xis = torch.cat(cxi_children, dim=1) if cxi_children else torch.empty((n0, 0), device=xi_gathered.device)
             Gis = torch.cat(Gis_children, dim=2) if Gis_children else torch.empty((n0, numGen, 0), device=xi_gathered.device)
             # Debug: log radii after split
             if options.get('nn', {}).get('_debug_verify', False):

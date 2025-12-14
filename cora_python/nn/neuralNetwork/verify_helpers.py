@@ -608,9 +608,14 @@ def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: Uni
     Gxi = torch.zeros_like(batchG[:, :, :bSz])  # (n0, numGen, bSz)
     
     if numInitGens >= n0:
-        # We create a generator for each input dimension.
+        # We create ONE generator per input dimension (diagonal).
         # MATLAB: dimIdx = repmat((1:n0)',1,bSz);
+        # This means generator k corresponds to dimension k
         dimIdx = torch.tile(torch.arange(1, n0 + 1, dtype=torch.long, device=device).unsqueeze(1), (1, bSz))  # 1-based: (n0, bSz)
+        # Set diagonal generators: Gxi[d, d, j] = ri[d, j]
+        for j in range(bSz):
+            for d in range(n0):
+                Gxi[d, d, j] = ri[d, j]
     else:
         # Compute the heuristic.
         # MATLAB: hi = aux_computeHeuristic(heuristic,0,xi-ri,xi+ri,ri,sens,grad,[],[],[],false,1);
@@ -624,16 +629,15 @@ def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: Uni
         sortIdx = torch.argsort(hi, dim=0, descending=True)  # Sort descending along dim=0 (rows)
         # MATLAB: dimIdx = dimIdx(1:numInitGens,:);
         dimIdx = sortIdx[:numInitGens, :] + 1  # Convert to 1-based: (numInitGens, bSz)
-    
-    # Set non-zero generator entries (assign current radii to selected dims)
-    if isinstance(dimIdx, np.ndarray):
-        dimIdx = torch.tensor(dimIdx, dtype=torch.long, device=Gxi.device)
-    if isinstance(ri, np.ndarray):
-        ri = torch.tensor(ri, dtype=Gxi.dtype, device=Gxi.device)
-    for j in range(bSz):
-        for k in range(numInitGens):
-            d = dimIdx[k, j] - 1  # convert to 0-based
-            Gxi[d, k, j] = ri[d, j]
+        # Set non-zero generator entries (assign current radii to selected dims)
+        if isinstance(dimIdx, np.ndarray):
+            dimIdx = torch.tensor(dimIdx, dtype=torch.long, device=Gxi.device)
+        if isinstance(ri, np.ndarray):
+            ri = torch.tensor(ri, dtype=Gxi.dtype, device=Gxi.device)
+        for j in range(bSz):
+            for k in range(numInitGens):
+                d = dimIdx[k, j] - 1  # convert to 0-based
+                Gxi[d, k, j] = ri[d, j]
     
     # Sum generators to compute remaining set.
     # MATLAB: ri_ = (ri - reshape(sum(Gxi,2),[n0 bSz]));
