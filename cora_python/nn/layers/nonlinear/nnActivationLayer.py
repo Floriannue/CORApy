@@ -1808,6 +1808,19 @@ class nnActivationLayer(nnLayer):
             if not isinstance(df_c, torch.Tensor):
                 df_c = torch.tensor(df_c, dtype=dtype, device=device)
             m[idxBoundsEq] = df_c[idxBoundsEq]
+            
+            # Debug: check if m is zero when it shouldn't be
+            if options.get('nn', {}).get('_debug_verify', False):
+                m_zero_count = int(torch.sum(torch.abs(m) < 1e-10).item())
+                if m_zero_count > 0:
+                    print(f"[DEBUG aux_imgEncBatch] {m_zero_count} slopes are near-zero")
+                    print(f"  l min/max: {float(l.min())}/{float(l.max())}")
+                    print(f"  u min/max: {float(u.min())}/{float(u.max())}")
+                    print(f"  f_l min/max: {float(f_l.min())}/{float(f_l.max())}")
+                    print(f"  f_u min/max: {float(f_u.min())}/{float(f_u.max())}")
+                    print(f"  r min/max: {float(r.min())}/{float(r.max())}")
+                    print(f"  m min/max: {float(m.min())}/{float(m.max())}")
+            
             if options['nn']['train']['backprop']:
                 self.backprop['store']['idxBoundsEq'] = idxBoundsEq.cpu().numpy() if isinstance(idxBoundsEq, torch.Tensor) else idxBoundsEq
         elif options['nn']['poly_method'] == 'center':
@@ -1888,16 +1901,33 @@ class nnActivationLayer(nnLayer):
                 xs_m = torch.tensor(xs_m, dtype=dtype, device=device)
             
             # Determine number of extreme points.
-            s = xs.shape[2]
-            # Add interval bounds.
-            if options['nn']['poly_method'] == 'bounds':
-                # the approximation error at l and u are equal, thus we only
-                # consider the upper bound u.
-                xs = torch.cat([xs, l], dim=2)
+            # xs might be 3D (n, 1, s) or 4D (n, 1, s, b)
+            # MATLAB: s = size(xs,3); where xs is 4D (n, 1, s, b), so s is the number of extreme points
+            if xs.ndim == 4:
+                # xs is 4D (n, 1, s, b), extract s from shape[2] (MATLAB's dimension 3)
+                s = xs.shape[2]
+                # MATLAB: xs = cat(3,xs,l); - concatenates along dimension 3
+                # Expand l and u to 4D (n, 1, 1, b) to match xs
+                l_expanded = l.unsqueeze(2)  # (n, 1, b) -> (n, 1, 1, b)
+                u_expanded = u.unsqueeze(2)  # (n, 1, b) -> (n, 1, 1, b)
+                # Concatenate along dim=2 (MATLAB's dimension 3)
+                if options['nn']['poly_method'] == 'bounds':
+                    xs = torch.cat([xs, l_expanded], dim=2)  # (n, 1, s+1, b)
+                else:
+                    xs = torch.cat([xs, l_expanded, u_expanded], dim=2)  # (n, 1, s+2, b)
             else:
-                xs = torch.cat([xs, l, u], dim=2)
+                # xs is 3D (n, 1, s)
+                s = xs.shape[2]
+                # Add interval bounds.
+                if options['nn']['poly_method'] == 'bounds':
+                    # the approximation error at l and u are equal, thus we only
+                    # consider the upper bound u.
+                    xs = torch.cat([xs, l], dim=2)
+                else:
+                    xs = torch.cat([xs, l, u], dim=2)
             
             # Convert to numpy for f function
+            # MATLAB: ys = f(xs); where xs is 4D (n, 1, s_extended, b)
             xs_np = xs.cpu().numpy() if isinstance(xs, torch.Tensor) else xs
             ys = f(xs_np)
             if isinstance(ys, torch.Tensor):
@@ -1905,20 +1935,42 @@ class nnActivationLayer(nnLayer):
             ys = torch.tensor(ys, dtype=dtype, device=device)
             
             # Compute approximation error at candidates.
-            # m needs to be broadcast to match xs shape in the last dimension
-            m_expanded = m.repeat(1, 1, xs.shape[2] // m.shape[2])
-            ds = ys - m_expanded * xs
-            # We only consider candidate extreme points within boundaries.
-            # Expand l and u to match xs shape
-            l_expanded = l.repeat(1, 1, xs.shape[2] // l.shape[2])
-            u_expanded = u.repeat(1, 1, xs.shape[2] // u.shape[2])
-            notInBoundsIdx = (xs < l_expanded) | (xs > u_expanded)
-            ds[notInBoundsIdx] = float('inf')
-            dl = torch.min(ds, dim=2)[0]
-            dlIdx = torch.argmin(ds, dim=2)
-            ds[notInBoundsIdx] = float('-inf')
-            du = torch.max(ds, dim=2)[0]
-            duIdx = torch.argmax(ds, dim=2)
+            # MATLAB: ds = ys - m.*xs;
+            # m is (n, 1, b), xs is (n, 1, s_extended, b) or (n, 1, s_extended)
+            # MATLAB broadcasts m to match xs
+            if xs.ndim == 4:
+                # xs is 4D (n, 1, s_extended, b), m is (n, 1, b)
+                # Expand m to (n, 1, 1, b) to match xs for broadcasting
+                m_expanded = m.unsqueeze(2)  # (n, 1, b) -> (n, 1, 1, b)
+                ds = ys - m_expanded * xs  # (n, 1, s_extended, b)
+                # MATLAB: notInBoundsIdx = (xs < l | xs > u);
+                # Expand l and u to 4D (n, 1, 1, b) for broadcasting
+                l_expanded = l.unsqueeze(2)  # (n, 1, b) -> (n, 1, 1, b)
+                u_expanded = u.unsqueeze(2)  # (n, 1, b) -> (n, 1, 1, b)
+                notInBoundsIdx = (xs < l_expanded) | (xs > u_expanded)  # (n, 1, s_extended, b)
+                ds[notInBoundsIdx] = float('inf')
+                # MATLAB: [dl,dlIdx] = min(ds,[],3,'linear');
+                # min along dim=2 (MATLAB's dimension 3), result is (n, 1, b)
+                dl = torch.min(ds, dim=2)[0]  # (n, 1, b)
+                dlIdx = torch.argmin(ds, dim=2)  # (n, 1, b)
+                ds[notInBoundsIdx] = float('-inf')
+                du = torch.max(ds, dim=2)[0]  # (n, 1, b)
+                duIdx = torch.argmax(ds, dim=2)  # (n, 1, b)
+            else:
+                # xs is 3D (n, 1, s_extended)
+                m_expanded = m.repeat(1, 1, xs.shape[2] // m.shape[2])
+                ds = ys - m_expanded * xs
+                # We only consider candidate extreme points within boundaries.
+                # Expand l and u to match xs shape
+                l_expanded = l.repeat(1, 1, xs.shape[2] // l.shape[2])
+                u_expanded = u.repeat(1, 1, xs.shape[2] // u.shape[2])
+                notInBoundsIdx = (xs < l_expanded) | (xs > u_expanded)
+                ds[notInBoundsIdx] = float('inf')
+                dl = torch.min(ds, dim=2)[0]
+                dlIdx = torch.argmin(ds, dim=2)
+                ds[notInBoundsIdx] = float('-inf')
+                du = torch.max(ds, dim=2)[0]
+                duIdx = torch.argmax(ds, dim=2)
             
             # Retrieve stored id-matrix and generator indices
             approxErrGenIds = self.backprop['store'].get('approxErrGenIds', [])
@@ -1933,19 +1985,30 @@ class nnActivationLayer(nnLayer):
             
             # Use torch for indexing operations - keep tensors as torch
             # Obtain the dn largest approximation errors.
-            # [~,dDims] = sort(1/2*(du - dl),1,'descend');
+            # MATLAB: dDims = repmat((1:n)',1,batchSize);
+            # MATLAB: dDimsIdx = reshape(sub2ind([n batchSize], dDims, repmat(1:batchSize,n,1)), size(dDims));
             # Use torch.arange and torch operations instead of numpy
-            dDims = torch.arange(n, dtype=torch.long, device=device).unsqueeze(1).repeat(1, batchSize)
-            batch_indices = torch.arange(batchSize, dtype=torch.long, device=device).unsqueeze(0).repeat(n, 1)
-            # Compute linear indices: dDimsIdx = dDims * batchSize + batch_indices
-            dDimsIdx = dDims * batchSize + batch_indices
+            dDims = torch.arange(n, dtype=torch.long, device=device).unsqueeze(1).repeat(1, batchSize) + 1  # 1-based for sub2ind
+            batch_indices = torch.arange(batchSize, dtype=torch.long, device=device).unsqueeze(0).repeat(n, 1) + 1  # 1-based for sub2ind
+            
+            # Compute linear indices using sub2ind (column-major, like MATLAB)
+            # sub2ind([n, batchSize], i, j) where i and j are 1-based
+            # For column-major: idx = (i-1) + (j-1)*n + 1 (1-based) = i + (j-1)*n
+            # But we need 0-based for Python, so: idx = (i-1) + (j-1)*n
+            dDims_flat = dDims.flatten()  # 1-based
+            batch_indices_flat = batch_indices.flatten()  # 1-based
+            # Column-major linear index (0-based): idx = (i-1) + (j-1)*n
+            dDimsIdx_flat = (dDims_flat - 1) + (batch_indices_flat - 1) * n
+            dDimsIdx = dDimsIdx_flat.reshape(n, batchSize)
             notdDimsIdx = dDimsIdx[dn:, :]
             
             # Convert linear indices back to 2D indices using torch operations
-            # notd_i = notdDimsIdx // batchSize, notd_b = notdDimsIdx % batchSize
+            # For column-major: idx = (i-1) + (j-1)*n, so:
+            # i = idx % n + 1, j = idx // n + 1 (1-based)
+            # For 0-based: i = idx % n, j = idx // n
             notdDimsIdx_flat = notdDimsIdx.flatten()
-            notd_i = notdDimsIdx_flat // batchSize  # Keep as torch tensor
-            notd_b = notdDimsIdx_flat % batchSize   # Keep as torch tensor
+            notd_i = notdDimsIdx_flat % n  # 0-based row index
+            notd_b = notdDimsIdx_flat // n  # 0-based column index
             
             # Use torch indexing to get values from c and m
             # c has shape (n, 1, batchSize), m has shape (n, 1, batchSize)
@@ -1955,26 +2018,82 @@ class nnActivationLayer(nnLayer):
             # f now works with torch tensors directly (it calls evaluateNumeric which handles torch)
             f_values = f(c_selected) - m_selected * c_selected
             
-            # Use torch indexing: dl[notd_i, 0] = f_values
+            # Use torch indexing: dl[notdDimsIdx] = f_values
+            # MATLAB: dl(notdDimsIdx) = f(c(notdDimsIdx)) - m(notdDimsIdx).*c(notdDimsIdx);
+            # dl and du have shape (n, 1, b) when xs is 4D, or (n, 1) when xs is 3D
             dl = dl.clone()  # Ensure we have a copy to modify
             du = du.clone()
-            dl[notd_i, 0] = f_values
-            du[notd_i, 0] = f_values
+            
+            # Handle both 3D (n, 1, b) and 2D (n, 1) cases
+            if dl.ndim == 3:
+                # dl is (n, 1, b), convert to 2D (n, b) for linear indexing
+                # MATLAB treats dl as 2D (n, batchSize) after min operation
+                dl_2d = dl.squeeze(1)  # (n, 1, b) -> (n, b)
+                du_2d = du.squeeze(1)  # (n, 1, b) -> (n, b)
+                # Use linear indexing: notdDimsIdx contains column-major indices (from MATLAB sub2ind)
+                # PyTorch's flatten() uses row-major order, so we need to convert indices
+                # Column-major: idx_col = i + j * n (0-based)
+                # Row-major: idx_row = i * batchSize + j (0-based)
+                # Conversion: i = idx_col % n, j = idx_col // n
+                # Then: idx_row = (idx_col % n) * batchSize + (idx_col // n)
+                notd_i_col = notdDimsIdx_flat % n  # row index from column-major
+                notd_b_col = notdDimsIdx_flat // n  # column index from column-major
+                # Convert to row-major indices for PyTorch flatten()
+                notdDimsIdx_rowmajor = notd_i_col * batchSize + notd_b_col
+                dl_2d_flat = dl_2d.flatten()
+                du_2d_flat = du_2d.flatten()
+                dl_2d_flat[notdDimsIdx_rowmajor] = f_values
+                du_2d_flat[notdDimsIdx_rowmajor] = f_values
+                # Reshape back to 3D
+                dl = dl_2d_flat.reshape(n, 1, batchSize)
+                du = du_2d_flat.reshape(n, 1, batchSize)
+            else:
+                # dl is (n, 1) or (n, batchSize), use linear indexing
+                # notdDimsIdx contains column-major indices (from MATLAB sub2ind)
+                # PyTorch's flatten() uses row-major order, so we need to convert indices
+                # Get the actual batch size from dl's shape
+                dl_batchSize = dl.shape[1] if dl.ndim == 2 else 1
+                
+                # If dl doesn't have the correct batch dimension, expand it
+                # notdDimsIdx assumes (n, batchSize) shape
+                if dl_batchSize != batchSize:
+                    # Expand dl from (n, 1) to (n, batchSize) by repeating
+                    if dl.shape[1] == 1:
+                        dl = dl.repeat(1, batchSize)  # (n, 1) -> (n, batchSize)
+                        du = du.repeat(1, batchSize)  # (n, 1) -> (n, batchSize)
+                    dl_batchSize = batchSize
+                
+                # Convert column-major indices to row-major indices
+                # Column-major: idx_col = i + j * n (0-based)
+                # Row-major: idx_row = i * batchSize + j (0-based)
+                notd_i_col = notdDimsIdx_flat % n  # row index from column-major
+                notd_b_col = notdDimsIdx_flat // n  # column index from column-major
+                # Convert to row-major indices for PyTorch flatten()
+                notdDimsIdx_rowmajor = notd_i_col * dl_batchSize + notd_b_col
+                
+                dl_flat = dl.flatten()
+                du_flat = du.flatten()
+                dl_flat[notdDimsIdx_rowmajor] = f_values
+                du_flat[notdDimsIdx_rowmajor] = f_values
+                dl = dl_flat.reshape(dl.shape)
+                du = du_flat.reshape(du.shape)
             
             # shift y-intercept by center of approximation errors
-            # t should have same shape as c (n, 1, b), but du and dl are (n, 1)
-            # We need to broadcast du and dl to match c's batch dimension
-            # In MATLAB, this computation preserves all dimensions
-            # We need to broadcast du and dl to match the batch dimension of c
-            if du.shape != c.shape:
-                # Broadcast du and dl to match c's shape
-                du_expanded = du.unsqueeze(2).expand_as(c)
-                dl_expanded = dl.unsqueeze(2).expand_as(c)
-                t = 0.5 * (du_expanded + dl_expanded)
-                d = 0.5 * (du_expanded - dl_expanded)
-            else:
-                t = 0.5 * (du + dl)
-                d = 0.5 * (du - dl)
+            # MATLAB: t = 1/2*(du + dl); d = 1/2*(du - dl);
+            # c has shape (n, 1, batchSize), du and dl should match this
+            # Ensure du and dl have the same shape as c for broadcasting
+            if du.ndim == 2 and du.shape[1] == batchSize:
+                # du is (n, batchSize), expand to (n, 1, batchSize)
+                du = du.unsqueeze(1)  # (n, batchSize) -> (n, 1, batchSize)
+                dl = dl.unsqueeze(1)  # (n, batchSize) -> (n, 1, batchSize)
+            elif du.ndim == 2 and du.shape[1] == 1:
+                # du is (n, 1), expand to (n, 1, batchSize)
+                du = du.unsqueeze(2).expand(n, 1, batchSize)  # (n, 1) -> (n, 1, batchSize)
+                dl = dl.unsqueeze(2).expand(n, 1, batchSize)  # (n, 1) -> (n, 1, batchSize)
+            
+            # Now du and dl should be (n, 1, batchSize) matching c's shape
+            t = 0.5 * (du + dl)
+            d = 0.5 * (du - dl)
             
             # Compute indices for approximation errors in the generator
             # matrix.

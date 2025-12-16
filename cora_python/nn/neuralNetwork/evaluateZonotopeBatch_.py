@@ -67,7 +67,8 @@ def evaluateZonotopeBatch_(nn: NeuralNetwork, c, G,
         if options.get('nn', {}).get('_debug_verify', False):
             g_min = float(G.min()) if isinstance(G, torch.Tensor) else float(np.min(G))
             g_max = float(G.max()) if isinstance(G, torch.Tensor) else float(np.max(G))
-            print(f"[DEBUG zonotope layer {i}] G min/max {g_min}/{g_max}")
+            g_nonzero = int(torch.sum(torch.abs(G) > 1e-10).item()) if isinstance(G, torch.Tensor) else int(np.sum(np.abs(G) > 1e-10))
+            print(f"[DEBUG zonotope layer {i}] G min/max {g_min}/{g_max} nonzero_count {g_nonzero}")
         # Store input for backpropagation
         if options.get('nn', {}).get('train', {}).get('backprop', False):
             if not hasattr(layeri, 'backprop') or not isinstance(layeri.backprop, dict):
@@ -77,6 +78,24 @@ def evaluateZonotopeBatch_(nn: NeuralNetwork, c, G,
             layeri.backprop['store']['inc'] = c
             layeri.backprop['store']['inG'] = G
         
+        c_before = c.clone() if isinstance(c, torch.Tensor) else c.copy()
+        G_before = G.clone() if isinstance(G, torch.Tensor) else G.copy()
         c, G = layeri.evaluateZonotopeBatch(c, G, options)
+        
+        # Debug if G becomes zero at this layer
+        if options.get('nn', {}).get('_debug_verify', False):
+            g_after_nonzero = int(torch.sum(torch.abs(G) > 1e-10).item()) if isinstance(G, torch.Tensor) else int(np.sum(np.abs(G) > 1e-10))
+            if g_after_nonzero == 0 and g_nonzero > 0:
+                print(f"[DEBUG CRITICAL] Layer {i} ({type(layeri).__name__}) zeroed all generators!")
+                print(f"  G_before shape: {G_before.shape}, nonzero: {g_nonzero}, min/max: {float(G_before.min())}/{float(G_before.max())}")
+                print(f"  G_after shape: {G.shape}, nonzero: {g_after_nonzero}, min/max: {float(G.min())}/{float(G.max())}")
+                if hasattr(layeri, 'W'):
+                    W = layeri.W
+                    print(f"  W shape: {W.shape}, W min/max: {float(W.min())}/{float(W.max())}")
+                    # Test W @ G manually
+                    if G_before.ndim == 3:
+                        G_test = torch.einsum('ij,jkb->ikb', W.to(G_before.device), G_before)
+                        print(f"  Manual W @ G_before (einsum) min/max: {float(G_test.min())}/{float(G_test.max())}")
+                        print(f"  Manual result nonzero: {int(torch.sum(torch.abs(G_test) > 1e-10).item())}")
     
     return c, G

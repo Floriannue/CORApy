@@ -796,12 +796,5 @@ def test_nnLinearLayer_evaluateZonotopeBatch_set_enclosure():
             # Single point case
             assert Yi.contains_(ysi), f"Sample {i}: Single point not contained in output zonotope"
         else:
-            # Multiple points: check each point
-            # MATLAB's contains can handle matrix of points
-            # Progress bar for sample checking - use file=sys.stderr to avoid pytest capture
-            for j in tqdm(range(ysi.shape[1]), desc=f"  Batch {i+1}/{bSz}: Checking samples", 
-                         unit="sample", leave=False, file=sys.stderr, dynamic_ncols=True):
-                point = ysi[:, j].reshape(-1, 1)
-                assert Yi.contains_(point), \
-                    f"Sample {i}, point {j}: Point not contained in output zonotope. " \
-                    f"Point: {point.flatten()[:5]}, Zonotope center: {Yi.c.flatten()[:5]}"
+            # Multiple points case: ysi is (outDim, N)
+            assert Yi.contains_(ysi), f"Batch {i}: Not all samples contained in output zonotope"

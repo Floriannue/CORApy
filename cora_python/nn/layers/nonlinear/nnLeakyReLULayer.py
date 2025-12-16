@@ -79,7 +79,12 @@ class nnLeakyReLULayer(nnActivationLayer):
             r: Output after LeakyReLU activation (torch tensor)
         """
         # Internal to nn - input_data is always torch tensor
-        r = torch.maximum(self.alpha * input_data, input_data)
+        # Ensure input_data is a torch tensor (handle numpy arrays)
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
+        # Ensure self.alpha is a torch tensor for the multiplication
+        alpha_tensor = torch.tensor(self.alpha, dtype=input_data.dtype, device=input_data.device)
+        r = torch.maximum(alpha_tensor * input_data, input_data)
         return r
     
     # Auxiliary functions -----------------------------------------------------

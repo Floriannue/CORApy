@@ -641,10 +641,11 @@ def _aux_constructInputZonotope(options: Dict[str, Any], heuristic: str, xi: Uni
     
     # Sum generators to compute remaining set.
     # MATLAB: ri_ = (ri - reshape(sum(Gxi,2),[n0 bSz]));
-    # Subtract generator sum but keep a small floor to avoid collapse
+    # In MATLAB, ri_ can be exactly zero when all radii are in generators (diagonal case)
     Gxi_sum = torch.sum(torch.abs(Gxi), dim=1)  # Sum over generators magnitude: (n0, bSz)
     ri_ = ri - Gxi_sum
-    ri_ = torch.maximum(ri_, torch.tensor(1e-6, dtype=ri_.dtype, device=ri_.device))
+    # Don't clamp to match MATLAB exactly - ri_ can be zero
+    ri_ = torch.maximum(ri_, torch.tensor(0.0, dtype=ri_.dtype, device=ri_.device))
     if options.get('nn', {}).get('_debug_verify', False):
         print(f"[DEBUG _aux_constructInputZonotope] "
               f"ri min/max {float(ri.min())}/{float(ri.max())} "
@@ -776,6 +777,8 @@ def _aux_split(xi: torch.Tensor, ri: torch.Tensor, sens: torch.Tensor, nSplits: 
     
     MATLAB signature:
     function [xis,ris] = aux_split(xi,ri,sens,nSplits,nDims)
+    
+    Vectorized implementation matching MATLAB exactly.
     """
     from ..layers.linear.nnGeneratorReductionLayer import sub2ind, repelem
     
@@ -786,8 +789,10 @@ def _aux_split(xi: torch.Tensor, ri: torch.Tensor, sens: torch.Tensor, nSplits: 
     # as the splitting heuristic.
     # 1. Find the input dimension with the largest heuristic.
     # MATLAB: [~,sortDims] = sort(abs(sens.*ri),1,'descend');
-    # sens and ri both have shape (input_dim, batch)
-    # sort along dimension 1 (columns), descending
+    # sens and ri both have shape (input_dim, batch) = (n, bs)
+    # MATLAB's sort(..., 1, 'descend') sorts along dimension 1 (rows/first dimension in MATLAB)
+    # For 2D array (n, bs), dimension 1 = rows (first dimension)
+    # In PyTorch, dim=0 corresponds to MATLAB's dimension 1 (rows/first dimension)
     sortDims = torch.argsort(torch.abs(sens * ri), dim=0, descending=True)  # Sort descending along dim=0 (rows), returns 0-based indices
     # MATLAB: dimIds = sortDims(1:nDims,:);
     # MATLAB returns 1-based indices, Python returns 0-based, so add 1 to convert
@@ -800,28 +805,65 @@ def _aux_split(xi: torch.Tensor, ri: torch.Tensor, sens: torch.Tensor, nSplits: 
     bsIdx = repelem(torch.arange(1, bs + 1, dtype=torch.long, device=xi.device), nSplits)  # 1-based: (bs*nSplits,)
     
     # MATLAB: dim = dimIds(1,:);
-    # Use explicit per-batch construction to mirror MATLAB exactly and avoid flatten/permute ambiguity
-    dim = (dimIds[0, :] - 1).tolist()  # Convert to 0-based Python list
+    dim = dimIds[0, :]  # Shape: (bs,), 1-based dimension indices
     
-    xi_cols = []
-    ri_cols = []
-    for j in range(bs):
-        d = dim[j]
-        xi_col = xi[:, j].clone()
-        ri_col = ri[:, j].clone()
-        # MATLAB: xi_(dimIdx) = xi_(dimIdx) - ri(dimIdx);
-        xi_col[d] = xi_col[d] - ri[d, j]
-        # MATLAB: ri_(dimIdx) = ri_(dimIdx)/nSplits;
-        ri_col[d] = ri_col[d] / nSplits
-        for s in range(1, nSplits + 1):
-            xi_s = xi_col.clone()
-            # MATLAB: xi_s(dim) = xi_s(dim) + (2*splitsIdx - 1)*ri_col(dim)
-            xi_s[d] = xi_s[d] + (2 * s - 1) * ri_col[d]
-            xi_cols.append(xi_s.unsqueeze(1))
-            ri_cols.append(ri_col.unsqueeze(1))
+    # MATLAB: linIdx = sub2ind([n bs nSplits], repelem(dim,nSplits),bsIdx(:)',splitsIdx(:)');
+    # repelem(dim,nSplits) repeats each element of dim nSplits times: (bs*nSplits,)
+    dim_repeated = repelem(dim, nSplits)  # (bs*nSplits,), 1-based
+    # bsIdx(:)' flattens and transposes: already (bs*nSplits,)
+    # splitsIdx(:)' flattens: already (bs*nSplits,)
+    linIdx = sub2ind((n, bs, nSplits), dim_repeated, bsIdx, splitsIdx)  # (bs*nSplits,), 0-based linear indices
     
-    xis = torch.cat(xi_cols, dim=1)
-    ris = torch.cat(ri_cols, dim=1)
+    # 2. Split the selected dimension.
+    # MATLAB: xi_ = xi; ri_ = ri;
+    xi_ = xi.clone()
+    ri_ = ri.clone()
+    
+    # MATLAB: dimIdx = sub2ind([n bs],dim,1:bs);
+    # Instead of using sub2ind and converting, use advanced indexing directly
+    # dim is (bs,) with 1-based row indices, convert to 0-based
+    dim_0based = dim - 1  # (bs,), 0-based row indices
+    col_indices = torch.arange(bs, dtype=torch.long, device=xi.device)  # (bs,), 0-based column indices
+    # MATLAB: xi_(dimIdx) = xi_(dimIdx) - ri(dimIdx);
+    xi_[dim_0based, col_indices] = xi_[dim_0based, col_indices] - ri[dim_0based, col_indices]
+    # MATLAB: ri_(dimIdx) = ri_(dimIdx)/nSplits;
+    ri_[dim_0based, col_indices] = ri_[dim_0based, col_indices] / nSplits
+    
+    # MATLAB: xis = repmat(xi_,1,1,nSplits);
+    # repmat(xi_,1,1,nSplits) replicates along third dimension: (n, bs, nSplits)
+    xis = xi_.unsqueeze(2).repeat(1, 1, nSplits)  # (n, bs, nSplits)
+    # MATLAB: ris = repmat(ri_,1,1,nSplits);
+    ris = ri_.unsqueeze(2).repeat(1, 1, nSplits)  # (n, bs, nSplits)
+    
+    # MATLAB: xis(linIdx(:)) = xis(linIdx(:)) + (2*splitsIdx(:) - 1).*ris(linIdx(:));
+    # Instead of using linear indices, use advanced indexing with subscripts
+    # dim_repeated, bsIdx, splitsIdx are already 1-based, convert to 0-based
+    dim_repeated_0based = dim_repeated - 1  # (bs*nSplits,), 0-based row indices
+    bsIdx_0based = bsIdx - 1  # (bs*nSplits,), 0-based column indices  
+    splitsIdx_0based = splitsIdx - 1  # (bs*nSplits,), 0-based split indices
+    # Use advanced indexing: xis[dim_repeated_0based, bsIdx_0based, splitsIdx_0based]
+    offset = (2 * splitsIdx.float() - 1) * ris[dim_repeated_0based, bsIdx_0based, splitsIdx_0based]  # (bs*nSplits,)
+    xis[dim_repeated_0based, bsIdx_0based, splitsIdx_0based] = xis[dim_repeated_0based, bsIdx_0based, splitsIdx_0based] + offset
+    
+    # MATLAB: xis = xis(:,:); ris = ris(:,:);
+    # Flatten to 2D: (n, bs*nSplits)
+    # CRITICAL: MATLAB's (:,:) on 3D (n, bs, nSplits) flattens last 2 dims column-major
+    # Column-major order: for each row i, elements are ordered as:
+    #   [xis(i,1,1), xis(i,2,1), ..., xis(i,bs,1), xis(i,1,2), ..., xis(i,bs,nSplits)]
+    # PyTorch reshape uses row-major, so we need to permute first:
+    #   Permute (n, bs, nSplits) -> (n, nSplits, bs), then reshape -> (n, bs*nSplits)
+    #   But wait - that gives wrong order! We need column-major flattening.
+    #   Actually, to get column-major order in PyTorch, we need to:
+    #   1. Keep first dimension
+    #   2. For last 2 dims, transpose then reshape: (bs, nSplits) -> (nSplits, bs) -> (bs*nSplits)
+    #   But that's still row-major! We need to use advanced indexing to reorder.
+    #   Correct approach: Create indices that match MATLAB's column-major order
+    #   For output position j (0-based), we want: bs_idx = j % bs, split_idx = j // bs
+    bs_idx = torch.arange(bs, device=xis.device).repeat_interleave(nSplits)  # [0,0,...,0,1,1,...,1,...] (bs*nSplits,)
+    split_idx = torch.arange(nSplits, device=xis.device).repeat(bs)  # [0,1,...,nSplits-1,0,1,...] (bs*nSplits,)
+    # Use advanced indexing to reorder: xis[:, bs_idx, split_idx] gives column-major order
+    xis = xis[:, bs_idx, split_idx]  # (n, bs*nSplits) - column-major order matching MATLAB
+    ris = ris[:, bs_idx, split_idx]  # (n, bs*nSplits) - column-major order matching MATLAB
     
     return xis, ris
 

@@ -5,6 +5,8 @@ Tests for nnLeakyReLULayer class.
 
 import pytest
 import numpy as np
+import sys
+from tqdm import tqdm
 from cora_python.nn.layers.nonlinear.nnLeakyReLULayer import nnLeakyReLULayer
 
 
@@ -467,3 +469,87 @@ def test_nn_nnLeakyReLULayer_matlab():
     # matches MATLAB: res = true;
     # Test completed successfully
     assert True
+
+
+def test_nnLeakyReLULayer_evaluateZonotopeBatch_set_enclosure():
+    """
+    Test nnLeakyReLULayer/evaluateZonotopeBatch function - Set-Enclosure Test
+    
+    Verifies that evaluateZonotopeBatch computes output sets that contain many samples (>1000).
+    Based on MATLAB test pattern: cora/unitTests/nn/layers/nonlinear/testnn_nnReLULayer_evalutateZonotopeBatch.m
+    
+    This test creates random zonotopes, propagates them through the network, and verifies
+    that all sampled points from input zonotopes, when evaluated through the network,
+    are contained in the corresponding output zonotopes.
+    """
+    from cora_python.nn.neuralNetwork import NeuralNetwork
+    from cora_python.contSet.zonotope.zonotope import Zonotope
+    
+    # Reset random number generator for reproducibility
+    np.random.seed(0)
+    
+    # Specify batch size
+    bSz = 16
+    # Specify input and output dimensions
+    inDim = 2
+    outDim = 2
+    # Specify number of generators
+    numGen = 10
+    # Specify number of random samples for validation 
+    N = 100  # MATLAB test uses 100 
+    
+    # Instantiate random layer with default alpha
+    leakyrelul = nnLeakyReLULayer(0.01)
+    
+    # Instantiate neural networks with only one layer
+    nn = NeuralNetwork([leakyrelul])
+    
+    # Prepare the neural network for the batch evaluation
+    options = {'nn': {'train': {'num_init_gens': numGen}}}
+    nn.prepareForZonoBatchEval(np.zeros((inDim, 1)), options)
+    
+    # Create random batch of input zonotopes
+    # MATLAB: cx = rand([inDim bSz]); Gx = rand([inDim numGen bSz]);
+    cx = np.random.rand(inDim, bSz).astype(np.float64)
+    Gx = np.random.rand(inDim, numGen, bSz).astype(np.float64)
+    
+    # Propagate batch of zonotopes
+    # MATLAB: [cy,Gy] = nn.evaluateZonotopeBatch(cx,Gx);
+    cy, Gy = nn.evaluateZonotopeBatch(cx, Gx, options)
+    
+    # Check if all samples are contained
+    # Progress bar for batch processing - use file=sys.stderr to avoid pytest capture
+    for i in tqdm(range(bSz), desc="Processing batches", unit="batch", 
+                  file=sys.stderr, dynamic_ncols=True):
+        # Instantiate i-th input and output zonotope from the batch
+        # MATLAB: Xi = zonotope(cx(:,i),Gx(:,:,i));
+        # MATLAB: Yi = zonotope(cy(:,i),Gy(:,:,i));
+        Xi = Zonotope(cx[:, i].reshape(-1, 1), Gx[:, :, i])
+        # Handle both 2D (outDim, bSz) and 3D (outDim, 1, bSz) output shapes
+        if cy.ndim == 3:
+            # cy is (outDim, 1, bSz), extract (outDim, 1) and reshape to (outDim, 1)
+            cy_i = cy[:, 0, i].reshape(-1, 1)
+        else:
+            # cy is (outDim, bSz), extract (outDim,) and reshape to (outDim, 1)
+            cy_i = cy[:, i].reshape(-1, 1)
+        Yi = Zonotope(cy_i, Gy[:, :, i])
+        
+        # Sample random points
+        # MATLAB: xsi = randPoint(Xi,N);
+        xsi = Xi.randPoint_(N)
+        
+        # Propagate samples
+        # MATLAB: ysi = nn.evaluate(xsi);
+        ysi = nn.evaluate(xsi)
+        
+        # Check if all samples are contained
+        # MATLAB: assert(all(contains(Yi,ysi)));
+        # Note: contains_ expects points as columns, ysi should be (outDim, N)
+        if ysi.ndim == 1:
+            ysi = ysi.reshape(-1, 1)
+        elif ysi.ndim == 2 and ysi.shape[1] == 1:
+            # Single point case
+            assert Yi.contains_(ysi), f"Sample {i}: Single point not contained in output zonotope"
+        else:
+            # Multiple points case: ysi is (outDim, N)
+            assert Yi.contains_(ysi), f"Batch {i}: Not all samples contained in output zonotope"

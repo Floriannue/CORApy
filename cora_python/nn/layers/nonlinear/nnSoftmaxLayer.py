@@ -6,6 +6,7 @@ This class implements a softmax activation layer for neural networks.
 
 import numpy as np
 import torch
+from typing import Dict, Any
 from .nnActivationLayer import nnActivationLayer
 
 

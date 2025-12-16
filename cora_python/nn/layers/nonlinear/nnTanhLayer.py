@@ -189,21 +189,24 @@ class nnTanhLayer(nnActivationLayer):
         dtype = m.dtype
         
         # Compute extreme points of tanh - mx+t; there are two solutions: xu and xl
-        m = torch.maximum(torch.minimum(torch.tensor(1, dtype=dtype, device=device), m), torch.finfo(dtype).eps)
+        m = torch.maximum(torch.minimum(torch.tensor(1, dtype=dtype, device=device), m), torch.tensor(torch.finfo(dtype).eps, dtype=dtype, device=device))
         
         # Prevent division by zero
-        m_safe = torch.maximum(2 * m * torch.sqrt(1 - m), torch.finfo(dtype).eps)
+        m_safe = torch.maximum(2 * m * torch.sqrt(1 - m), torch.tensor(torch.finfo(dtype).eps, dtype=dtype, device=device))
         
         xu = torch.atanh(torch.sqrt(1 - m))  # point with max. upper error
         xl = -xu  # point with max. lower error
         
         # List of extreme points
-        xs = torch.stack([xl, xu], dim=2)
+        # m has shape (n, 1, b), so xl and xu also have shape (n, 1, b)
+        # MATLAB: xs = cat(3,xl,xu); - concatenates along dimension 3
+        # Stack along dimension 2 to get (n, 1, 2, b) where dim=2 is the number of extreme points
+        xs = torch.stack([xl, xu], dim=2)  # (n, 1, b) -> (n, 1, 2, b)
         
         # Compute derivative wrt. slope m; needed for backpropagation
         dxu = -1 / m_safe
         dxl = -dxu
-        dxsdm = torch.stack([dxl, dxu], dim=2)
+        dxsdm = torch.stack([dxl, dxu], dim=2)  # (n, 1, b) -> (n, 1, 2, b)
         
         return xs, dxsdm
     
@@ -220,5 +223,8 @@ class nnTanhLayer(nnActivationLayer):
             Output of the tanh function (torch tensor)
         """
         # Internal to nn - input_data is always torch tensor
+        # Handle numpy arrays (can be passed from aux_imgEncBatch when use_approx_error is True)
+        if isinstance(input_data, np.ndarray):
+            input_data = torch.tensor(input_data, dtype=torch.float32)
         
         return torch.tanh(input_data)
