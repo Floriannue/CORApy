@@ -162,16 +162,16 @@ def contains_(Z, S, method='exact', tol=1e-12, maxEval=200, certToggle=True, sca
     # Trivial case: Z is interval
     Z_isInterval, I = safe_representsa(Z, 'interval', tol)
     if Z_isInterval and method.startswith(('exact', 'approx')):
-        print("DEBUG: Z_isInterval =", Z_isInterval, "I =", I, "type(I) =", type(I))  # Debug print
-        if not Z_isInterval:
-            return False, True, np.inf
         if I is None:
             raise ValueError("representsa_ did not return a valid interval object for Z.")
         if not hasattr(I, 'contains_'):
             raise ValueError("Invalid interval object returned - missing contains_ method.")
+        # MATLAB: always delegate to interval.contains_ (matches MATLAB behavior exactly)
+        # interval.contains_ converts to polytope, which now handles all ContSets including zonotope
         try:
             return I.contains_(S, method, tol, maxEval, certToggle, scalingToggle)
         except Exception as ME:
+            # MATLAB: check if a specific method was used, try with base method
             if ':' in method:
                 base_method = method.split(':')[0]
                 try:
@@ -204,6 +204,9 @@ def contains_(Z, S, method='exact', tol=1e-12, maxEval=200, certToggle=True, sca
     if isinstance(S, np.ndarray):
         if method not in ['exact', 'exact:venum', 'exact:polymax', 'approx']:
             raise CORAerror('CORA:noSpecificAlg', method, Z, S)
+        # For point containment, 'approx' methods are not supported - use 'exact' instead
+        if method == 'approx':
+            method = 'exact'
         return priv_zonotopeContainment_pointContainment(Z, S, method, tol, scalingToggle)
     # S is a contSet
     S = compact_(S)
@@ -212,17 +215,22 @@ def contains_(Z, S, method='exact', tol=1e-12, maxEval=200, certToggle=True, sca
         return False, True, np.inf
     if safe_representsa(S, 'emptySet', tol)[0]:
         return True, True, 0
-    try:
-        isPoint, p = safe_representsa(S, 'point', tol, return_point=True)
-        if isPoint:
-            if p is None or not isinstance(p, np.ndarray):
-                raise ValueError("representsa_ did not return a valid numpy array for S as point.")
-            return priv_zonotopeContainment_pointContainment(Z, p, method, tol, scalingToggle)
-    except Exception as ME:
-        if hasattr(ME, 'identifier') and (getattr(ME, 'identifier', None) == 'CORA:notSupported' or getattr(ME, 'identifier', None) == 'MATLAB:maxlhs'):
-            pass
-        else:
-            raise ME
+    # For 'approx:st' and 'approx:stDual', these methods are only for zonotope-zonotope containment
+    # So we should NOT convert point zonotopes to points - treat them as zonotopes
+    if method not in ['approx:st', 'approx:stDual']:
+        try:
+            isPoint, p = safe_representsa(S, 'point', tol, return_point=True)
+            if isPoint:
+                if p is None or not isinstance(p, np.ndarray):
+                    raise ValueError("representsa_ did not return a valid numpy array for S as point.")
+                # Convert 'approx' to 'exact' for point containment
+                point_method = 'exact' if method == 'approx' else method
+                return priv_zonotopeContainment_pointContainment(Z, p, point_method, tol, scalingToggle)
+        except Exception as ME:
+            if hasattr(ME, 'identifier') and (getattr(ME, 'identifier', None) == 'CORA:notSupported' or getattr(ME, 'identifier', None) == 'MATLAB:maxlhs'):
+                pass
+            else:
+                raise ME
     # Method dispatch
     if method in ['exact', 'exact:venum', 'exact:polymax']:
         return aux_exactParser(Z, S, method, tol, maxEval, certToggle, scalingToggle)
@@ -236,7 +244,17 @@ def contains_(Z, S, method='exact', tol=1e-12, maxEval=200, certToggle=True, sca
         # Try genetic, fallback to DIRECT
         try:
             return priv_zonotopeContainment_geneticMaximization(S, Z, tol, maxEval, scalingToggle)
-        except Exception:
+        except Exception as e:
+            # Check if it's a NotImplementedError (genetic algorithm not available)
+            if isinstance(e, NotImplementedError):
+                # Show warning - genetic algorithm not available in Python implementation
+                import warnings
+                warnings.warn(
+                    'The genetic algorithm optimization is not available in the Python '
+                    'implementation. The DIRECT algorithm will be used instead for solving '
+                    'the zonotope containment problem.',
+                    category=UserWarning
+                )
             return priv_zonotopeContainment_DIRECTMaximization(S, Z, tol, maxEval, scalingToggle)
     else:
         raise CORAerror('CORA:noSpecificAlg', method, Z, S)
@@ -265,11 +283,20 @@ def aux_exactParser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
         if class_name == 'zonotope':
             return priv_zonotopeContainment_vertexEnumeration(S, Z, tol, scalingToggle)
         else:
-            # Fallback to conZonotope if available
-            raise NotImplementedError('conZonotope/contains_ not implemented in Python')
+            # Fallback to conZonotope - let it raise the error if not implemented
+            try:
+                from ..conZonotope.conZonotope import ConZonotope
+                cZ = ConZonotope(Z)
+                return cZ.contains_(S, 'exact:venum', tol, maxEval, certToggle, scalingToggle)
+            except (ImportError, AttributeError, NotImplementedError):
+                # conZonotope not available or doesn't support this - let it raise the error
+                raise CORAerror('CORA:noSpecificAlg', method, Z, S)
     elif method == 'exact:polymax':
-        # Fallback to polytope if available
-        raise NotImplementedError('polytope/contains_ not implemented in Python')
+        # MATLAB: convert Z to polytope and call polytope.contains_
+        # polytope.contains_ now handles all ContSets including zonotope via supportFunc_
+        from ..polytope.polytope import Polytope
+        P = Polytope(Z)
+        return P.contains_(S, 'exact:polymax', tol, maxEval, certToggle, scalingToggle)
     else:
         raise CORAerror('CORA:noSpecificAlg', method, Z, S)
 
@@ -293,7 +320,14 @@ def aux_approxParser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
             raise CORAerror('CORA:noSpecificAlg', method, Z, S)
     # Algorithm dispatch
     if method == 'approx':
-        raise NotImplementedError('conZonotope/contains_ not implemented in Python')
+        # Fallback to conZonotope - let it raise the error if not implemented
+        try:
+            from ..conZonotope.conZonotope import ConZonotope
+            cZ = ConZonotope(Z)
+            return cZ.contains_(S, method, tol, maxEval, certToggle, scalingToggle)
+        except (ImportError, AttributeError, NotImplementedError):
+            # conZonotope not available or doesn't support this - let it raise the error
+            raise CORAerror('CORA:noSpecificAlg', method, Z, S)
     elif method == 'approx:st':
         return priv_zonotopeContainment_SadraddiniTedrake(S, Z, tol, scalingToggle)
     elif method == 'approx:stDual':
@@ -304,7 +338,14 @@ def aux_approxParser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
 def aux_samplingParser(Z, S, method, tol, maxEval, certToggle, scalingToggle):
     class_name = S.__class__.__name__.lower() if hasattr(S, '__class__') else ''
     if class_name == 'conzonotope':
-        raise NotImplementedError('conZonotope/contains_ not implemented in Python')
+        # Fallback to conZonotope - let it raise the error if not implemented
+        try:
+            from ..conZonotope.conZonotope import ConZonotope
+            cZ = ConZonotope(Z)
+            return cZ.contains_(S, method, tol, maxEval, certToggle, scalingToggle)
+        except (ImportError, AttributeError, NotImplementedError):
+            # conZonotope not available or doesn't support this - let it raise the error
+            raise CORAerror('CORA:noSpecificAlg', method, Z, S)
     elif class_name == 'zonotope':
         if method in ['sampling', 'sampling:primal']:
             return priv_zonotopeContainment_zonoSampling(S, Z, tol, maxEval, scalingToggle)

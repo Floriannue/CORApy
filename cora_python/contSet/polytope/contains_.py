@@ -32,7 +32,7 @@ Authors: Niklas Kochdumper, Viktor Kotsev, Adrian Kulmburg, Mark Wetzlinger (MAT
          Python translation by AI Assistant
 Written: 19-November-2019 (MATLAB)
 Last update: 31-October-2024 (TL, added v-polytope/contains) (MATLAB)
-Python translation: 2025
+Python translation: 2025 Florian Nüssel
 """
 
 import numpy as np
@@ -241,20 +241,22 @@ def _aux_exactParser(P: 'Polytope', S: 'ContSet', method: str, tol: float, maxEv
 
     # Handle specific types of ContSet for 'exact' methods
     # This matches MATLAB's switch based on class(S)
+    # MATLAB supports: conHyperplane, emptySet, fullspace, halfspace, interval, 
+    # polytope, conZonotope, zonoBundle, zonotope, capsule, ellipsoid, spectraShadow
     from cora_python.contSet.polytope.polytope import Polytope # Local import to avoid circular dependency
-    from cora_python.contSet.zonotope.zonotope import Zonotope # Placeholder import for Zonotope
-    # from cora_python.contSet.conZonotope.conZonotope import ConZonotope # Placeholder import
-    # from cora_python.contSet.zonoBundle.zonoBundle import ZonoBundle # Placeholder import
-    # from cora_python.contSet.capsule.capsule import Capsule # Placeholder import
-    # from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid # Placeholder import
-    # from cora_python.contSet.spectraShadow.spectraShadow import SpectraShadow # Placeholder import
-    # from cora_python.contSet.interval.interval import Interval # Placeholder import
-    # from cora_python.contSet.halfspace.halfspace import Halfspace # Placeholder import
-    # from cora_python.contSet.conHyperplane.conHyperplane import ConHyperplane # Placeholder import
+    from cora_python.contSet.zonotope.zonotope import Zonotope
+    from cora_python.contSet.interval.interval import Interval
+    from cora_python.contSet.ellipsoid.ellipsoid import Ellipsoid
+    from cora_python.contSet.capsule.capsule import Capsule
+    from cora_python.contSet.emptySet.emptySet import EmptySet
+    from cora_python.contSet.fullspace.fullspace import Fullspace
+    from cora_python.contSet.conZonotope.conZonotope import ConZonotope
+    from cora_python.contSet.zonoBundle.zonoBundle import ZonoBundle
+    from cora_python.contSet.spectraShadow.spectraShadow import SpectraShadow
 
-
-    if isinstance(S, Polytope):
-        # For Polytope in Polytope containment
+    # Helper function to handle containment for any ContSet that supports supportFunc_
+    # This matches MATLAB's behavior where all convex sets use the same logic
+    def handle_containment_for_contset():
         if method == 'exact':
             if P.isHRep:
                 res, cert, scaling = _aux_contains_P_Hpoly(P, S, tol, scalingToggle, certToggle)
@@ -266,12 +268,22 @@ def _aux_exactParser(P: 'Polytope', S: 'ContSet', method: str, tol: float, maxEv
         elif method == 'exact:polymax':
             P.constraints() # Force H-representation
             res, cert, scaling = _aux_contains_P_Hpoly(P, S, tol, scalingToggle, certToggle)
-    # elif isinstance(S, Zonotope):
-    #     # Handle Zonotope containment, similar logic as Polytope
-    #     pass
-    # ... add other set types here as they are implemented
+        return res, cert, scaling
+
+    # Check for all supported ContSet types (matches MATLAB's case statement)
+    # MATLAB supports: conHyperplane, emptySet, fullspace, halfspace, interval, 
+    # polytope, conZonotope, zonoBundle, zonotope, capsule, ellipsoid, spectraShadow
+    # All these use the same logic via supportFunc_ in _aux_contains_P_Hpoly/_aux_contains_P_Vpoly
+    if isinstance(S, (Polytope, Zonotope, Interval, Ellipsoid, Capsule, EmptySet, Fullspace, 
+                      ConZonotope, ZonoBundle, SpectraShadow)):
+        res, cert, scaling = handle_containment_for_contset()
     else:
-        raise CORAerror('CORA:noExactAlg', P, S) # No exact algorithm for this type of set
+        # Check if S has supportFunc_ method (for halfspace, conHyperplane, etc. if they exist)
+        # This allows any ContSet with supportFunc_ to work, matching MATLAB's behavior
+        if hasattr(S, 'supportFunc_') or hasattr(S.__class__, 'supportFunc_'):
+            res, cert, scaling = handle_containment_for_contset()
+        else:
+            raise CORAerror('CORA:noExactAlg', P, S) # No exact algorithm for this type of set
 
     return res, cert, scaling
 
