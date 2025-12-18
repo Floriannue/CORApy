@@ -98,14 +98,93 @@ class ConPolyZono(ContSet):
             self.precedence = 30
             return
 
+        # Handle PolyZonotope conversion
+        if len(varargin) == 1:
+            from cora_python.contSet.polyZonotope.polyZonotope import PolyZonotope
+            if isinstance(varargin[0], PolyZonotope):
+                pz = varargin[0]
+                # Copy properties from PolyZonotope
+                self.c = pz.c.copy() if hasattr(pz, 'c') else np.array([])
+                self.G = pz.G.copy() if hasattr(pz, 'G') else np.array([])
+                self.E = pz.E.copy() if hasattr(pz, 'E') else np.array([])
+                self.GI = pz.GI.copy() if hasattr(pz, 'GI') else np.array([])
+                self.id = pz.id.copy() if hasattr(pz, 'id') else np.array([])
+                # Initialize constraint properties as empty (no constraints)
+                self.A = np.array([]).reshape(0, 0)
+                self.b = np.array([]).reshape(0, 1)
+                self.EC = np.array([]).reshape(0, 0)
+                self._dim_val = pz.dim() if hasattr(pz, 'dim') else (pz.c.shape[0] if hasattr(pz, 'c') and pz.c.size > 0 else 0)
+                super().__init__()
+                self.precedence = 30
+                return
+        
+        # Handle Interval conversion (via polyZonotope)
+        if len(varargin) == 1:
+            from cora_python.contSet.interval.interval import Interval
+            if isinstance(varargin[0], Interval):
+                # Use interval.conPolyZono() method which converts via polyZonotope
+                from cora_python.contSet.interval.conPolyZono import conPolyZono
+                result = conPolyZono(varargin[0])
+                # Copy all attributes from result
+                self.c = result.c
+                self.G = result.G
+                self.E = result.E
+                self.A = result.A
+                self.b = result.b
+                self.EC = result.EC
+                self.GI = result.GI
+                self.id = result.id
+                self._dim_val = result._dim_val
+                super().__init__()
+                self.precedence = 30
+                return
+
         # 2. Parse input arguments directly within __init__ based on nargin
         num_args = len(varargin)
         
         # Determine dimension early if possible, primarily from c, otherwise G
-        if num_args >= 1 and varargin[0] is not None and hasattr(varargin[0], 'shape') and varargin[0].size > 0:
+        # Check if varargin[0] has a size attribute (property or method)
+        # For numpy arrays, size is a property; for some ContSets, it might be a method
+        size_val = None
+        if num_args >= 1 and varargin[0] is not None:
+            if hasattr(varargin[0], 'shape'):
+                # Try to get size - could be property or method
+                if hasattr(varargin[0], 'size'):
+                    size_attr = getattr(varargin[0], 'size')
+                    if callable(size_attr):
+                        try:
+                            size_val = size_attr()
+                        except:
+                            size_val = None
+                    else:
+                        size_val = size_attr
+                elif hasattr(varargin[0], '__len__'):
+                    try:
+                        size_val = len(varargin[0])
+                    except:
+                        size_val = None
+        
+        if num_args >= 1 and varargin[0] is not None and hasattr(varargin[0], 'shape') and (size_val is not None and size_val > 0):
             self._dim_val = varargin[0].shape[0]
-        elif num_args >= 2 and varargin[1] is not None and hasattr(varargin[1], 'shape') and varargin[1].size > 0:
-            self._dim_val = varargin[1].shape[0]
+        elif num_args >= 2 and varargin[1] is not None and hasattr(varargin[1], 'shape'):
+            # Check size for varargin[1] as well
+            size_val_1 = None
+            if hasattr(varargin[1], 'size'):
+                size_attr_1 = getattr(varargin[1], 'size')
+                if callable(size_attr_1):
+                    try:
+                        size_val_1 = size_attr_1()
+                    except:
+                        size_val_1 = None
+                else:
+                    size_val_1 = size_attr_1
+            elif hasattr(varargin[1], '__len__'):
+                try:
+                    size_val_1 = len(varargin[1])
+                except:
+                    size_val_1 = None
+            if size_val_1 is not None and size_val_1 > 0:
+                self._dim_val = varargin[1].shape[0]
         elif 'dim' in kwargs and isinstance(kwargs['dim'], int):
             self._dim_val = kwargs['dim']
 
@@ -137,7 +216,16 @@ class ConPolyZono(ContSet):
 
         # If _dim_val is still None (e.g., empty inputs provided), and there's no implicit dim from c/G, set to 0.
         if self._dim_val is None:
-            self._dim_val = c.shape[0] if c.size > 0 else 0
+            if c is not None and hasattr(c, 'shape') and len(c.shape) > 0 and c.size > 0:
+                self._dim_val = c.shape[0]
+            elif c is not None and hasattr(c, 'size') and c.size > 0:
+                # Handle scalar or 1D array
+                if hasattr(c, 'shape') and len(c.shape) > 0:
+                    self._dim_val = c.shape[0]
+                else:
+                    self._dim_val = 1
+            else:
+                self._dim_val = 0
 
         # 3. check correctness of input arguments
         _aux_checkInputArgs(c, G, E, A, b, EC, GI, id_, num_args)
@@ -287,27 +375,33 @@ def _aux_checkInputArgs(c: np.ndarray, G: np.ndarray, E: np.ndarray, A: np.ndarr
     if CHECKS_ENABLED and n_in > 0:
 
         # check correctness of user input 
-        inputChecks = [
-            [c, 'att', 'numeric', ['finite']],
-            [G, 'att', 'numeric', ['finite', 'matrix']],
-            [E, 'att', 'numeric', ['integer', 'matrix']],
-        ]
+        # Only check if they have content (empty arrays are valid for empty sets)
+        inputChecks = []
+        if c.size > 0:
+            inputChecks.append([c, 'att', 'numeric', ['finite']])
+        if G.size > 0:
+            inputChecks.append([G, 'att', 'numeric', ['finite', 'matrix']])
+        if E.size > 0:
+            inputChecks.append([E, 'att', 'numeric', ['integer', 'matrix']])
         
         if n_in > 5:
             # only add constraints checks if they were in the input
             # to correctly indicate the position of the wrong input
-            inputChecks.extend([
-                [A, 'att', 'numeric', ['finite', 'matrix']],
-                [b, 'att', 'numeric', ['finite', 'matrix']],
-                [EC, 'att', 'numeric', ['finite', 'matrix']],
-            ])
+            # Only check if they have content (empty arrays are valid for empty sets)
+            if A.size > 0:
+                inputChecks.append([A, 'att', 'numeric', ['finite', 'matrix']])
+            if b.size > 0:
+                inputChecks.append([b, 'att', 'numeric', ['finite', 'matrix']])
+            if EC.size > 0:
+                inputChecks.append([EC, 'att', 'numeric', ['finite', 'matrix']])
         
         # Add GI and id checks universally as MATLAB does at the end
         # (even if they were not explicitly passed, they are `np.array([])` from `_aux_parseInputArgs`)
-        inputChecks.extend([
-            [GI, 'att', 'numeric', ['finite', 'matrix']],
-            [id_, 'att', 'numeric', ['finite']],
-        ])
+        # Only check if they have content (empty arrays are valid for empty sets)
+        if GI.size > 0:
+            inputChecks.append([GI, 'att', 'numeric', ['finite', 'matrix']])
+        if id_.size > 0:
+            inputChecks.append([id_, 'att', 'numeric', ['finite']])
         
         inputArgsCheck(inputChecks)
         

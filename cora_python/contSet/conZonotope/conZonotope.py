@@ -111,6 +111,24 @@ class ConZonotope(ContSet):
             self.precedence = 90
             return
 
+        # Handle Interval object input (convert via zonotope)
+        from cora_python.contSet.interval.interval import Interval
+        if len(varargin) == 1 and isinstance(varargin[0], Interval):
+            # MATLAB: conZonotope(I) -> conZonotope(zonotope(I))
+            from cora_python.contSet.interval.zonotope import zonotope
+            z = zonotope(varargin[0])
+            # Then treat as Zonotope input
+            self.c = z.c.copy()
+            self._G = z.G.copy()
+            self.A = np.array([]) # No constraints from bare zonotope
+            self.b = np.array([])
+            self.ksi = np.array([])
+            self.R = np.array([])
+            self._dim_val = z.dim() # Get dimension from Zonotope
+            super().__init__()
+            self.precedence = 90
+            return
+
         # Handle Zonotope object input
         from cora_python.contSet.zonotope.zonotope import Zonotope
         if len(varargin) == 1 and isinstance(varargin[0], Zonotope):
@@ -157,14 +175,20 @@ class ConZonotope(ContSet):
         # Default values for all possible parameters (will be refined by _aux_parseInputArgs)
         c, G, A, b = None, None, None, None
 
-        if num_args >= 1:
+        # MATLAB: if nargin == 1 || nargin == 3, first arg can be matrix [c, G]
+        if num_args == 1 or num_args == 3:
+            # First argument might be a matrix [c, G]
             c = varargin[0]
-        if num_args >= 2:
+            if num_args == 3:
+                A = varargin[1]
+                b = varargin[2]
+        elif num_args == 2 or num_args == 4:
+            # c, G or c, G, A, b given explicitly
+            c = varargin[0]
             G = varargin[1]
-        if num_args >= 3: # This corresponds to A in `conZonotope(c,G,A,b)`
-            A = varargin[2]
-        if num_args >= 4: # This corresponds to b in `conZonotope(c,G,A,b)`
-            b = varargin[3]
+            if num_args == 4:
+                A = varargin[2]
+                b = varargin[3]
         
         # Determine dimension from inputs (c or G) early if not already set by specific constructors
         if self._dim_val is None:
@@ -178,7 +202,8 @@ class ConZonotope(ContSet):
                 self._dim_val = 0 # Default to 0 if no dimension can be determined
 
         # Now call the auxiliary functions with explicit arguments
-        c, G, A, b = _aux_parseInputArgs(c, G, A, b)
+        # Pass n_in to handle matrix [c, G] case correctly
+        c, G, A, b = _aux_parseInputArgs(c, G, A, b, num_args)
 
         # 3. check correctness of input arguments (using num_args for assertNarginConstructor)
         _aux_checkInputArgs(c, G, A, b, num_args)
@@ -422,21 +447,53 @@ class ConZonotope(ContSet):
 
 # Auxiliary functions -----------------------------------------------------
 
-def _aux_parseInputArgs(c: Optional[np.ndarray], G: Optional[np.ndarray], A: Optional[np.ndarray], b: Optional[np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Parse input arguments from user and assign to variables"""
+def _aux_parseInputArgs(c: Optional[np.ndarray], G: Optional[np.ndarray], A: Optional[np.ndarray], b: Optional[np.ndarray], n_in: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Parse input arguments from user and assign to variables
+    Matches MATLAB's aux_parseInputArgs behavior
+    """
     
-    # Explicitly set defaults for potentially None inputs to empty numpy arrays
-    c_out = np.array([]) if c is None else np.asarray(c)
-    G_out = np.array([]) if G is None else np.asarray(G)
-    A_out = np.array([]) if A is None else np.asarray(A)
-    b_out = np.array([]) if b is None else np.asarray(b)
-
-    # Ensure c is a column vector and G is a 2D array
-    if c_out.ndim == 1: c_out = c_out.reshape(-1, 1)
-    if G_out.ndim == 1: G_out = G_out.reshape(-1, 1)
-    # If G is empty but c has dimension, reshape G to (n,0)
-    elif G_out.size == 0 and c_out.size > 0:
-        G_out = np.zeros((c_out.shape[0], 0))
+    # MATLAB: if nargin == 1 || nargin == 3
+    if n_in == 1 or n_in == 3:
+        # First argument might be a matrix [c, G] or just c
+        c_out = np.array([]) if c is None else np.asarray(c)
+        A_out = np.array([]) if A is None else np.asarray(A)
+        b_out = np.array([]) if b is None else np.asarray(b)
+        
+        # Check if c is a matrix with multiple columns (i.e., [c, G])
+        if c_out.size > 0 and c_out.ndim == 2 and c_out.shape[1] > 0:
+            # Split into c and G: c = first column, G = remaining columns
+            G_out = c_out[:, 1:]
+            c_out = c_out[:, 0:1]  # Keep as column vector
+        else:
+            # Just c given, G is empty
+            G_out = np.array([])
+            # Ensure c is a column vector
+            if c_out.ndim == 1:
+                c_out = c_out.reshape(-1, 1)
+    
+    # MATLAB: elseif nargin == 2 || nargin == 4
+    elif n_in == 2 or n_in == 4:
+        # c, G or c, G, A, b given explicitly
+        c_out = np.array([]) if c is None else np.asarray(c)
+        G_out = np.array([]) if G is None else np.asarray(G)
+        A_out = np.array([]) if A is None else np.asarray(A)
+        b_out = np.array([]) if b is None else np.asarray(b)
+        
+        # Ensure c is a column vector and G is a 2D array
+        if c_out.ndim == 1:
+            c_out = c_out.reshape(-1, 1)
+        if G_out.ndim == 1:
+            G_out = G_out.reshape(-1, 1)
+        # If G is empty but c has dimension, reshape G to (n,0)
+        elif G_out.size == 0 and c_out.size > 0:
+            G_out = np.zeros((c_out.shape[0], 0))
+    else:
+        # Fallback (shouldn't happen with proper validation)
+        c_out = np.array([]) if c is None else np.asarray(c)
+        G_out = np.array([]) if G is None else np.asarray(G)
+        A_out = np.array([]) if A is None else np.asarray(A)
+        b_out = np.array([]) if b is None else np.asarray(b)
 
     return c_out, G_out, A_out, b_out
 

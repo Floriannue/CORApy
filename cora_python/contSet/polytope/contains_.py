@@ -507,10 +507,12 @@ def _aux_contains_P_Hpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle
         
         # Compute support function of S along the normal vector
         # The MATLAB code uses 'upper' for supportFunc_. We assume the same here.
-        b_set_sup_val, _ = supportFunc_(S_shifted, normal_vector, 'upper') # Unpack the tuple
+        # supportFunc_ returns (val, x, fac) - we only need val
+        b_set_sup_val, _, _ = supportFunc_(S_shifted, normal_vector, 'upper')
     
         # Check for containment condition: sup(S, l) <= sup(P, l)
-        # Account for tolerance: b_set_sup > b_polytope + tol
+        # MATLAB: if b_ > b(i) && ~withinTol(b(i), b_, tol)
+        # This means: if support function > polytope bound AND not within tolerance, then not contained
         if b_set_sup_val > b_polytope and not withinTol(b_polytope, b_set_sup_val, tol):
             res = False
             scaling_current = b_set_sup_val / b_polytope # Ratio of support functions

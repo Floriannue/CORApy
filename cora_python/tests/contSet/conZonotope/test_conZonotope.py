@@ -23,32 +23,43 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 class TestConZonotope:
     """Test class for ConZonotope functionality"""
     
+    def test_empty_conZonotope(self):
+        """Test empty conZonotope"""
+        n = 2
+        cZ = ConZonotope.empty(n)
+        assert cZ.representsa_('emptySet', eps=1e-10)
+        assert cZ.dim() == n
+        
+        cZ = ConZonotope(np.zeros((3, 0)))
+        assert cZ.representsa_('emptySet', eps=1e-10)
+        assert cZ.c.shape[0] == 3 and cZ.G.shape[0] == 3
+    
     def test_constructor_basic(self):
         """Test basic ConZonotope construction"""
-        # Basic constrained zonotope
-        c = np.array([0, 0])
-        G = np.array([[3, 0, 1], [0, 2, 1]])
-        A = np.array([[1, 0, 1]])
-        b = np.array([1])
-        
-        cZ = ConZonotope(c, G, A, b)
-        assert np.allclose(cZ.c, c)
-        assert np.allclose(cZ.G, G)
-        assert np.allclose(cZ.A, A)
-        assert np.allclose(cZ.b, b)
-    
-    def test_constructor_matrix_input(self):
-        """Test ConZonotope construction with matrix input"""
-        # Matrix [c, G] input
+        # Init simple constrained zonotope
         Z = np.array([[0, 3, 0, 1], [0, 0, 2, 1]])
         A = np.array([[1, 0, 1]])
-        b = np.array([1])
-        
+        b = np.array([[1]])  # Column vector to match MATLAB behavior
         cZ = ConZonotope(Z, A, b)
-        assert np.allclose(cZ.c, [0, 0])
-        assert np.allclose(cZ.G, [[3, 0, 1], [0, 2, 1]])
-        assert np.allclose(cZ.A, A)
-        assert np.allclose(cZ.b, b)
+        
+        from cora_python.g.functions.matlab.validate.check.compareMatrices import compareMatrices
+        from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
+        
+        assert np.all(withinTol(np.column_stack([cZ.c, cZ.G]), Z, tol=1e-10))
+        assert np.all(withinTol(cZ.A, A, tol=1e-10))
+        assert np.all(withinTol(cZ.b, b, tol=1e-10))
+    
+    def test_constructor_constraints_double(self):
+        """Test constraints should be double for internal processing"""
+        c = np.array([[1.000], [1.000]])
+        G = np.array([[3.000, 0.000, 0.000], [0.000, 3.000, 0.000]])
+        # Note: Python doesn't have single precision like MATLAB, but we test the conversion
+        A = np.array([[1.211, -0.118, 0.684]], dtype=np.float32)
+        b = np.array([-0.112], dtype=np.float32)
+        cZ = ConZonotope(c, G, A, b)
+        # In Python, arrays are typically float64, but we verify they're numeric
+        assert np.issubdtype(cZ.A.dtype, np.floating)
+        assert np.issubdtype(cZ.b.dtype, np.floating)
     
     def test_constructor_copy(self):
         """Test copy constructor"""
@@ -71,7 +82,7 @@ class TestConZonotope:
         G = np.array([[2, 1], [1, 1]])
         
         cZ = ConZonotope(c, G)
-        assert np.allclose(cZ.c, c)
+        assert np.allclose(cZ.c, c.reshape(-1, 1))  # c is converted to column vector
         assert np.allclose(cZ.G, G)
         assert cZ.A.shape == (0, 2)  # Empty constraint matrix
         assert cZ.b.shape == (0, 1)  # Empty constraint vector
@@ -127,7 +138,7 @@ class TestConZonotope:
         """Test empty ConZonotope creation"""
         cZ_empty = ConZonotope.empty(2)
         assert cZ_empty.dim() == 2
-        assert cZ_empty.c.shape == (2, 1)
+        assert cZ_empty.c.shape == (2, 0)  # MATLAB creates zeros(2,0)
         assert cZ_empty.G.shape == (2, 0)
         
         # Empty with dimension 0

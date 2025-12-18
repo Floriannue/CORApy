@@ -24,28 +24,30 @@ class TestPolyZonotopeRepresentsa:
         E = np.array([[2, 0], [0, 1]])
         
         pZ1 = PolyZonotope(c, G, GI, E)
-        assert not pZ1.representsa_('emptySet')
+        assert not pZ1.representsa_('emptySet', tol=1e-10)
         
-        pZ2 = PolyZonotope(c, G, None, E)
-        assert not pZ2.representsa_('emptySet')
+        # Use empty array instead of None (MATLAB uses [])
+        GI_empty = np.array([]).reshape(2, 0)
+        pZ2 = PolyZonotope(c, G, GI_empty, E)
+        assert not pZ2.representsa_('emptySet', tol=1e-10)
         
         # Empty polyZonotope
         pZ3 = PolyZonotope.empty(2)
-        assert pZ3.representsa_('emptySet')
+        assert pZ3.representsa_('emptySet', tol=1e-10)
     
     def test_representsa_origin(self):
         """Test representsa_ with origin comparison"""
         # Empty polyZonotope should not represent origin
         pZ = PolyZonotope.empty(2)
-        assert not pZ.representsa_('origin')
+        assert not pZ.representsa_('origin', tol=1e-10)
         
         # Only origin
         pZ = PolyZonotope(np.zeros((3, 1)))
-        assert pZ.representsa_('origin')
+        assert pZ.representsa_('origin', tol=1e-10)
         
         # Shifted center
         pZ = PolyZonotope(0.01 * np.ones((4, 1)))
-        assert not pZ.representsa_('origin')
+        assert not pZ.representsa_('origin', tol=1e-10)
         
         # With tolerance
         tol = 0.02
@@ -71,23 +73,31 @@ class TestPolyZonotopeRepresentsa:
         G = np.array([[1], [-1]])
         GI = np.array([[2, 0, 1], [-1, 1, 0]])
         
-        # Only independent generators
-        pZ = PolyZonotope(c, None, GI)
-        result, Z = pZ.representsa_('zonotope')
+        # Only independent generators (use empty array for G, MATLAB uses [])
+        G_empty = np.array([]).reshape(2, 0)
+        pZ = PolyZonotope(c, G_empty, GI)
+        assert pZ.representsa_('zonotope', tol=1e-10)
+        # Test with return_set to get converted zonotope
+        result, Z = pZ.representsa_('zonotope', tol=1e-10, return_set=True)
         assert result
+        assert Z is not None
         # Expected: zonotope with center c and generators GI
         
         # Dependent and independent generators
         pZ = PolyZonotope(c, G, GI)
-        result, Z = pZ.representsa_('zonotope')
+        assert pZ.representsa_('zonotope', tol=1e-10)
+        result, Z = pZ.representsa_('zonotope', tol=1e-10, return_set=True)
         assert result
+        assert Z is not None
         # Expected: zonotope with center c and generators [G, GI]
         
         # With exponent matrix
         E = np.array([[3], [0]])
         pZ = PolyZonotope(c, G, GI, E)
-        result, Z = pZ.representsa_('zonotope')
+        assert pZ.representsa_('zonotope', tol=1e-10)
+        result, Z = pZ.representsa_('zonotope', tol=1e-10, return_set=True)
         assert result
+        assert Z is not None
         # Expected: zonotope with center c and generators [G, GI]
     
     def test_representsa_point(self):
@@ -100,45 +110,51 @@ class TestPolyZonotopeRepresentsa:
         
         # Only center
         pZ = PolyZonotope(c)
-        assert pZ.representsa_('point')
+        assert pZ.representsa_('point', tol=1e-10)
+        # Test with return_set to get the point
+        result, S = pZ.representsa_('point', tol=1e-10, return_set=True)
+        assert result
+        assert S is not None
+        np.testing.assert_array_equal(S, c)
         
         # With dependent generators
         pZ = PolyZonotope(c, G)
-        assert not pZ.representsa_('point')
+        assert not pZ.representsa_('point', tol=1e-10)
         
         # With zero dependent generators
         pZ = PolyZonotope(c, G_zeros)
-        assert pZ.representsa_('point')
+        assert pZ.representsa_('point', tol=1e-10)
         
-        # With independent generators
-        pZ = PolyZonotope(c, None, GI)
-        assert not pZ.representsa_('point')
+        # With independent generators (use empty array for G, MATLAB uses [])
+        G_empty = np.array([]).reshape(2, 0)
+        pZ = PolyZonotope(c, G_empty, GI)
+        assert not pZ.representsa_('point', tol=1e-10)
         
         # With zero independent generators
-        pZ = PolyZonotope(c, None, GI_zeros)
-        assert pZ.representsa_('point')
+        pZ = PolyZonotope(c, G_empty, GI_zeros)
+        assert pZ.representsa_('point', tol=1e-10)
     
     def test_representsa_fullspace(self):
         """Test representsa_ with fullspace comparison"""
         # Most polyZonotopes should not represent fullspace
         pZ = PolyZonotope.origin(2)
-        assert not pZ.representsa_('fullspace')
+        assert not pZ.representsa_('fullspace', tol=1e-10)
         
         pZ = PolyZonotope.generateRandom(Dimension=3)
-        assert not pZ.representsa_('fullspace')
+        assert not pZ.representsa_('fullspace', tol=1e-10)
     
     def test_representsa_edge_cases(self):
         """Test representsa_ edge cases"""
         # Test with various dimensions
         for n in [1, 2, 3, 5]:
             pZ_empty = PolyZonotope.empty(n)
-            assert pZ_empty.representsa_('emptySet')
-            assert not pZ_empty.representsa_('origin')
+            assert pZ_empty.representsa_('emptySet', tol=1e-10)
+            assert not pZ_empty.representsa_('origin', tol=1e-10)
             
             pZ_origin = PolyZonotope.origin(n)
-            assert not pZ_origin.representsa_('emptySet')
-            assert pZ_origin.representsa_('origin')
-            assert pZ_origin.representsa_('point')
+            assert not pZ_origin.representsa_('emptySet', tol=1e-10)
+            assert pZ_origin.representsa_('origin', tol=1e-10)
+            assert pZ_origin.representsa_('point', tol=1e-10)
     
     def test_representsa_tolerance_parameter(self):
         """Test representsa_ with tolerance parameter"""
@@ -146,30 +162,30 @@ class TestPolyZonotopeRepresentsa:
         c = np.array([[0.005], [0.003]])
         pZ = PolyZonotope(c)
         
-        assert not pZ.representsa_('origin')  # Without tolerance
-        assert pZ.representsa_('origin', 0.01)  # With sufficient tolerance
-        assert not pZ.representsa_('origin', 0.001)  # With insufficient tolerance
+        assert not pZ.representsa_('origin', tol=1e-10)  # Without sufficient tolerance
+        assert pZ.representsa_('origin', tol=0.01)  # With sufficient tolerance
+        assert not pZ.representsa_('origin', tol=0.001)  # With insufficient tolerance
     
     def test_representsa_invalid_type(self):
         """Test representsa_ with invalid type"""
         pZ = PolyZonotope.origin(2)
         
         with pytest.raises(Exception):
-            pZ.representsa_('invalid_type')
+            pZ.representsa_('invalid_type', tol=1e-10)
     
     def test_representsa_consistency(self):
         """Test representsa_ consistency"""
         # Empty polyZonotope consistency
         pZ_empty = PolyZonotope.empty(3)
-        assert pZ_empty.representsa_('emptySet')
+        assert pZ_empty.representsa_('emptySet', tol=1e-10)
         assert pZ_empty.isemptyobject()
         
         # Origin polyZonotope consistency
         pZ_origin = PolyZonotope.origin(3)
-        assert pZ_origin.representsa_('origin')
-        assert pZ_origin.representsa_('point')
-        assert not pZ_origin.representsa_('emptySet')
+        assert pZ_origin.representsa_('origin', tol=1e-10)
+        assert pZ_origin.representsa_('point', tol=1e-10)
+        assert not pZ_origin.representsa_('emptySet', tol=1e-10)
         
         # Random polyZonotope should not be empty
         pZ_random = PolyZonotope.generateRandom(Dimension=3)
-        assert not pZ_random.representsa_('emptySet') 
+        assert not pZ_random.representsa_('emptySet', tol=1e-10) 

@@ -108,11 +108,15 @@ class SpectraShadow(ContSet):
         
         # 1. copy constructor
         if len(varargin) == 1 and isinstance(varargin[0], SpectraShadow):
+            # MATLAB: obj = varargin{1}; return (direct assignment)
+            # In Python, we copy arrays to avoid shared references
             SpS = varargin[0]
-            self.A = SpS.A
-            self.c = SpS.c
-            self.G = SpS.G
+            # Copy sparse matrices/arrays
+            self.A = SpS.A.copy() if hasattr(SpS.A, 'copy') else SpS.A
+            self.c = SpS.c.copy() if hasattr(SpS.c, 'copy') else SpS.c
+            self.G = SpS.G.copy() if hasattr(SpS.G, 'copy') else SpS.G
             
+            # Copy SetProperty values (shallow copy is fine for these)
             self.ESumRep.val = SpS.ESumRep.val
             self.emptySet.val = SpS.emptySet.val
             self.fullDim.val = SpS.fullDim.val
@@ -121,6 +125,27 @@ class SpectraShadow(ContSet):
             super().__init__()
             self.precedence = SpS.precedence
             return
+
+        # Handle Interval object input (convert using interval.spectraShadow)
+        if len(varargin) == 1:
+            from cora_python.contSet.interval.interval import Interval
+            if isinstance(varargin[0], Interval):
+                # MATLAB: spectraShadow(I) converts directly using interval bounds
+                # Use the interval.spectraShadow conversion function
+                from cora_python.contSet.interval.spectraShadow import spectraShadow
+                result = spectraShadow(varargin[0])
+                # Copy all attributes from result
+                self.A = result.A
+                self.c = result.c
+                self.G = result.G
+                self.ESumRep = result.ESumRep
+                self.emptySet = result.emptySet
+                self.fullDim = result.fullDim
+                self.bounded = result.bounded
+                self.center = result.center
+                super().__init__()
+                self.precedence = result.precedence
+                return
 
         # 2. parse input arguments: varargin -> vars
         A, c, G, ESumRep = _aux_parseInputArgs(*varargin)
@@ -133,9 +158,48 @@ class SpectraShadow(ContSet):
         A, c, G, ESumRep = _aux_computeProperties(A, c, G, ESumRep, len(varargin))
 
         # 5. assign properties
-        self.A = A if sparse.issparse(A) else sparse.csr_matrix(A)
-        self.c = c if sparse.issparse(c) else sparse.csr_matrix(c)
-        self.G = G if sparse.issparse(G) else sparse.csr_matrix(G)
+        # Ensure arrays are 2D before converting to sparse matrices
+        # Ensure A is a numpy array (should be after _aux_parseInputArgs, but check to be safe)
+        if isinstance(A, list):
+            if all(isinstance(x, np.ndarray) for x in A):
+                A = np.hstack(A) if len(A) > 0 else np.array([0])
+            else:
+                A = np.array(A) if len(A) > 0 else np.array([0])
+        
+        if not sparse.issparse(A):
+            if A.ndim == 0:
+                A = np.array([[A.item()]])
+            elif A.ndim == 1:
+                A = A.reshape(1, -1)
+            elif A.ndim > 2:
+                raise ValueError(f"Cannot convert {A.ndim}D array to sparse matrix. A must be 2D.")
+            self.A = sparse.csr_matrix(A)
+        else:
+            self.A = A
+            
+        if not sparse.issparse(c):
+            # Ensure c is a column vector (2D)
+            if c.ndim == 0:
+                c = np.array([[c.item()]])
+            elif c.ndim == 1:
+                c = c.reshape(-1, 1)
+            elif c.ndim > 2:
+                raise ValueError(f"Cannot convert {c.ndim}D array to sparse matrix. c must be 2D.")
+            self.c = sparse.csr_matrix(c)
+        else:
+            self.c = c
+            
+        if not sparse.issparse(G):
+            if G.ndim == 0:
+                G = np.array([[G.item()]])
+            elif G.ndim == 1:
+                G = G.reshape(1, -1)
+            elif G.ndim > 2:
+                raise ValueError(f"Cannot convert {G.ndim}D array to sparse matrix. G must be 2D.")
+            self.G = sparse.csr_matrix(G)
+        else:
+            self.G = G
+            
         self.ESumRep.val = ESumRep
 
         # 6. set precedence (fixed) and initialize parent
@@ -156,20 +220,54 @@ class SpectraShadow(ContSet):
 def _aux_parseInputArgs(*varargin) -> Tuple[Union[np.ndarray, List], np.ndarray, np.ndarray, Optional[List]]:
     """Parse input arguments from user and assign to variables"""
     
-    # Set default values
-    defaults = setDefaultValues([0, [], []], list(varargin))
-    A, c, G = defaults
-    
-    # Identify if initialization is made via just A or the existential sum
-    # representation
-    if len(varargin) == 1 and isinstance(A, list):
-        ESumRep = A
-        A = 0
+    # Check if first argument is a list BEFORE setDefaultValues to avoid flattening
+    # In MATLAB: if nargin == 1 && iscell(A)
+    # ESumRep is a cell array with exactly 2 elements (matrices)
+    if len(varargin) == 1 and isinstance(varargin[0], list):
+        A_raw = varargin[0]
+        # Check if it's ESumRep: exactly 2 elements, both are 2D numpy arrays
+        if (len(A_raw) == 2 and 
+            isinstance(A_raw[0], np.ndarray) and isinstance(A_raw[1], np.ndarray) and
+            A_raw[0].ndim == 2 and A_raw[1].ndim == 2):
+            # This is ESumRep case
+            ESumRep = A_raw
+            A = 0
+            c = []
+            G = []
+        elif len(A_raw) == 1:
+            # List with 1 element - this is an incorrect ESumRep structure
+            # In MATLAB, a cell array with 1 element is treated as incorrect ESumRep
+            # We'll set ESumRep to trigger the error check in _aux_checkInputArgs
+            ESumRep = A_raw
+            A = 0
+            c = []
+            G = []
+        else:
+            # This is a list of matrices for A - concatenate them (matches MATLAB behavior)
+            # In MATLAB, [A0, A1, A2] horizontally concatenates
+            if all(isinstance(x, np.ndarray) for x in A_raw):
+                A = np.hstack(A_raw) if len(A_raw) > 0 else np.array([0])
+            else:
+                # Convert list to numpy array (shouldn't happen in normal usage, but handle it)
+                A = np.array(A_raw) if len(A_raw) > 0 else np.array([0])
+            ESumRep = None
+            c = []
+            G = []
     else:
+        # Set default values (normal case)
+        defaults = setDefaultValues([0, [], []], list(varargin))
+        A, c, G = defaults
         ESumRep = None
 
     # Convert to numpy arrays where appropriate
-    if not isinstance(A, list) and not sparse.issparse(A):
+    # Ensure A is always a numpy array (not a list)
+    if isinstance(A, list):
+        # If A is still a list, try to concatenate if all elements are arrays
+        if all(isinstance(x, np.ndarray) for x in A):
+            A = np.hstack(A) if len(A) > 0 else np.array([0])
+        else:
+            A = np.array(A) if len(A) > 0 else np.array([0])
+    elif not sparse.issparse(A):
         A = np.array(A) if A is not None else np.array([0])
     c = np.array(c) if c is not None else np.array([])
     G = np.array(G) if G is not None else np.array([])
@@ -196,7 +294,12 @@ def _aux_checkInputArgs(A: Union[np.ndarray, List], c: np.ndarray, G: np.ndarray
                     raise CORAerror('CORA:wrongInputInConstructor',
                                   'The cell array for ESumRep is not a (2,1) or (1,2) array.')
 
-                if not isinstance(ESumRep[0], np.ndarray) or not isinstance(ESumRep[1], np.ndarray):
+                # Check if elements are numpy arrays (matrices)
+                # In MATLAB: ismatrix(ESumRep{1}) checks if it's a 2D array
+                if not isinstance(ESumRep[0], np.ndarray) or ESumRep[0].ndim != 2:
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'One of the entries of ESumRep is not a matrix.')
+                if not isinstance(ESumRep[1], np.ndarray) or ESumRep[1].ndim != 2:
                     raise CORAerror('CORA:wrongInputInConstructor',
                                   'One of the entries of ESumRep is not a matrix.')
 
@@ -205,24 +308,116 @@ def _aux_checkInputArgs(A: Union[np.ndarray, List], c: np.ndarray, G: np.ndarray
                     raise CORAerror('CORA:wrongInputInConstructor',
                                   'The dimensions of the two matrices in ESumRep do not match.')
 
+        # For all other cases (n_in > 0 and not ESumRep case), check dimensions
+        if n_in > 0 and not (n_in == 1 and ESumRep is not None):
+            from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
+            
+            # Checking types (matches MATLAB lines 289-293)
+            inputArgsCheck([
+                (A, 'att', 'numeric', ['nonnan', 'nonempty']),
+                (c, 'att', 'numeric', 'nonnan'),
+                (G, 'att', 'numeric', 'nonnan')
+            ])
+            
+            # Check that A is a matrix
+            if not isinstance(A, np.ndarray) or A.ndim != 2:
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Coefficient matrix A is not a matrix.')
+            # Check that G is a matrix
+            if G.size > 0 and (not isinstance(G, np.ndarray) or G.ndim != 2):
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Generator matrix G is not a matrix.')
+            # Check that c is a vector
+            if c.size > 0 and not (c.ndim == 1 or (c.ndim == 2 and (c.shape[0] == 1 or c.shape[1] == 1))):
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Center vector c is not a vector.')
+            
+            # Check that A is not empty
+            if A.size == 0:
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'The matrix A is empty. If you are trying to create an empty or a fullspace spectrahedral shadow, please consider calling spectraShadow.empty or spectraShadow.Inf instead.')
+            
+            # Check special case: empty c and G with square A
+            if c.size == 0 and G.size == 0 and A.shape[0] == A.shape[1]:
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Both the generator matrix G and the center vector c are empty, while the coefficient matrix A is only a k x k-matrix. It is thus impossible to deduce in which space the spectrahedron lives in (i.e., for which n there holds that S is in R^n).')
+            
+            # Check that c and G are consistent
+            if c.size == 0 and G.size > 0:
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'c is empty, but G is not. This is not consistent.')
+            
+            # Deduce dimensions and check consistency
+            # For n_in == 2, G will be computed in _aux_computeProperties, so we check dimensions there
+            # For n_in == 3, we check dimensions here
+            if n_in == 3 and c.size > 0 and G.size > 0:
+                k = A.shape[0]
+                m = A.shape[1] // k - 1
+                n = c.shape[0] if c.ndim == 1 else (c.shape[0] if c.shape[1] == 1 else c.shape[1])
+                
+                # Check that m is an integer
+                if (m % 1 != 0) and (m != 0):
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'The coefficient matrix A does not have the right dimension (should be k x k*(m+1)).')
+                
+                # Check dimensions
+                if G.shape[0] != n:
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'Dimension mismatch between the center vector c and the generator matrix G.')
+                if G.shape[1] != m:
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'Dimension mismatch between the coefficient matrix A and the generator matrix G.')
+            elif n_in == 2 and c.size > 0:
+                # For n_in == 2, compute G first (matches MATLAB line 283)
+                # Then check dimensions
+                n = c.shape[0] if c.ndim == 1 else (c.shape[0] if c.shape[1] == 1 else c.shape[1])
+                G = np.eye(n)  # Compute G for dimension checking
+                
+                k = A.shape[0]
+                m = A.shape[1] // k - 1
+                
+                # Check that m is an integer
+                if (m % 1 != 0) and (m != 0):
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'The coefficient matrix A does not have the right dimension (should be k x k*(m+1)).')
+                
+                # Check dimensions (matches MATLAB lines 342-348)
+                if G.shape[0] != n:
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'Dimension mismatch between the center vector c and the generator matrix G.')
+                if G.shape[1] != m:
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'Dimension mismatch between the coefficient matrix A and the generator matrix G.')
+
 
 def _aux_computeProperties(A: Union[np.ndarray, List], c: np.ndarray, G: np.ndarray, ESumRep: Optional[List], n_in: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[List]]:
     """Compute properties and hidden properties"""
     
-    # Handle ESumRep case
     if n_in == 1 and ESumRep is not None:
-        # For now, set default values for A, c, G when using ESumRep
-        # Full implementation would compute these from ESumRep
-        A = np.array([[1]])
-        c = np.array([0])
-        G = np.array([[1]])
-    else:
-        # Ensure proper array formats
-        if isinstance(A, (int, float)):
-            A = np.array([[A]])
-        if c.size == 0:
-            c = np.array([0])
-        if G.size == 0:
-            G = np.array([[1]])
+        # If only ESumRep is given, we automatically compute A, G, and c
+        A = np.hstack([ESumRep[0], ESumRep[1]])
+        
+        k = A.shape[0]
+        m1 = ESumRep[0].shape[1] // k - 1
+        m2 = ESumRep[1].shape[1] // k
+        
+        # G = [speye(m1) sparse(m1,m2)]
+        G = np.hstack([np.eye(m1), np.zeros((m1, m2))])
+        c = np.zeros((m1, 1))
+    elif n_in == 1 and ESumRep is None:
+        # If A is given, we set G and c; we don't set ESumRep, as this
+        # would require further computation
+        k = A.shape[0]
+        m = A.shape[1] // k - 1
+        G = np.eye(m)
+        c = np.zeros((m, 1))
+        ESumRep = [[], []]  # Empty list representation
+    elif n_in == 2:
+        # If all but G are set, automatically set G to be the identity
+        G = np.eye(c.shape[0])
+        ESumRep = [[], []]  # Empty list representation
+    elif n_in == 3:
+        # If everything is set (except ESumRep), just initialize ESumRep
+        ESumRep = [[], []]  # Empty list representation
 
     return A, c, G, ESumRep 

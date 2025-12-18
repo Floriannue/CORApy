@@ -74,20 +74,25 @@ def supportFunc_(Z: Zonotope,
     G = Z.G
     
     # project zonotope onto the direction
-    c_ = float(direction.T @ c)  # Convert to scalar
+    c_dot = direction.T @ c
+    c_ = c_dot.item() if hasattr(c_dot, 'item') else float(c_dot)  # Extract scalar value
     G_ = direction.T @ G
     
     # upper or lower bound
     if type_ == 'lower':
-        val = c_ - float(np.sum(np.abs(G_)))  # Convert to scalar
+        G_sum = np.sum(np.abs(G_))
+        val = c_ - (G_sum.item() if hasattr(G_sum, 'item') else float(G_sum))  # Extract scalar value
         fac = -np.sign(G_).T
         
     elif type_ == 'upper':
-        val = c_ + float(np.sum(np.abs(G_)))  # Convert to scalar
+        G_sum = np.sum(np.abs(G_))
+        val = c_ + (G_sum.item() if hasattr(G_sum, 'item') else float(G_sum))  # Extract scalar value
         fac = np.sign(G_).T
         
     elif type_ == 'range':
-        val = Interval(c_ - float(np.sum(np.abs(G_))), c_ + float(np.sum(np.abs(G_))))  # Convert to scalar
+        G_sum = np.sum(np.abs(G_))
+        G_sum_val = G_sum.item() if hasattr(G_sum, 'item') else float(G_sum)  # Extract scalar value
+        val = Interval(c_ - G_sum_val, c_ + G_sum_val)
         fac = np.column_stack([-np.sign(G_).T, np.sign(G_).T])
         
     else:

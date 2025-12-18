@@ -27,6 +27,7 @@ from .interval import interval
 from .supportFunc_ import supportFunc_
 from .splitLongestGen import splitLongestGen
 from .splitDepFactor import splitDepFactor
+from .zonotope import zonotope
 
 # Attach methods to the PolyZonotope class
 # dim and isemptyobject are required by ContSet
@@ -42,6 +43,7 @@ PolyZonotope.randPoint_ = randPoint_
 PolyZonotope.supportFunc_ = supportFunc_
 PolyZonotope.splitLongestGen = splitLongestGen
 PolyZonotope.splitDepFactor = splitDepFactor
+PolyZonotope.zonotope = zonotope
 
 # Attach static methods
 PolyZonotope.empty = staticmethod(empty)
@@ -61,4 +63,5 @@ __all__ = [
     'supportFunc_',
     'splitLongestGen',
     'splitDepFactor',
+    'zonotope',
 ] 

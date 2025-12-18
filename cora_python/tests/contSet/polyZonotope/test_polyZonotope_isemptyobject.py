@@ -76,9 +76,9 @@ class TestPolyZonotopeIsEmptyObject:
         # Empty polyZonotope should be consistent
         pZ_empty = PolyZonotope.empty(3)
         assert pZ_empty.isemptyobject()
-        assert pZ_empty.representsa_('emptySet')
+        assert pZ_empty.representsa_('emptySet', tol=1e-10)
         
         # Non-empty polyZonotope should be consistent
         pZ_origin = PolyZonotope.origin(3)
         assert not pZ_origin.isemptyobject()
-        assert not pZ_origin.representsa_('emptySet') 
+        assert not pZ_origin.representsa_('emptySet', tol=1e-10) 

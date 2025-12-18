@@ -114,6 +114,39 @@ class PolyZonotope(ContSet):
             self.precedence = 70
             return
 
+        # Handle Interval object input (direct conversion)
+        if len(varargin) == 1:
+            from cora_python.contSet.interval.interval import Interval
+            if isinstance(varargin[0], Interval):
+                # MATLAB: polyZonotope(I) converts directly using center and radius
+                # c = center(I), G = diag(rad(I)), E = eye(length(c)), GI = []
+                I = varargin[0]
+                c = I.center()
+                r = I.rad()
+                n = I.dim()
+                # Ensure c and r are column vectors
+                if c.ndim == 1:
+                    c = c.reshape(-1, 1)
+                if r.ndim == 1:
+                    r = r.reshape(-1, 1)
+                # G = diag(rad(I)) as matrix
+                G = np.diag(r.flatten())
+                # E = eye(length(c))
+                E = np.eye(n)
+                # GI = [] (empty)
+                GI = np.array([]).reshape(n, 0)
+                # id = [] (empty)
+                id = np.array([]).reshape(0, 1)
+                # Assign properties directly
+                self.c = c
+                self.G = G
+                self.GI = GI
+                self.E = E
+                self.id = id
+                super().__init__()
+                self.precedence = 70
+                return
+
         # 2. parse input arguments: varargin -> vars
         c, G, GI, E, id = _aux_parseInputArgs(*varargin)
 
@@ -121,9 +154,7 @@ class PolyZonotope(ContSet):
         _aux_checkInputArgs(c, G, GI, E, id, len(varargin))
 
         # 4. compute properties
-        print(f"DEBUG: PolyZonotope constructor - Before _aux_computeProperties: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}, E shape: {E.shape}")
         c, G, GI, E, id = _aux_computeProperties(c, G, GI, E, id)
-        print(f"DEBUG: PolyZonotope constructor - After _aux_computeProperties: c shape: {c.shape}, G shape: {G.shape}, GI shape: {GI.shape}, E shape: {E.shape}")
 
         # 5. assign properties
         self.c = c

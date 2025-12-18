@@ -1,65 +1,87 @@
 """
-test_spectraShadow - unit test function for SpectraShadow constructor
+test_spectraShadow - unit test function of spectraShadow (constructor)
 
-Tests the spectral shadow constructor functionality.
+Syntax:
+    res = test_spectraShadow
 
-Authors:       Niklas Kochdumper (MATLAB)
-               Python translation by AI Assistant
-Written:       02-August-2023
+Inputs:
+    -
+
+Outputs:
+    res - true/false
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: -
+
+Authors:       Adrian Kulmburg
+Written:       ---
 Last update:   ---
 Last revision: ---
+Python translation: 2025
 """
 
 import pytest
 import numpy as np
 from cora_python.contSet.spectraShadow.spectraShadow import SpectraShadow
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 
 class TestSpectraShadow:
-    """Test class for SpectraShadow constructor"""
-
-    def test_constructor_basic(self):
-        """Test basic constructor"""
-        # Create a simple SpectraShadow
-        spec = SpectraShadow.generateRandom(Dimension=2)
+    """Test class for spectraShadow constructor"""
+    
+    def test_constructor_syntaxes(self):
+        """Test different constructor syntaxes"""
+        # 2 dimensional box with radius 3 around point [-1;2]:
+        A0 = np.eye(3)
+        A1 = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]])
+        A2 = np.array([[0, 0, 1], [0, 0, 0], [1, 0, 0]])
         
-        # Should create a valid SpectraShadow object
-        assert isinstance(spec, SpectraShadow)
-        assert spec.dim() == 2
-
-    def test_constructor_validation(self):
-        """Test constructor input validation"""
-        # Valid construction through generateRandom
-        spec = SpectraShadow.generateRandom(Dimension=3)
-        assert isinstance(spec, SpectraShadow)
-        assert spec.dim() == 3
-
-    def test_constructor_properties(self):
-        """Test constructor sets proper properties"""
-        spec = SpectraShadow.generateRandom(Dimension=4)
+        # Only A-matrix
+        S = SpectraShadow([A0, A1, A2])
         
-        # Check basic properties
-        assert spec.dim() > 0
-        assert not spec.isemptyobject()
-
-    def test_constructor_various_dimensions(self):
-        """Test constructor with various dimensions"""
-        for n in [1, 2, 5, 10]:
-            spec = SpectraShadow.generateRandom(Dimension=n)
-            assert isinstance(spec, SpectraShadow)
-            assert spec.dim() == n
-
-    def test_constructor_large_dimension(self):
-        """Test constructor with large dimension"""
-        n = 50
-        spec = SpectraShadow.generateRandom(Dimension=n)
-        assert isinstance(spec, SpectraShadow)
-        assert spec.dim() == n
-
-    def test_constructor_consistency(self):
-        """Test that constructor produces consistent objects"""
-        for _ in range(5):
-            spec = SpectraShadow.generateRandom(Dimension=3)
-            assert isinstance(spec, SpectraShadow)
-            assert spec.dim() == 3
-            assert not spec.isemptyobject() 
+        # Only A and c
+        S = SpectraShadow([A0, A1, A2], np.array([[-1], [2]]))
+        
+        # A, c, and G
+        S = SpectraShadow([A0, A1, A2], np.array([[-1], [2]]), 3 * np.eye(2))
+        
+        # Initialization through ESumRep (cell array with 2 elements in MATLAB)
+        # In MATLAB, [A0,A1,A2] horizontally concatenates into a single matrix
+        S = SpectraShadow([np.hstack([A0, A1, A2]), np.eye(3)])
+    
+    def test_wrong_initializations(self):
+        """Test wrong initializations"""
+        # Wrong initializations
+        A = np.array([[1, 0, -1]])
+        A_nonSymmetric = A.T
+        ESumRep_ = [A]  # List (cell array in MATLAB) with 1 element - should fail
+        c = np.array([[0], [1]])
+        c_ = np.array([[3], [2], [3], [2]])
+        G_ = np.eye(3)
+        
+        # Dimension mismatch
+        with pytest.raises(CORAerror) as exc_info:
+            SpectraShadow(A, c_)
+        assert exc_info.value.identifier == 'CORA:wrongInputInConstructor'
+        
+        with pytest.raises(CORAerror) as exc_info:
+            SpectraShadow(A, c, G_)
+        assert exc_info.value.identifier == 'CORA:wrongInputInConstructor'
+        
+        # Incorrect ESumRep structure
+        with pytest.raises(CORAerror) as exc_info:
+            SpectraShadow(ESumRep_)
+        assert exc_info.value.identifier == 'CORA:wrongInputInConstructor'
+        
+        # Empty argument
+        with pytest.raises(CORAerror) as exc_info:
+            SpectraShadow(np.array([]).reshape(0, 0), c)
+        assert exc_info.value.identifier == 'CORA:wrongValue'
+        
+        # Too many arguments
+        with pytest.raises(CORAerror) as exc_info:
+            SpectraShadow(np.array([]).reshape(0, 0), A, c, G_, c, c)
+        assert exc_info.value.identifier == 'CORA:numInputArgsConstructor' 

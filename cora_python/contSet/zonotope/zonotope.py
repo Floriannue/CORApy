@@ -51,9 +51,15 @@ class Zonotope(ContSet):
     where c ∈ R^n is the center and g^(i) ∈ R^n are the generators.
     
     Properties:
-        c: center vector (numpy array)
-        G: generator matrix (numpy array)
+        c: center vector as column vector (n, 1) where n is dimension
+        G: generator matrix (n, p) where n is dimension, p is number of generators
         precedence: precedence for set operations (110)
+    
+    Unified representation convention:
+        All zonotope operations assume and maintain:
+        - c: column vector shape (n, 1)
+        - G: matrix shape (n, p)
+        This matches MATLAB's representation and ensures consistency across operations.
     """
     
     def __init__(self, *args):
@@ -79,6 +85,10 @@ class Zonotope(ContSet):
         if len(args) == 0:
             raise CORAerror('CORA:noInputInSetConstructor',
                           'No input arguments provided to zonotope constructor')
+        
+        # Validate number of input arguments (MATLAB: assertNarginConstructor(1:2,nargin))
+        from cora_python.g.functions.matlab.validate.check.assertNarginConstructor import assertNarginConstructor
+        assertNarginConstructor([1, 2], len(args))
         
         # Copy constructor
         if len(args) == 1 and isinstance(args[0], Zonotope):
@@ -127,9 +137,7 @@ class Zonotope(ContSet):
                     G = Z[:, 1:]
         elif len(args) == 2:
             c, G = args
-        else:
-            # This case should ideally be caught earlier, but as a safeguard:
-            raise CORAerror('CORA:wrongInputInConstructor', 'Invalid number of arguments for zonotope.')
+        # Note: More than 2 arguments should be caught by assertNarginConstructor
 
         return np.asarray(c), np.asarray(G)
     
@@ -142,13 +150,21 @@ class Zonotope(ContSet):
         if not isinstance(G, np.ndarray):
             G = np.asarray(G)
         
-        # Check for NaN values
-        if c.size > 0 and np.any(np.isnan(c)):
-            raise CORAerror('CORA:wrongInputInConstructor',
-                          'Center contains NaN values')
-        if G.size > 0 and np.any(np.isnan(G)):
-            raise CORAerror('CORA:wrongInputInConstructor',
-                          'Generator matrix contains NaN values')
+        # Check for NaN values - use inputArgsCheck to match MATLAB behavior
+        # MATLAB uses inputArgsCheck with 'nonnan' attribute which raises CORA:wrongValue
+        from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
+        if n_in == 1:
+            # For single argument, check combined [c, G] (after parsing, c and G are already split)
+            Z_combined = np.column_stack([c, G]) if c.size > 0 and G.size > 0 else (c if c.size > 0 else G)
+            if Z_combined.size > 0:
+                inputArgsCheck([[Z_combined, 'att', 'numeric', 'nonnan']])
+        elif n_in == 2:
+            # For two arguments, check separately
+            # MATLAB: inputArgsCheck({ {c, 'att', {'numeric','gpuArray'}, 'nonnan'}; {G, 'att', {'numeric','gpuArray'}, 'nonnan'}; })
+            if c.size > 0:
+                inputArgsCheck([[c, 'att', 'numeric', 'nonnan']])
+            if G.size > 0:
+                inputArgsCheck([[G, 'att', 'numeric', 'nonnan']])
         
         if n_in == 2:
             # Check dimensions
@@ -165,34 +181,41 @@ class Zonotope(ContSet):
                                   'Dimension mismatch between center and generator matrix')
     
     def _compute_properties(self, c, G):
-        """Compute and fix properties to ensure correct dimensions"""
+        """
+        Compute and fix properties to ensure correct dimensions
         
-        # Handle empty zonotope case (both c and G are empty but have correct dimensions)
-        if c.size == 0 and G.size == 0:
-            # Both are empty, but we need to preserve the dimension information
-            # This happens when we create an empty zonotope with Zonotope.empty(n)
-            # The dimension is encoded in the shape of the empty arrays
-            if c.shape[0] > 0:
-                # c has the correct number of rows, keep it as is
-                pass
-            elif G.shape[0] > 0:
-                # G has the correct number of rows, set c to match
-                c = np.zeros((G.shape[0], 0))
-            else:
-                # Both are completely empty, this is an error
-                raise CORAerror('CORA:wrongInputInConstructor', 'Cannot create zonotope with zero dimension')
-        else:
-            # Ensure c is a column vector
+        Unified representation convention (matching MATLAB):
+        - c: center vector as column vector (n, 1) where n is dimension
+        - G: generator matrix (n, p) where n is dimension, p is number of generators
+        This ensures consistent representation across all zonotope operations.
+        """
+        # Match MATLAB: aux_computeProperties simply sets G = zeros(size(c,1),0) if G is empty
+        
+        # Ensure c is a column vector if it has data
+        # Unified representation: c is always (n, 1) column vector
+        if c.size > 0:
+            c = c.reshape(-1, 1)
+        
+        # If G is empty, set correct dimension based on c
+        # MATLAB: if isempty(G), G = zeros(size(c,1),0); end
+        if G.size == 0:
+            # Determine dimension from c
             if c.size > 0:
-                c = c.reshape(-1, 1)
+                # c has data, use its dimension
+                dim = c.shape[0]
+            elif len(c.shape) > 0 and c.shape[0] > 0:
+                # c is empty but has correct dimension (zeros(n,0))
+                dim = c.shape[0]
+            elif len(G.shape) > 0 and G.shape[0] > 0:
+                # G has dimension info, use it (shouldn't happen in practice)
+                dim = G.shape[0]
+                c = np.zeros((dim, 0))
+            else:
+                # Both are completely empty, error
+                raise CORAerror('CORA:wrongInputInConstructor', 'Cannot determine dimension for empty zonotope')
             
-            # If G is empty, set correct dimension
-            if G.size == 0 and c.size > 0:
-                G = np.zeros((len(c), 0))
-            elif G.size > 0:
-                # G should already be a 2D matrix where each column represents a generator
-                # No reshaping needed - this matches MATLAB behavior
-                pass
+            # Set G to match dimension
+            G = np.zeros((dim, 0))
         
         return c, G
     
@@ -291,39 +314,3 @@ class Zonotope(ContSet):
         
         # For other ufuncs, return NotImplemented to let numpy handle it
         return NotImplemented 
-
-    def contains_(self, S, method='exact', tol=1e-12, maxEval=200, certToggle=True, scalingToggle=True, *args, **kwargs):
-        """
-        Instance method for containment check, matching MATLAB usage.
-        Calls the module-level contains_ function.
-        """
-        from .contains_ import contains_ as zonotope_contains_
-        return zonotope_contains_(self, S, method, tol, maxEval, certToggle, scalingToggle, *args) 
-
-    def cubMap(self, *args):
-        """
-        Instance method for cubic multiplication (cubMap), matching MATLAB usage.
-        Calls the module-level cubMap function.
-        """
-        from .cubMap import cubMap as zonotope_cubMap
-        return zonotope_cubMap(self, *args)
-
-    def randPoint_(self, N=1, type_='standard'):
-        """
-        Instance method for random point generation, matching MATLAB usage.
-        Calls the module-level randPoint_ function.
-        """
-        from .randPoint_ import randPoint_ as zonotope_randPoint_
-        return zonotope_randPoint_(self, N, type_)
-
-    @staticmethod
-    def empty(dim):
-        """Return an empty zonotope of given dimension (no generators, center at 0)"""
-        c = np.zeros((dim, 1))
-        G = np.zeros((dim, 0))
-        return Zonotope(c, G) 
-
-    # Attach MATLAB-like isequal as a method
-    def isequal(self, S, tol=None):
-        from cora_python.contSet.zonotope.isequal import isequal as isequal_func
-        return isequal_func(self, S, tol) 

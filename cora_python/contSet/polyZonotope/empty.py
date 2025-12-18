@@ -41,22 +41,16 @@ def empty(n: int = 0) -> 'PolyZonotope':
     """
     
     from .polyZonotope import PolyZonotope
-    # Temporarily disable input validation for debugging
-    # from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
+    from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
     
     # parse input - match MATLAB behavior
-    # inputArgsCheck([[n, 'att', 'numeric', ['scalar', 'nonnegative']]])
+    inputArgsCheck([[n, 'att', 'numeric', ['scalar', 'nonnegative']]])
     
     # Create empty polyZonotope like MATLAB: polyZonotope(zeros(n,0))
+    # This creates a polyZonotope with empty center (n x 0 matrix)
     c = np.zeros((n, 0))
     
-    # Temporarily create directly to bypass validation
-    pZ = PolyZonotope.__new__(PolyZonotope)
-    pZ.c = c
-    pZ.G = np.zeros((n, 0))
-    pZ.GI = np.zeros((n, 0))
-    pZ.E = np.zeros((0, 0))
-    pZ.id = np.array([]).reshape(0, 1)
-    pZ.precedence = 70
+    # Use normal constructor - it will handle empty inputs correctly
+    pZ = PolyZonotope(c)
     
     return pZ 

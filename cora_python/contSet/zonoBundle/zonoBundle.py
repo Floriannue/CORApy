@@ -77,13 +77,30 @@ class ZonoBundle(ContSet):
 
         # 1. copy constructor
         if len(varargin) == 1 and isinstance(varargin[0], ZonoBundle):
-            # Direct assignment like MATLAB
+            # MATLAB: obj = varargin{1}; return (direct assignment)
+            # In Python, we copy the list (shallow copy - list of objects)
             other = varargin[0]
-            self.Z = other.Z
+            self.Z = list(other.Z) if isinstance(other.Z, list) else other.Z
             self.parallelSets = other.parallelSets
             super().__init__()
             self.precedence = 100
             return
+
+        # Handle Interval object input (convert via zonotope)
+        if len(varargin) == 1:
+            from cora_python.contSet.interval.interval import Interval
+            if isinstance(varargin[0], Interval):
+                # MATLAB: zonoBundle(I) -> zonoBundle({zonotope(I)})
+                from cora_python.contSet.interval.zonotope import zonotope
+                z = zonotope(varargin[0])
+                # Create list with single zonotope
+                Z = [z]
+                # Assign properties directly
+                self.Z = Z
+                self.parallelSets = len(Z)
+                super().__init__()
+                self.precedence = 100
+                return
 
         # 2. parse input arguments: varargin -> vars
         Z = _aux_parseInputArgs(*varargin)

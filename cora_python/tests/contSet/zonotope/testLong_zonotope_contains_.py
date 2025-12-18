@@ -29,68 +29,69 @@ class TestLongZonotopeContains:
         # Containment test with all methods
         res1, cert1, scaling1 = P1.contains_(Z1)
         res2, cert2, scaling2 = P2.contains_(Z1)
-        assert not np.all(res1), "P1 should not contain Z1"
-        assert np.all(res2), "P2 should contain Z1"
+        # res1 and res2 are already booleans for set-set containment, not arrays
+        assert not res1, "P1 should not contain Z1"
+        assert res2, "P2 should contain Z1"
         
         # exact
         res1, cert1, scaling1 = P1.contains_(Z1, 'exact')
         res2, cert2, scaling2 = P2.contains_(Z1, 'exact')
-        assert not np.all(res1), "P1 should not contain Z1 (exact)"
-        assert np.all(res2), "P2 should contain Z1 (exact)"
+        assert not res1, "P1 should not contain Z1 (exact)"
+        assert res2, "P2 should contain Z1 (exact)"
         
         # exact:venum
         res1, cert1, scaling1 = P1.contains_(Z1, 'exact:venum')
         res2, cert2, scaling2 = P2.contains_(Z1, 'exact:venum')
-        assert not np.all(res1), "P1 should not contain Z1 (exact:venum)"
-        assert np.all(res2), "P2 should contain Z1 (exact:venum)"
+        assert not res1, "P1 should not contain Z1 (exact:venum)"
+        assert res2, "P2 should contain Z1 (exact:venum)"
         
         # exact:polymax
         res1, cert1, scaling1 = P1.contains_(Z1, 'exact:polymax')
         res2, cert2, scaling2 = P2.contains_(Z1, 'exact:polymax')
-        assert not np.all(res1), "P1 should not contain Z1 (exact:polymax)"
-        assert np.all(res2), "P2 should contain Z1 (exact:polymax)"
+        assert not res1, "P1 should not contain Z1 (exact:polymax)"
+        assert res2, "P2 should contain Z1 (exact:polymax)"
         
         # opt
         res1, cert1, scaling1 = P1.contains_(Z1, 'opt', 0, 200)
         res2, cert2, scaling2 = P2.contains_(Z1, 'opt', 0, 200)
-        assert not np.all(res1), "P1 should not contain Z1 (opt)"
-        assert np.all(res2), "P2 should contain Z1 (opt)"
+        assert not res1, "P1 should not contain Z1 (opt)"
+        assert res2, "P2 should contain Z1 (opt)"
         
         # approx
         res1, cert1, scaling1 = P1.contains_(Z1, 'approx')
         res2, cert2, scaling2 = P2.contains_(Z1, 'approx')
-        assert not np.all(res1), "P1 should not contain Z1 (approx)"
-        assert np.all(res2), "P2 should contain Z1 (approx)"
+        assert not res1, "P1 should not contain Z1 (approx)"
+        assert res2, "P2 should contain Z1 (approx)"
         
         # approx:st
         res1, cert1, scaling1 = P1.contains_(Z1, 'approx:st')
         res2, cert2, scaling2 = P2.contains_(Z1, 'approx:st')
-        assert not np.all(res1), "P1 should not contain Z1 (approx:st)"
-        assert np.all(res2), "P2 should contain Z1 (approx:st)"
+        assert not res1, "P1 should not contain Z1 (approx:st)"
+        assert res2, "P2 should contain Z1 (approx:st)"
         
         # approx:stDual
         res1, cert1, scaling1 = P1.contains_(Z1, 'approx:stDual')
         res2, cert2, scaling2 = P2.contains_(Z1, 'approx:stDual')
-        assert not np.all(res1), "P1 should not contain Z1 (approx:stDual)"
-        assert np.all(res2), "P2 should contain Z1 (approx:stDual)"
+        assert not res1, "P1 should not contain Z1 (approx:stDual)"
+        assert res2, "P2 should contain Z1 (approx:stDual)"
         
         # sampling
         res1, cert1, scaling1 = P1.contains_(Z1, 'sampling', 0, 200)
         res2, cert2, scaling2 = P2.contains_(Z1, 'sampling', 0, 200)
-        assert not np.all(res1), "P1 should not contain Z1 (sampling)"
-        assert np.all(res2), "P2 should contain Z1 (sampling)"
+        assert not res1, "P1 should not contain Z1 (sampling)"
+        assert res2, "P2 should contain Z1 (sampling)"
         
         # sampling:primal
         res1, cert1, scaling1 = P1.contains_(Z1, 'sampling:primal', 0, 200)
         res2, cert2, scaling2 = P2.contains_(Z1, 'sampling:primal', 0, 200)
-        assert not np.all(res1), "P1 should not contain Z1 (sampling:primal)"
-        assert np.all(res2), "P2 should contain Z1 (sampling:primal)"
+        assert not res1, "P1 should not contain Z1 (sampling:primal)"
+        assert res2, "P2 should contain Z1 (sampling:primal)"
         
         # sampling:dual
         res1, cert1, scaling1 = P1.contains_(Z1, 'sampling:dual', 0, 200)
         res2, cert2, scaling2 = P2.contains_(Z1, 'sampling:dual', 0, 200)
-        assert not np.all(res1), "P1 should not contain Z1 (sampling:dual)"
-        assert np.all(res2), "P2 should contain Z1 (sampling:dual)"
+        assert not res1, "P1 should not contain Z1 (sampling:dual)"
+        assert res2, "P2 should contain Z1 (sampling:dual)"
     
     def test_zonotope_point_containment(self):
         """Test zonotope x point containment"""

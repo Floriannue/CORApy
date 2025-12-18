@@ -1,198 +1,129 @@
 """
-test_zonotope - unit test function for zonotope class
+test_zonotope - unit test function of zonotope (constructor)
 
-This module tests the zonotope class constructor and basic functionality.
+Syntax:
+    res = test_zonotope
 
-Authors:       Matthias Althoff, Mark Wetzlinger (MATLAB)
-               Python translation by AI Assistant
-Written:       26-July-2016 (MATLAB)
-               2025 (Tiange Yang, Florian Nüssel, Python translation by AI Assistant)
+Inputs:
+    -
+
+Outputs:
+    res - true/false
+
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
+
+See also: none
+
+Authors:       Mark Wetzlinger
+Written:       27-July-2021
+Last update:   ---
+Last revision: ---
+Python translation: 2025
 """
 
 import pytest
 import numpy as np
-from cora_python.contSet.zonotope import Zonotope
+from cora_python.contSet.zonotope.zonotope import Zonotope
+from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.g.functions.matlab.validate.check.compareMatrices import compareMatrices
 
 
 class TestZonotope:
-    """Test class for zonotope constructor and basic methods"""
+    """Test class for zonotope constructor"""
     
-    def test_constructor_center_generators(self):
-        """Test constructor with center and generator matrix"""
-        # 2D zonotope
-        c = np.array([[1], [2]])
-        G = np.array([[1, 0, 1], [0, 1, -1]])
+    def test_empty_zonotopes(self):
+        """Test empty zonotopes"""
+        # Empty zonotope using empty method
+        Z = Zonotope.empty(2)
+        assert Z.representsa_('emptySet')
+        assert Z.dim() == 2
+        
+        # Empty zonotope using zeros(3,0)
+        Z = Zonotope(np.zeros((3, 0)))
+        assert Z.representsa_('emptySet')
+        assert Z.c.shape[0] == 3
+        assert Z.G.shape[0] == 3
+        
+        # Empty zonotope using zeros(3,0), []
+        Z = Zonotope(np.zeros((3, 0)), np.array([]).reshape(0, 0))
+        assert Z.representsa_('emptySet')
+        assert Z.c.shape[0] == 3
+        assert Z.G.shape[0] == 3
+        
+        # Empty zonotope using zeros(3,0), zeros(3,0)
+        Z = Zonotope(np.zeros((3, 0)), np.zeros((3, 0)))
+        assert Z.representsa_('emptySet')
+        assert Z.c.shape[0] == 3
+        assert Z.G.shape[0] == 3
+    
+    def test_admissible_initializations(self):
+        """Test admissible initializations"""
+        # Random center, random generator matrix
+        c = np.array([[3], [3], [2]])
+        G = np.array([[2, -4, -6, 3, 5], [1, -7, 3, -5, 2], [0, 4, -7, 3, 2]])
+        Zmat = np.column_stack([c, G])
+        
+        # Center and generator matrix
         Z = Zonotope(c, G)
+        assert compareMatrices(Z.c, c)
+        assert compareMatrices(Z.G, G)
         
-        assert np.allclose(Z.c, c)
-        assert np.allclose(Z.G, G)
-        assert Z.dim() == 2
-    
-    def test_constructor_combined_matrix(self):
-        """Test constructor with combined matrix [c, G]"""
-        # Combined matrix
-        Z_mat = np.array([[1, 1, 0, 1], [2, 0, 1, -1]])
-        Z = Zonotope(Z_mat)
-        
-        expected_c = np.array([[1], [2]])
-        expected_G = np.array([[1, 0, 1], [0, 1, -1]])
-        
-        assert np.allclose(Z.c, expected_c)
-        assert np.allclose(Z.G, expected_G)
-        assert Z.dim() == 2
-    
-    def test_constructor_center_only(self):
-        """Test constructor with center only (no generators)"""
-        c = np.array([[1], [2]])
+        # Center only
         Z = Zonotope(c)
+        assert compareMatrices(Z.c, c)
+        assert Z.G.size == 0 and Z.G.shape[0] == 3
         
-        assert np.allclose(Z.c, c)
-        assert Z.G.shape == (2, 0)
-        assert Z.dim() == 2
+        # Combined matrix [c, G]
+        Z = Zonotope(Zmat)
+        assert compareMatrices(Z.c, Zmat[:, 0:1])
+        assert compareMatrices(Z.G, Zmat[:, 1:])
     
-    def test_constructor_copy(self):
-        """Test copy constructor"""
-        c = np.array([[1], [2]])
-        G = np.array([[1, 0], [0, 1]])
-        Z1 = Zonotope(c, G)
-        Z2 = Zonotope(Z1.c.copy(), Z1.G.copy())
+    def test_wrong_instantiations(self):
+        """Test wrong instantiations"""
+        c = np.array([[3], [3], [2]])
+        G = np.array([[2, -4, -6, 3, 5], [1, -7, 3, -5, 2], [0, 4, -7, 3, 2]])
         
-        assert np.allclose(Z2.c, Z1.c)
-        assert np.allclose(Z2.G, Z1.G)
-        assert Z2.dim() == Z1.dim()
+        # Center and generator matrix do not match
+        c_plus1 = np.array([[4], [6], [-2], [3]])
+        G_plus1 = np.array([[2, -4, -6, 3, 5], [1, -7, 3, -5, 2], [0, 4, -7, 3, 2], [2, 0, 5, -4, 2]])
+        np.random.seed(42)  # For reproducibility
+        randLogicals = np.random.randn(*G.shape) > 0
+        c_NaN = c.copy().astype(float)  # Convert to float to allow NaN
+        c_NaN[1] = np.nan
+        G_NaN = G.copy().astype(float)  # Convert to float to allow NaN
+        G_NaN[randLogicals] = np.nan
         
-        # Ensure it's a deep copy
-        Z2.c[0] = 999
-        assert Z1.c[0] != 999
-    
-    def test_empty_zonotope(self):
-        """Test empty zonotope creation"""
-        Z_empty = Zonotope.empty(2)
+        # Center and generator matrix do not match
+        with pytest.raises(CORAerror) as exc_info:
+            Zonotope(c_plus1, G)
+        assert exc_info.value.identifier == 'CORA:wrongInputInConstructor'
         
-        assert Z_empty.dim() == 2
-        assert Z_empty.isemptyobject()
-        assert Z_empty.representsa_('emptySet')
-    
-    def test_origin_zonotope(self):
-        """Test origin zonotope creation"""
-        Z_origin = Zonotope.origin(3)
+        with pytest.raises(CORAerror) as exc_info:
+            Zonotope(c, G_plus1)
+        assert exc_info.value.identifier == 'CORA:wrongInputInConstructor'
         
-        assert Z_origin.dim() == 3
-        assert not Z_origin.isemptyobject()
-        assert np.allclose(Z_origin.c, np.zeros((3, 1)))
-        assert Z_origin.G.shape == (3, 0)
-    
-    def test_dim_method(self):
-        """Test dimension method"""
-        # Non-empty zonotope
-        Z = Zonotope(np.array([[1], [2]]), np.array([[1, 0], [0, 1]]))
-        assert Z.dim() == 2
+        # Center is empty
+        with pytest.raises(CORAerror) as exc_info:
+            Zonotope(np.array([]).reshape(0, 0), G)
+        assert exc_info.value.identifier == 'CORA:wrongInputInConstructor'
         
-        # Empty zonotope
-        Z_empty = Zonotope.empty(3)
-        assert Z_empty.dim() == 3
-    
-    def test_isemptyobject_method(self):
-        """Test isemptyobject method"""
-        # Non-empty zonotope
-        Z = Zonotope(np.array([[1], [2]]), np.array([[1, 0], [0, 1]]))
-        assert not Z.isemptyobject()
+        # Center has NaN entry
+        with pytest.raises(CORAerror) as exc_info:
+            Zonotope(c_NaN, G)
+        assert exc_info.value.identifier == 'CORA:wrongValue'
         
-        # Empty zonotope
-        Z_empty = Zonotope.empty(2)
-        assert Z_empty.isemptyobject()
-    
-    def test_string_representation(self):
-        """Test string representation methods"""
-        Z = Zonotope(np.array([[1], [2]]), np.array([[1, 0], [0, 1]]))
-        str_repr = Z.display()
+        # Generator matrix has NaN entries
+        with pytest.raises(CORAerror) as exc_info:
+            Zonotope(c, G_NaN)
+        assert exc_info.value.identifier == 'CORA:wrongValue'
         
-        assert isinstance(str_repr, str)
-        
-        # Empty zonotope
-        Z_empty = Zonotope.empty(2)
-        str_repr_empty = Z_empty.display()
-        assert isinstance(str_repr_empty, str)
-    
-    def test_1d_zonotope(self):
-        """Test 1D zonotope"""
-        c = np.array([[5]])
-        G = np.array([[2, -1, 3]])
-        Z = Zonotope(c, G)
-        
-        assert Z.dim() == 1
-        assert np.allclose(Z.c, c)
-        assert np.allclose(Z.G, G)
-    
-    def test_high_dimensional_zonotope(self):
-        """Test high-dimensional zonotope"""
-        n = 10
-        c = np.random.randn(n, 1)
-        G = np.random.randn(n, 5)
-        Z = Zonotope(c, G)
-        
-        assert Z.dim() == n
-        assert np.allclose(Z.c, c)
-        assert np.allclose(Z.G, G)
-    
-    def test_center_method(self):
-        """Test center method"""
-        c = np.array([[1], [2], [3]])
-        G = np.array([[1, 0], [0, 1], [1, 1]])
-        Z = Zonotope(c, G)
-        
-        center = Z.center()
-        assert np.allclose(center, c)
-    
-    def test_plus_method(self):
-        """Test plus (addition) method"""
-        # Two zonotopes
-        Z1 = Zonotope(np.array([[1], [2]]), np.array([[1, 0], [0, 1]]))
-        Z2 = Zonotope(np.array([[2], [1]]), np.array([[0, 1], [1, 0]]))
-        
-        Z_sum = Z1.plus(Z2)
-        expected_c = np.array([[3], [3]])
-        expected_G = np.array([[1, 0, 0, 1], [0, 1, 1, 0]])
-        
-        assert np.allclose(Z_sum.c, expected_c)
-        assert np.allclose(Z_sum.G, expected_G)
-        
-        # Test with overloaded operator
-        Z_sum2 = Z1 + Z2
-        assert np.allclose(Z_sum2.c, Z_sum.c)
-        assert np.allclose(Z_sum2.G, Z_sum.G)
-    
-    def test_mtimes_method(self):
-        """Test mtimes (multiplication) method"""
-        Z = Zonotope(np.array([[1], [2]]), np.array([[1, 0], [0, 1]]))
-        
-        # Scalar multiplication
-        Z_scaled = Z.mtimes(2)
-        expected_c = np.array([[2], [4]])
-        expected_G = np.array([[2, 0], [0, 2]])
-        
-        assert np.allclose(Z_scaled.c, expected_c)
-        assert np.allclose(Z_scaled.G, expected_G)
-        
-        # Matrix multiplication (using @ operator for Python convention)
-        M = np.array([[1, 0], [0, -1], [1, 1]])
-        Z_transformed = M @ Z  # Use @ for matrix multiplication
-        
-        assert Z_transformed.dim() == 3
-        assert np.allclose(Z_transformed.c, M @ Z.c)
-        assert np.allclose(Z_transformed.G, M @ Z.G)
+        # Too many input arguments
+        with pytest.raises(CORAerror) as exc_info:
+            Zonotope(c, G, G)
+        assert exc_info.value.identifier == 'CORA:numInputArgsConstructor'
 
 
 if __name__ == "__main__":
-    test = TestZonotope()
-    test.test_constructor_center_generators()
-    test.test_constructor_combined_matrix()
-    test.test_constructor_center_only()
-    test.test_empty_zonotope()
-    test.test_origin_zonotope()
-    test.test_dim_method()
-    test.test_isemptyobject_method()
-    test.test_center_method()
-    test.test_plus_method()
-    test.test_mtimes_method()
-    print("All zonotope tests passed!") 
+    pytest.main([__file__, "-v"]) 

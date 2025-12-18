@@ -48,7 +48,7 @@ class TestPolyZonotopeOrigin:
         assert not pZ.isemptyobject()
         
         # Should represent origin
-        assert pZ.representsa_('origin')
+        assert pZ.representsa_('origin', tol=1e-10)
     
     def test_origin_wrong_calls(self):
         """Test wrong calls to origin method"""
@@ -77,9 +77,9 @@ class TestPolyZonotopeOrigin:
         # Minimum valid dimension
         pZ = PolyZonotope.origin(1)
         assert pZ.dim() == 1
-        assert pZ.representsa_('origin')
+        assert pZ.representsa_('origin', tol=1e-10)
         
         # Higher dimension
         pZ = PolyZonotope.origin(20)
         assert pZ.dim() == 20
-        assert pZ.representsa_('origin') 
+        assert pZ.representsa_('origin', tol=1e-10) 

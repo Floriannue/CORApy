@@ -112,7 +112,11 @@ def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
             elif attribute == 'real':
                 res = np.isreal(val).all()
             elif attribute == 'finite':
-                res = np.isfinite(val).all()
+                # Empty arrays are considered finite
+                if hasattr(val, 'size') and val.size == 0:
+                    res = True
+                else:
+                    res = np.isfinite(val).all()
             elif attribute == 'nonnan':
                 res = (not np.isnan(val).any()) if isinstance(val, np.ndarray) else (not np.isnan(val))
             elif attribute == 'nan':
