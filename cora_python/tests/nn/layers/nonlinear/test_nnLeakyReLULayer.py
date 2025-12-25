@@ -6,7 +6,6 @@ Tests for nnLeakyReLULayer class.
 import pytest
 import numpy as np
 import sys
-from tqdm import tqdm
 from cora_python.nn.layers.nonlinear.nnLeakyReLULayer import nnLeakyReLULayer
 
 
@@ -518,9 +517,7 @@ def test_nnLeakyReLULayer_evaluateZonotopeBatch_set_enclosure():
     cy, Gy = nn.evaluateZonotopeBatch(cx, Gx, options)
     
     # Check if all samples are contained
-    # Progress bar for batch processing - use file=sys.stderr to avoid pytest capture
-    for i in tqdm(range(bSz), desc="Processing batches", unit="batch", 
-                  file=sys.stderr, dynamic_ncols=True):
+    for i in range(bSz):
         # Instantiate i-th input and output zonotope from the batch
         # MATLAB: Xi = zonotope(cx(:,i),Gx(:,:,i));
         # MATLAB: Yi = zonotope(cy(:,i),Gy(:,:,i));

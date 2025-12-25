@@ -1,0 +1,17 @@
+name: corapy
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - matplotlib
+  - cvxpy
+  - cvxopt
+  - ecos
+  - shapely
+  - pytorch
+  - onnx
+  - onnxruntime
+  - pytest
+  - pytest-mock

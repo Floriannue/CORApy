@@ -282,7 +282,6 @@ def test_nnReshapeLayer_evaluateZonotopeBatch_set_enclosure():
     Note: ReshapeLayer preserves values but changes shape, so we test with a simple flatten reshape.
     """
     import sys
-    from tqdm import tqdm
     from cora_python.nn.neuralNetwork import NeuralNetwork
     from cora_python.contSet.zonotope.zonotope import Zonotope
     
@@ -326,9 +325,7 @@ def test_nnReshapeLayer_evaluateZonotopeBatch_set_enclosure():
     cy, Gy = nn.evaluateZonotopeBatch(cx, Gx, options)
     
     # Check if all samples are contained
-    # Progress bar for batch processing - use file=sys.stderr to avoid pytest capture
-    for i in tqdm(range(bSz), desc="Processing batches", unit="batch", 
-                  file=sys.stderr, dynamic_ncols=True):
+    for i in range(bSz):
         # Instantiate i-th input and output zonotope from the batch
         # MATLAB: Xi = zonotope(cx(:,i),Gx(:,:,i));
         # MATLAB: Yi = zonotope(cy(:,i),Gy(:,:,i));
@@ -361,9 +358,7 @@ def test_nnReshapeLayer_evaluateZonotopeBatch_set_enclosure():
         else:
             # Multiple points: check each point
             # MATLAB's contains can handle matrix of points
-            # Progress bar for sample checking - use file=sys.stderr to avoid pytest capture
-            for j in tqdm(range(ysi.shape[1]), desc=f"  Batch {i+1}/{bSz}: Checking samples", 
-                         unit="sample", leave=False, file=sys.stderr, dynamic_ncols=True):
+            for j in range(ysi.shape[1]):
                 point = ysi[:, j].reshape(-1, 1)
                 assert Yi.contains_(point), \
                     f"Sample {i}, point {j}: Point not contained in output zonotope. " \

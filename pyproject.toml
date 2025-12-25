@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "cora-python"
-version = "0.1.0"
+name = "CORA.py"
+version = "0.9.0"
 description = "Python translation of the CORA toolbox"
-authors = ["CORA-Group"]
+authors = ["Florian Nüssel"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -18,7 +18,6 @@ shapely = "^2.1.1"
 onnx = "^1.18.0"
 torch = "^2.4.0"
 onnxruntime = "^1.23.2"
-tqdm = "^4.67.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
