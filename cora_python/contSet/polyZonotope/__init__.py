@@ -28,6 +28,8 @@ from .supportFunc_ import supportFunc_
 from .splitLongestGen import splitLongestGen
 from .splitDepFactor import splitDepFactor
 from .zonotope import zonotope
+from .compact_ import compact_
+from .restructure import restructure
 
 # Attach methods to the PolyZonotope class
 # dim and isemptyobject are required by ContSet
@@ -44,6 +46,8 @@ PolyZonotope.supportFunc_ = supportFunc_
 PolyZonotope.splitLongestGen = splitLongestGen
 PolyZonotope.splitDepFactor = splitDepFactor
 PolyZonotope.zonotope = zonotope
+PolyZonotope.compact_ = compact_
+PolyZonotope.restructure = restructure
 
 # Attach static methods
 PolyZonotope.empty = staticmethod(empty)
@@ -64,4 +68,6 @@ __all__ = [
     'splitLongestGen',
     'splitDepFactor',
     'zonotope',
+    'compact_',
+    'restructure',
 ] 

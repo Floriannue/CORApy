@@ -81,11 +81,8 @@ def representsa_(pZ: 'PolyZonotope', set_type: str, tol: float, method: str = 'l
     S = None
     
     # Minimal representation
-    try:
-        pZ = pZ.compact_('all', np.finfo(float).eps)
-    except:
-        # If compact_ not available, continue with original
-        pass
+    # MATLAB: pZ = compact_(pZ,'all',eps)
+    pZ = pZ.compact_('all', np.finfo(float).eps)
     
     # Is polynomial zonotope a single point?
     # Check if both G and GI are empty OR effectively zero (within tolerance)
@@ -207,11 +204,11 @@ def representsa_(pZ: 'PolyZonotope', set_type: str, tol: float, method: str = 'l
         return _return_result(res, None)
         
     elif set_type == 'zonotope':
-        # A polyZonotope can always be represented as a zonotope (via enclosing zonotope)
-        # MATLAB checks aux_isZonotope for exact representation, but zonotope() method
-        # always computes an enclosing zonotope, so we can always return True
-        # However, MATLAB's logic uses: res = n == 1 || aux_isZonotope(pZ,tol)
-        # So we keep that check for consistency, but note that zonotope() can always be called
+        # MATLAB: res = n == 1 || aux_isZonotope(pZ,tol)
+        # However, the test expects True even when aux_isZonotope returns False
+        # Since zonotope() can always compute an enclosing zonotope, maybe we should
+        # always return True? But MATLAB code clearly checks aux_isZonotope
+        # Let's match MATLAB exactly: res = n == 1 || aux_isZonotope(pZ,tol)
         res = (n == 1 or _aux_isZonotope(pZ, tol))
         if res:
             try:
@@ -222,10 +219,7 @@ def representsa_(pZ: 'PolyZonotope', set_type: str, tol: float, method: str = 'l
                 # If zonotope conversion fails, still return True if aux_isZonotope passed
                 # since that means it's exactly representable
                 return _return_result(res, None)
-        # Even if aux_isZonotope returns False, we can still compute an enclosing zonotope
-        # But MATLAB's logic only returns True if n==1 or aux_isZonotope is True
-        # So we need to check if maybe the dimension check in _aux_isZonotope is wrong
-        # For now, keep MATLAB's logic but investigate the dimension check
+        # If res is False, return False (MATLAB behavior)
         return _return_result(res, None)
         
     elif set_type == 'hyperplane':
@@ -270,28 +264,37 @@ def _aux_isZonotope(pZ: 'PolyZonotope', tol: float) -> bool:
         return True
     
     # Remove redundant exponent vectors
-    try:
-        from cora_python.g.functions.helper.sets.contSet.polyZonotope.removeRedundantExponents import removeRedundantExponents
-        E, G = removeRedundantExponents(pZ.E, pZ.G)
-    except:
-        E, G = pZ.E, pZ.G
+    # MATLAB: [E,G] = removeRedundantExponents(pZ.E,pZ.G)
+    # Note: compact_ has already been called in representsa_, so E should already be compacted
+
+    from cora_python.g.functions.helper.sets.contSet.polyZonotope.removeRedundantExponents import removeRedundantExponents
+    E, G = removeRedundantExponents(pZ.E, pZ.G)
+
     
     # Check matrix dimensions
     # MATLAB: if size(E,1) ~= size(G,2)
     # This checks if number of rows of E equals number of columns of G
     # E is [p, N] and G is [nx, N], so size(E,1)=p and size(G,2)=N
-    # This check seems to verify that p == N, which would mean E is square
-    # But this doesn't make logical sense - maybe it's checking something else?
-    # For now, keep MATLAB's exact logic: E.shape[0] (rows) vs G.shape[1] (columns)
-    # However, the test case suggests this might be wrong, so we'll skip this check
-    # if it would incorrectly reject valid cases
-    # Actually, let's check E.shape[1] == G.shape[1] which makes more sense (both are N)
-    if E.shape[1] != G.shape[1]:
+    # This check verifies that p == N (number of factors equals number of generators)
+    # For E to be an identity matrix, we need p == N, so E is p x p
+    # After removing zero rows, E may become square (p == N)
+    if E.shape[0] != G.shape[1]:
         return False
     
     # Sort exponent matrix rows (descending)
+    # MATLAB: E = sortrows(E,'descend')
+    # This sorts rows by first column (descending), then second, etc.
     if E.size > 0:
-        E = E[np.lexsort(-E.T)]
+        # For descending order, we need to sort by columns in reverse order
+        # lexsort sorts by last key first, so we reverse the column order
+        if E.shape[1] == 1:
+            # For a single column, just sort by that column in descending order
+            E = E[np.argsort(-E.flatten())]
+        else:
+            # For multiple columns, sort by first column (descending), then second, etc.
+            # lexsort sorts by last key first, so we reverse the column order
+            sort_keys = [-E[:, i] for i in range(E.shape[1]-1, -1, -1)]
+            E = E[np.lexsort(sort_keys)]
     
     # Check if exponent matrix is the identity matrix
     if E.size > 0:
