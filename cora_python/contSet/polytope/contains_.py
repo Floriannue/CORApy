@@ -41,8 +41,6 @@ from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import COR
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 from scipy.spatial import ConvexHull # For aux_contains_Vpoly_pointcloud
 from cora_python.contSet.polytope.private.priv_equality_to_inequality import priv_equality_to_inequality
-from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
-from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
 from cora_python.contSet.contSet.supportFunc_ import supportFunc_
 
 from typing import TYPE_CHECKING, Tuple, Union
@@ -52,8 +50,9 @@ if TYPE_CHECKING:
     from cora_python.contSet.contSet import ContSet
     from cora_python.contSet.zonotope.zonotope import Zonotope # For aux_exactParser
 
-# Placeholder for priv_compact_alignedEq - this will need to be properly imported or implemented
-# Placeholder for priv_normalizeConstraints - this will need to be properly imported or implemented
+# Note: MATLAB does NOT normalize or compact P (outer polytope) before containment checks
+# (see contains_.m line 91: %P = compact(P); is commented out)
+# MATLAB only compacts S (inner set) on line 133: S = compact(S);
 
 
 def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exact', 
@@ -119,19 +118,18 @@ def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exa
             raise CORAerror('CORA:wrongDimension', f'Dimension of point cloud ({S.shape[0]}) must match polytope dimension ({P.dim()}).')
         # Always use H-representation for point clouds (MATLAB uses inequalities/equalities)
         P.constraints()
-        # Normalize/compact for numerical robustness
-        from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
-        from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
-        A = P.A; b = P.b.reshape(-1, 1); Ae = P.Ae; be = P.be.reshape(-1, 1)
-        A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
-        A, b, Ae, be, _, _ = priv_compact_all(A, b, Ae, be, P.dim(), tol)
-        P_H = P
-        P_H._A, P_H._b, P_H._Ae, P_H._be = A, b, Ae, be
-        res, cert, scaling = _aux_contains_Hpoly_pointcloud(P_H, S, tol, scalingToggle)
+        # MATLAB: aux_contains_Hpoly_pointcloud uses P.A_.val and P.b_.val directly
+        # MATLAB does NOT normalize or compact before checking
+        res, cert, scaling = _aux_contains_Hpoly_pointcloud(P, S, tol, scalingToggle)
 
         return res, cert, scaling
 
-    # Now we know that S is a ContSet
+    # Now we know that S is a ContSet; again, the simpler this set is, the
+    # better the next few algorithms might run
+    # MATLAB: S = compact(S); (line 133)
+    if hasattr(S, 'compact_'):
+        S = S.compact_()
+    
     # First, deal with trivial cases (already handled emptySet/fullspace above)
     # Try to determine if S represents a single point
     # Safely unpack, or get default None if not a tuple
@@ -155,15 +153,19 @@ def contains_(P: 'Polytope', S: Union[np.ndarray, 'ContSet'], method: str = 'exa
             except Exception:
                 point_val = None
         if point_val is not None:
-            # For point-vs-H-poly check, do direct inequality/equality test with tol
+            # MATLAB: contains_(P, p, 'exact', tol, maxEval, certToggle, scalingToggle)
+            # calls contains_ recursively with the point as numeric array
+            # This goes to the numeric S branch (line 113), which calls aux_contains_Hpoly_pointcloud
+            # aux_contains_Hpoly_pointcloud uses P.A_.val and P.b_.val directly (no normalize/compact)
+            # So we should match that behavior here
             if not P.isHRep:
                 P.constraints()
-            # Normalize/compact for numerical robustness
-            A = P.A; b = P.b.reshape(-1, 1); Ae = P.Ae; be = P.be.reshape(-1, 1)
-            from cora_python.contSet.polytope.private.priv_normalizeConstraints import priv_normalizeConstraints
-            from cora_python.contSet.polytope.private.priv_compact_all import priv_compact_all
-            A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
-            A, b, Ae, be, _, _ = priv_compact_all(A, b, Ae, be, P.dim(), tol)
+            # MATLAB does NOT normalize or compact before point containment check
+            # Use P.A, P.b, P.Ae, P.be directly
+            A = P.A
+            b = P.b.reshape(-1, 1)
+            Ae = P.Ae
+            be = P.be.reshape(-1, 1)
             v = point_val.reshape(-1, 1)
             ok = True
             if A.size > 0:
@@ -306,14 +308,13 @@ def _aux_contains_Hpoly_pointcloud(P: 'Polytope', V: np.ndarray, tol: float, sca
     if not P.isHRep:
         P.constraints() # Convert to H-representation
 
-    # Normalize and compact constraints like MATLAB before checking
-    A = P.A; b = P.b.reshape(-1, 1)
-    Ae = P.Ae; be = P.be.reshape(-1, 1)
-    A, b, Ae, be = priv_normalizeConstraints(A, b, Ae, be, 'A')
-    A, b, Ae, be, _, _ = priv_compact_all(A, b, Ae, be, P.dim(), tol)
-    # Flatten b/be for vectorized math below
-    b = b.reshape(-1, 1)
-    be = be.reshape(-1, 1)
+    # MATLAB: aux_contains_Hpoly_pointcloud uses P.A_.val and P.b_.val directly
+    # MATLAB does NOT normalize or compact before checking
+    # Use P.A, P.b, P.Ae, P.be directly
+    A = P.A
+    b = P.b.reshape(-1, 1)
+    Ae = P.Ae
+    be = P.be.reshape(-1, 1)
 
     num_points = V.shape[1]
     res = np.full(num_points, True, dtype=bool)
@@ -489,13 +490,9 @@ def _aux_contains_P_Hpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle
     # Generic method: check support function value along each normal vector of
     # equality and inequality constraints
     # Get combined A, b from P.A, P.b, P.Ae, P.be
+    # MATLAB: [A,b] = priv_equalityToInequality(P.A_.val,P.b_.val,P.Ae_.val,P.be_.val);
+    # MATLAB does NOT normalize or compact before containment check
     combined_A, combined_b = priv_equality_to_inequality(P_shifted.A, P_shifted.b, P_shifted.Ae, P_shifted.be)
-    # Normalize and compact like MATLAB pre-steps
-    n_dim = P_shifted.dim()
-    A_n, b_n, Ae_n, be_n = priv_normalizeConstraints(combined_A, combined_b.reshape(-1, 1), np.zeros((0, n_dim)), np.zeros((0, 1)), 'A')
-    A_n, b_n, Ae_n, be_n, _, _ = priv_compact_all(A_n, b_n, Ae_n, be_n, n_dim, tol)
-    combined_A = A_n
-    combined_b = b_n.reshape(-1, 1)
     
     scaling = 0.0
     res = True
@@ -507,20 +504,46 @@ def _aux_contains_P_Hpoly(P: 'Polytope', S: 'ContSet', tol: float, scalingToggle
         
         # Compute support function of S along the normal vector
         # The MATLAB code uses 'upper' for supportFunc_. We assume the same here.
-        # supportFunc_ returns (val, x, fac) - we only need val
-        b_set_sup_val, _, _ = supportFunc_(S_shifted, normal_vector, 'upper')
+        # supportFunc_ returns (val, x) or (val, x, fac) depending on the set type
+        # We only need the first return value (val)
+        support_result = supportFunc_(S_shifted, normal_vector, 'upper')
+        if isinstance(support_result, tuple):
+            b_set_sup_val = support_result[0]
+        else:
+            b_set_sup_val = support_result
     
         # Check for containment condition: sup(S, l) <= sup(P, l)
         # MATLAB: if b_ > b(i) && ~withinTol(b(i), b_, tol)
         # This means: if support function > polytope bound AND not within tolerance, then not contained
         if b_set_sup_val > b_polytope and not withinTol(b_polytope, b_set_sup_val, tol):
             res = False
-            scaling_current = b_set_sup_val / b_polytope # Ratio of support functions
-            if scaling_current > scaling:
-                scaling = scaling_current
-            # Early exit for no certification
-            if not certToggle:
-                return res, True, scaling
+            if not scalingToggle:
+                # MATLAB: If scaling does not have to be computed, we can stop here
+                # to speed up the procedure
+                return res, True, np.inf
+            else:
+                # Otherwise, we need to extract the scaling
+                # MATLAB: scaling_part = b_/b(i)
+                # Handle division by zero: if b_polytope is zero or very small, use a small epsilon
+                if abs(b_polytope) < tol:
+                    # If b_polytope is effectively zero, scaling is inf (unbounded direction)
+                    scaling_current = np.inf
+                else:
+                    scaling_current = b_set_sup_val / b_polytope # Ratio of support functions
+                # A couple of things can happen here because of degeneracy:
+                # If scaling_current = inf this means the inbody is unbounded, but
+                # all is good and scaling has been correctly computed.
+                # On the other hand, if scaling_current is NaN, we can set it to
+                # zero, as it means the inbody and circumbody are both
+                # degenerate in that direction.
+                if np.isnan(scaling_current):
+                    scaling_current = 0.0
+                # MATLAB: scaling = max([scaling scaling_part])
+                if scaling_current > scaling:
+                    scaling = scaling_current
+                # Early exit for no certification
+                if not certToggle:
+                    return res, True, scaling
     return res, True, scaling
 
 

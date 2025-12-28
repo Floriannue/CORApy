@@ -10,9 +10,7 @@ from .abs_op import abs_op
 from .and_ import and_
 from .box import box
 from .plus import plus
-from .minus import minus
-
-from .uminus import uminus
+# minus and uminus are inherited from contSet (no zonotope-specific implementation in MATLAB)
 from .isequal import isequal
 from .mtimes import mtimes
 from .dim import dim
@@ -80,12 +78,9 @@ Zonotope.box = box
 Zonotope.plus = plus
 Zonotope.__add__ = plus
 Zonotope.__radd__ = plus
-Zonotope.minus = minus
-Zonotope.__sub__ = minus
+# minus and uminus are inherited from ContSet (no zonotope-specific implementation in MATLAB)
 Zonotope.__mul__ = mtimes
 Zonotope.__rmul__ = lambda self, other: mtimes(other, self)
-Zonotope.uminus = uminus
-Zonotope.__neg__ = uminus
 Zonotope.__eq__ = isequal
 Zonotope.isequal = isequal
 Zonotope.__matmul__ = mtimes
@@ -152,4 +147,4 @@ Zonotope.filterOut = filterOut
 Zonotope.enclosePoints = staticmethod(enclosePoints)
 Zonotope.generateRandom = staticmethod(generateRandom)
 
-__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'minus', 'uminus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'reduceUnderApprox', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap', 'cubMap', 'constrSat', 'generateRandom', 'intersectStrip', 'lift_', 'minkDiff', 'or_', 'underapproximate', 'dH2box', 'dominantDirections', 'spectraShadow', 'taylm', 'volumeRatio', 'filterOut'] 
+__all__ = ['Zonotope', 'abs_op', 'and_', 'box', 'plus', 'isequal', 'mtimes', 'dim', 'empty', 'origin', 'isemptyobject', 'display', 'randPoint_', 'vertices_', 'project', 'center', 'representsa_', 'compact_', 'interval', 'contains_', 'norm_', 'zonotopeNorm', 'isBounded', 'copy', 'convHull_', 'enclose', 'reduce', 'reduceUnderApprox', 'minnorm', 'enclosePoints', 'boundaryPoint', 'supportFunc_', 'radius', 'rank', 'volume_', 'capsule', 'cartProd_', 'conZonotope', 'polytope', 'polyZonotope', 'zonoBundle', 'generators', 'isIntersecting_', 'isFullDim', 'generatorLength', 'getPrintSetInfo', 'ellipsoid', 'quadMap', 'cubMap', 'constrSat', 'generateRandom', 'intersectStrip', 'lift_', 'minkDiff', 'or_', 'underapproximate', 'dH2box', 'dominantDirections', 'spectraShadow', 'taylm', 'volumeRatio', 'filterOut'] 

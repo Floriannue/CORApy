@@ -19,8 +19,11 @@ def polytope(I):
     
     # Eliminate unbounded directions
     idx_inf = np.isinf(d).flatten()
-    C = C[~idx_inf, :]
-    d = d[~idx_inf]
+    if np.any(idx_inf):
+        C = C[~idx_inf, :]
+        d = d[~idx_inf]
+    # Ensure d is column vector (flatten first if needed)
+    d = d.flatten().reshape(-1, 1)
     
     # Construct polytope object
     return Polytope(C, d) 

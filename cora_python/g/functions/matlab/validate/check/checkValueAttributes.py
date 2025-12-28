@@ -118,9 +118,23 @@ def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
                 else:
                     res = np.isfinite(val).all()
             elif attribute == 'nonnan':
-                res = (not np.isnan(val).any()) if isinstance(val, np.ndarray) else (not np.isnan(val))
+                # Handle sparse matrices
+                from scipy import sparse
+                if sparse.issparse(val):
+                    res = not np.isnan(val.data).any() if val.data.size > 0 else True
+                elif isinstance(val, np.ndarray):
+                    res = (not np.isnan(val).any())
+                else:
+                    res = (not np.isnan(val))
             elif attribute == 'nan':
-                res = np.isnan(val).any() if isinstance(val, np.ndarray) else np.isnan(val)
+                # Handle sparse matrices
+                from scipy import sparse
+                if sparse.issparse(val):
+                    res = np.isnan(val.data).any() if val.data.size > 0 else False
+                elif isinstance(val, np.ndarray):
+                    res = np.isnan(val).any()
+                else:
+                    res = np.isnan(val)
             elif attribute == 'empty':
                 if val is None:
                     res = True
@@ -219,8 +233,12 @@ def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
     if not class_name:
         class_check_passed = True
     elif class_name == 'numeric':
+        # Check for sparse matrices (scipy.sparse)
+        from scipy import sparse
+        is_sparse_numeric = sparse.issparse(value) and np.issubdtype(value.dtype, np.number)
         class_check_passed = (isinstance(value, (int, float, np.number)) or 
                              (isinstance(value, np.ndarray) and np.issubdtype(value.dtype, np.number)) or
+                             is_sparse_numeric or
                              (isinstance(value, list) and all(isinstance(x, (int, float, np.number)) for x in value)))
     elif class_name == 'char' or class_name == 'string':
         class_check_passed = isinstance(value, str)

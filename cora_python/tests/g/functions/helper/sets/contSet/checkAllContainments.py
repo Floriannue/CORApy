@@ -162,6 +162,8 @@ def checkAllContainments(S, Sdeg, Sempty, implementedSets, setsNonExact,
     
     emptySets = [C_empty, I_empty, cPZ_empty, cZ_empty, E_empty, ls_empty,
                 P_empty, pZ_empty, SpS_empty, zB_empty, Z_empty]
+    # Filter out None values (sets that don't support empty instantiation)
+    emptySets = [s for s in emptySets if s is not None]
     
     # We can now perform all the actual containment checks
     

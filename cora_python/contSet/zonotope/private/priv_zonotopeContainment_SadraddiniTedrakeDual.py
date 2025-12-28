@@ -48,7 +48,9 @@ def priv_zonotopeContainment_SadraddiniTedrakeDual(Z1, Z2, tol, scalingToggle):
     b = np.zeros((2 * m_circum * m_inbody,))
     Aeq = summation
     beq = np.array([1.0])
-    cost = np.hstack([-G_inbody.flatten(), np.zeros(m_circum)])
+    # MATLAB: cost = [-G_inbody(:);sparse(m_circum,1)];
+    # MATLAB's G_inbody(:) flattens column-major, so use order='F' (Fortran order)
+    cost = np.hstack([-G_inbody.flatten(order='F'), np.zeros(m_circum)])
 
     # Linear program
     bounds = [(None, None)] * (n * m_inbody + m_circum)
@@ -61,7 +63,9 @@ def priv_zonotopeContainment_SadraddiniTedrakeDual(Z1, Z2, tol, scalingToggle):
             return res, cert, scaling
         X = result.x[:n * m_inbody]
         scaling = -result.fun
-        X_mat = X.reshape((n, m_inbody))
+        # MATLAB: X = reshape(X(1:n*m_inbody), [n m_inbody]);
+        # MATLAB reshape uses column-major, so use order='F' (Fortran order)
+        X_mat = X.reshape((n, m_inbody), order='F')
         res = scaling <= 1 + tol
         if res:
             cert = True

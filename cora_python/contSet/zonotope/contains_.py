@@ -182,7 +182,12 @@ def contains_(Z, S, method='exact', tol=1e-12, maxEval=200, certToggle=True, sca
                 raise ME
     # Buffer degenerate sets if not full-dimensional
     if hasattr(Z, 'isFullDim'):
-        is_full_dim = Z.isFullDim(tol)
+        is_full_dim_result = Z.isFullDim(tol)
+        # Handle tuple return (isFullDim, direction) or boolean
+        if isinstance(is_full_dim_result, tuple):
+            is_full_dim = is_full_dim_result[0]
+        else:
+            is_full_dim = is_full_dim_result
     else:
         is_full_dim = True
     if not is_full_dim:

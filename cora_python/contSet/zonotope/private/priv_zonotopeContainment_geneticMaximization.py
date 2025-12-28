@@ -32,9 +32,22 @@ def priv_zonotopeContainment_geneticMaximization(Z1, Z2, tol, maxEval, scalingTo
     m = G.shape[1]
     c1 = Z1.c if hasattr(Z1, 'c') else Z1.center()
     c2 = Z2.c if hasattr(Z2, 'c') else Z2.center()
+    # Ensure c1 and c2 are column vectors
+    c1 = np.asarray(c1).reshape(-1, 1) if c1.ndim == 1 else np.asarray(c1)
+    c2 = np.asarray(c2).reshape(-1, 1) if c2.ndim == 1 else np.asarray(c2)
     def norm_Z2_nu(nu):
-        nu = np.asarray(nu)
-        return -Z2.zonotopeNorm(G @ nu + c1 - c2) if hasattr(Z2, 'zonotopeNorm') else -np.linalg.norm(G @ nu + c1 - c2)
+        nu = np.asarray(nu).reshape(-1)  # Ensure nu is 1D
+        # Compute point: G @ nu gives (n,), then add column vectors
+        point = (G @ nu).reshape(-1, 1) + c1 - c2
+        # Ensure result is a column vector for zonotopeNorm
+        point = np.asarray(point).reshape(-1, 1)
+        if hasattr(Z2, 'zonotopeNorm'):
+            norm_result = Z2.zonotopeNorm(point)
+            # zonotopeNorm returns (val, minimizer), extract just the value
+            norm_val = norm_result[0] if isinstance(norm_result, tuple) else norm_result
+            return -norm_val
+        else:
+            return -np.linalg.norm(point)
     bounds = [(-1, 1)] * m
     # Callback for stopping after maxEval
     eval_count = {'count': 0}

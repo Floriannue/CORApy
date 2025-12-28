@@ -319,8 +319,11 @@ def _aux_checkInputArgs(A: Union[np.ndarray, List], c: np.ndarray, G: np.ndarray
                 (G, 'att', 'numeric', 'nonnan')
             ])
             
-            # Check that A is a matrix
-            if not isinstance(A, np.ndarray) or A.ndim != 2:
+            # Check that A is a matrix (dense or sparse)
+            from scipy import sparse
+            is_sparse_matrix = sparse.issparse(A) and A.ndim == 2
+            is_dense_matrix = isinstance(A, np.ndarray) and A.ndim == 2
+            if not (is_sparse_matrix or is_dense_matrix):
                 raise CORAerror('CORA:wrongInputInConstructor',
                               'Coefficient matrix A is not a matrix.')
             # Check that G is a matrix

@@ -66,7 +66,7 @@ class LevelSet(ContSet):
             self.solved = other.solved if hasattr(other, 'solved') else None
             self.funHan = other.funHan if hasattr(other, 'funHan') else None
             self.der = other.der if hasattr(other, 'der') else None
-            self.dim = other.dim if hasattr(other, 'dim') else 0
+            self._dim_val = other._dim_val if hasattr(other, '_dim_val') else (other.dim() if hasattr(other, 'dim') and callable(other.dim) else 0)
             self.solvable = other.solvable if hasattr(other, 'solvable') else False
             super().__init__()
             self.precedence = 20
@@ -89,7 +89,7 @@ class LevelSet(ContSet):
         self.solved = solved
         self.funHan = funHan
         self.der = der
-        self.dim = dim
+        self._dim_val = dim  # Store as private property, access via dim() method
         self.solvable = solvable
 
         # 6. set precedence (fixed) and initialize parent
@@ -98,8 +98,8 @@ class LevelSet(ContSet):
 
     def __repr__(self):
         """String representation"""
-        if hasattr(self, 'dim'):
-            return f"LevelSet(dim={self.dim}, compOp='{self.compOp}')"
+        if hasattr(self, '_dim_val'):
+            return f"LevelSet(dim={self._dim_val}, compOp='{self.compOp}')"
         else:
             return "LevelSet(empty)"
 

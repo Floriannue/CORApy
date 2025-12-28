@@ -19,8 +19,7 @@ def uminus(S: 'ContSet') -> 'ContSet':
     """
     Overloads the unary '-' operator
     
-    This function delegates to the object's uminus method if available,
-    otherwise implements as multiplication by -1.
+    Matches MATLAB exactly: S = -1 * S
     
     Args:
         S: contSet object to negate
@@ -32,12 +31,6 @@ def uminus(S: 'ContSet') -> 'ContSet':
         >>> S = zonotope([1, 0], [[1, 0], [0, 1]])
         >>> neg_S = uminus(S)  # or neg_S = -S
     """
-    # Check if subclass has overridden uminus method
-    base_class = type(S).__bases__[0] if type(S).__bases__ else None
-    if (hasattr(type(S), 'uminus') and 
-        base_class and hasattr(base_class, 'uminus') and
-        type(S).uminus is not base_class.uminus):
-        return type(S).uminus(S)
-    
-    # Fallback: implement as multiplication by -1
-    return S.times(-1) 
+    # MATLAB: S = -1 * S
+    # This uses the __mul__ operator which calls mtimes for zonotope
+    return -1 * S 

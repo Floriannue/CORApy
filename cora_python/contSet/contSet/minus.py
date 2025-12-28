@@ -42,7 +42,11 @@ def minus(S: Union['ContSet', np.ndarray], p: Union['ContSet', np.ndarray]) -> '
     
     elif isinstance(S, (np.ndarray, list, tuple)) or np.isscalar(S):
         # Minuend is a vector, subtrahend is a set
-        return S.plus(p.uminus())
+        # MATLAB: S = -p + S
+        # Convert S to numpy array for consistency
+        S_arr = np.array(S) if not isinstance(S, np.ndarray) else S
+        neg_p = p.uminus()
+        return neg_p.plus(S_arr)
     
     else:
         # Throw error for unsupported operations

@@ -25,8 +25,10 @@ def test_minus_h_rep():
     
     p_minus_v = p - v
     
-    # New b should be b_old + A @ v
-    b_expected = b + A @ v.reshape(-1, 1)
+    # New b should be b_old - A @ v
+    # For P - v: if Ax <= b, then A(x' + v) <= b where x' = x - v
+    # This gives Ax' <= b - Av, so b_new = b - Av
+    b_expected = b - A @ v.reshape(-1, 1)
 
     # Check the H-representation
     assert np.allclose(p_minus_v.A, A)
@@ -37,6 +39,29 @@ def test_minus_h_rep():
     
     # Original polytope should be unchanged
     assert np.allclose(p.b, b)
+
+def test_minus_matlab_exact():
+    """Test matching MATLAB test_polytope_minus.m exactly."""
+    # MATLAB: V = [3 2; 0 3; -3 0; -1 -2; 2 -2]';
+    # Note: MATLAB uses column vectors, so transpose
+    V = np.array([[3, 2], [0, 3], [-3, 0], [-1, -2], [2, -2]]).T
+    P = Polytope(V)
+    
+    # MATLAB: z = [2; 1];
+    z = np.array([2, 1])
+    
+    # MATLAB: P_minus = P - z;
+    P_minus = P - z
+    
+    # MATLAB: V_true = V - z;
+    V_true = V - z.reshape(-1, 1)  # Broadcast subtraction
+    
+    # MATLAB: P_true = polytope(V_true);
+    P_true = Polytope(V_true)
+    
+    # MATLAB: assert(P_true == P_minus);
+    # Use isequal to compare polytopes
+    assert P_true.isequal(P_minus), "P - z should equal polytope(V - z)"
 
 def test_minus_type_error():
     """Test that subtracting a non-vector raises a TypeError."""
