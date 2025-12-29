@@ -15,6 +15,10 @@ from .specification import Specification
 # Import stlInterval
 from .stlInterval import StlInterval
 
+# Import syntaxTree and backpropagation
+from .syntaxTree import syntaxTree, SyntaxTree
+from .backpropagation import backpropagation
+
 __all__ = [
-    'Specification', 'StlInterval'
+    'Specification', 'StlInterval', 'syntaxTree', 'SyntaxTree', 'backpropagation'
 ] 

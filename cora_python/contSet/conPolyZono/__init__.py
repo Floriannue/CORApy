@@ -8,6 +8,7 @@ from .conPolyZono import ConPolyZono
 from .dim import dim
 from .isemptyobject import isemptyobject
 from .empty import empty
+from .representsa_ import representsa_
 
 # Attach static methods to the class
 ConPolyZono.empty = staticmethod(empty)
@@ -16,5 +17,6 @@ ConPolyZono.empty = staticmethod(empty)
 
 ConPolyZono.dim = dim
 ConPolyZono.isemptyobject = isemptyobject
+ConPolyZono.representsa_ = representsa_
 
 __all__ = ['ConPolyZono'] 

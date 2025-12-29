@@ -54,10 +54,14 @@ def minus(minuend: Union[Interval, np.ndarray, float, int],
             res.sup = minuend.sup - subtrahend.inf
         else:
             # subtrahend is numeric
-            subtrahend = np.asarray(subtrahend)
+            # Convert to numpy array, handling scalar and array cases
+            if np.isscalar(subtrahend):
+                subtrahend_arr = np.array(subtrahend)
+            else:
+                subtrahend_arr = np.asarray(subtrahend)
             # Calculate infimum and supremum
-            res.inf = minuend.inf - subtrahend
-            res.sup = minuend.sup - subtrahend
+            res.inf = minuend.inf - subtrahend_arr
+            res.sup = minuend.sup - subtrahend_arr
     else:
         # minuend is numeric, subtrahend must be interval
         if not isinstance(subtrahend, Interval):
@@ -69,10 +73,25 @@ def minus(minuend: Union[Interval, np.ndarray, float, int],
         res.precedence = subtrahend.precedence
         
         # minuend must be a particular value
-        minuend = np.asarray(minuend)
+        # Convert to numpy array
+        # MATLAB: minuend is numeric, so convert to array
+        # Handle various numeric types safely
+        if isinstance(minuend, (int, float)):
+            minuend_arr = np.array(minuend, dtype=float)
+        elif isinstance(minuend, np.number):
+            minuend_arr = np.array(float(minuend), dtype=float)
+        elif np.isscalar(minuend):
+            minuend_arr = np.array(float(minuend), dtype=float)
+        else:
+            # Try to convert to float first, then to array
+            try:
+                minuend_arr = np.array(float(minuend), dtype=float)
+            except (ValueError, TypeError):
+                # Last resort: try asarray
+                minuend_arr = np.asarray(minuend, dtype=float)
         # Calculate infimum and supremum
         # For numeric - interval: c - [a,b] = [c-b, c-a]
-        res.inf = minuend - subtrahend.sup
-        res.sup = minuend - subtrahend.inf
+        res.inf = minuend_arr - subtrahend.sup
+        res.sup = minuend_arr - subtrahend.inf
     
     return res 

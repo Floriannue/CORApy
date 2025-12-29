@@ -736,6 +736,6 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-**Your current task** is to ensure readonnx, convertdlt, Translate_Cora\cora_python\nn\neuralNetwork\verify.py and verify_helpers.py are correctly translated and working like matlab (run tests). In case of error compare all dependencies and every methode involved against matlab and create python-matlab debug scripts (you can execute matlab code)
+**Your current task** is to translate ConPolyZono.representsa_ and its tests fully. In case of error, compare all dependencies and every methode involved against matlab and create python-matlab debug scripts (you can execute matlab code)
 
 

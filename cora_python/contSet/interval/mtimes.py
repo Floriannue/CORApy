@@ -55,26 +55,50 @@ def mtimes(factor1: Union[Interval, np.ndarray, float, int],
         hasattr(factor2, '__class__')):
         raise CORAerror('CORA:noops', f'Operation not supported between {type(factor1)} and {type(factor2)}')
     
-    # Convert inputs to intervals if needed
+    # Convert factor1 to interval if needed (factor1 must be interval in this function)
     if not isinstance(factor1, Interval):
         factor1 = _numeric_to_Interval(factor1)
-    if not isinstance(factor2, Interval):
-        factor2 = _numeric_to_Interval(factor2)
     
-    # Scalar case
-    if _is_scalar(factor1) and _is_scalar(factor2):
-        return _mtimes_scalar(factor1, factor2)
+    # Keep factor2 as-is if numeric (for optimization in _mtimes_nonsparse)
+    # Only convert to interval if needed for scalar cases
+    factor2_is_numeric = not isinstance(factor2, Interval)
     
-    if _is_scalar(factor1):  # factor2 is a matrix
-        return _mtimes_scalar_matrix(factor1, factor2)
+    # Scalar case - both must be intervals for scalar functions
+    if _is_scalar(factor1):
+        if factor2_is_numeric:
+            # Convert numeric to interval for processing
+            factor2 = _numeric_to_Interval(factor2)
+            factor2_is_numeric = False
+            if _is_scalar(factor2):
+                return _mtimes_scalar(factor1, factor2)
+            else:
+                # factor1 is scalar, factor2 is matrix
+                return _mtimes_scalar_matrix(factor1, factor2)
+        else:
+            if _is_scalar(factor1) and _is_scalar(factor2):
+                return _mtimes_scalar(factor1, factor2)
+            if _is_scalar(factor1):  # factor2 is a matrix
+                return _mtimes_scalar_matrix(factor1, factor2)
     
-    if _is_scalar(factor2):  # factor1 is a matrix
+    if not factor2_is_numeric and _is_scalar(factor2):  # factor1 is a matrix
         return _mtimes_matrix_scalar(factor1, factor2)
     
+    # Handle case where factor2 is numeric scalar and factor1 is matrix
+    if factor2_is_numeric:
+        factor2_scalar = factor2
+        if np.isscalar(factor2_scalar):
+            factor2 = _numeric_to_Interval(factor2_scalar)
+            factor2_is_numeric = False
+            return _mtimes_matrix_scalar(factor1, factor2)
+    
     # Matrix case
-    if not _is_sparse(factor1) and not _is_sparse(factor2):
+    # Pass numeric factor2 directly to _mtimes_nonsparse for optimization (matches MATLAB)
+    if not _is_sparse(factor1) and not (not factor2_is_numeric and _is_sparse(factor2)):
         return _mtimes_nonsparse(factor1, factor2)
     else:
+        # Convert factor2 to interval for sparse case
+        if factor2_is_numeric:
+            factor2 = _numeric_to_Interval(factor2)
         return _mtimes_sparse(factor1, factor2)
 
 
@@ -106,146 +130,280 @@ def _is_sparse(obj):
 
 
 def _mtimes_scalar(factor1: Interval, factor2: Interval) -> Interval:
-    """Multiply two scalar intervals"""
-    # Handle zero cases
-    if (_is_zero_Interval(factor1) or _is_zero_Interval(factor2)):
-        return Interval(np.array([0.0]))
+    """
+    Multiply two scalar intervals
+    Matches MATLAB's aux_mtimes_scalar implementation
+    """
+    # MATLAB: obtain possible values
+    # Check if factor1 or factor2 is numeric (converted to interval)
+    factor1_is_numeric = np.allclose(factor1.inf, factor1.sup)
+    factor2_is_numeric = np.allclose(factor2.inf, factor2.sup)
     
-    # Get possible values
-    possible_values = [
-        factor1.inf.item() * factor2.inf.item(),
-        factor1.inf.item() * factor2.sup.item(),
-        factor1.sup.item() * factor2.inf.item(),
-        factor1.sup.item() * factor2.sup.item()
-    ]
+    if factor1_is_numeric:
+        # MATLAB: if isnumeric(factor1)
+        # res = factor2;
+        res = factor2
+        factor1_val = factor1.inf.item()
+        if factor1_val == 0:
+            # MATLAB: as 0*[-inf,inf] = {0*x|-inf<x<inf}={0}
+            possible_values = [0]
+        else:
+            # MATLAB: possibleValues = [factor1*factor2.inf, factor1*factor2.sup];
+            possible_values = [factor1_val * factor2.inf.item(), factor1_val * factor2.sup.item()]
+    elif factor2_is_numeric:
+        # MATLAB: elseif isnumeric(factor2)
+        # res = factor1;
+        res = factor1
+        factor2_val = factor2.inf.item()
+        if factor2_val == 0:
+            # MATLAB: as 0*[-inf,inf] = {0*x|-inf<x<inf}={0}
+            possible_values = [0]
+        else:
+            # MATLAB: possibleValues = [factor1.inf*factor2, factor1.sup*factor2];
+            possible_values = [factor1.inf.item() * factor2_val, factor1.sup.item() * factor2_val]
+    else:
+        # MATLAB: else (both are intervals)
+        # res = factor1;
+        res = factor1
+        # MATLAB: possibleValues = [factor1.inf*factor2.inf, factor1.inf*factor2.sup, ...
+        #     factor1.sup*factor2.inf, factor1.sup*factor2.sup];
+        possible_values = [
+            factor1.inf.item() * factor2.inf.item(),
+            factor1.inf.item() * factor2.sup.item(),
+            factor1.sup.item() * factor2.inf.item(),
+            factor1.sup.item() * factor2.sup.item()
+        ]
     
-    # Infimum and supremum
-    inf_val = np.min(possible_values)
-    sup_val = np.max(possible_values)
+    # MATLAB: res.inf = min(possibleValues);
+    # MATLAB: res.sup = max(possibleValues);
+    res.inf = np.array([np.min(possible_values)])
+    res.sup = np.array([np.max(possible_values)])
     
-    return Interval(np.array([inf_val]), np.array([sup_val]))
+    return res
 
 
 def _mtimes_scalar_matrix(factor1: Interval, factor2: Interval) -> Interval:
-    """Multiply scalar interval with matrix interval"""
-    scalar_inf = factor1.inf.item()
-    scalar_sup = factor1.sup.item()
+    """
+    Multiply scalar interval with matrix interval
+    Matches MATLAB's aux_mtimes_scalar_matrix implementation
+    """
+    # MATLAB: obtain possible values
+    # Check if factor1 is numeric (converted to interval)
+    factor1_is_numeric = np.allclose(factor1.inf, factor1.sup)
     
-    if scalar_inf == 0 and scalar_sup == 0:
-        # 0 * anything = 0
-        return Interval(np.zeros_like(factor2.inf))
-    elif scalar_inf >= 0 and scalar_sup >= 0:
-        # Positive scalar interval
-        return Interval(scalar_inf * factor2.inf, scalar_sup * factor2.sup)
-    elif scalar_inf <= 0 and scalar_sup <= 0:
-        # Negative scalar interval - when multiplying by negative values, bounds swap
-        # scalar_inf * factor2.sup gives the minimum (most negative)
-        # scalar_sup * factor2.inf gives the maximum (least negative)
-        return Interval(scalar_inf * factor2.sup, scalar_sup * factor2.inf)
+    if factor1_is_numeric:
+        # MATLAB: if isnumeric(factor1)
+        factor1_val = factor1.inf.item()
+        if factor1_val < 0:
+            # MATLAB: infimum and supremum
+            # res = interval(factor1*factor2.sup, factor1*factor2.inf);
+            return Interval(factor1_val * factor2.sup, factor1_val * factor2.inf)
+        elif factor1_val > 0:
+            # MATLAB: infimum and supremum
+            # res = interval(factor1*factor2.inf, factor1*factor2.sup);
+            return Interval(factor1_val * factor2.inf, factor1_val * factor2.sup)
+        else:  # factor1_val == 0
+            # MATLAB: as 0*[-inf,inf] = {0*x|-inf<x<inf}={0}
+            # res = interval(zeros(size(factor2.inf)));
+            return Interval(np.zeros_like(factor2.inf))
     else:
-        # Scalar interval contains zero - need to consider all combinations
-        products = [
-            scalar_inf * factor2.inf,
-            scalar_inf * factor2.sup,
-            scalar_sup * factor2.inf,
-            scalar_sup * factor2.sup
-        ]
-        
-        # Stack all products and find min/max element-wise
-        all_products = np.stack(products, axis=-1)
-        inf_result = np.min(all_products, axis=-1)
-        sup_result = np.max(all_products, axis=-1)
-        
-        return Interval(inf_result, sup_result)
+        # MATLAB: else
+        # res = factor1.*factor2;
+        # Use element-wise multiplication
+        return factor1.times(factor2)
 
 
 def _mtimes_matrix_scalar(factor1: Interval, factor2: Interval) -> Interval:
-    """Multiply matrix interval with scalar interval"""
-    # Check if factor2 is effectively numeric (same inf and sup)
-    if np.allclose(factor2.inf, factor2.sup):
-        # factor2 is effectively a numeric scalar, use the scalar logic
-        scalar_val = factor2.inf.item()
-        if scalar_val < 0:
-            return Interval(scalar_val * factor1.sup, scalar_val * factor1.inf)
-        elif scalar_val > 0:
-            return Interval(scalar_val * factor1.inf, scalar_val * factor1.sup)
-        else:  # scalar_val == 0
+    """
+    Multiply matrix interval with scalar interval
+    Matches MATLAB's aux_mtimes_matrix_scalar implementation
+    """
+    # MATLAB: obtain possible values
+    # Check if factor2 is numeric (converted to interval)
+    factor2_is_numeric = np.allclose(factor2.inf, factor2.sup)
+    
+    if factor2_is_numeric:
+        # MATLAB: if isnumeric(factor2)
+        factor2_val = factor2.inf.item()
+        if factor2_val < 0:
+            # MATLAB: infimum and supremum
+            # res = interval(factor2*factor1.sup, factor2*factor1.inf);
+            return Interval(factor2_val * factor1.sup, factor2_val * factor1.inf)
+        elif factor2_val > 0:
+            # MATLAB: infimum and supremum
+            # res = interval(factor2*factor1.inf, factor2*factor1.sup);
+            return Interval(factor2_val * factor1.inf, factor2_val * factor1.sup)
+        else:  # factor2_val == 0
+            # MATLAB: as 0*[-inf,inf] = {0*x|-inf<x<inf}={0}
+            # res = interval(zeros(size(factor1.inf)));
             return Interval(np.zeros_like(factor1.inf))
     else:
-        # factor2 is a true interval, use element-wise multiplication
-        # This broadcasts the scalar interval across all elements of the matrix
-        return _element_wise_multiply(factor1, factor2)
+        # MATLAB: else
+        # res = factor1.*factor2;
+        # Use element-wise multiplication
+        return factor1.times(factor2)
 
 
-def _element_wise_multiply(factor1: Interval, factor2: Interval) -> Interval:
-    """Element-wise multiplication of intervals with broadcasting"""
-    # Get all possible products for each element
-    products = [
-        factor1.inf * factor2.inf,
-        factor1.inf * factor2.sup,
-        factor1.sup * factor2.inf,
-        factor1.sup * factor2.sup
-    ]
+def _mtimes_nonsparse(factor1: Interval, factor2: Union[Interval, np.ndarray]) -> Interval:
+    """
+    Matrix multiplication for non-sparse intervals
+    Matches MATLAB's aux_mtimes_nonsparse implementation
+    """
+    # MATLAB: compute fast algorithm
+    # [m, k] * [k, n] = [m, n]
+    # -> [m, k, 1] .* [1, k, n] = [m, k, n]
     
-    # Stack and find min/max element-wise
-    all_products = np.stack(products, axis=-1)
+    # MATLAB: [m, ~] = size(factor1);
+    # Get first dimension m and ensure 2D
+    if factor1.inf.ndim == 1:
+        m = 1
+        f1_inf = factor1.inf.reshape(1, -1)
+        f1_sup = factor1.sup.reshape(1, -1)
+        k1 = f1_inf.shape[1]
+    else:
+        m = factor1.inf.shape[0]
+        f1_inf = factor1.inf
+        f1_sup = factor1.sup
+        k1 = f1_inf.shape[1] if f1_inf.ndim >= 2 else 1
     
-    # Handle NaN cases (0 * inf = 0)
-    nan_mask = np.isnan(all_products)
-    all_products[nan_mask] = 0
+    # MATLAB handles numeric factor2 differently
+    if isinstance(factor2, np.ndarray) or (not isinstance(factor2, Interval) and not hasattr(factor2, 'inf')):
+        # MATLAB: if isnumeric(factor2)
+        # Convert numeric to interval for processing, but use it directly
+        factor2_numeric = factor2
+        # Convert scalar to array for consistent handling
+        if np.isscalar(factor2_numeric):
+            factor2_numeric = np.array(factor2_numeric)
+        elif not isinstance(factor2_numeric, np.ndarray):
+            factor2_numeric = np.asarray(factor2_numeric)
+        
+        if factor2_numeric.ndim == 0:
+            # Scalar case - should have been handled earlier, but handle it here too
+            factor2_numeric = factor2_numeric.reshape(1)
+        
+        if factor2_numeric.ndim == 1:
+            extSize = (1, factor2_numeric.shape[0])
+            k2 = factor2_numeric.shape[0]
+        else:
+            extSize = (1,) + factor2_numeric.shape
+            # For 2D arrays, k2 should be the second dimension (columns) for matrix multiplication
+            # If shape is (1, n), k2 = n (columns), not 1 (rows)
+            if factor2_numeric.shape[0] == 1 and factor2_numeric.ndim == 2:
+                # Row vector: (1, n) -> k2 = n
+                k2 = factor2_numeric.shape[1]
+            else:
+                # General case: k2 is the first dimension (rows) for compatibility check
+                k2 = factor2_numeric.shape[0]
+        
+        # Check dimension compatibility
+        if k1 != k2:
+            raise CORAerror('CORA:wrongInput', 
+                           f'Matrix dimensions incompatible: {factor1.inf.shape} * {factor2_numeric.shape}')
+        
+        # Reshape factor2
+        f2 = factor2_numeric.reshape(extSize)
+        
+        # Create factor1 with trailing dimension
+        if f1_inf.ndim == 1:
+            f1_inf_bc = f1_inf.reshape(1, -1, 1)
+            f1_sup_bc = f1_sup.reshape(1, -1, 1)
+        else:
+            f1_inf_bc = f1_inf[:, :, np.newaxis]
+            f1_sup_bc = f1_sup[:, :, np.newaxis]
+        
+        # MATLAB: res = factor1 .* factor2;
+        # Element-wise multiplication
+        res_inf = f1_inf_bc * f2
+        res_sup = f1_sup_bc * f2
+        
+        # Handle NaN cases
+        res_inf = np.where(np.isnan(res_inf), 0, res_inf)
+        res_sup = np.where(np.isnan(res_sup), 0, res_sup)
+        
+        # MATLAB: res.inf = sum(res.inf, 2); res.sup = sum(res.sup, 2);
+        # Sum along dimension 1 (which is axis 1 in 0-indexed): [m, k, n] -> [m, n]
+        # MATLAB's sum(..., 2) means sum along the 2nd dimension (1-indexed), which is axis 1 (0-indexed)
+        inf_result = np.sum(res_inf, axis=1)
+        sup_result = np.sum(res_sup, axis=1)
+        
+        # MATLAB: res = reshape(res, m, [])
+        # MATLAB directly uses the sums - no min/max needed here
+        # When factor1 was originally numeric (converted to interval), factor1.inf == factor1.sup
+        # So res_inf == res_sup, and inf_result == sup_result
+        # When factor1 is a true interval, we still use the sums directly
+        # The interval bounds come from the sum of inf and sum of sup separately
+        
+        # MATLAB: res = reshape(res, m, [])
+        if inf_result.ndim == 1:
+            inf_result = inf_result.reshape(1, -1)
+            sup_result = sup_result.reshape(1, -1)
+        else:
+            inf_result = inf_result.reshape(m, -1)
+            sup_result = sup_result.reshape(m, -1)
+        
+        return Interval(inf_result, sup_result)
     
-    inf_result = np.min(all_products, axis=-1)
-    sup_result = np.max(all_products, axis=-1)
-    
-    return Interval(inf_result, sup_result)
-
-
-def _mtimes_nonsparse(factor1: Interval, factor2: Interval) -> Interval:
-    """Matrix multiplication for non-sparse intervals"""
-    # Always perform matrix multiplication (not element-wise)
-    # The mtimes function in MATLAB always does matrix multiplication
-    f1_inf = factor1.inf
-    f1_sup = factor1.sup
-    f2_inf = factor2.inf
-    f2_sup = factor2.sup
-    
-    # Ensure 2D arrays for matrix multiplication
-    if f1_inf.ndim == 1:
-        f1_inf = f1_inf.reshape(1, -1)
-        f1_sup = f1_sup.reshape(1, -1)
-    if f2_inf.ndim == 1:
-        f2_inf = f2_inf.reshape(-1, 1)
-        f2_sup = f2_sup.reshape(-1, 1)
-    
-    # Check dimension compatibility
-    if f1_inf.shape[1] != f2_inf.shape[0]:
-        raise CORAerror('CORA:wrongInput', 
-                       f'Matrix dimensions incompatible: {f1_inf.shape} * {f2_inf.shape}')
-    
-    # Perform matrix multiplication for all combinations
-    products = [
-        np.dot(f1_inf, f2_inf),
-        np.dot(f1_inf, f2_sup),
-        np.dot(f1_sup, f2_inf),
-        np.dot(f1_sup, f2_sup)
-    ]
-    
-    # Stack and find min/max element-wise
-    all_products = np.stack(products, axis=-1)
-    
-    # Handle NaN cases (0 * inf = 0)
-    nan_mask = np.isnan(all_products)
-    all_products[nan_mask] = 0
-    
-    inf_result = np.min(all_products, axis=-1)
-    sup_result = np.max(all_products, axis=-1)
-    
-    # Reshape back to original dimensions if needed
-    if factor1.inf.ndim == 1 and factor2.inf.ndim == 1:
-        inf_result = inf_result.flatten()
-        sup_result = sup_result.flatten()
-    
-    return Interval(inf_result, sup_result)
+    else:
+        # MATLAB: else (factor2 is interval)
+        # MATLAB: extSize = [1, size(factor2)];
+        if factor2.inf.ndim == 1:
+            extSize = (1, factor2.inf.shape[0])
+            k2 = factor2.inf.shape[0]
+            n = 1
+        else:
+            extSize = (1,) + factor2.inf.shape
+            k2 = factor2.inf.shape[0]
+            n = factor2.inf.shape[1] if factor2.inf.ndim >= 2 else 1
+        
+        # Check dimension compatibility
+        if k1 != k2:
+            raise CORAerror('CORA:wrongInput', 
+                           f'Matrix dimensions incompatible: {factor1.inf.shape} * {factor2.inf.shape}')
+        
+        # MATLAB: factor2.inf = reshape(factor2.inf, extSize);
+        f2_inf = factor2.inf.reshape(extSize)
+        f2_sup = factor2.sup.reshape(extSize)
+        
+        # Create factor1 with trailing dimension
+        if f1_inf.ndim == 1:
+            f1_inf_bc = f1_inf.reshape(1, -1, 1)
+            f1_sup_bc = f1_sup.reshape(1, -1, 1)
+        else:
+            f1_inf_bc = f1_inf[:, :, np.newaxis]
+            f1_sup_bc = f1_sup[:, :, np.newaxis]
+        
+        # MATLAB: res = factor1 .* factor2;
+        # Element-wise multiplication: [m, k, 1] .* [1, k, n] = [m, k, n]
+        products = [
+            f1_inf_bc * f2_inf,
+            f1_inf_bc * f2_sup,
+            f1_sup_bc * f2_inf,
+            f1_sup_bc * f2_sup
+        ]
+        
+        # Stack and find min/max element-wise
+        all_products = np.stack(products, axis=-1)
+        
+        # Handle NaN cases
+        nan_mask = np.isnan(all_products)
+        all_products[nan_mask] = 0
+        
+        inf_result = np.min(all_products, axis=-1)
+        sup_result = np.max(all_products, axis=-1)
+        
+        # MATLAB: res.inf = sum(res.inf, 2); res.sup = sum(res.sup, 2);
+        inf_result = np.sum(inf_result, axis=1)
+        sup_result = np.sum(sup_result, axis=1)
+        
+        # MATLAB: res = reshape(res, m, [])
+        if inf_result.ndim == 1:
+            inf_result = inf_result.reshape(1, -1)
+            sup_result = sup_result.reshape(1, -1)
+        else:
+            inf_result = inf_result.reshape(m, -1)
+            sup_result = sup_result.reshape(m, -1)
+        
+        return Interval(inf_result, sup_result)
 
 
 def _mtimes_sparse(factor1: Interval, factor2: Interval) -> Interval:
