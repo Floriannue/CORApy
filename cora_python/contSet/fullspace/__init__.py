@@ -88,6 +88,7 @@ Fullspace.__add__ = plus
 Fullspace.__mul__ = mtimes
 Fullspace.__rmul__ = mtimes
 Fullspace.__matmul__ = mtimes
+Fullspace.__rmatmul__ = lambda self, other: mtimes(other, self)  # @ operator (reverse)
 
 # Attach static methods
 Fullspace.empty = staticmethod(empty)

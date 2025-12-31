@@ -398,11 +398,25 @@ class SyntaxTree:
                 return int_
             elif len(self.nodes) == 1:
                 # Unary operator
+                # #region agent log
+                import json
+                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"F","location":"syntaxTree.py:backpropagation:unary_op","message":"Unary operator backpropagation","data":{"operator":self.operator,"value_inf":value.inf.tolist() if hasattr(value.inf, 'tolist') else str(value.inf),"value_sup":value.sup.tolist() if hasattr(value.sup, 'tolist') else str(value.sup),"int_inf":int_.inf.tolist(),"int_sup":int_.sup.tolist()},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
                 # Tighten interval
                 val_ = self.funHan(value, self.nodes[0].value)
-                
+                # #region agent log
+                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                    val_inf = val_.inf.tolist() if hasattr(val_, 'inf') and hasattr(val_.inf, 'tolist') else str(val_)
+                    val_sup = val_.sup.tolist() if hasattr(val_, 'sup') and hasattr(val_.sup, 'tolist') else str(val_)
+                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"F","location":"syntaxTree.py:backpropagation:after_unary_funHan","message":"After unary funHan call","data":{"val_inf":val_inf,"val_sup":val_sup},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
                 # Backpropagation for the node
                 res = self.nodes[0].backpropagation(val_, int_)
+                # #region agent log
+                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"F","location":"syntaxTree.py:backpropagation:after_unary_recursive","message":"After unary recursive backpropagation","data":{"res_inf":res.inf.tolist(),"res_sup":res.sup.tolist()},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
                 return res
             else:
                 # Binary operator
@@ -413,17 +427,68 @@ class SyntaxTree:
                 if isinstance(self.nodes[0], SyntaxTree):
                     # MATLAB: if isa(obj.nodes{2},'syntaxTree')
                     if isinstance(self.nodes[1], SyntaxTree):
+                        # #region agent log
+                        import json
+                        with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                            log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"syntaxTree.py:backpropagation:binary_op","message":"Binary operator backpropagation","data":{"operator":self.operator,"has_funHan":self.funHan is not None,"value_inf":value.inf.tolist() if hasattr(value.inf, 'tolist') else str(value.inf),"value_sup":value.sup.tolist() if hasattr(value.sup, 'tolist') else str(value.sup),"int_inf":int_.inf.tolist(),"int_sup":int_.sup.tolist()},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                        # #endregion
                         # MATLAB: [val1_,val2_] = obj.funHan(value,obj.nodes{1}.value,obj.nodes{2}.value);
                         # Both are syntax trees
                         val1_, val2_ = self.funHan(value, self.nodes[0].value, self.nodes[1].value)
-                        
+                        # #region agent log
+                        with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                            log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"syntaxTree.py:backpropagation:after_funHan","message":"After funHan call","data":{"val1_inf":val1_.inf.tolist() if hasattr(val1_, 'inf') and hasattr(val1_.inf, 'tolist') else str(val1_),"val1_sup":val1_.sup.tolist() if hasattr(val1_, 'sup') and hasattr(val1_.sup, 'tolist') else str(val1_),"val2_inf":val2_.inf.tolist() if hasattr(val2_, 'inf') and hasattr(val2_.inf, 'tolist') else str(val2_),"val2_sup":val2_.sup.tolist() if hasattr(val2_, 'sup') and hasattr(val2_.sup, 'tolist') else str(val2_)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                        # #endregion
                         # MATLAB: res1 = backpropagation(obj.nodes{1},val1_,int);
                         # MATLAB: res2 = backpropagation(obj.nodes{2},val2_,int);
-                        res1 = self.nodes[0].backpropagation(val1_, int_)
-                        res2 = self.nodes[1].backpropagation(val2_, int_)
-                        
+                        # #region agent log
+                        with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                            node1_op = getattr(self.nodes[0], 'operator', None) if hasattr(self.nodes[0], 'operator') else None
+                            node2_op = getattr(self.nodes[1], 'operator', None) if hasattr(self.nodes[1], 'operator') else None
+                            log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"H","location":"syntaxTree.py:backpropagation:before_recursive","message":"Before recursive backpropagation","data":{"node1_op":node1_op,"node2_op":node2_op,"val1_inf":val1_.inf.tolist() if hasattr(val1_, 'inf') and hasattr(val1_.inf, 'tolist') else str(val1_),"val1_sup":val1_.sup.tolist() if hasattr(val1_, 'sup') and hasattr(val1_.sup, 'tolist') else str(val1_),"val2_inf":val2_.inf.tolist() if hasattr(val2_, 'inf') and hasattr(val2_.inf, 'tolist') else str(val2_),"val2_sup":val2_.sup.tolist() if hasattr(val2_, 'sup') and hasattr(val2_.sup, 'tolist') else str(val2_)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                        # #endregion
+                        # Check if val1_ or val2_ represent impossible constraints
+                        # (e.g., negative values for squares)
+                        # #region agent log
+                        with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                            node1_has_id = hasattr(self.nodes[0], 'id') and self.nodes[0].id is not None
+                            node2_has_id = hasattr(self.nodes[1], 'id') and self.nodes[1].id is not None
+                            log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"J","location":"syntaxTree.py:backpropagation:before_node1","message":"Before backpropagating to node1","data":{"node1_op":node1_op,"node1_has_id":node1_has_id,"node1_id":self.nodes[0].id if node1_has_id else None,"val1_inf":val1_.inf.tolist() if hasattr(val1_, 'inf') and hasattr(val1_.inf, 'tolist') else str(val1_),"val1_sup":val1_.sup.tolist() if hasattr(val1_, 'sup') and hasattr(val1_.sup, 'tolist') else str(val1_)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                        # #endregion
+                        try:
+                            res1 = self.nodes[0].backpropagation(val1_, int_)
+                        except CORAerror as e:
+                            if e.identifier == 'CORA:emptySet' or e.identifier == 'CORA:outOfDomain':
+                                # #region agent log
+                                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"J","location":"syntaxTree.py:backpropagation:node1_error","message":"Node1 raised error","data":{"error_id":e.identifier,"val1_inf":val1_.inf.tolist() if hasattr(val1_, 'inf') and hasattr(val1_.inf, 'tolist') else str(val1_),"val1_sup":val1_.sup.tolist() if hasattr(val1_, 'sup') and hasattr(val1_.sup, 'tolist') else str(val1_)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                                # #endregion
+                                raise e
+                            raise
+                        # #region agent log
+                        with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                            log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"J","location":"syntaxTree.py:backpropagation:before_node2","message":"Before backpropagating to node2","data":{"node2_op":node2_op,"node2_has_id":node2_has_id,"node2_id":self.nodes[1].id if node2_has_id else None,"val2_inf":val2_.inf.tolist() if hasattr(val2_, 'inf') and hasattr(val2_.inf, 'tolist') else str(val2_),"val2_sup":val2_.sup.tolist() if hasattr(val2_, 'sup') and hasattr(val2_.sup, 'tolist') else str(val2_)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                        # #endregion
+                        try:
+                            res2 = self.nodes[1].backpropagation(val2_, int_)
+                        except CORAerror as e:
+                            if e.identifier == 'CORA:emptySet' or e.identifier == 'CORA:outOfDomain':
+                                # #region agent log
+                                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"J","location":"syntaxTree.py:backpropagation:node2_error","message":"Node2 raised error","data":{"error_id":e.identifier,"val2_inf":val2_.inf.tolist() if hasattr(val2_, 'inf') and hasattr(val2_.inf, 'tolist') else str(val2_),"val2_sup":val2_.sup.tolist() if hasattr(val2_, 'sup') and hasattr(val2_.sup, 'tolist') else str(val2_)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                                # #endregion
+                                raise e
+                            raise
+                        # #region agent log
+                        with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                            log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"syntaxTree.py:backpropagation:after_recursive","message":"After recursive backpropagation","data":{"res1_inf":res1.inf.tolist(),"res1_sup":res1.sup.tolist(),"res2_inf":res2.inf.tolist(),"res2_sup":res2.sup.tolist()},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                        # #endregion
                         # MATLAB: res = res1 & res2;
                         res = res1 & res2
+                        # #region agent log
+                        with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                            log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"syntaxTree.py:backpropagation:after_intersection","message":"After intersection","data":{"res_inf":res.inf.tolist(),"res_sup":res.sup.tolist()},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                        # #endregion
                         return res
                     else:
                         # MATLAB: val_ = obj.funHan(value,obj.nodes{1}.value,obj.nodes{2});
@@ -566,6 +631,14 @@ def _aux_power_(int_val: 'Interval', exp: Union[int, float], intPrev: 'Interval'
     """Auxiliary function for power backpropagation"""
     from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
     
+    # #region agent log
+    import json
+    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+        int_val_inf = int_val.inf if np.isscalar(int_val.inf) else int_val.inf[0] if int_val.inf.size > 0 else 0
+        int_val_sup = int_val.sup if np.isscalar(int_val.sup) else int_val.sup[0] if int_val.sup.size > 0 else 0
+        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"I","location":"syntaxTree.py:_aux_power_:entry","message":"_aux_power_ called","data":{"exp":exp,"int_val_inf":int_val_inf,"int_val_sup":int_val_sup,"intPrev_inf":intPrev.inf.tolist() if hasattr(intPrev.inf, 'tolist') else str(intPrev.inf),"intPrev_sup":intPrev.sup.tolist() if hasattr(intPrev.sup, 'tolist') else str(intPrev.sup)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+    # #endregion
+    
     if exp == 0:
         return intPrev
     
@@ -578,10 +651,21 @@ def _aux_power_(int_val: 'Interval', exp: Union[int, float], intPrev: 'Interval'
         # Intersection with valid domain
         # Check if inf is less than 0 (handle array case)
         int_val_inf = int_val.inf if np.isscalar(int_val.inf) else int_val.inf[0] if int_val.inf.size > 0 else 0
+        int_val_sup = int_val.sup if np.isscalar(int_val.sup) else int_val.sup[0] if int_val.sup.size > 0 else 0
+        # #region agent log
+        with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+            log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"I","location":"syntaxTree.py:_aux_power_:even_check","message":"Even power check","data":{"int_val_inf":int_val_inf,"int_val_sup":int_val_sup,"int_val_sup_lt_0":bool(int_val_sup < 0)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
         if int_val_inf < 0:
-            if int_val.sup < 0:
-                raise CORAerror('CORA:outOfDomain', 'validDomain',
-                               'Interval has to contain 0.')
+            if int_val_sup < 0:
+                # All negative - impossible for even powers, raise emptySet
+                # MATLAB raises CORA:outOfDomain, but contractForwardBackward only catches CORA:emptySet
+                # So we raise CORA:emptySet to match expected behavior
+                # #region agent log
+                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"I","location":"syntaxTree.py:_aux_power_:raising_emptySet","message":"Raising CORA:emptySet for all negative interval","data":{"int_val_inf":int_val_inf,"int_val_sup":int_val_sup},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
+                raise CORAerror('CORA:emptySet')
             else:
                 int_val = Interval(0, int_val.sup)
         
@@ -607,6 +691,13 @@ def _aux_power_(int_val: 'Interval', exp: Union[int, float], intPrev: 'Interval'
     
     # Intersect with previous value
     res = intPrev & res
+    # Check if result is empty (MATLAB raises error if intersection is empty)
+    if res.representsa_('emptySet', np.finfo(float).eps):
+        # #region agent log
+        with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+            log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"I","location":"syntaxTree.py:_aux_power_:empty_result","message":"Empty result after intersection in _aux_power_","data":{"int_val_inf":int_val_inf if 'int_val_inf' in locals() else None,"int_val_sup":int_val_sup if 'int_val_sup' in locals() else None,"exp":exp},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
+        raise CORAerror('CORA:emptySet')
     return res
 
 
@@ -615,14 +706,50 @@ def _aux_plus_(int_val: 'Interval', intPrev1: Any, intPrev2: Any) -> tuple:
     Auxiliary function for plus backpropagation
     MATLAB: function [res1,res2] = aux_plus_(int,intPrev1,intPrev2)
     """
+    # #region agent log
+    import json
+    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+        intPrev1_info = {"type":type(intPrev1).__name__}
+        intPrev2_info = {"type":type(intPrev2).__name__}
+        if isinstance(intPrev1, Interval):
+            intPrev1_info["inf"] = intPrev1.inf.tolist() if hasattr(intPrev1.inf, 'tolist') else str(intPrev1.inf)
+            intPrev1_info["sup"] = intPrev1.sup.tolist() if hasattr(intPrev1.sup, 'tolist') else str(intPrev1.sup)
+        if isinstance(intPrev2, Interval):
+            intPrev2_info["inf"] = intPrev2.inf.tolist() if hasattr(intPrev2.inf, 'tolist') else str(intPrev2.inf)
+            intPrev2_info["sup"] = intPrev2.sup.tolist() if hasattr(intPrev2.sup, 'tolist') else str(intPrev2.sup)
+        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"G","location":"syntaxTree.py:_aux_plus_:entry","message":"_aux_plus_ called","data":{"int_val_inf":int_val.inf.tolist() if hasattr(int_val.inf, 'tolist') else str(int_val.inf),"int_val_sup":int_val.sup.tolist() if hasattr(int_val.sup, 'tolist') else str(int_val.sup),"intPrev1":intPrev1_info,"intPrev2":intPrev2_info},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+    # #endregion
     # MATLAB: if isa(intPrev1,'interval')
     if isinstance(intPrev1, Interval):
         # MATLAB: if isa(intPrev2,'interval')
         if isinstance(intPrev2, Interval):
             # MATLAB: res1 = intPrev1 & (int - intPrev2);
             # MATLAB: res2 = intPrev2 & (int - intPrev1);
-            res1 = intPrev1 & (int_val - intPrev2)
-            res2 = intPrev2 & (int_val - intPrev1)
+            diff1 = int_val - intPrev2
+            diff2 = int_val - intPrev1
+            # #region agent log
+            with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"G","location":"syntaxTree.py:_aux_plus_:before_intersection","message":"Before intersection","data":{"diff1_inf":diff1.inf.tolist() if hasattr(diff1.inf, 'tolist') else str(diff1.inf),"diff1_sup":diff1.sup.tolist() if hasattr(diff1.sup, 'tolist') else str(diff1.sup),"diff2_inf":diff2.inf.tolist() if hasattr(diff2.inf, 'tolist') else str(diff2.inf),"diff2_sup":diff2.sup.tolist() if hasattr(diff2.sup, 'tolist') else str(diff2.sup)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
+            res1 = intPrev1 & diff1
+            res2 = intPrev2 & diff2
+            # #region agent log
+            with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"G","location":"syntaxTree.py:_aux_plus_:after_intersection","message":"After intersection","data":{"res1_inf":res1.inf.tolist() if hasattr(res1.inf, 'tolist') else str(res1.inf),"res1_sup":res1.sup.tolist() if hasattr(res1.sup, 'tolist') else str(res1.sup),"res1_empty":res1.representsa_('emptySet', np.finfo(float).eps) if hasattr(res1, 'representsa_') else False,"res2_inf":res2.inf.tolist() if hasattr(res2.inf, 'tolist') else str(res2.inf),"res2_sup":res2.sup.tolist() if hasattr(res2.sup, 'tolist') else str(res2.sup),"res2_empty":res2.representsa_('emptySet', np.finfo(float).eps) if hasattr(res2, 'representsa_') else False},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
+            # Check if either result is empty (MATLAB raises error if intersection is empty)
+            if res1 is not None and hasattr(res1, 'representsa_') and res1.representsa_('emptySet', np.finfo(float).eps):
+                # #region agent log
+                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"G","location":"syntaxTree.py:_aux_plus_:res1_empty","message":"res1 is empty in _aux_plus_","data":{"int_val_inf":int_val.inf.tolist() if hasattr(int_val.inf, 'tolist') else str(int_val.inf),"int_val_sup":int_val.sup.tolist() if hasattr(int_val.sup, 'tolist') else str(int_val.sup)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
+                raise CORAerror('CORA:emptySet')
+            if res2 is not None and hasattr(res2, 'representsa_') and res2.representsa_('emptySet', np.finfo(float).eps):
+                # #region agent log
+                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"G","location":"syntaxTree.py:_aux_plus_:res2_empty","message":"res2 is empty in _aux_plus_","data":{"int_val_inf":int_val.inf.tolist() if hasattr(int_val.inf, 'tolist') else str(int_val.inf),"int_val_sup":int_val.sup.tolist() if hasattr(int_val.sup, 'tolist') else str(int_val.sup)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
+                raise CORAerror('CORA:emptySet')
         else:
             # MATLAB: res1 = intPrev1 & (int - intPrev2);
             # MATLAB: res2 = [];

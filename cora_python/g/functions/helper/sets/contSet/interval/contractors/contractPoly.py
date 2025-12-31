@@ -60,6 +60,7 @@ from typing import TYPE_CHECKING, Optional, Callable, Union, List, Any
 from cora_python.contSet.interval.interval import Interval
 from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
 from cora_python.g.functions.matlab.validate.check import inputArgsCheck
+from cora_python.specification.syntaxTree import syntaxTree, SyntaxTree
 from .contractForwardBackward import contractForwardBackward
 from .contractParallelLinearization import contractParallelLinearization
 from .contractInterval import contractInterval
@@ -94,16 +95,18 @@ def contractPoly(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
     alg, iter_val, splits, jacHan = setDefaultValues(defaults, varargin)
     
     # Check input arguments
-    inputArgsCheck([{'name': 'alg', 'value': alg, 'att': 'str',
-                     'valid': {'forwardBackward', 'linearize', 'polynomial', 'interval', 'all'}}])
+    # MATLAB: inputArgsCheck({{alg,'str',{'forwardBackward','linearize',...}}})
+    inputArgsCheck([[alg, 'str', ['forwardBackward', 'linearize', 
+                                    'polynomial', 'interval', 'all']]])
     
     # Check iter_val
+    # MATLAB: if ischar(iter) ... inputArgsCheck({{iter,'str','fixpoint'}})
     if isinstance(iter_val, str):
-        inputArgsCheck([{'name': 'iter', 'value': iter_val, 'att': 'str', 'valid': {'fixpoint'}}])
+        inputArgsCheck([[iter_val, 'str', ['fixpoint']]])
         iter_val = 10000
     else:
-        inputArgsCheck([{'name': 'iter', 'value': iter_val, 'att': 'numeric',
-                         'valid': {'integer', 'nonnegative'}}])
+        # MATLAB: inputArgsCheck({{iter,'att','numeric',{'integer','nonnegative'}}})
+        inputArgsCheck([[iter_val, 'att', ['numeric'], ['integer', 'nonnegative']]])
     
     # Function handle for polynomial constrained function
     def f(x):
@@ -137,6 +140,9 @@ def contractPoly(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
     # Splitting of intervals considered or not
     if splits is None or (hasattr(splits, '__len__') and len(splits) == 0):  # No splitting
         
+        # Copy domain to avoid in-place modification
+        dom = Interval(dom)
+        
         # Iteratively contract the domain
         dom_ = dom
         
@@ -151,15 +157,28 @@ def contractPoly(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
             elif alg == 'interval':
                 dom = contractInterval(f, dom, jacHan, 'interval')
             elif alg == 'all':
-                dom = contractForwardBackward(f, dom)
-                if not dom.representsa_('emptySet', np.finfo(float).eps):
-                    dom = contractInterval(f, dom, jacHan, 'interval')
-                    if not dom.representsa_('emptySet', np.finfo(float).eps):
-                        dom = contractParallelLinearization(f, dom, jacHan, 'interval')
-                        if not dom.representsa_('emptySet', np.finfo(float).eps):
-                            dom = _aux_contractPolyBoxRevisePoly(c, G, GI, E, dom)
+                # Check if domain is a point interval
+                # If it is, skip contractForwardBackward, contractInterval, and contractParallelLinearization
+                # (which all return None for points that don't satisfy constraint exactly)
+                # and go directly to _aux_contractPolyBoxRevisePoly (which accepts point intervals)
+                width = dom.sup - dom.inf
+                is_point = np.all(np.abs(width) < np.finfo(float).eps)
+                
+                if is_point:
+                    # For point intervals, skip to _aux_contractPolyBoxRevisePoly directly
+                    dom = _aux_contractPolyBoxRevisePoly(c, G, GI, E, dom)
+                else:
+                    dom = contractForwardBackward(f, dom)
+                    if dom is not None and not dom.representsa_('emptySet', np.finfo(float).eps):
+                        dom = contractInterval(f, dom, jacHan, 'interval')
+                        if dom is not None and not dom.representsa_('emptySet', np.finfo(float).eps):
+                            dom = contractParallelLinearization(f, dom, jacHan, 'interval')
+                            if dom is not None and not dom.representsa_('emptySet', np.finfo(float).eps):
+                                dom = _aux_contractPolyBoxRevisePoly(c, G, GI, E, dom)
             
-            # Check if set is empty
+            # Check if set is empty or None
+            if dom is None:
+                return None  # MATLAB returns []
             if dom.representsa_('emptySet', np.finfo(float).eps):
                 return None  # MATLAB returns []
             
@@ -174,7 +193,8 @@ def contractPoly(c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.ndarray,
         
     else:  # Splitting
         # Initialization
-        list_intervals = [dom]
+        # Copy domain to avoid in-place modification
+        list_intervals = [Interval(dom)]
         
         # Loop over the number of recursive splits
         for i in range(splits):
@@ -293,12 +313,16 @@ def _aux_funcPoly(x: Any, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.nd
         f: function value
     """
     
+    # #region agent log
+    import json
+    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+        c_val = float(c) if np.isscalar(c) else (c.tolist() if hasattr(c, 'tolist') else str(c))
+        G_shape = G.shape.tolist() if hasattr(G.shape, 'tolist') else list(G.shape)
+        E_shape = E.shape.tolist() if hasattr(E.shape, 'tolist') else list(E.shape)
+        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"contractPoly.py:_aux_funcPoly:entry","message":"_aux_funcPoly called","data":{"x_type":type(x).__name__,"x_len":len(x) if hasattr(x, '__len__') else None,"c":c_val,"G_shape":G_shape,"E_shape":E_shape},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+    # #endregion
+    
     # Initialization
-    # Handle c as scalar or array
-    if np.isscalar(c):
-        f = np.array([c])
-    else:
-        f = c.copy()
     n = E.shape[0]
     
     # Handle different input types
@@ -315,26 +339,83 @@ def _aux_funcPoly(x: Any, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.nd
         x1 = [x] * n
         x2 = []
     
+    # Check if x1[0] is an Interval or syntax tree node
+    is_interval = len(x1) > 0 and isinstance(x1[0], Interval)
+    is_syntax_tree = len(x1) > 0 and isinstance(x1[0], SyntaxTree)
+    
+    # #region agent log
+    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"contractPoly.py:_aux_funcPoly:type_check","message":"Input type detected","data":{"is_interval":bool(is_interval),"is_syntax_tree":bool(is_syntax_tree),"x1_0_type":type(x1[0]).__name__ if len(x1) > 0 else None},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+    # #endregion
+    
+    # Initialize f based on input type
+    if is_interval:
+        # Handle c as scalar or array for interval case
+        if np.isscalar(c):
+            f = Interval(c, c)
+        else:
+            f = Interval(c, c) if c.ndim == 0 else Interval(c.flatten(), c.flatten())
+    elif is_syntax_tree:
+        # For syntax tree, convert c to syntax tree(s)
+        if np.isscalar(c):
+            f = syntaxTree(Interval(c, c), None)
+        else:
+            # For multiple constraints, create array of syntax trees
+            c_flat = c.flatten()
+            f = [syntaxTree(Interval(c_flat[j], c_flat[j]), None) for j in range(len(c_flat))]
+    else:
+        # Numeric case
+        if np.isscalar(c):
+            f = np.array([c])
+        else:
+            f = c.copy()
+    
     # Loop over all dependent generators
     for i in range(G.shape[1]):
-        if isinstance(x1[0], Interval):
-            # Interval arithmetic
-            prod_val = Interval(1, 1)
+        if is_interval or is_syntax_tree:
+            # Interval or syntax tree arithmetic
+            if is_interval:
+                prod_val = Interval(1, 1)
+            else:
+                # For syntax tree, start with 1 (as interval)
+                prod_val = syntaxTree(Interval(1, 1), None)
+            
             for k in range(n):
                 if E[k, i] > 0:
-                    prod_val = prod_val * (x1[k] ** E[k, i])
-            # G[:, i] is a vector, prod_val is an interval scalar
-            # G[:, i] * prod_val gives an interval vector (element-wise)
+                    # #region agent log
+                    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"E","location":"contractPoly.py:_aux_funcPoly:before_pow","message":"Before power operation","data":{"k":k,"E_ki":float(E[k, i]),"x1_k_type":type(x1[k]).__name__},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                    # #endregion
+                    pow_result = x1[k] ** E[k, i]
+                    # #region agent log
+                    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                        pow_type = type(pow_result).__name__
+                        pow_operator = getattr(pow_result, 'operator', None) if hasattr(pow_result, 'operator') else None
+                        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"E","location":"contractPoly.py:_aux_funcPoly:after_pow","message":"After power operation","data":{"pow_type":pow_type,"pow_operator":pow_operator},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                    # #endregion
+                    prod_val = prod_val * pow_result
+            
+            # G[:, i] is a vector, prod_val is an interval scalar or syntax tree
             G_col = G[:, i] if G.ndim > 1 else G
-            # Convert f to interval if needed
-            if not isinstance(f, Interval):
-                f = Interval(f, f) if np.isscalar(f) else Interval(f, f)
-            # Element-wise multiplication: G[:, i] * prod_val
-            # Use interval's times method for element-wise multiplication
-            from cora_python.contSet.interval.times import times
-            G_prod = times(prod_val, G_col)  # interval * vector gives interval vector
-            # Add to f (interval + interval vector)
-            f = f + G_prod
+            
+            if is_interval:
+                # Interval case: G[:, i] * prod_val gives interval vector
+                from cora_python.contSet.interval.times import times
+                G_prod = times(prod_val, G_col)  # interval * vector gives interval vector
+                f = f + G_prod
+            else:
+                # Syntax tree case: handle each constraint separately
+                if isinstance(f, list):
+                    # Multiple constraints
+                    for j in range(len(f)):
+                        G_val = Interval(G_col[j], G_col[j])
+                        G_prod = prod_val * G_val
+                        f[j] = f[j] + G_prod
+                else:
+                    # Single constraint
+                    G_val = Interval(G_col[0], G_col[0]) if len(G_col) > 0 else Interval(0, 0)
+                    G_prod = prod_val * G_val
+                    f = f + G_prod
         else:
             # Numeric computation
             x1_arr = np.asarray(x1[:n]).flatten()
@@ -343,11 +424,44 @@ def _aux_funcPoly(x: Any, c: np.ndarray, G: np.ndarray, GI: np.ndarray, E: np.nd
     
     # Add independent generators
     if GI.size > 0 and len(x2) > 0:
-        if isinstance(x2[0], Interval):
+        if is_interval:
             f = f + GI @ x2
+        elif is_syntax_tree:
+            # For syntax tree, handle GI @ x2
+            if isinstance(f, list):
+                # Multiple constraints
+                for j in range(len(f)):
+                    GI_row = GI[j, :] if GI.ndim > 1 else GI
+                    GI_sum = syntaxTree(Interval(0, 0), None)
+                    for k in range(len(x2)):
+                        GI_val = Interval(GI_row[k], GI_row[k]) if np.isscalar(GI_row[k]) else Interval(GI_row[k], GI_row[k])
+                        GI_sum = GI_sum + (x2[k] * GI_val)
+                    f[j] = f[j] + GI_sum
+            else:
+                # Single constraint
+                GI_row = GI[0, :] if GI.ndim > 1 else GI
+                GI_sum = syntaxTree(Interval(0, 0), None)
+                for k in range(len(x2)):
+                    GI_val = Interval(GI_row[k], GI_row[k]) if np.isscalar(GI_row[k]) else Interval(GI_row[k], GI_row[k])
+                    GI_sum = GI_sum + (x2[k] * GI_val)
+                f = f + GI_sum
         else:
+            # Numeric case
             x2_arr = np.asarray(x2).flatten().reshape(-1, 1)
             f = f + GI @ x2_arr
+    
+    # #region agent log
+    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+        f_type = type(f).__name__
+        f_info = None
+        if isinstance(f, SyntaxTree):
+            f_info = {"type":"SyntaxTree","has_value":hasattr(f, 'value'),"operator":getattr(f, 'operator', None)}
+        elif isinstance(f, list):
+            f_info = {"type":"list","len":len(f),"first_type":type(f[0]).__name__ if len(f) > 0 else None}
+        elif isinstance(f, Interval):
+            f_info = {"type":"Interval","inf":f.inf.tolist() if hasattr(f.inf, 'tolist') else str(f.inf),"sup":f.sup.tolist() if hasattr(f.sup, 'tolist') else str(f.sup)}
+        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"contractPoly.py:_aux_funcPoly:return","message":"_aux_funcPoly returning","data":{"f_type":f_type,"f_info":f_info},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+    # #endregion
     
     return f
 

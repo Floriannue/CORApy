@@ -241,9 +241,37 @@ def contract(f: Callable, dom: Interval, *varargin) -> Optional[Interval]:
     # Splitting of intervals considered or not
     if splits is None:  # no splitting
         # Iteratively contract the domain
+        # MATLAB: dom_ = dom; (MATLAB doesn't modify input, but we should copy to be safe)
+        # Copy the domain to avoid modifying the input
+        dom = Interval(dom)
         dom_ = dom
         
         for i in range(iter_val):
+            # #region agent log
+            import json
+            with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"contract.py:249","message":"Iteration start","data":{"i":i,"iter_val":iter_val,"alg":alg,"dom_inf":dom.inf.tolist() if hasattr(dom,'inf') else None,"dom_sup":dom.sup.tolist() if hasattr(dom,'sup') else None,"dom__inf":dom_.inf.tolist() if hasattr(dom_,'inf') else None,"dom__sup":dom_.sup.tolist() if hasattr(dom_,'sup') else None},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
+            
+            # Check for convergence before contracting (if domain hasn't changed, skip contraction)
+            # MATLAB doesn't do this explicitly, but it's safe to add this check
+            if i > 0:  # Skip check on first iteration
+                # #region agent log
+                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                    diff_inf = np.abs(dom.infimum() - dom_.infimum())
+                    diff_sup = np.abs(dom.supremum() - dom_.supremum())
+                    converged = np.all(diff_inf < np.finfo(float).eps) and np.all(diff_sup < np.finfo(float).eps)
+                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"contract.py:253","message":"Convergence check before contracting","data":{"i":i,"diff_inf":diff_inf.tolist(),"diff_sup":diff_sup.tolist(),"converged":bool(converged)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
+                if np.all(np.abs(dom.infimum() - dom_.infimum()) < np.finfo(float).eps) and \
+                   np.all(np.abs(dom.supremum() - dom_.supremum()) < np.finfo(float).eps):
+                    # Domain hasn't changed, already converged
+                    # #region agent log
+                    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"contract.py:256","message":"Converged before contracting, breaking","data":{"i":i},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                    # #endregion
+                    break
+            
             # Contract the domain using the selected algorithm
             if alg == 'forwardBackward':
                 dom = contractForwardBackward(f, dom)
@@ -254,21 +282,83 @@ def contract(f: Callable, dom: Interval, *varargin) -> Optional[Interval]:
             elif alg == 'interval':
                 dom = contractInterval(f, dom, jacHan)
             elif alg == 'all':
-                dom = contractForwardBackward(f, dom)
-                if dom is not None and not dom.representsa_('emptySet', np.finfo(float).eps):
-                    dom = contractInterval(f, dom, jacHan)
+                # Check if domain is a point interval
+                # If it is, skip contractForwardBackward, contractInterval, and contractParallelLinearization
+                # (which all return None for points that don't satisfy constraint exactly)
+                # and go directly to contractPolyBoxRevise (which accepts point intervals)
+                width = dom.sup - dom.inf
+                is_point = np.all(np.abs(width) < np.finfo(float).eps)
+                
+                if is_point:
+                    # For point intervals, skip to contractPolyBoxRevise directly
+                    # contractPolyBoxRevise is the only contractor that accepts point intervals
+                    # #region agent log
+                    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"contract.py:290","message":"Point interval detected, skipping to contractPolyBoxRevise","data":{"i":i,"dom_inf":dom.inf.tolist(),"dom_sup":dom.sup.tolist()},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                    # #endregion
+                    # MATLAB: dom = contractPolyBoxRevise(f,dom);
+                    dom = contractPolyBoxRevise(f, dom)
+                else:
+                    # #region agent log
+                    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"contract.py:268","message":"Before contractForwardBackward in 'all'","data":{"i":i,"dom_inf":dom.inf.tolist(),"dom_sup":dom.sup.tolist()},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                    # #endregion
+                    # MATLAB: dom = contractForwardBackward(f,dom);
+                    dom = contractForwardBackward(f, dom)
+                    # #region agent log
+                    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"contract.py:269","message":"After contractForwardBackward in 'all'","data":{"i":i,"dom":None if dom is None else {"inf":dom.inf.tolist(),"sup":dom.sup.tolist()}},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                    # #endregion
+                    
+                    # MATLAB: if ~representsa_(dom,'emptySet',eps)
                     if dom is not None and not dom.representsa_('emptySet', np.finfo(float).eps):
-                        dom = contractParallelLinearization(f, dom, jacHan)
+                        # MATLAB: dom = contractInterval(f,dom,jacHan);
+                        dom = contractInterval(f, dom, jacHan)
+                        # MATLAB: if ~representsa_(dom,'emptySet',eps)
                         if dom is not None and not dom.representsa_('emptySet', np.finfo(float).eps):
-                            dom = contractPolyBoxRevise(f, dom)
+                            # MATLAB: dom = contractParallelLinearization(f,dom,jacHan);
+                            dom = contractParallelLinearization(f, dom, jacHan)
+                            # MATLAB: if ~representsa_(dom,'emptySet',eps)
+                            if dom is not None and not dom.representsa_('emptySet', np.finfo(float).eps):
+                                # MATLAB: dom = contractPolyBoxRevise(f,dom);
+                                dom = contractPolyBoxRevise(f, dom)
             
             # Check if set is empty
-            if dom is None or dom.representsa_('emptySet', np.finfo(float).eps):
+            # MATLAB: if representsa_(dom,'emptySet',eps)
+            # In MATLAB, representsa_ can handle [] (empty), but in Python we need to check None first
+            # #region agent log
+            with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"contract.py:286","message":"Checking if empty","data":{"i":i,"dom_is_none":dom is None,"dom_empty":dom.representsa_('emptySet', np.finfo(float).eps) if dom is not None else None},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
+            if dom is None:
+                # #region agent log
+                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"contract.py:287","message":"Returning None (dom is None)","data":{"i":i},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
+                return None  # MATLAB returns []
+            if dom.representsa_('emptySet', np.finfo(float).eps):
+                # #region agent log
+                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"contract.py:289","message":"Returning None (dom is empty set)","data":{"i":i},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
                 return None  # MATLAB returns []
             
             # Check for convergence
-            if np.all(np.abs(dom.inf - dom_.inf) < np.finfo(float).eps) and \
-               np.all(np.abs(dom.sup - dom_.sup) < np.finfo(float).eps):
+            # MATLAB: if all(abs(infimum(dom)-infimum(dom_)) < eps) && ...
+            # MATLAB:    all(abs(supremum(dom)-supremum(dom_)) < eps)
+            # #region agent log
+            with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                diff_inf = np.abs(dom.infimum() - dom_.infimum())
+                diff_sup = np.abs(dom.supremum() - dom_.supremum())
+                converged = np.all(diff_inf < np.finfo(float).eps) and np.all(diff_sup < np.finfo(float).eps)
+                log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"contract.py:294","message":"Convergence check after contracting","data":{"i":i,"diff_inf":diff_inf.tolist(),"diff_sup":diff_sup.tolist(),"converged":bool(converged)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
+            if np.all(np.abs(dom.infimum() - dom_.infimum()) < np.finfo(float).eps) and \
+               np.all(np.abs(dom.supremum() - dom_.supremum()) < np.finfo(float).eps):
+                # #region agent log
+                with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                    log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"contract.py:296","message":"Converged after contracting, breaking","data":{"i":i},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
                 break
             else:
                 dom_ = dom
@@ -277,16 +367,21 @@ def contract(f: Callable, dom: Interval, *varargin) -> Optional[Interval]:
         
     else:  # splitting
         # Initialization
-        list_intervals = [dom]
+        # Copy the domain to avoid modifying the input
+        list_intervals = [Interval(dom)]
         
         # Loop over the number of recursive splits
+        # MATLAB: for i = 1:splits
         for i in range(splits):
+            # MATLAB: list_ = cell(2*length(list),1);
             list_ = [None] * (2 * len(list_intervals))
-            counter = 0
+            # MATLAB: counter = 1;
+            counter = 0  # Python uses 0-based indexing
             
             # Loop over all sets in the list
             for j in range(len(list_intervals)):
-                # Determine the best dimension to split and split the domain
+                # MATLAB: determine the best dimension to split and split the domain along the determined dimension
+                # MATLAB: domSplit = aux_bestSplit(f,list{j});
                 domSplit = _aux_bestSplit(f, list_intervals[j])
                 
                 # Loop over all splitted domains
@@ -300,16 +395,35 @@ def contract(f: Callable, dom: Interval, *varargin) -> Optional[Interval]:
                         continue
                     
                     # Contract the splitted domain
+                    # MATLAB: domTemp = contract(f,domSplit{k},alg,iter,[],jacHan);
+                    # Note: MATLAB passes [] for splits (empty), which means no further splitting
+                    # #region agent log
+                    import json
+                    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"E","location":"contract.py:334","message":"Before recursive contract call in splitting","data":{"split_iter":i,"interval_j":j,"split_k":k,"domSplit_inf":domSplit[k].inf.tolist(),"domSplit_sup":domSplit[k].sup.tolist(),"alg":alg,"iter_val":iter_val},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                    # #endregion
                     domTemp = contract(f, domSplit[k], alg, iter_val, None, jacHan)
+                    # #region agent log
+                    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"E","location":"contract.py:335","message":"After recursive contract call in splitting","data":{"split_iter":i,"interval_j":j,"split_k":k,"domTemp":None if domTemp is None else {"inf":domTemp.inf.tolist(),"sup":domTemp.sup.tolist()}},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                    # #endregion
                     
                     # Update the queue
-                    if domTemp is not None and not domTemp.representsa_('emptySet', np.finfo(float).eps):
-                        list_[counter] = domTemp
-                        counter += 1
+                    # MATLAB: if ~representsa_(domTemp,'emptySet',eps)
+                    # In MATLAB, representsa_ can handle [] (empty), but in Python we need to check None first
+                    if domTemp is not None:
+                        if not domTemp.representsa_('emptySet', np.finfo(float).eps):
+                            list_[counter] = domTemp
+                            counter += 1
             
+            # MATLAB: list = list_(1:counter-1);
+            # In MATLAB, counter starts at 1 and increments, so list_(1:counter-1) gives indices 1 to counter-1
+            # In Python, counter starts at 0 and increments, so list_[:counter] gives indices 0 to counter-1
+            # These are equivalent
             list_intervals = list_[:counter]
         
         # Unite all the contracted intervals
+        # MATLAB: if ~isempty(list)
         if len(list_intervals) > 0:
             res = list_intervals[0]
             
@@ -344,7 +458,9 @@ def _aux_bestSplit(f: Callable, dom: Interval) -> List[Interval]:
         val = f(dom_split[0])
         
         # Evaluate the quality of the split
-        vol[i] = val.volume_() if hasattr(val, 'volume_') else 0.0
+        # MATLAB: vol(i) = volume(val);
+        # Call volume_ method on the object
+        vol[i] = val.volume_() if isinstance(val, Interval) else 0.0
     
     # Determine best dimension to split
     ind = np.argmin(vol)

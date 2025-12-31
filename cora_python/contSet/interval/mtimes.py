@@ -372,13 +372,25 @@ def _mtimes_nonsparse(factor1: Interval, factor2: Union[Interval, np.ndarray]) -
             f1_inf_bc = f1_inf[:, :, np.newaxis]
             f1_sup_bc = f1_sup[:, :, np.newaxis]
         
+        # Reshape f2_inf and f2_sup for 3D broadcasting: [1, k, n]
+        # f2_inf is (1, k) after reshape, need (1, k, n) where n is determined by extSize
+        # MATLAB: [m, k, 1] .* [1, k, n] = [m, k, n]
+        if f2_inf.ndim == 2:
+            # f2_inf is (1, k), reshape to (1, k, n) where n=1 for vector case
+            f2_inf_bc = f2_inf[:, :, np.newaxis]  # (1, k, 1)
+            f2_sup_bc = f2_sup[:, :, np.newaxis]  # (1, k, 1)
+        else:
+            # Already higher dimensional, ensure it has trailing dimension
+            f2_inf_bc = f2_inf.reshape(extSize + (1,))
+            f2_sup_bc = f2_sup.reshape(extSize + (1,))
+        
         # MATLAB: res = factor1 .* factor2;
         # Element-wise multiplication: [m, k, 1] .* [1, k, n] = [m, k, n]
         products = [
-            f1_inf_bc * f2_inf,
-            f1_inf_bc * f2_sup,
-            f1_sup_bc * f2_inf,
-            f1_sup_bc * f2_sup
+            f1_inf_bc * f2_inf_bc,
+            f1_inf_bc * f2_sup_bc,
+            f1_sup_bc * f2_inf_bc,
+            f1_sup_bc * f2_sup_bc
         ]
         
         # Stack and find min/max element-wise

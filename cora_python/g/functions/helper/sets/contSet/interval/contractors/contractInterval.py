@@ -80,86 +80,54 @@ def contractInterval(f: Callable, dom: Interval, jacHan: Callable,
             J = Interval(J)
     
     # MATLAB: b = f(mi) - A * mi + (J - A) * (dom - mi);
-    # Note: f(mi) should return a vector, A*mi is matrix-vector product
-    # (J - A) is interval matrix subtraction, (dom - mi) is interval subtraction
+    # MATLAB evaluates this as a single expression
+    # Compute step by step to ensure correct shapes
     f_mi = f(mi)
+    # Extract numeric value if f_mi is interval
     if isinstance(f_mi, Interval):
-        f_mi_val = f_mi.center()  # Use center for point evaluation
-    else:
-        f_mi_val = np.asarray(f_mi)
-        # Ensure column vector (MATLAB returns column vectors)
-        if f_mi_val.ndim == 1:
-            f_mi_val = f_mi_val.reshape(-1, 1)
-        elif f_mi_val.ndim == 0:
-            f_mi_val = f_mi_val.reshape(1, 1)
+        f_mi = f_mi.center()
+    f_mi = np.asarray(f_mi).flatten()
     
-    # MATLAB: A * mi
-    A_mi = A @ mi if hasattr(A, '__matmul__') else np.dot(A, mi)
-    A_mi = np.asarray(A_mi)
-    # Ensure column vector
-    if A_mi.ndim == 1:
-        A_mi = A_mi.reshape(-1, 1)
-    elif A_mi.ndim == 0:
-        A_mi = A_mi.reshape(1, 1)
+    # A * mi
+    A_mi = np.asarray(A @ mi).flatten()
     
-    # MATLAB: dom - mi
+    # f(mi) - A * mi (both are 1D numeric vectors)
+    f_mi_minus_A_mi = f_mi - A_mi
+    
+    # (J - A) * (dom - mi)
+    J_minus_A = J - A
     dom_minus_mi = dom - mi
-    
-    # MATLAB: J - A
-    # J is an interval matrix, A is a regular matrix
-    if isinstance(J, Interval):
-        # J is interval, need to handle interval-regular matrix subtraction
-        # Use center of J for the subtraction
-        J_center = J.center() if hasattr(J, 'center') else J
-        J_minus_A = J_center - A
-    else:
-        J_minus_A = J - A
-    
-    # MATLAB: (J - A) * (dom - mi)
-    # J_minus_A is (m x n), dom_minus_mi is (n x 1) interval
-    # Use interval matrix multiplication via @ operator
     J_minus_A_dom = J_minus_A @ dom_minus_mi
     
     # Ensure J_minus_A_dom is 1D interval vector (flatten if 2D)
+    # MATLAB: (J-A)*(dom-mi) should give (m,) interval vector where m = number of constraints
     if isinstance(J_minus_A_dom, Interval):
-        # Flatten to 1D if it's 2D (result of matrix multiplication)
         if J_minus_A_dom.dim() > 1 or (J_minus_A_dom.inf.ndim > 1 or J_minus_A_dom.sup.ndim > 1):
-            J_minus_A_dom = Interval(J_minus_A_dom.inf.flatten(), J_minus_A_dom.sup.flatten())
+            # Flatten to 1D
+            num_constraints = A.shape[0]
+            inf_flat = J_minus_A_dom.inf.flatten()
+            sup_flat = J_minus_A_dom.sup.flatten()
+            # Take first num_constraints elements
+            if inf_flat.size >= num_constraints:
+                inf_flat = inf_flat[:num_constraints]
+                sup_flat = sup_flat[:num_constraints]
+            J_minus_A_dom = Interval(inf_flat, sup_flat)
     
-    # MATLAB: b = f(mi) - A * mi + (J - A) * (dom - mi);
-    # Compute step by step to match MATLAB evaluation order
-    # First: f(mi) - A * mi (both should be column vectors)
-    f_mi_minus_A_mi = f_mi_val - A_mi
-    # Ensure column vector
-    if f_mi_minus_A_mi.ndim == 1:
-        f_mi_minus_A_mi = f_mi_minus_A_mi.reshape(-1, 1)
-    elif f_mi_minus_A_mi.ndim == 0:
-        f_mi_minus_A_mi = f_mi_minus_A_mi.reshape(1, 1)
+    # b = f(mi) - A * mi + (J - A) * (dom - mi)
+    # numeric + interval = interval (handled by plus function)
+    b = f_mi_minus_A_mi + J_minus_A_dom
     
-    # Then: (f(mi) - A * mi) + (J - A) * (dom - mi)
-    # Convert numeric to interval and add
-    if isinstance(J_minus_A_dom, Interval):
-        # J_minus_A_dom is already an interval, add numeric vector to it
-        # Convert f_mi_minus_A_mi to interval and add
-        b = Interval(f_mi_minus_A_mi.flatten(), f_mi_minus_A_mi.flatten()) + J_minus_A_dom
-    else:
-        # J_minus_A_dom is numeric, convert to interval and add
-        J_minus_A_dom_arr = np.asarray(J_minus_A_dom)
-        if J_minus_A_dom_arr.ndim == 1:
-            J_minus_A_dom_arr = J_minus_A_dom_arr.reshape(-1, 1)
-        elif J_minus_A_dom_arr.ndim == 0:
-            J_minus_A_dom_arr = J_minus_A_dom_arr.reshape(1, 1)
-        # Ensure shapes match
-        if f_mi_minus_A_mi.shape != J_minus_A_dom_arr.shape:
-            # Reshape to match
-            min_size = min(f_mi_minus_A_mi.size, J_minus_A_dom_arr.size)
-            f_mi_minus_A_mi = f_mi_minus_A_mi.flatten()[:min_size].reshape(-1, 1)
-            J_minus_A_dom_arr = J_minus_A_dom_arr.flatten()[:min_size].reshape(-1, 1)
-        b = Interval(f_mi_minus_A_mi.flatten(), f_mi_minus_A_mi.flatten()) + Interval(J_minus_A_dom_arr.flatten(), J_minus_A_dom_arr.flatten())
-    
-    # Ensure b is 1D interval vector
-    if b.dim() > 1 or (b.inf.ndim > 1 or b.sup.ndim > 1):
-        b = Interval(b.inf.flatten(), b.sup.flatten())
+    # Ensure b is 1D interval vector (MATLAB: b is (m,) interval vector)
+    # b should have shape (m,) where m = number of constraints (rows of A)
+    if isinstance(b, Interval):
+        if b.dim() > 1 or (b.inf.ndim > 1 or b.sup.ndim > 1):
+            num_constraints = A.shape[0]
+            inf_flat = b.inf.flatten()
+            sup_flat = b.sup.flatten()
+            if inf_flat.size >= num_constraints:
+                inf_flat = inf_flat[:num_constraints]
+                sup_flat = sup_flat[:num_constraints]
+            b = Interval(inf_flat, sup_flat)
     
     # Loop over all variables
     res = dom
@@ -174,67 +142,62 @@ def contractInterval(f: Callable, dom: Interval, jacHan: Callable,
                 a[i] = 0
                 
                 # MATLAB: temp = -(b(j) + a*dom)/A(j,i);
-                # b(j) is an interval, a*dom is interval-vector product
-                # Note: MATLAB uses 'dom' which gets updated in place, so we use 'res' here
-                # Extract j-th element of b as scalar interval
-                if isinstance(b, Interval):
-                    # b should be a 1D interval vector, extract j-th element
-                    b_inf_flat = b.inf.flatten()
-                    b_sup_flat = b.sup.flatten()
-                    b_j = Interval(b_inf_flat[j] if j < len(b_inf_flat) else b_inf_flat[0],
-                                   b_sup_flat[j] if j < len(b_sup_flat) else b_sup_flat[0])
-                else:
-                    b_val = b[j] if hasattr(b, '__getitem__') and len(b) > j else (b if np.isscalar(b) else b[0])
-                    b_j = Interval(b_val, b_val)
+                # MATLAB: b(j) extracts j-th element of interval vector b as scalar interval
+                # MATLAB uses 'dom' which gets updated in place, so we use 'res' here
+                # Extract j-th element of b (MATLAB: b(j))
+                # b should be 1D interval vector, so b.inf[j] and b.sup[j] are scalars
+                b_inf_j = b.inf[j] if b.inf.ndim == 1 else b.inf.flatten()[j]
+                b_sup_j = b.sup[j] if b.sup.ndim == 1 else b.sup.flatten()[j]
+                b_j = Interval(b_inf_j, b_sup_j)
                 
-                # a*res: a is (1, n) row vector, res is (n,) interval vector
-                # Result should be scalar interval (1D with dim=1)
-                a_dom = a @ res if hasattr(a, '__matmul__') else np.dot(a, res)
-                if not isinstance(a_dom, Interval):
-                    a_dom = Interval(a_dom, a_dom)
-                # Ensure a_dom is scalar (1D interval with dim=1)
-                # Flatten if 2D (result of matrix multiplication)
+                # MATLAB: a*dom where a is (1,n) row vector, dom is (n,1) interval
+                # MATLAB: a*dom computes dot product: sum(a[i]*dom[i]) = scalar interval
+                # Reshape a to (1, n) row vector for matrix multiplication
+                a_row = a.reshape(1, -1) if a.ndim == 1 else a
+                # Compute: (1,n) @ (n,1) interval = (1,1) interval -> scalar
+                a_dom = a_row @ res
+                # Ensure scalar (1D interval with dim=1)
+                # The result should be scalar, but mtimes may return (1,1) which needs flattening
                 if a_dom.dim() > 1 or (a_dom.inf.ndim > 1 or a_dom.sup.ndim > 1):
-                    a_dom = Interval(a_dom.inf.flatten(), a_dom.sup.flatten())
-                # If still not 1D, extract first element
-                if a_dom.dim() != 1:
-                    a_dom_inf = a_dom.inf.flatten()[0] if a_dom.inf.size > 0 else 0.0
-                    a_dom_sup = a_dom.sup.flatten()[0] if a_dom.sup.size > 0 else 0.0
-                    a_dom = Interval(a_dom_inf, a_dom_sup)
+                    # Flatten and take the sum (for matrix multiplication result)
+                    # If result is (1,1), flatten gives [value], take [0]
+                    # If result is (1,n) incorrectly, sum over second dimension
+                    inf_flat = a_dom.inf.flatten()
+                    sup_flat = a_dom.sup.flatten()
+                    # For dot product result, should be single value
+                    # If multiple values, sum them (shouldn't happen for correct matrix mult)
+                    if inf_flat.size > 1:
+                        # Sum all elements (dot product result)
+                        a_dom = Interval(np.sum(inf_flat), np.sum(sup_flat))
+                    else:
+                        a_dom = Interval(inf_flat[0] if inf_flat.size > 0 else 0.0,
+                                         sup_flat[0] if sup_flat.size > 0 else 0.0)
                 
+                # MATLAB: temp = -(b(j) + a*dom)/A(j,i);
                 temp = -(b_j + a_dom) / A[j, i]
-                # Ensure temp is scalar (1D interval with dim=1)
-                # Flatten if 2D (result of arithmetic operations)
+                # Ensure scalar (1D interval with dim=1)
                 if temp.dim() > 1 or (temp.inf.ndim > 1 or temp.sup.ndim > 1):
-                    temp = Interval(temp.inf.flatten(), temp.sup.flatten())
-                # If still not 1D, extract first element
-                if temp.dim() != 1:
-                    temp_inf = temp.inf.flatten()[0] if temp.inf.size > 0 else 0.0
-                    temp_sup = temp.sup.flatten()[0] if temp.sup.size > 0 else 0.0
-                    temp = Interval(temp_inf, temp_sup)
+                    temp = Interval(temp.inf.flatten()[0] if temp.inf.size > 0 else 0.0,
+                                    temp.sup.flatten()[0] if temp.sup.size > 0 else 0.0)
                 
                 # MATLAB: dom_ = dom(i) & temp;
-                # Note: MATLAB uses dom(i) which is the current (updated) value, so we use res(i)
+                # MATLAB: dom(i) extracts i-th element of interval vector dom
+                # MATLAB uses 'dom' which gets updated in place, so we use 'res' here
                 dom_i = Interval(res.inf[i], res.sup[i])
-                dom_ = dom_i & temp  # Interval intersection
+                dom_ = dom_i & temp
                 
-                # Debug: Check if intersection is valid
-                # In MATLAB, if dom_ is empty, we return []
-                if dom_.representsa_('emptySet', np.finfo(float).eps):
-                    # Empty set - return None (MATLAB returns [])
+                # MATLAB: if ~representsa_(dom_,'emptySet',eps)
+                if not dom_.representsa_('emptySet', np.finfo(float).eps):
+                    # MATLAB: dom(i) = dom_;
+                    # Update res with the contracted interval
+                    new_inf = res.inf.copy()
+                    new_sup = res.sup.copy()
+                    new_inf[i] = dom_.inf[0] if dom_.inf.size > 0 else dom_.inf
+                    new_sup[i] = dom_.sup[0] if dom_.sup.size > 0 else dom_.sup
+                    res = Interval(new_inf, new_sup)
+                else:
+                    # MATLAB: res = []; return;
                     return None
-                
-                # Update res with the contracted interval
-                # Update dom(i) - MATLAB: dom(i) = dom_;
-                # Create new interval with updated dimension
-                new_inf = res.inf.copy()
-                new_sup = res.sup.copy()
-                # Extract scalar values from dom_
-                dom_inf_val = dom_.inf if np.isscalar(dom_.inf) else (dom_.inf[0] if dom_.inf.size > 0 else dom_.inf.item() if hasattr(dom_.inf, 'item') else float(dom_.inf))
-                dom_sup_val = dom_.sup if np.isscalar(dom_.sup) else (dom_.sup[0] if dom_.sup.size > 0 else dom_.sup.item() if hasattr(dom_.sup, 'item') else float(dom_.sup))
-                new_inf[i] = dom_inf_val
-                new_sup[i] = dom_sup_val
-                res = Interval(new_inf, new_sup)
     
     return res
 

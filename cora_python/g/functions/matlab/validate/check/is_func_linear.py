@@ -1,6 +1,6 @@
 import sympy
 import numpy as np
-from cora_python.g.functions.matlab.function_handle.input_args_length import input_args_length
+from cora_python.g.functions.matlab.function_handle.inputArgsLength import inputArgsLength
 import inspect
 
 def is_func_linear(f, input_args_sizes=None):
@@ -9,7 +9,7 @@ def is_func_linear(f, input_args_sizes=None):
     """
     if input_args_sizes is None:
         try:
-            input_args_sizes, _ = input_args_length(f)
+            input_args_sizes, _ = inputArgsLength(f)
         except Exception as e:
             print(f"Warning: Could not determine input arg sizes to check linearity: {e}. Assuming non-linear.")
             return False

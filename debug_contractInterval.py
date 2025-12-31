@@ -127,8 +127,12 @@ def debug_contractInterval(f, dom, jacHan, method=None):
                                b_sup_flat[j] if j < len(b_sup_flat) else b_sup_flat[0])
                 print(f"    b_j: inf={b_j.inf}, sup={b_j.sup}")
                 
-                # a*res
-                a_dom = a @ res
+                # a*res - manual computation
+                a_dom = Interval(0.0, 0.0)
+                for k in range(len(a)):
+                    if abs(a[k]) > 1e-10:
+                        res_k = Interval(res.inf[k], res.sup[k])
+                        a_dom = a_dom + a[k] * res_k
                 print(f"    a_dom type: {type(a_dom)}, dim={a_dom.dim() if hasattr(a_dom, 'dim') else 'N/A'}")
                 if isinstance(a_dom, Interval):
                     print(f"      a_dom: inf={a_dom.inf}, sup={a_dom.sup}")

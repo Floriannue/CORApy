@@ -30,6 +30,7 @@ from .splitDepFactor import splitDepFactor
 from .zonotope import zonotope
 from .compact_ import compact_
 from .restructure import restructure
+from .approxVolumeRatio import approxVolumeRatio
 
 # Attach methods to the PolyZonotope class
 # dim and isemptyobject are required by ContSet
@@ -70,4 +71,5 @@ __all__ = [
     'zonotope',
     'compact_',
     'restructure',
+    'approxVolumeRatio',
 ] 

@@ -63,8 +63,35 @@ def contractForwardBackward(f: Callable, dom: Interval) -> Interval:
         vars_list.append(syntaxTree(dom_i, i))
     
     # Forward iteration: compute syntax tree
+    # #region agent log
+    import json
+    with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+        log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"contractForwardBackward.py:before_f_call","message":"Before calling f(vars_list)","data":{"dom_inf":dom.inf.tolist(),"dom_sup":dom.sup.tolist(),"vars_list_len":len(vars_list),"f_type":type(f).__name__},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+    # #endregion
     try:
         synTree = f(vars_list)
+        # #region agent log
+        with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+            synTree_type = type(synTree).__name__
+            synTree_info = None
+            if isinstance(synTree, list):
+                synTree_info = {"type":"list","len":len(synTree),"first_type":type(synTree[0]).__name__ if len(synTree) > 0 else None}
+            elif hasattr(synTree, 'value'):
+                # Get more details about the syntax tree
+                value_info = None
+                if hasattr(synTree.value, 'inf') and hasattr(synTree.value, 'sup'):
+                    value_info = {"type":"Interval","inf":synTree.value.inf.tolist() if hasattr(synTree.value.inf, 'tolist') else str(synTree.value.inf),"sup":synTree.value.sup.tolist() if hasattr(synTree.value.sup, 'tolist') else str(synTree.value.sup)}
+                else:
+                    value_info = {"type":type(synTree.value).__name__,"value":str(synTree.value)}
+                nodes_info = None
+                if hasattr(synTree, 'nodes') and synTree.nodes is not None:
+                    nodes_info = {"len":len(synTree.nodes),"node_types":[type(n).__name__ if n is not None else None for n in synTree.nodes]}
+                funHan_info = None
+                if hasattr(synTree, 'funHan'):
+                    funHan_info = {"has_funHan":synTree.funHan is not None,"funHan_type":type(synTree.funHan).__name__ if synTree.funHan is not None else None}
+                synTree_info = {"type":"SyntaxTree","has_value":True,"operator":getattr(synTree, 'operator', None),"value_info":value_info,"nodes_info":nodes_info,"funHan_info":funHan_info}
+            log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"contractForwardBackward.py:after_f_call","message":"After calling f(vars_list)","data":{"synTree_type":synTree_type,"synTree_info":synTree_info},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
     except Exception as ME:
         # Check if function takes no parameters (constant function)
         import inspect
@@ -91,12 +118,22 @@ def contractForwardBackward(f: Callable, dom: Interval) -> Interval:
     
     for i in range(len(synTree_list)):
         try:
+            # #region agent log
+            with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"contractForwardBackward.py:before_backprop","message":"Before backpropagation","data":{"i":i,"res_before_inf":res.inf.tolist(),"res_before_sup":res.sup.tolist()},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
             res = backpropagation(synTree_list[i], Interval(0, 0), res)
+            # #region agent log
+            with open(r'c:\Bachelorarbeit\Translate_Cora\.cursor\debug.log', 'a') as log_file:
+                log_file.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"contractForwardBackward.py:after_backprop","message":"After backpropagation","data":{"i":i,"res_after_inf":res.inf.tolist(),"res_after_sup":res.sup.tolist()},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
         except Exception as ex:
-            if hasattr(ex, 'identifier') and ex.identifier == 'CORA:emptySet':
-                return None  # MATLAB returns []
-            else:
-                raise ex
+            # MATLAB catches both CORA:emptySet and potentially other errors
+            # Check if it's an empty set or out of domain error (which also indicates empty)
+            if hasattr(ex, 'identifier'):
+                if ex.identifier == 'CORA:emptySet' or ex.identifier == 'CORA:outOfDomain':
+                    return None  # MATLAB returns []
+            raise ex
     
     return res
 

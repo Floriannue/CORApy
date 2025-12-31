@@ -8,6 +8,9 @@ for all continuous dynamical systems in CORA.
 from .contDynamics import ContDynamics
 from .simulateRandom import simulateRandom
 from .display import display
+from .linReach import linReach
+from .symVariables import symVariables
+from .derivatives import derivatives
 
 # Import private functions
 from .private.priv_simulateStandard import priv_simulateStandard
@@ -18,5 +21,6 @@ from .private.priv_simulateConstrainedRandom import priv_simulateConstrainedRand
 # Attach the methods to the ContDynamics class
 ContDynamics.simulateRandom = simulateRandom
 ContDynamics.display = display
+ContDynamics.derivatives = derivatives
 
-__all__ = ['ContDynamics'] 
+__all__ = ['ContDynamics', 'linReach', 'symVariables', 'derivatives'] 

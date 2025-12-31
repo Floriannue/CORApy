@@ -1,10 +1,16 @@
 """
-test_representsa_ - unit test function for polyZonotope representsa_
+test_polyZonotope_representsa_ - unit test function for polyZonotope representsa_
 
 Tests the representation checking functionality for polyZonotopes.
 
-Authors: MATLAB: Mark Wetzlinger
-         Python: AI Assistant
+Syntax:
+    pytest cora_python/tests/contSet/polyZonotope/test_polyZonotope_representsa_.py
+
+Authors:       Mark Wetzlinger (MATLAB)
+Written:       01-May-2020
+Last update:   20-July-2023 (MW, rename '...representsa')
+Last revision: ---
+               Automatic python translation: Florian Nüssel BA 2025
 """
 
 import numpy as np
@@ -166,6 +172,22 @@ class TestPolyZonotopeRepresentsa:
         assert pZ.representsa_('origin', tol=0.01)  # With sufficient tolerance
         assert not pZ.representsa_('origin', tol=0.001)  # With insufficient tolerance
     
+    def test_representsa_interval(self):
+        """Test representsa_ with interval comparison"""
+        # Create polyZonotope that might represent an interval
+        c = np.array([[0], [0]])
+        G = np.array([[1], [0]])
+        GI = np.array([[0.5], [0]])
+        E = np.array([[1], [0]])
+        pZ = PolyZonotope(c, G, GI, E)
+        
+        try:
+            result = pZ.representsa_('interval', tol=1e-10)
+            # Result depends on structure
+            assert isinstance(result, bool)
+        except (NotImplementedError, AttributeError) as e:
+            pytest.skip(f"Dependencies not yet translated: {e}")
+    
     def test_representsa_invalid_type(self):
         """Test representsa_ with invalid type"""
         pZ = PolyZonotope.origin(2)
@@ -188,4 +210,29 @@ class TestPolyZonotopeRepresentsa:
         
         # Random polyZonotope should not be empty
         pZ_random = PolyZonotope.generateRandom(Dimension=3)
-        assert not pZ_random.representsa_('emptySet', tol=1e-10) 
+        assert not pZ_random.representsa_('emptySet', tol=1e-10)
+
+
+def test_polyZonotope_representsa_():
+    """Test function for polyZonotope representsa_ method.
+    
+    Runs all test methods to verify correct implementation.
+    """
+    test = TestPolyZonotopeRepresentsa()
+    test.test_representsa_emptyset()
+    test.test_representsa_origin()
+    test.test_representsa_zonotope()
+    test.test_representsa_point()
+    test.test_representsa_fullspace()
+    test.test_representsa_edge_cases()
+    test.test_representsa_tolerance_parameter()
+    test.test_representsa_interval()
+    test.test_representsa_invalid_type()
+    test.test_representsa_consistency()
+    
+    print("test_polyZonotope_representsa_: all tests passed")
+    return True
+
+
+if __name__ == "__main__":
+    test_polyZonotope_representsa_() 

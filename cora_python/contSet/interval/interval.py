@@ -214,16 +214,32 @@ class Interval(ContSet):
         """Handle numpy universal functions"""
         if method == '__call__':
             if ufunc == np.add:
-                return self.__add__(inputs[1] if inputs[0] is self else inputs[0])
+                if len(inputs) == 2:
+                    if inputs[0] is self:
+                        return self.__add__(inputs[1])
+                    else:
+                        return self.__radd__(inputs[0])
             elif ufunc == np.subtract:
-                if inputs[0] is self:
-                    return self.__sub__(inputs[1])
-                else:
-                    return self.__rsub__(inputs[0])
+                if len(inputs) == 2:
+                    if inputs[0] is self:
+                        return self.__sub__(inputs[1])
+                    else:
+                        return self.__rsub__(inputs[0])
             elif ufunc == np.multiply:
-                return self.__mul__(inputs[1] if inputs[0] is self else inputs[0])
+                if len(inputs) == 2:
+                    if inputs[0] is self:
+                        return self.__mul__(inputs[1])
+                    else:
+                        return self.__rmul__(inputs[0])
             elif ufunc == np.matmul:
-                return self.__matmul__(inputs[1] if inputs[0] is self else inputs[0])
+                if len(inputs) == 2:
+                    # Handle matrix multiplication: numeric @ interval or interval @ numeric
+                    if inputs[0] is self:
+                        # interval @ numeric
+                        return self.__matmul__(inputs[1])
+                    else:
+                        # numeric @ interval - call __rmatmul__
+                        return self.__rmatmul__(inputs[0])
         
         # For other ufuncs, return NotImplemented to let numpy handle it
         return NotImplemented

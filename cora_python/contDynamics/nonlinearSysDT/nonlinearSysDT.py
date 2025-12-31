@@ -3,7 +3,7 @@ import sympy
 from cora_python.contDynamics.contDynamics import ContDynamics
 from cora_python.g.macros.CHECKS_ENABLED import CHECKS_ENABLED
 from cora_python.g.functions.matlab.validate.check.inputArgsCheck import inputArgsCheck
-from cora_python.g.functions.matlab.function_handle.input_args_length import input_args_length
+from cora_python.g.functions.matlab.function_handle.inputArgsLength import inputArgsLength
 from cora_python.g.functions.matlab.validate.check.is_func_linear import is_func_linear
 import inspect
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
@@ -146,7 +146,7 @@ class NonlinearSysDT(ContDynamics):
             try:
                 # MATLAB's `nargin` for function handles is tricky. 
                 # Python's `inspect` is a good equivalent.
-                temp, _ = input_args_length(fun)
+                temp, _ = inputArgsLength(fun)
                 if states is None: states = temp[0]
                 # In MATLAB, if a function is defined as f(x), nargin is 1. We need to handle this.
                 if inputs is None: inputs = temp[1] if len(temp) > 1 else 0
@@ -166,7 +166,7 @@ class NonlinearSysDT(ContDynamics):
         else:
             # custom output equation
             try:
-                temp_out, out_dims = input_args_length(out_fun)
+                temp_out, out_dims = inputArgsLength(out_fun)
                 auto_outputs = out_dims[0] if out_dims else 0
                 out_inputs = temp_out[1] if len(temp_out) > 1 else 0
                 

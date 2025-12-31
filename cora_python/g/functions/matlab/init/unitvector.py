@@ -12,17 +12,19 @@ Outputs:
     v - standard unit vector
 
 Example:
-    v = unitvector(2, 3)  # returns [0, 1, 0]
+    ---
 
+Other m-files required: none
+Subfunctions: none
+MAT-files required: none
 
 See also: ---
 
-Authors:       Tobias Ladner (MATLAB)
-               Python translation by AI Assistant
-Written:       27-June-2023 (MATLAB)
+Authors:       Tobias Ladner
+Written:       27-June-2023
 Last update:   ---
 Last revision: ---
-Python translation: 2025
+               Automatic python translation: Florian Nüssel BA 2025
 """
 
 import numpy as np
@@ -33,21 +35,26 @@ def unitvector(i: int, n: int) -> np.ndarray:
     Returns the i-th standard unit vector of dimension n
     
     Args:
-        i: i-th entry is 1 (1-indexed)
+        i: i-th entry is 1 (1-based index)
         n: dimension
         
     Returns:
-        Standard unit vector as column vector
+        v: standard unit vector (n x 1 numpy array)
     """
-    # omit checks for performance 
     
+    # omit checks for performance
+    
+    # MATLAB: if n==0
     if n == 0:
         # always return empty vector
-        v = np.array([]).reshape(0, 1)
+        # MATLAB: v = [];
+        v = np.array([])
     else:
         # init vector of length n
+        # MATLAB: v = zeros(n,1);
         v = np.zeros((n, 1))
-        # set i-th entry to 1 (convert to 0-indexed)
-        v[i-1] = 1
+        # set i-th entry to 1 (MATLAB uses 1-based indexing, Python uses 0-based)
+        # MATLAB: v(i) = 1;
+        v[i - 1] = 1
     
-    return v 
+    return v
