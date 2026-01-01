@@ -34,7 +34,8 @@ Last revision: ---
 import numpy as np
 from typing import Any, Dict, Optional
 from cora_python.contSet.zonotope.split import split
-from cora_python.contDynamics.contDynamics.linReach import linReach
+# Import linReach inside function to avoid circular import
+# from cora_python.contDynamics.contDynamics.linReach import linReach
 
 
 def priv_select(sys: Any, Rinit: Dict[str, Any], params: Dict[str, Any],
@@ -90,6 +91,8 @@ def priv_select(sys: Any, Rinit: Dict[str, Any], params: Dict[str, Any],
         
         # compute the reachable set for the splitted set
         # MATLAB: [~,Rtp] = linReach(sys,R{i},params,options);
+        # Import here to avoid circular import
+        from cora_python.contDynamics.contDynamics.linReach import linReach
         _, Rtp, _, _ = linReach(sys, R[i], params, options)
         
         # compute performance index (max lin. error) for the split 

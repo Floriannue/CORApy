@@ -112,9 +112,8 @@ def reach(linsys, params: Dict[str, Any], *args) -> Union['ReachSet', Tuple['Rea
                 raise CORAerror('CORA:notImplemented', 
                                'decomp reachability algorithm not yet implemented')
             elif options['linAlg'] == 'krylov':
-                # TODO: Implement krylov algorithm
-                raise CORAerror('CORA:notImplemented', 
-                               'krylov reachability algorithm not yet implemented')
+                from .private.priv_reach_krylov import priv_reach_krylov
+                timeInt, timePoint, res = priv_reach_krylov(linsys, params, options)
             else:
                 raise CORAerror('CORA:wrongFieldValue', 'options.linAlg',
                                ['standard', 'wrapping-free', 'adaptive', 'fromStart', 'decomp', 'krylov'])

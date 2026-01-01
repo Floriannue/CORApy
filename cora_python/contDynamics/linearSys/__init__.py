@@ -24,6 +24,9 @@ from .affineSolution import affineSolution
 from ..contDynamics.simulateRandom import simulateRandom
 from .particularSolution_constant import particularSolution_constant
 from .particularSolution_timeVarying import particularSolution_timeVarying
+from .outputSet import outputSet
+from .taylorMatrices import taylorMatrices
+from .verify import verify
 
 # Attach methods to the LinearSys class
 LinearSys.display = display
@@ -41,6 +44,9 @@ LinearSys.homogeneousSolution = homogeneousSolution
 LinearSys.affineSolution = affineSolution
 LinearSys.particularSolution_constant = particularSolution_constant
 LinearSys.particularSolution_timeVarying = particularSolution_timeVarying
+LinearSys.outputSet = outputSet
+LinearSys.taylorMatrices = taylorMatrices
+LinearSys.verify = verify
 
 # Attach static methods
 LinearSys.generateRandom = staticmethod(generateRandom)

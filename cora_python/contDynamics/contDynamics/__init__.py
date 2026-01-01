@@ -11,6 +11,7 @@ from .display import display
 from .linReach import linReach
 from .symVariables import symVariables
 from .derivatives import derivatives
+from .outputSet import outputSet
 
 # Import private functions
 from .private.priv_simulateStandard import priv_simulateStandard
@@ -22,5 +23,6 @@ from .private.priv_simulateConstrainedRandom import priv_simulateConstrainedRand
 ContDynamics.simulateRandom = simulateRandom
 ContDynamics.display = display
 ContDynamics.derivatives = derivatives
+ContDynamics.outputSet = outputSet
 
-__all__ = ['ContDynamics', 'linReach', 'symVariables', 'derivatives'] 
+__all__ = ['ContDynamics', 'linReach', 'symVariables', 'derivatives', 'outputSet'] 

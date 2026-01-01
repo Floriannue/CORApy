@@ -1038,16 +1038,190 @@ cora_python/hybridDynamics/location/
 
 ## 16. NEXT STEPS
 
+### 16.1 Immediate Actions
 
 1. **Begin Translation in Dependency Order**
    - Start with Phase 1 (Foundation)
    - Progress through phases sequentially
-2. **Continuous Testing**
-   - Test each function as it's translated
+   - Follow `TEST_EXECUTION_ORDER.md` for test verification order
+
+2. **Code and Test Translation Together**
+   - Always translate tests alongside code (see `TEST_TRANSLATION_GUIDELINE.md`)
+   - Verify each function immediately after translation
    - Fix issues before moving to next function
-3. **Documentation**
+
+3. **Continuous Testing**
+   - Run tests in dependency order (Phase 0 → Phase 9)
+   - Fix all failures in a phase before proceeding
+   - Use MATLAB for comparison when tests fail
+
+4. **Documentation**
    - Update documentation as functions are translated
    - Document any deviations from MATLAB behavior
+   - Keep translation plan updated with progress
+
+### 16.2 Translation Workflow for Each Function
+
+For each function in the dependency order:
+
+1. **Discovery**
+   - Locate MATLAB source file
+   - Find corresponding MATLAB test file(s)
+   - Identify all dependencies
+   - Create TODO list ordered by dependencies
+
+2. **Analysis**
+   - Read MATLAB source and understand logic
+   - Read MATLAB tests and understand test cases
+   - Check CORA manual for specifications
+   - Note MATLAB-specific operations
+
+3. **Implementation**
+   - Translate code file to Python
+   - Translate test file(s) immediately after
+   - Ensure imports and structure match MATLAB
+   - Add proper docstrings and type hints
+
+4. **Testing and Verification**
+   - Run Python tests
+   - Compare results with MATLAB
+   - Fix any failures by comparing against MATLAB source
+   - Verify numerical accuracy (within tolerance)
+
+5. **Integration**
+   - Update __init__.py files
+   - Verify imports work correctly
+   - Check no circular dependencies
+   - Update TODO list
+
+### 16.3 Progress Tracking
+
+**Phase 1: Foundation** (Priority: High)
+- [ ] `priv_precompStatError` + tests
+- [ ] `priv_abstrerr_lin` + tests
+- [ ] `priv_abstrerr_poly` + tests
+
+**Phase 2: Nonlinear Core** (Priority: High)
+- [ ] `nonlinearSys.initReach` + tests
+- [ ] `nonlinearSys.post` + tests
+- [ ] `contDynamics.derivatives` + tests
+- [ ] `nonlinearSys.initReach_adaptive` + tests (optional)
+
+**Phase 3: Linear Verification** (Priority: High)
+- [ ] `linearSys.priv_verifyRA_supportFunc` + tests
+- [ ] All auxiliary functions in same file
+
+**Phase 4: Hybrid Foundation** (Priority: High)
+- [ ] `location.guardIntersect` (dispatcher) + tests
+- [ ] `location.guardIntersect_zonoGirard` + tests (MUST)
+- [ ] `location.guardIntersect_nondetGuard` + tests (SHOULD)
+- [ ] `location.guardIntersect_levelSet` + tests (SHOULD)
+- [ ] `location.guardIntersect_polytope` + tests (SHOULD)
+- [ ] `location.guardIntersect_conZonotope` + tests (OPTIONAL)
+- [ ] `location.guardIntersect_hyperplaneMap` + tests (OPTIONAL)
+- [ ] `location.guardIntersect_pancake` + tests (OPTIONAL)
+- [ ] `location.reach` + tests
+- [ ] `hybridAutomaton.reach` + tests
+
+**Phase 5: Optional** (Priority: Low)
+- [ ] `linearSys.priv_reach_krylov` + tests (optional)
+
+### 16.4 Verification Strategy
+
+1. **Unit Tests**
+   - Each function must have corresponding test file
+   - Tests must match MATLAB test cases
+   - Use MATLAB-generated input/output pairs when available
+   - Tolerance: `atol=1e-6` for floating-point comparisons
+
+2. **Integration Tests**
+   - Test function chains (e.g., `initReach` → `post` → `reach`)
+   - Test with real examples from MATLAB
+   - Verify end-to-end workflows
+
+3. **Benchmark Tests**
+   - Run ARCH competition benchmarks
+   - Compare computation times (should be similar to MATLAB)
+   - Verify correctness of results
+
+4. **Edge Case Tests**
+   - Empty sets
+   - Degenerate cases
+   - Boundary conditions
+   - Error handling
+
+### 16.5 Quality Assurance
+
+1. **Code Quality**
+   - Follow Python best practices
+   - Use type hints
+   - Add comprehensive docstrings
+   - Match MATLAB structure exactly
+
+2. **Test Quality**
+   - All MATLAB test cases translated
+   - Test data copied correctly
+   - Assertions use appropriate tolerances
+   - Tests are maintainable
+
+3. **Documentation Quality**
+   - Docstrings match MATLAB comments
+   - Function signatures documented
+   - Edge cases documented
+   - Deviations from MATLAB documented
+
+### 16.6 Risk Mitigation
+
+1. **Symbolic Computation**
+   - Risk: MATLAB uses Symbolic Toolbox, Python uses sympy/PyTorch
+   - Mitigation: Use PyTorch AD for runtime, sympy for pre-generation
+   - Validation: Compare generated functions with MATLAB
+
+2. **Numerical Precision**
+   - Risk: Floating-point differences between MATLAB and Python
+   - Mitigation: Use appropriate tolerances, verify edge cases
+   - Validation: Compare results with MATLAB for test cases
+
+3. **Performance**
+   - Risk: Python implementation slower than MATLAB
+   - Mitigation: Use PyTorch for GPU acceleration, profile hot paths
+   - Validation: Benchmark against MATLAB
+
+4. **Complex Dependencies**
+   - Risk: Circular dependencies or missing dependencies
+   - Mitigation: Follow dependency order strictly, verify imports
+   - Validation: Run full test suite after each phase
+
+---
+
+## 17. RELATED DOCUMENTS
+
+- **TEST_EXECUTION_ORDER.md**: Order for running tests to verify and fix issues
+- **TEST_TRANSLATION_GUIDELINE.md**: Guidelines for translating tests alongside code
+- **readme_florian2.md**: General translation workflow and conventions
+- **DERIVATIVES_TRANSLATION_PLAN.md**: Specific plan for derivatives translation
+
+---
+
+## 18. APPENDIX: TEST FILES MAPPING
+
+### Phase 1 Tests
+- `test_priv_precompStatError.py` → `priv_precompStatError.m`
+- `test_priv_abstrerr_lin.py` → `priv_abstrerr_lin.m`
+- `test_priv_abstrerr_poly.py` → `priv_abstrerr_poly.m`
+
+### Phase 2 Tests
+- `test_nonlinearSys_initReach.py` → `test_nonlinearSys_initReach.m`
+- `test_nonlinearSys_reach_*.py` → Various reachability tests
+- `testLong_nonlinearSys_*.py` → Long-running reachability tests
+
+### Phase 3 Tests
+- `test_verifyFast_*.py` → ARCH competition benchmarks
+- `test_linearSys_verify_*.py` → Linear system verification tests
+
+### Phase 4 Tests
+- `test_nonlinearReset_derivatives.py` → `test_nonlinearReset_derivatives.m`
+- Future: `test_location_reach.py`, `test_hybridAutomaton_reach.py`
 
 ---
 

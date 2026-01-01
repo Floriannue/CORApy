@@ -30,34 +30,7 @@ import pytest
 from cora_python.contDynamics.nonlinearSys import NonlinearSys
 from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.polyZonotope import PolyZonotope
-
-
-def tank6Eq(x, u):
-    """
-    tank6Eq - system dynamics for the tank benchmark
-    
-    Args:
-        x: state vector
-        u: input vector
-        
-    Returns:
-        dx: time-derivate of the system state
-    """
-    # parameter
-    k = 0.015
-    k2 = 0.01
-    g = 9.81
-    
-    # differential equations
-    dx = np.zeros((6, 1))
-    dx[0, 0] = u[0, 0] + 0.1 + k2 * (4 - x[5, 0]) - k * np.sqrt(2 * g) * np.sqrt(x[0, 0])  # tank 1
-    dx[1, 0] = k * np.sqrt(2 * g) * (np.sqrt(x[0, 0]) - np.sqrt(x[1, 0]))  # tank 2
-    dx[2, 0] = k * np.sqrt(2 * g) * (np.sqrt(x[1, 0]) - np.sqrt(x[2, 0]))  # tank 3
-    dx[3, 0] = k * np.sqrt(2 * g) * (np.sqrt(x[2, 0]) - np.sqrt(x[3, 0]))  # tank 4
-    dx[4, 0] = k * np.sqrt(2 * g) * (np.sqrt(x[3, 0]) - np.sqrt(x[4, 0]))  # tank 5
-    dx[5, 0] = k * np.sqrt(2 * g) * (np.sqrt(x[4, 0]) - np.sqrt(x[5, 0]))  # tank 6
-    
-    return dx
+from cora_python.models.Cora.tank.tank6Eq import tank6Eq
 
 
 class TestNonlinearSysApproxDepReach:

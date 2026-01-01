@@ -26,29 +26,7 @@ from cora_python.contDynamics.linearSys import LinearSys
 from cora_python.contDynamics.nonlinearSys import NonlinearSys
 from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.interval import Interval
-
-
-def fiveDimSysEq(x, u):
-    """
-    fiveDimSysEq - system dynamics for 5D linear system
-    
-    Args:
-        x: state vector
-        u: input vector
-        
-    Returns:
-        dx: time-derivate of the system state
-    """
-    # Linear system: dx = A*x + B*u
-    A = np.array([[-1, -4, 0, 0, 0],
-                  [4, -1, 0, 0, 0],
-                  [0, 0, -3, 1, 0],
-                  [0, 0, -1, -3, 0],
-                  [0, 0, 0, 0, -2]])
-    B = np.array([[1], [1], [1], [1], [1]])
-    
-    dx = A @ x + B @ u
-    return dx
+from cora_python.models.Cora.fiveDimSysEq import fiveDimSysEq
 
 
 class TestNonlinearSysReach02LinearEqualsNonlinear:

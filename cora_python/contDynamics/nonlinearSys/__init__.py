@@ -9,8 +9,16 @@ Authors: Matthias Althoff, Niklas Kochdumper (MATLAB)
 """
 
 from .initReach import initReach
+from .initReach_adaptive import initReach_adaptive
 from .linearize import linearize
 from .post import post
+from .nonlinearSys import NonlinearSys
 
-__all__ = ['initReach', 'linearize', 'post']
+# Attach methods to the NonlinearSys class
+NonlinearSys.initReach = initReach
+NonlinearSys.initReach_adaptive = initReach_adaptive
+NonlinearSys.linearize = linearize
+NonlinearSys.post = post
+
+__all__ = ['NonlinearSys', 'initReach', 'initReach_adaptive', 'linearize', 'post']
 
