@@ -29,7 +29,7 @@ Last revision: ---
 
 import numpy as np
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 from cora_python.contSet.polytope import Polytope
 from cora_python.contSet.interval import Interval
 from cora_python.specification.specification.specification import Specification

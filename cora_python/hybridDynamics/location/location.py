@@ -86,9 +86,10 @@ class Location:
         assertNarginConstructor([0, 1, 3, 4], len(args))
         if len(args) == 0:
             self.name = 'location'
-            self.invariant = None
-            self.transition = []
-            self.contDynamics = None
+            # MATLAB [] is a 2D matrix (0x0), not 1D array
+            self.invariant = np.empty((0, 0))  # MATLAB: invariant = []
+            self.transition = []  # MATLAB: transition = transition()
+            self.contDynamics = None  # MATLAB: contDynamics = contDynamics() - object, None is OK
             return
         
         # 1. copy constructor
@@ -120,18 +121,26 @@ class Location:
 
 def _aux_parseInputArgs(*varargin):
     """Parse input arguments for location constructor"""
+    from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
     
-    # default properties
+    # default properties (MATLAB: inv = [], trans = transition(), sys = contDynamics())
     name = 'location'
-    inv = None
-    trans = []  # Will be transition array
-    sys = None  # Will be contDynamics object
+    # MATLAB [] is a 2D matrix (0x0), not 1D array
+    inv = np.empty((0, 0))  # MATLAB: inv = []
+    trans = []  # MATLAB: trans = transition() - will be transition array
+    sys = None  # MATLAB: sys = contDynamics() - object, None is OK
     
     # parse arguments
     if len(varargin) == 3:
         inv, trans, sys = setDefaultValues([inv, trans, sys], list(varargin))
     elif len(varargin) == 4:
         name, inv, trans, sys = setDefaultValues([name, inv, trans, sys], list(varargin))
+    
+    # Convert None to empty arrays (MATLAB uses [] not None)
+    # This handles cases where None is explicitly passed
+    # MATLAB [] is a 2D matrix (0x0), not 1D array
+    if inv is None:
+        inv = np.empty((0, 0))
     
     return name, inv, trans, sys
 
@@ -154,10 +163,15 @@ def _aux_checkInputArgs(name: str, inv: Any, trans: Any, sys: Any, n_in: int) ->
 def _aux_computeProperties(name: str, inv: Any, trans: Any, sys: Any) -> tuple:
     """Compute dependent properties"""
     
+    # Import here to avoid circular dependencies
+    from cora_python.hybridDynamics.transition.transition import Transition
+    
     # loc.transition has to be an array of transition objects
-    # For now, we'll accept a list and convert it
-    # TODO: Implement transition class and proper validation
-    if not isinstance(trans, list):
+    # MATLAB allows single transition object, which is treated as array
+    if isinstance(trans, Transition):
+        # Single transition - convert to list
+        trans = [trans]
+    elif not isinstance(trans, list):
         if isinstance(trans, (tuple, np.ndarray)):
             trans = list(trans)
         else:
