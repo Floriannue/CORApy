@@ -220,17 +220,24 @@ def _aux_checkInputArgs(name: str, locs: Any, n_in: int) -> None:
                                           'Ambient dimension of guard set has to match state dimension of flow.')
             
             # 3. target of each transition must be <= number of locations
+            # (emptiness, integer value, and larger than 0 already checked)
             for j in range(len(loc.transition)):
                 trans = loc.transition[j]
-                if hasattr(trans, 'target'):
+                # Skip empty transitions (MATLAB: ~isemptyobject check is implicit)
+                if hasattr(trans, 'target') and trans.target is not None:
                     target = trans.target
+                    # Check if target is empty array
+                    if isinstance(target, np.ndarray) and target.size == 0:
+                        continue
                     if isinstance(target, (list, np.ndarray)):
-                        if np.any(np.array(target) > numLoc):
+                        target_arr = np.array(target)
+                        if target_arr.size > 0 and np.any(target_arr > numLoc):
                             raise CORAerror('CORA:wrongInputInConstructor',
                                           'Targets exceed number of locations.')
-                    elif isinstance(target, (int, float)) and target > numLoc:
-                        raise CORAerror('CORA:wrongInputInConstructor',
-                                      'Targets exceed number of locations.')
+                    elif isinstance(target, (int, float, np.integer, np.floating)):
+                        if target > numLoc:
+                            raise CORAerror('CORA:wrongInputInConstructor',
+                                          'Targets exceed number of locations.')
             
             # 4. output dimension of reset function must have same
             # dimension as flow equation of target dimension

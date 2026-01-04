@@ -22,6 +22,9 @@ from .guardIntersect_pancake import guardIntersect_pancake
 from .potInt import potInt
 from .potOut import potOut
 from .reach import reach
+from .isequal import isequal
+from .isemptyobject import isemptyobject
+from .display import display
 
 # Attach methods to the Location class
 Location.calcBasis = calcBasis
@@ -37,9 +40,12 @@ Location.guardIntersect_pancake = guardIntersect_pancake
 Location.potInt = potInt
 Location.potOut = potOut
 Location.reach = reach
+Location.isequal = isequal
+Location.isemptyobject = isemptyobject
+Location.display = display
 
 __all__ = ['Location', 'calcBasis', 'checkFlow', 'guardIntersect', 'guardIntersect_zonoGirard', 
            'guardIntersect_nondetGuard', 'guardIntersect_levelSet', 'guardIntersect_polytope', 
            'guardIntersect_conZonotope', 'guardIntersect_hyperplaneMap', 'guardIntersect_pancake', 
-           'potInt', 'potOut', 'reach']
+           'potInt', 'potOut', 'reach', 'isequal', 'isemptyobject', 'display']
 

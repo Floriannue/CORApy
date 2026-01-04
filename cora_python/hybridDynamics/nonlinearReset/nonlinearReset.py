@@ -177,13 +177,37 @@ def _aux_computeProperties(f: Callable, preStateDim: Any, inputDim: Any, postSta
     # As long as aux_parseInputArgs enforces either 1 or 4 input arguments,
     # we must only check 'preStateDim' and can then compute all values
     if preStateDim is None:
-        count, postStateDim = inputArgsLength(f, 2)
+        count, postStateDim_tuple = inputArgsLength(f, 2)
         preStateDim = count[0]
         # For ease of code, we always have at least one input dimension
         inputDim = count[1] if len(count) > 1 else 1
+        # postStateDim is computed by inputArgsLength as a tuple, extract the value
+        # MATLAB: postStateDim is a scalar, Python: it's a tuple, take first element
+        if isinstance(postStateDim_tuple, (tuple, list)) and len(postStateDim_tuple) > 0:
+            postStateDim = postStateDim_tuple[0]
+        elif isinstance(postStateDim_tuple, (int, np.integer)):
+            postStateDim = int(postStateDim_tuple)
+        else:
+            # If inputArgsLength didn't compute it, evaluate function to determine output size
+            try:
+                # Create dummy inputs based on computed dimensions
+                x_dummy = np.zeros((preStateDim, 1))
+                u_dummy = np.zeros((inputDim, 1))
+                f_out = f(x_dummy, u_dummy)
+                f_out = np.asarray(f_out)
+                postStateDim = len(f_out.flatten())
+            except Exception:
+                raise CORAerror('CORA:wrongInputInConstructor',
+                              'Could not determine post-state dimension from function handle.')
     
     # Input dimension must also be >= 1
     inputDim = max(inputDim, 1) if inputDim is not None else 1
+    
+    # Ensure postStateDim is not None and is an integer
+    if postStateDim is None:
+        raise CORAerror('CORA:wrongInputInConstructor',
+                      'Post-state dimension must be provided or computable from function handle.')
+    postStateDim = int(postStateDim)  # Ensure it's an integer
     
     return f, preStateDim, inputDim, postStateDim
 

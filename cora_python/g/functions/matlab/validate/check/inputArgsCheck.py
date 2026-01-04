@@ -98,14 +98,20 @@ def inputArgsCheck(args: List[List[Any]]) -> None:
 
         # read out classes
         classes = input_arg[2]
-        if not isinstance(classes, list):
+        # Handle tuple of class names (e.g., ('abstractReset', 'struct'))
+        if isinstance(classes, tuple):
+            classes = list(classes)
+        elif not isinstance(classes, list):
             classes = [classes]
 
         # read out attributes
         attributes = []
         if len(input_arg) >= 4:
             attributes = input_arg[3]
-            if not isinstance(attributes, list):
+            # Handle tuple attributes (convert to list)
+            if isinstance(attributes, tuple):
+                attributes = list(attributes)
+            elif not isinstance(attributes, list):
                 attributes = [attributes]
 
         # ensure cell of cell array (if MATLAB had nested cells for attributes)
@@ -132,7 +138,7 @@ def inputArgsCheck(args: List[List[Any]]) -> None:
         for j in range(len(classes)):
             current_class_name = classes[j]
             current_attributes = attributes[j]
-            log.debug(f"aux_checkAtt: Checking value={value} against class={current_class_name}, attributes={current_attributes}")
+            log.debug(f"aux_checkAtt: Checking value={type(value).__name__} against class={current_class_name}, attributes={current_attributes}")
             resvec[j] = checkValueAttributes(value, current_class_name, current_attributes)
             log.debug(f"aux_checkAtt: checkValueAttributes result for class {current_class_name}: {resvec[j]}")
     

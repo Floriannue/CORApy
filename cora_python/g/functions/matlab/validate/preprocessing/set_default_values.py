@@ -38,13 +38,16 @@ def set_default_values(defaults: List[Any], *args: Any) -> List[Any]:
     defaults_list = list(defaults)
     result = defaults_list.copy()
     
-    # Flatten args in case they are passed as a list/tuple
+    # MATLAB: givenValues is a cell array (list in Python)
+    # Handle both cases: *args (unpacked) or single list/tuple argument
     args_list = []
-    for arg in args:
-        if isinstance(arg, (list, tuple)):
-            args_list.extend(arg)
-        else:
-            args_list.append(arg)
+    if len(args) == 1 and isinstance(args[0], (list, tuple)):
+        # Single list/tuple argument (matches MATLAB: setDefaultValues({eps}, varargin))
+        # where varargin is a cell array
+        args_list = list(args[0])
+    else:
+        # Multiple arguments (unpacked)
+        args_list = list(args)
             
     # Override with provided arguments (matches MATLAB exactly)
     num_given = len(args_list)

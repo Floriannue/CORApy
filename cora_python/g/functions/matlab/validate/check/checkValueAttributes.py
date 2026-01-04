@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Any, Callable, List, Union
+from typing import Any, Callable, List, Union, Dict, Type
 import logging
 import sympy as sp
 from scipy import sparse
@@ -10,6 +10,42 @@ logger = logging.getLogger(__name__)
 
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
+# Map MATLAB class names to Python classes (lazy import to avoid circular dependencies)
+_CLASS_MAP: Dict[str, Type] = {}
+
+def _get_class_for_name(class_name: str) -> Type:
+    """Get Python class for MATLAB class name (lazy import)"""
+    if class_name in _CLASS_MAP:
+        return _CLASS_MAP[class_name]
+    
+    # Import classes on first use
+    if class_name == 'abstractReset':
+        from cora_python.hybridDynamics.abstractReset.abstractReset import AbstractReset
+        _CLASS_MAP[class_name] = AbstractReset
+        return AbstractReset
+    elif class_name == 'linearReset':
+        from cora_python.hybridDynamics.linearReset.linearReset import LinearReset
+        _CLASS_MAP[class_name] = LinearReset
+        return LinearReset
+    elif class_name == 'nonlinearReset':
+        from cora_python.hybridDynamics.nonlinearReset.nonlinearReset import NonlinearReset
+        _CLASS_MAP[class_name] = NonlinearReset
+        return NonlinearReset
+    elif class_name == 'transition':
+        from cora_python.hybridDynamics.transition.transition import Transition
+        _CLASS_MAP[class_name] = Transition
+        return Transition
+    elif class_name == 'location':
+        from cora_python.hybridDynamics.location.location import Location
+        _CLASS_MAP[class_name] = Location
+        return Location
+    elif class_name == 'hybridAutomaton':
+        from cora_python.hybridDynamics.hybridAutomaton.hybridAutomaton import HybridAutomaton
+        _CLASS_MAP[class_name] = HybridAutomaton
+        return HybridAutomaton
+    
+    return None
+
 def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
     logger.debug("checkValueAttributes: value=%s, check_type=%s, attributes=%s", value, check_type, attributes)
 
@@ -19,6 +55,14 @@ def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
     """
 
     # Normalize inputs
+    # Handle tuple of class names (e.g., ('abstractReset', 'struct'))
+    if isinstance(check_type, tuple):
+        # Check if value matches any of the classes in the tuple
+        for cls_name in check_type:
+            if checkValueAttributes(value, cls_name, attributes):
+                return True
+        return False
+    
     class_name = check_type if isinstance(check_type, str) else ''
     if attributes is None:
         attributes = []
@@ -105,11 +149,21 @@ def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
                     # A function handle is always "scalar" (single function, not array of functions)
                     res = isinstance(value, Callable)
                 else:
-                    res = np.isscalar(value)
+                    # For object classes (e.g., abstractReset, linearReset, etc.), scalar means single instance, not array
+                    # MATLAB: scalar for objects means not an array of objects
+                    res = not isinstance(value, (list, tuple, np.ndarray)) or \
+                          (isinstance(value, np.ndarray) and value.size == 0)
             elif attribute == 'row':
                 res = (isinstance(val, np.ndarray) and val.ndim == 2 and val.shape[0] == 1)
             elif attribute == 'column':
-                res = (isinstance(val, np.ndarray) and val.ndim == 2 and val.shape[1] == 1)
+                # MATLAB: column means column vector or scalar (1x1 is considered column)
+                # Scalar numeric values are also acceptable as "column" (they can be reshaped)
+                if isinstance(val, (int, float, np.number)):
+                    res = True  # Scalar is acceptable as column
+                elif isinstance(val, np.ndarray):
+                    res = (val.ndim == 2 and val.shape[1] == 1) or (val.ndim == 0) or (val.size == 1)
+                else:
+                    res = False
             elif attribute == 'vector':
                 is_list_of_nums = isinstance(val, list) and all(isinstance(x, (int, float, np.number)) for x in val)
                 is_numpy_vector = isinstance(val, np.ndarray) and (val.ndim == 1 or (val.ndim == 2 and (val.shape[0] == 1 or val.shape[1] == 1)))
@@ -260,11 +314,16 @@ def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
     elif class_name == 'numpy.ndarray':
         class_check_passed = isinstance(value, np.ndarray)
     else:
-        try:
+        # MATLAB: isa(value, class) - check if value is instance of class
+        # Try to get the Python class for the MATLAB class name
+        python_class = _get_class_for_name(class_name)
+        if python_class is not None:
+            # Direct isinstance check (matches MATLAB's isa)
+            class_check_passed = isinstance(value, python_class)
+        else:
+            # Fallback: check MRO for class name match
             mro = type(value).mro()
             class_check_passed = any(c.__name__.lower() == class_name.lower() for c in mro)
-        except Exception:
-            class_check_passed = False
 
     resvec[0] = class_check_passed
 

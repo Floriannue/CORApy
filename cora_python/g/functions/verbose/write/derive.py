@@ -245,14 +245,25 @@ def aux_derive(f_sym: Any, vars: List[Any]) -> List[Any]:
                        'The function derive currently only supports max. 3D sym matrices.')
     
     # Convert vars to sympy symbols if needed
+    # MATLAB: vars is a cell array, each element is a symbolic array (e.g., [x1; x2] or [u1])
+    # Python: vars is a list, each element is a list of symbols
     vars_sympy = []
     for var_list in vars:
         if isinstance(var_list, (list, tuple)):
-            vars_sympy.append([sp.Symbol(str(v), real=True) if not isinstance(v, sp.Basic) else v 
-                               for v in var_list])
+            # Convert each symbol in the list
+            sym_list = []
+            for v in var_list:
+                if isinstance(v, sp.Basic):
+                    sym_list.append(v)
+                else:
+                    sym_list.append(sp.Symbol(str(v), real=True))
+            vars_sympy.append(sym_list)
         else:
-            vars_sympy.append([sp.Symbol(str(var_list), real=True) if not isinstance(var_list, sp.Basic) 
-                               else var_list])
+            # Single symbol
+            if isinstance(var_list, sp.Basic):
+                vars_sympy.append([var_list])
+            else:
+                vars_sympy.append([sp.Symbol(str(var_list), real=True)])
     
     if len(sz) == 1 or (len(sz) == 2 and (sz[0] == 1 or sz[1] == 1)):
         # vectors are ok as they are... reshape has no effect on 'jacobian' but
@@ -340,14 +351,41 @@ def aux_getSymbolicFunction(f_sym: Any, f: Optional[Callable], vars: List[Any]) 
                           'Either function handle or symbolic function must be provided.')
         try:
             # Evaluate function with symbolic variables
-            # Flatten vars for function call
-            vars_flat = []
+            # MATLAB: f(vars{:}) expands cell array, so f receives each var group as separate argument
+            # Python: f(*vars_args) does the same
+            # Each var_list in vars is a list of symbols for one variable group (e.g., [x1, x2] or [u1])
+            vars_args = []
             for var_list in vars:
                 if isinstance(var_list, (list, tuple)):
-                    vars_flat.extend(var_list)
+                    # If it's a list/tuple of symbols
+                    if len(var_list) == 1:
+                        vars_args.append(var_list[0])  # Single symbol
+                    else:
+                        # Multiple symbols - pass as numpy array
+                        # MATLAB: vars{:} expands cell array, each cell becomes a separate argument
+                        # For [x1, x2], MATLAB passes it as a column vector [x1; x2]
+                        # In Python, we pass as numpy array which functions can index
+                        vars_args.append(np.array(var_list))
                 else:
-                    vars_flat.append(var_list)
-            f_sym = f(*vars_flat)
+                    vars_args.append(var_list)
+            # Try calling with array arguments first (for functions like f(x, u) where x and u are arrays)
+            # If that fails, try with individual symbols (for functions like f(x1, x2))
+            try:
+                f_sym = f(*vars_args)
+            except (TypeError, ValueError) as e1:
+                # If function expects individual symbols, flatten and try again
+                vars_args_flat = []
+                for arg in vars_args:
+                    if isinstance(arg, np.ndarray):
+                        vars_args_flat.extend(arg.tolist())
+                    else:
+                        vars_args_flat.append(arg)
+                try:
+                    f_sym = f(*vars_args_flat)
+                except Exception as e2:
+                    # If both fail, raise original error
+                    raise CORAerror('CORA:specialError',
+                                  'Variables do not match given function handle.') from e1
             # Convert to sympy if needed
             if not isinstance(f_sym, (sp.Basic, sp.Matrix)):
                 f_sym = sp.Matrix(f_sym) if isinstance(f_sym, (list, tuple, np.ndarray)) else sp.sympify(f_sym)
