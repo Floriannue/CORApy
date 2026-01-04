@@ -1,6 +1,8 @@
 import numpy as np
 from typing import Any, Callable, List, Union
 import logging
+import sympy as sp
+from scipy import sparse
 
 # Do not set global logging config here
 # logging.basicConfig(level=logging.DEBUG)
@@ -99,6 +101,9 @@ def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
                             value.ndim == 1 or \
                             (value.ndim == 2 and (value.shape[0] == 1 or value.shape[1] == 1)) \
                            ))
+                elif class_name.lower() == 'function_handle':
+                    # A function handle is always "scalar" (single function, not array of functions)
+                    res = isinstance(value, Callable)
                 else:
                     res = np.isscalar(value)
             elif attribute == 'row':
@@ -234,7 +239,6 @@ def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
         class_check_passed = True
     elif class_name == 'numeric':
         # Check for sparse matrices (scipy.sparse)
-        from scipy import sparse
         is_sparse_numeric = sparse.issparse(value) and np.issubdtype(value.dtype, np.number)
         class_check_passed = (isinstance(value, (int, float, np.number)) or 
                              (isinstance(value, np.ndarray) and np.issubdtype(value.dtype, np.number)) or
@@ -250,6 +254,9 @@ def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
         class_check_passed = isinstance(value, dict)
     elif class_name == 'function_handle':
         class_check_passed = isinstance(value, Callable)
+    elif class_name == 'sym':
+        # Check if value is a sympy object (Basic is the base class for all sympy objects)
+        class_check_passed = isinstance(value, sp.Basic) or isinstance(value, sp.Matrix)
     elif class_name == 'numpy.ndarray':
         class_check_passed = isinstance(value, np.ndarray)
     else:

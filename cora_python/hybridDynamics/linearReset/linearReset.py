@@ -171,12 +171,13 @@ def _aux_checkInputArgs(A: Any, B: Any, c: Any, n_in: int) -> None:
 def _aux_computeProperties(A: Any, B: Any, c: Any) -> tuple:
     """Compute properties (dimensions, defaults)"""
     # Convert None to empty arrays (MATLAB uses [] not None)
+    # MATLAB [] is a 2D matrix (0x0), not 1D array
     if A is None:
-        A = np.array([])
+        A = np.empty((0, 0))  # 2D empty matrix (0x0) like MATLAB []
     if B is None:
-        B = np.array([])
+        B = np.empty((0, 0))  # 2D empty matrix (0x0) like MATLAB []
     if c is None:
-        c = np.array([])
+        c = np.empty((0, 0))  # 2D empty matrix (0x0) like MATLAB []
     
     # Instantiate A as zeros if empty (MATLAB: if isempty(A) means size == 0)
     if A.size == 0:

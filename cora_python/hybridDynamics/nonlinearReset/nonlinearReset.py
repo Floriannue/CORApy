@@ -138,12 +138,18 @@ def _aux_parseInputArgs(*args):
 def _aux_checkInputArgs(f: Any, preStateDim: Any, inputDim: Any, postStateDim: Any, n_in: int) -> None:
     """Ensure that nonlinear reset function x_ = f(x,u) is properly defined"""
     if CHECKS_ENABLED and n_in > 0:
-        inputArgsCheck([
-            [f, 'att', 'function_handle'],
-            [preStateDim, 'att', 'numeric'],
-            [inputDim, 'att', 'numeric'],
-            [postStateDim, 'att', 'numeric']
-        ])
+        # Only check dimensions if they are provided (not None)
+        # MATLAB uses [] (empty array) which is different from None, but in Python
+        # we use None to represent "not provided" and only validate when provided
+        check_list = [[f, 'att', 'function_handle']]
+        if preStateDim is not None:
+            check_list.append([preStateDim, 'att', 'numeric'])
+        if inputDim is not None:
+            check_list.append([inputDim, 'att', 'numeric'])
+        if postStateDim is not None:
+            check_list.append([postStateDim, 'att', 'numeric'])
+        
+        inputArgsCheck(check_list)
         
         # If preStateDim and inputDim provided, check if they are plausible
         # by inserting vector of given size into the function handle

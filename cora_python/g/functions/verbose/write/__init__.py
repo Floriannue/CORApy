@@ -9,7 +9,8 @@ from .writeSparseMatrixOptimized import writeSparseMatrixOptimized
 from .writeHessianTensorFile import writeHessianTensorFile
 from .write3rdOrderTensorFile import write3rdOrderTensorFile
 from .writeHigherOrderTensorFiles import writeHigherOrderTensorFiles
+from .derive import derive
 
 __all__ = ['writeMatrix', 'writeMatrixFile', 'writeSparseMatrix', 'writeSparseMatrixOptimized',
-           'writeHessianTensorFile', 'write3rdOrderTensorFile', 'writeHigherOrderTensorFiles']
+           'writeHessianTensorFile', 'write3rdOrderTensorFile', 'writeHigherOrderTensorFiles', 'derive']
 

@@ -92,15 +92,17 @@ class HybridAutomaton(HybridDynamics):
         if len(args) == 0:
             self.name = ''
             self.location = []
-            # MATLAB: numeric properties default to [] (empty array)
-            self.nrOfDims = np.array([])
-            self.nrOfInputs = np.array([])
-            self.nrOfOutputs = np.array([])
-            self.nrOfDisturbances = np.array([])
-            self.nrOfNoises = np.array([])
+            # MATLAB: when nargin==0, just return (properties remain uninitialized, which is [] in MATLAB)
+            # MATLAB [] is a 2D matrix (0x0), not 1D array
+            # For numeric properties, uninitialized means [] (empty array)
+            self.nrOfDims = np.empty((0, 0))  # 2D empty matrix (0x0) like MATLAB []
+            self.nrOfInputs = np.empty((0, 0))
+            self.nrOfOutputs = np.empty((0, 0))
+            self.nrOfDisturbances = np.empty((0, 0))
+            self.nrOfNoises = np.empty((0, 0))
             # Legacy properties
-            self.dim = np.array([])
-            self.nrOfStates = np.array([])
+            self.dim = np.empty((0, 0))
+            self.nrOfStates = np.empty((0, 0))
             return
         
         # 1. copy constructor
