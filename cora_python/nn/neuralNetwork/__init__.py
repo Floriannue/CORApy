@@ -23,7 +23,7 @@ from .train import train
 from .initWeights import initWeights
 from .getNumNeurons import getNumNeurons
 from .setInputSize import setInputSize
-from .display import display
+from .display import display, display_
 from .reset import reset
 from .resetApproxOrder import resetApproxOrder
 from .resetBounds import resetBounds
@@ -72,6 +72,10 @@ NeuralNetwork.initWeights = initWeights
 NeuralNetwork.getNumNeurons = getNumNeurons
 NeuralNetwork.setInputSize = setInputSize
 NeuralNetwork.display = display
+NeuralNetwork.display_ = display_
+
+# Attach display_ to __str__
+NeuralNetwork.__str__ = lambda self: display_(self)
 NeuralNetwork.reset = reset
 NeuralNetwork.resetApproxOrder = resetApproxOrder
 NeuralNetwork.resetBounds = resetBounds

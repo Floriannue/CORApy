@@ -34,9 +34,9 @@ if TYPE_CHECKING:
     from .emptySet import EmptySet
 
 
-def display(O: 'EmptySet') -> str:
+def display_(O: 'EmptySet') -> str:
     """
-    Displays the properties of an emptySet object
+    Displays the properties of an emptySet object (internal function that returns string)
     
     Args:
         O: emptySet object
@@ -44,4 +44,14 @@ def display(O: 'EmptySet') -> str:
     Returns:
         str: formatted display string
     """
-    return f"emptySet:\n- dimension: {O.dimension}\n- {O.dimension}-dimensional empty set" 
+    return f"emptySet:\n- dimension: {O.dimension}\n- {O.dimension}-dimensional empty set"
+
+
+def display(O: 'EmptySet') -> None:
+    """
+    Displays the properties of an emptySet object (prints to stdout)
+    
+    Args:
+        O: emptySet object
+    """
+    print(display_(O), end='') 

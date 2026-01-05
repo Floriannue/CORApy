@@ -32,9 +32,9 @@ import numpy as np
 from cora_python.contSet.contSet.representsa import representsa
 
 
-def display(Z):
+def display_(Z):
     """
-    Displays the properties of a zonotope object
+    Displays the properties of a zonotope object (internal function that returns string)
     
     Args:
         Z: zonotope object
@@ -75,4 +75,14 @@ def display(Z):
     lines.append("")
     
     result = "\n".join(lines)
-    return result 
+    return result
+
+
+def display(Z):
+    """
+    Displays the properties of a zonotope object (prints to stdout)
+    
+    Args:
+        Z: zonotope object
+    """
+    print(display_(Z), end='') 

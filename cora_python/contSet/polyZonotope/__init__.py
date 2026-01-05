@@ -31,6 +31,7 @@ from .zonotope import zonotope
 from .compact_ import compact_
 from .restructure import restructure
 from .approxVolumeRatio import approxVolumeRatio
+from .display import display, display_
 
 # Attach methods to the PolyZonotope class
 # dim and isemptyobject are required by ContSet
@@ -49,6 +50,11 @@ PolyZonotope.splitDepFactor = splitDepFactor
 PolyZonotope.zonotope = zonotope
 PolyZonotope.compact_ = compact_
 PolyZonotope.restructure = restructure
+PolyZonotope.display = display
+PolyZonotope.display_ = display_
+
+# Attach display_ to __str__
+PolyZonotope.__str__ = lambda self: display_(self)
 
 # Attach static methods
 PolyZonotope.empty = staticmethod(empty)

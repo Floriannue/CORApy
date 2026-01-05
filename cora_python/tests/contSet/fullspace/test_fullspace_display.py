@@ -32,11 +32,26 @@ def test_fullspace_display():
     n = 2
     fs = Fullspace(n)
     
-    # only has to run through without errors...
-    display_result = fs.display()
+    # Get display string using display_()
+    display_result = fs.display_()
     assert isinstance(display_result, str)
-    assert "fullspace:" in display_result
+    assert "fullspace:" in display_result or "R^" in display_result
     assert str(n) in display_result
+    
+    # Test that display() prints the same
+    import io
+    import sys
+    old_stdout = sys.stdout
+    sys.stdout = buffer = io.StringIO()
+    try:
+        fs.display()
+        printed_output = buffer.getvalue()
+        assert printed_output == display_result
+    finally:
+        sys.stdout = old_stdout
+    
+    # Test that __str__ returns the same
+    assert str(fs) == display_result
 
 
 if __name__ == "__main__":

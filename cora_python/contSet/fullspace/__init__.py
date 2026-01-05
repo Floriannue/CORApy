@@ -17,7 +17,7 @@ from .isemptyobject import isemptyobject
 from .empty import empty
 from .origin import origin
 from .generateRandom import generateRandom
-from .display import display
+from .display import display, display_
 
 # Import new method implementations
 from .getPrintSetInfo import getPrintSetInfo
@@ -54,6 +54,10 @@ from .representsa_ import representsa_
 Fullspace.dim = dim
 Fullspace.isemptyobject = isemptyobject
 Fullspace.display = display
+Fullspace.display_ = display_
+
+# Attach display_ to __str__
+Fullspace.__str__ = lambda self: display_(self)
 Fullspace.getPrintSetInfo = getPrintSetInfo
 Fullspace.copy = copy
 Fullspace.isFullDim = isFullDim

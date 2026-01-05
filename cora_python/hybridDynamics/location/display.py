@@ -31,31 +31,34 @@ Last revision: ---
 
 from typing import Any, Optional
 import numpy as np
-import inspect
 
 
-def display(loc: Any, var_name: str = None, call_from_hybrid_display: bool = False) -> None:
+def display_(loc: Any, var_name: str = None, call_from_hybrid_display: bool = False) -> str:
     """
-    Display a location object
+    Display a location object (internal function that returns string)
     
     Args:
         loc: Location object
         var_name: Optional variable name (for display)
         call_from_hybrid_display: Whether called from hybridAutomaton.display
+    
+    Returns:
+        String representation for display
     """
+    output_lines = []
     # MATLAB: check if called from display hybridAutomaton
     # st = dbstack("-completenames");
     # For Python, we use the call_from_hybrid_display parameter
     
     if not call_from_hybrid_display:
         # MATLAB: fprintf(newline);
-        print()
+        output_lines.append("")
         # MATLAB: disp([inputname(1), ' =']);
         if var_name is None:
             var_name = 'loc'
-        print(f"{var_name} =")
+        output_lines.append(f"{var_name} =")
         # MATLAB: fprintf(newline);
-        print()
+        output_lines.append("")
     
     # MATLAB: array of location objects
     # if length(loc) > 1
@@ -66,9 +69,9 @@ def display(loc: Any, var_name: str = None, call_from_hybrid_display: bool = Fal
     # if strcmp(loc.name,'location')
     if hasattr(loc, 'name'):
         if loc.name == 'location':
-            print(f"  Name: '{loc.name}' (default)")
+            output_lines.append(f"  Name: '{loc.name}' (default)")
         else:
-            print(f"  Name: '{loc.name}'")
+            output_lines.append(f"  Name: '{loc.name}'")
     
     # MATLAB: invariant
     # if isnumeric(loc.invariant) && isempty(loc.invariant)
@@ -76,7 +79,7 @@ def display(loc: Any, var_name: str = None, call_from_hybrid_display: bool = Fal
                           (isinstance(loc.invariant, np.ndarray) and loc.invariant.size == 0)
     
     if inv_is_numeric_empty:
-        print("  Invariant: []")
+        output_lines.append("  Invariant: []")
     else:
         # MATLAB: disp("  Invariant: " + class(loc.invariant) + ...
         #         " (dimension: " + dim(loc.invariant) + ")");
@@ -84,12 +87,12 @@ def display(loc: Any, var_name: str = None, call_from_hybrid_display: bool = Fal
         inv_dim = 0
         if hasattr(loc.invariant, 'dim'):
             inv_dim = loc.invariant.dim()
-        print(f"  Invariant: {inv_class} (dimension: {inv_dim})")
+        output_lines.append(f"  Invariant: {inv_class} (dimension: {inv_dim})")
     
     # MATLAB: transitions
     # if isempty(loc.transition)
     if not hasattr(loc, 'transition') or len(loc.transition) == 0:
-        print("  Number of transitions: 0")
+        output_lines.append("  Number of transitions: 0")
     else:
         num_trans = len(loc.transition)
         trans_str = f"  Number of transitions: {num_trans} ("
@@ -140,7 +143,7 @@ def display(loc: Any, var_name: str = None, call_from_hybrid_display: bool = Fal
         # dispUpToLength(temp,100,transStr);
         # Simplified: just join and display
         full_str = trans_str + ", ".join(temp)
-        print(full_str)
+        output_lines.append(full_str)
     
     # MATLAB: dynamics
     # disp("  Dynamics: " + class(loc.contDynamics) + ...
@@ -155,9 +158,22 @@ def display(loc: Any, var_name: str = None, call_from_hybrid_display: bool = Fal
                        (loc.contDynamics.nrOfInputs if hasattr(loc.contDynamics, 'nrOfInputs') else 0)
         nr_of_outputs = loc.contDynamics.nr_of_outputs if hasattr(loc.contDynamics, 'nr_of_outputs') else \
                         (loc.contDynamics.nrOfOutputs if hasattr(loc.contDynamics, 'nrOfOutputs') else 0)
-        print(f"  Dynamics: {dyn_class} (state dim.: {nr_of_dims}, input dim.: {nr_of_inputs}, output dim.: {nr_of_outputs})")
+        output_lines.append(f"  Dynamics: {dyn_class} (state dim.: {nr_of_dims}, input dim.: {nr_of_inputs}, output dim.: {nr_of_outputs})")
     
     if not call_from_hybrid_display:
         # MATLAB: fprintf(newline);
-        print()
+        output_lines.append("")
+    
+    return "\n".join(output_lines)
 
+
+def display(loc: Any, var_name: str = None, call_from_hybrid_display: bool = False) -> None:
+    """
+    Display a location object (prints to stdout)
+    
+    Args:
+        loc: Location object
+        var_name: Optional variable name (for display)
+        call_from_hybrid_display: Whether called from hybridAutomaton.display
+    """
+    print(display_(loc, var_name, call_from_hybrid_display), end='')

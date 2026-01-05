@@ -17,17 +17,23 @@ from .isemptyobject import isemptyobject
 from .empty import empty
 from .origin import origin
 from .generateRandom import generateRandom
-from .display import display
+from .display import display, display_
 from .interval import interval
 from .center import center
+from .representsa_ import representsa_
 
 # Attach methods to the ZonoBundle class
 # dim and isemptyobject are required by ContSet
 ZonoBundle.dim = dim
 ZonoBundle.isemptyobject = isemptyobject
 ZonoBundle.display = display
+ZonoBundle.display_ = display_
+
+# Attach display_ to __str__
+ZonoBundle.__str__ = lambda self: display_(self)
 ZonoBundle.interval = interval
 ZonoBundle.center = center
+ZonoBundle.representsa_ = representsa_
 
 # Attach static methods
 ZonoBundle.empty = staticmethod(empty)
@@ -42,6 +48,7 @@ __all__ = [
     'display',
     'interval',
     'center',
+    'representsa_',
     'empty',
     'origin',
     'generateRandom',

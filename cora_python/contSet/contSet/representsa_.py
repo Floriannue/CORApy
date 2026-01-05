@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cora_python.contSet.contSet.contSet import ContSet
 
-def representsa_(S: 'ContSet', set_type: str, tol: float = 1e-12, method: str = 'linearize', iter: int = 1, splits: int = 0):
+def representsa_(S: 'ContSet', set_type: str, tol: float = 1e-12, method: str = 'linearize', iter_val: int = 1, splits: int = 0, **kwargs):
     """
     Checks if a set can also be represented by a different set type.
     
@@ -47,7 +47,7 @@ def representsa_(S: 'ContSet', set_type: str, tol: float = 1e-12, method: str = 
         set_type: string indicating the target set type
         tol: tolerance (default: 1e-12)
         method: method for computation (default: 'linearize')
-        iter: number of iterations (default: 1) 
+        iter_val: number of iterations (default: 1) 
         splits: number of splits (default: 0)
     
     Returns:
@@ -60,13 +60,8 @@ def representsa_(S: 'ContSet', set_type: str, tol: float = 1e-12, method: str = 
     if (hasattr(type(S), 'representsa_') and 
         base_class and hasattr(base_class, 'representsa_') and
         type(S).representsa_ is not base_class.representsa_):
-        # Conditional dispatch based on set_type to handle varying argument counts in subclasses
-        if set_type == 'emptySet':
-            # emptySet.representsa_ only expects 3 arguments (self, type, tol)
-            return type(S).representsa_(S, set_type, tol)
-        else:
-            # For other set types, assume the full 5 arguments are expected
-            return type(S).representsa_(S, set_type, tol, method, iter, splits)
+        # All implementations accept **kwargs, so pass everything via kwargs for consistency
+        return type(S).representsa_(S, set_type, tol, method=method, iter_val=iter_val, splits=splits, **kwargs)
     else:
         # Base implementation - throw error as this method should be overridden
         raise CORAerror("CORA:noops", f"Function representsa_ not implemented for class {type(S).__name__}")

@@ -44,35 +44,39 @@ Last revision: ---
 
 from typing import Any, Optional
 import numpy as np
-from cora_python.g.functions.verbose.display.dispEmptySet import dispEmptySet
 
 
-def display(HA: Any, var_name: str = None) -> None:
+def display_(HA: Any, var_name: str = None) -> str:
     """
-    Display a hybrid automaton object
+    Display a hybrid automaton object (internal function that returns string)
     
     Args:
         HA: HybridAutomaton object
         var_name: Optional variable name (for display)
+    
+    Returns:
+        String representation for display
     """
+    output_lines = []
+    
     # MATLAB: fprintf(newline);
-    print()
+    output_lines.append("")
     
     # MATLAB: disp([inputname(1), ' =']);
     if var_name is None:
         var_name = 'HA'
-    print(f"{var_name} =")
+    output_lines.append(f"{var_name} =")
     
     # MATLAB: fprintf(newline);
-    print()
+    output_lines.append("")
     
     # MATLAB: if isemptyobject(HA)
     if hasattr(HA, 'isemptyobject') and HA.isemptyobject():
         # MATLAB: dispEmptyObj(HA,inputname(1));
         # Simplified: just display empty message
         if hasattr(HA, 'name'):
-            print(f"  {HA.name} =")
-        print("  (empty hybridAutomaton)")
+            output_lines.append(f"  {HA.name} =")
+        output_lines.append("  (empty hybridAutomaton)")
     # MATLAB: elseif length(HA) > 1
     # For now, handle single objects (not arrays)
     # TODO: Handle arrays if needed
@@ -80,7 +84,7 @@ def display(HA: Any, var_name: str = None) -> None:
         # MATLAB: display name
         # fprintf('Hybrid automaton: ''%s''\n', HA.name);
         if hasattr(HA, 'name'):
-            print(f"Hybrid automaton: '{HA.name}'")
+            output_lines.append(f"Hybrid automaton: '{HA.name}'")
         
         # MATLAB: number of locations
         # numLoc = length(HA.location);
@@ -92,14 +96,31 @@ def display(HA: Any, var_name: str = None) -> None:
             for i in range(num_loc):
                 # MATLAB: number of location
                 # disp("Location " + i + " of " + numLoc + ":");
-                print(f"Location {i+1} of {num_loc}:")
+                output_lines.append(f"Location {i+1} of {num_loc}:")
                 # MATLAB: display(HA.location(i));
                 loc = HA.location[i]
-                if hasattr(loc, 'display'):
-                    loc.display(call_from_hybrid_display=True)
+                if hasattr(loc, 'display_'):
+                    # Use display_ to get string representation
+                    loc_str = loc.display_(call_from_hybrid_display=True)
+                    # Indent each line
+                    for line in loc_str.split('\n'):
+                        if line.strip():
+                            output_lines.append(f"  {line}")
                 else:
-                    print(f"  {loc}")
+                    output_lines.append(f"  {loc}")
     
     # MATLAB: fprintf(newline);
-    print()
+    output_lines.append("")
+    
+    return "\n".join(output_lines)
 
+
+def display(HA: Any, var_name: str = None) -> None:
+    """
+    Display a hybrid automaton object (prints to stdout)
+    
+    Args:
+        HA: HybridAutomaton object
+        var_name: Optional variable name (for display)
+    """
+    print(display_(HA, var_name), end='')

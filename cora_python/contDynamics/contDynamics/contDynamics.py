@@ -73,16 +73,6 @@ class ContDynamics(ABC):
         """
         pass
     
-    def __str__(self) -> str:
-        """
-        String representation of the system
-        """
-        # For most contDynamics objects, use the display method if available
-        if hasattr(self, 'display') and callable(getattr(self, 'display')):
-            return self.display()
-        
-        # Fallback to repr if display is not available or fails
-        return self.__repr__()
     
     # Legacy property aliases for backward compatibility
     @property

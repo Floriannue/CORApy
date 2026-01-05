@@ -31,27 +31,31 @@ Last revision: ---
 
 from typing import Any
 import numpy as np
-import sys
 
 
-def display(trans: Any, var_name: str = None) -> None:
+def display_(trans: Any, var_name: str = None) -> str:
     """
-    Display a transition object
+    Display a transition object (internal function that returns string)
     
     Args:
         trans: Transition object
         var_name: Optional variable name (for display)
+    
+    Returns:
+        String representation for display
     """
+    output_lines = []
+    
     # MATLAB: fprintf(newline);
-    print()
+    output_lines.append("")
     
     # MATLAB: disp([inputname(1), ' =']);
     if var_name is None:
         var_name = 'trans'
-    print(f"{var_name} =")
+    output_lines.append(f"{var_name} =")
     
     # MATLAB: fprintf(newline);
-    print()
+    output_lines.append("")
     
     # MATLAB: if length(trans) > 1
     # For now, handle single objects (not arrays)
@@ -64,7 +68,7 @@ def display(trans: Any, var_name: str = None) -> None:
                              (isinstance(trans.guard, np.ndarray) and trans.guard.size == 0)
     
     if guard_is_numeric_empty:
-        print("Guard set: (none)")
+        output_lines.append("Guard set: (none)")
     else:
         # Check if guard represents empty set
         guard_is_empty_set = False
@@ -75,16 +79,25 @@ def display(trans: Any, var_name: str = None) -> None:
                 pass
         
         if guard_is_empty_set:
-            print("Guard set: (none)")
+            output_lines.append("Guard set: (none)")
         else:
-            print("Guard set:")
+            output_lines.append("Guard set:")
             if hasattr(trans.guard, 'display'):
-                trans.guard.display()
+                guard_display = trans.guard.display()
+                if isinstance(guard_display, str):
+                    # Split into lines and indent
+                    for line in guard_display.split('\n'):
+                        if line.strip():
+                            output_lines.append(f"  {line}")
+                elif isinstance(guard_display, list):
+                    for line in guard_display:
+                        if line.strip():
+                            output_lines.append(f"  {line}")
             else:
-                print(trans.guard)
+                output_lines.append(f"  {trans.guard}")
     
     # MATLAB: fprintf(newline);
-    print()
+    output_lines.append("")
     
     # MATLAB: display reset function
     # if isnumeric(trans.reset) && isempty(trans.reset)
@@ -93,29 +106,29 @@ def display(trans: Any, var_name: str = None) -> None:
     
     if reset_is_numeric_empty:
         # MATLAB: no reset function (empty transition)
-        print("Reset function: (none)")
+        output_lines.append("Reset function: (none)")
     else:
         # Check if reset is LinearReset
         from cora_python.hybridDynamics.linearReset.linearReset import LinearReset
         if isinstance(trans.reset, LinearReset):
             # MATLAB: linear reset function
-            print("Reset function: Ax + Bu + c")
+            output_lines.append("Reset function: Ax + Bu + c")
             
             # MATLAB: display state matrix
-            _display_matrix_vector(trans.reset.A, "A")
+            output_lines.extend(_display_matrix_vector(trans.reset.A, "A"))
             
             # MATLAB: display input matrix
-            _display_matrix_vector(trans.reset.B, "B")
+            output_lines.extend(_display_matrix_vector(trans.reset.B, "B"))
             
             # MATLAB: display constant offset
-            _display_matrix_vector(trans.reset.c, "c")
+            output_lines.extend(_display_matrix_vector(trans.reset.c, "c"))
         else:
             # Check if reset is NonlinearReset (has nonlinearReset field or is NonlinearReset)
             from cora_python.hybridDynamics.nonlinearReset.nonlinearReset import NonlinearReset
             if isinstance(trans.reset, NonlinearReset) or \
                (hasattr(trans.reset, 'nonlinearReset') and trans.reset.nonlinearReset):
                 # MATLAB: nonlinear reset function
-                print("Reset function: nonlinear")
+                output_lines.append("Reset function: nonlinear")
                 
                 # MATLAB: use try-block to avoid annoying error messages
                 try:
@@ -134,10 +147,10 @@ def display(trans: Any, var_name: str = None) -> None:
                     # Display equations
                     if isinstance(f, (list, tuple, np.ndarray)):
                         for i, eq in enumerate(f):
-                            print(f"  f({i+1}) = {eq}")
+                            output_lines.append(f"  f({i+1}) = {eq}")
                     else:
-                        print(f"  f(1) = {f}")
-                    print()
+                        output_lines.append(f"  f(1) = {f}")
+                    output_lines.append("")
                 except:
                     # Silently fail if symbolic display fails
                     pass
@@ -148,45 +161,70 @@ def display(trans: Any, var_name: str = None) -> None:
     
     if target_is_empty:
         # MATLAB: empty transition object
-        print("Target location: (none)")
+        output_lines.append("Target location: (none)")
     elif isinstance(trans.target, (int, float, np.integer, np.floating)) or \
          (isinstance(trans.target, np.ndarray) and trans.target.size == 1):
         # MATLAB: ordinary transition (e.g., in hybrid automaton)
         target_val = trans.target if isinstance(trans.target, (int, float)) else trans.target.item()
-        print(f"Target location: {target_val}")
+        output_lines.append(f"Target location: {target_val}")
     else:
         # MATLAB: parallel hybrid automaton
         target_str = ", ".join(str(t) for t in np.array(trans.target).flatten())
-        print(f"Target locations: {target_str}")
+        output_lines.append(f"Target locations: {target_str}")
     
     # MATLAB: fprintf(newline);
-    print()
+    output_lines.append("")
     
     # MATLAB: display synchronization label
     # if ~isempty(trans.syncLabel)
     if hasattr(trans, 'syncLabel') and trans.syncLabel:
-        print(f"Synchronization label: '{trans.syncLabel}'")
+        output_lines.append(f"Synchronization label: '{trans.syncLabel}'")
     else:
-        print("Synchronization label: (none)")
+        output_lines.append("Synchronization label: (none)")
     
     # MATLAB: fprintf(newline);
-    print()
+    output_lines.append("")
+    
+    return "\n".join(output_lines)
 
 
-def _display_matrix_vector(mat: Any, mat_name: str) -> None:
+def _display_matrix_vector(mat: Any, mat_name: str) -> list:
     """
     Display a matrix or vector with a label
     
     Args:
         mat: Matrix or vector to display
         mat_name: Name/label for the matrix
+    
+    Returns:
+        List of output lines
     """
+    output_lines = []
+    if mat is None:
+        return output_lines
     if isinstance(mat, np.ndarray):
         if mat.size == 0:
-            print(f"  {mat_name}: []")
+            output_lines.append(f"  {mat_name}: []")
         else:
-            print(f"  {mat_name}:")
-            print(f"    {mat}")
+            output_lines.append(f"  {mat_name}:")
+            # Format matrix nicely
+            if mat.ndim == 1:
+                mat = mat.reshape(-1, 1)
+            for i in range(mat.shape[0]):
+                row_str = "    " + " ".join(f"{val:8.4f}" if isinstance(val, (int, float, np.number)) else str(val) 
+                                           for val in mat[i, :])
+                output_lines.append(row_str)
     else:
-        print(f"  {mat_name}: {mat}")
+        output_lines.append(f"  {mat_name}: {mat}")
+    return output_lines
 
+
+def display(trans: Any, var_name: str = None) -> None:
+    """
+    Display a transition object (prints to stdout)
+    
+    Args:
+        trans: Transition object
+        var_name: Optional variable name (for display)
+    """
+    print(display_(trans, var_name), end='')

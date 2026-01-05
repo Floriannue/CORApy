@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from .emptySet import EmptySet
 
 
-def representsa_(O: 'EmptySet', type_: str, tol: float = 1e-9, *varargin) -> bool:
+def representsa_(O: 'EmptySet', type_: str, tol: float = 1e-9, *varargin, **kwargs) -> bool:
     """
     Checks if an empty set can also be represented by a different set
     
@@ -52,13 +52,10 @@ def representsa_(O: 'EmptySet', type_: str, tol: float = 1e-9, *varargin) -> boo
     # Import here to avoid circular imports
     
     # check empty object case
-    try:
-        empty, res, S = O.representsa_emptyObject(type_)
-        if empty:
-            return res
-    except:
-        # If representsa_emptyObject doesn't exist or fails, continue
-        pass
+    from cora_python.contSet.contSet.representsa_emptyObject import representsa_emptyObject
+    empty, res, _ = representsa_emptyObject(O, type_, return_conv=False)
+    if empty:
+        return res
 
     # dimension
     n = O.dim()

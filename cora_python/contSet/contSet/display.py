@@ -30,9 +30,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cora_python.contSet.contSet.contSet import ContSet
 
-def display(S: 'ContSet') -> str:
+def display_(S: 'ContSet') -> str:
     """
     Displays the properties of a contSet object (dimension, location of center, ...)
+    (Internal function that returns string)
     
     Args:
         S: contSet object
@@ -79,4 +80,14 @@ def display(S: 'ContSet') -> str:
         if hasattr(S, 'Q'):
             result += f"  shape matrix: {S.Q.shape}\n"
     
-    return result.rstrip() 
+    return result.rstrip()
+
+
+def display(S: 'ContSet') -> None:
+    """
+    Displays the properties of a contSet object (prints to stdout)
+    
+    Args:
+        S: contSet object
+    """
+    print(display_(S), end='') 

@@ -32,7 +32,7 @@ from .vertices_ import vertices_
 from .and_ import and_
 from .randPoint_ import randPoint_
 from .generateRandom import generateRandom
-from .display import display
+from .display import display, display_
 from .uminus import uminus
 from .transpose import transpose
 from .enclosePoints import enclosePoints
@@ -153,6 +153,10 @@ Interval.vertices = vertices_
 Interval.and_ = and_
 Interval.randPoint_ = randPoint_
 Interval.display = display
+Interval.display_ = display_
+
+# Attach display_ to __str__
+Interval.__str__ = lambda self: display_(self)
 Interval.uminus = uminus
 Interval.transpose = transpose
 Interval.le = le

@@ -34,14 +34,15 @@ Python translation: 2025
 
 import numpy as np
 from typing import TYPE_CHECKING
+from cora_python.contSet.contSet.representsa import representsa
 
 if TYPE_CHECKING:
     from cora_python.contSet.zonoBundle.zonoBundle import ZonoBundle
 
 
-def display(zB: 'ZonoBundle') -> str:
+def display_(zB: 'ZonoBundle') -> str:
     """
-    Display the properties of a zonoBundle object
+    Display the properties of a zonoBundle object (internal function that returns string)
     
     Args:
         zB: zonoBundle object
@@ -50,10 +51,12 @@ def display(zB: 'ZonoBundle') -> str:
         str: Display string
     """
     # Special cases
-    if zB.representsa_('emptySet'):
-        return zB._dispEmptySet()
-    elif zB.representsa_('fullspace'):
-        return zB._dispRn()
+    if representsa(zB, 'emptySet'):
+        from cora_python.g.functions.verbose.display.dispEmptySet import dispEmptySet
+        return dispEmptySet(zB)
+    elif representsa(zB, 'fullspace'):
+        from cora_python.g.functions.verbose.display.dispRn import dispRn
+        return dispRn(zB)
     
     # Build display string
     lines = []
@@ -87,4 +90,14 @@ def display(zB: 'ZonoBundle') -> str:
         
         lines.append("")
     
-    return "\n".join(lines) 
+    return "\n".join(lines)
+
+
+def display(zB: 'ZonoBundle') -> None:
+    """
+    Display the properties of a zonoBundle object (prints to stdout)
+    
+    Args:
+        zB: zonoBundle object
+    """
+    print(display_(zB), end='') 

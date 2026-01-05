@@ -27,20 +27,24 @@ class TestLinearSysDisplay:
         
         sys_A = LinearSys(A, 1)
         
-        # Capture output
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        # Get display string using display_()
+        display_str = sys_A.display_()
+        assert isinstance(display_str, str)
+        assert "LinearSys" in display_str or "linearSys" in display_str or "Linear" in display_str
+        assert len(display_str) > 0
         
+        # Test that display() prints the same
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = io.StringIO()
         try:
             sys_A.display()
-            output = captured_output.getvalue()
-            
-            # Check that output contains system information
-            assert "LinearSys" in output or "linearSys" in output or "Linear" in output
-            assert len(output) > 0
-            
+            printed_output = captured_output.getvalue()
+            assert printed_output == display_str
         finally:
-            sys.stdout = sys.__stdout__
+            sys.stdout = old_stdout
+        
+        # Test that __str__ returns the same
+        assert str(sys_A) == display_str
 
     def test_display_system_with_input(self):
         """Test display of system with A and B matrices"""
@@ -56,19 +60,20 @@ class TestLinearSysDisplay:
         
         sys_AB = LinearSys(A, B)
         
-        # Capture output
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        # Get display string using display_()
+        display_str = sys_AB.display_()
+        assert isinstance(display_str, str)
+        assert len(display_str) > 0
         
+        # Test that display() prints the same
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = io.StringIO()
         try:
             sys_AB.display()
-            output = captured_output.getvalue()
-            
-            # Check that output contains system information
-            assert len(output) > 0
-            
+            printed_output = captured_output.getvalue()
+            assert printed_output == display_str
         finally:
-            sys.stdout = sys.__stdout__
+            sys.stdout = old_stdout
 
     def test_display_system_with_output(self):
         """Test display of system with A, B, and C matrices"""
@@ -87,19 +92,20 @@ class TestLinearSysDisplay:
         
         sys_ABC = LinearSys(A, B, None, C)
         
-        # Capture output
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        # Get display string using display_()
+        display_str = sys_ABC.display_()
+        assert isinstance(display_str, str)
+        assert len(display_str) > 0
         
+        # Test that display() prints the same
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = io.StringIO()
         try:
             sys_ABC.display()
-            output = captured_output.getvalue()
-            
-            # Check that output contains system information
-            assert len(output) > 0
-            
+            printed_output = captured_output.getvalue()
+            assert printed_output == display_str
         finally:
-            sys.stdout = sys.__stdout__
+            sys.stdout = old_stdout
 
     def test_display_full_system(self):
         """Test display of full system with all matrices"""
@@ -129,19 +135,20 @@ class TestLinearSysDisplay:
         
         sys_full = LinearSys(A, B, c, C, D, k, E, F)
         
-        # Capture output
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        # Get display string using display_()
+        display_str = sys_full.display_()
+        assert isinstance(display_str, str)
+        assert len(display_str) > 0
         
+        # Test that display() prints the same
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = io.StringIO()
         try:
             sys_full.display()
-            output = captured_output.getvalue()
-            
-            # Check that output contains system information
-            assert len(output) > 0
-            
+            printed_output = captured_output.getvalue()
+            assert printed_output == display_str
         finally:
-            sys.stdout = sys.__stdout__
+            sys.stdout = old_stdout
 
     def test_display_no_exception(self):
         """Test that display doesn't raise exceptions for various systems"""
@@ -158,33 +165,38 @@ class TestLinearSysDisplay:
         for linsys in systems:
             # Should not raise any exceptions
             try:
-                captured_output = io.StringIO()
-                sys.stdout = captured_output
-                linsys.display()
-                # Test passed if no exception is raised
-                assert True
+                display_str = linsys.display_()
+                assert isinstance(display_str, str)
+                
+                # Test that display() prints the same
+                old_stdout = sys.stdout
+                sys.stdout = captured_output = io.StringIO()
+                try:
+                    linsys.display()
+                    printed_output = captured_output.getvalue()
+                    assert printed_output == display_str
+                finally:
+                    sys.stdout = old_stdout
             except Exception as e:
                 pytest.fail(f"Display raised unexpected exception: {e}")
-            finally:
-                sys.stdout = sys.__stdout__
 
     def test_display_empty_system(self):
         """Test display of empty system"""
         sys_empty = LinearSys()
         
-        # Capture output
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        # Get display string using display_()
+        display_str = sys_empty.display_()
+        assert isinstance(display_str, str)
         
+        # Test that display() prints the same
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = io.StringIO()
         try:
             sys_empty.display()
-            output = captured_output.getvalue()
-            
-            # Should produce some output without errors
-            assert len(output) >= 0  # Allow empty output for empty system
-            
+            printed_output = captured_output.getvalue()
+            assert printed_output == display_str
         finally:
-            sys.stdout = sys.__stdout__
+            sys.stdout = old_stdout
 
     def test_display_system_dimensions(self):
         """Test that display shows system dimensions"""
@@ -192,19 +204,23 @@ class TestLinearSysDisplay:
         B = np.array([[1], [0]])
         linsys = LinearSys(A, B)
         
-        # Capture output
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        # Get display string using display_()
+        display_str = linsys.display_()
+        assert isinstance(display_str, str)
+        assert len(display_str) > 0
         
+        # Test that display() prints the same
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = io.StringIO()
         try:
             linsys.display()
-            output = captured_output.getvalue()
-            
-            # Should contain dimension information
-            assert len(output) > 0
-            
+            printed_output = captured_output.getvalue()
+            assert printed_output == display_str
         finally:
-            sys.stdout = sys.__stdout__
+            sys.stdout = old_stdout
+        
+        # Test that __str__ returns the same
+        assert str(linsys) == display_str
 
 
 if __name__ == "__main__":

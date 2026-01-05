@@ -219,11 +219,6 @@ class Zonotope(ContSet):
         
         return c, G
     
-    def __str__(self) -> str:
-        """String representation of zonotope"""
-        if hasattr(self, 'display') and callable(self.display):
-            return self.display()
-        return f"Zonotope with center {self.c.flatten()} and {self.G.shape[1]} generators"
     
     def __repr__(self) -> str:
         """Representation of zonotope"""

@@ -1,11 +1,15 @@
 from cora_python.contDynamics.contDynamics import ContDynamics
 
-def display(self):
+def display_(self):
     """
-    Displays a nonlinearSysDT object on the command window
+    Displays a nonlinearSysDT object (internal function that returns string)
+    
+    Returns:
+        str: String representation
     """
     # Get display from parent
-    parent_str = super(type(self), self).display()
+    from cora_python.contDynamics.contDynamics.display import display_ as parent_display
+    parent_str = parent_display(self)
 
     # Create own display
     res = [parent_str]
@@ -23,4 +27,11 @@ def display(self):
         out_fun_name = self.out_mFile.__name__
     res.append(f"Output function handle: {out_fun_name}")
 
-    return '\n'.join(res) 
+    return '\n'.join(res)
+
+
+def display(self):
+    """
+    Displays a nonlinearSysDT object on the command window (prints to stdout)
+    """
+    print(display_(self), end='') 

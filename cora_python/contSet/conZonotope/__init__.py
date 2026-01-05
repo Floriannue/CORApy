@@ -25,6 +25,7 @@ from .reduceConstraints import reduceConstraints
 from .plus import plus
 from .uminus import uminus
 from .center import center
+from .display import display, display_
 
 # Attach methods to the ConZonotope class
 # dim and isemptyobject are required by ContSet
@@ -40,6 +41,11 @@ ConZonotope.plus = plus
 ConZonotope.__add__ = plus
 ConZonotope.uminus = uminus
 ConZonotope.__neg__ = uminus
+ConZonotope.display = display
+ConZonotope.display_ = display_
+
+# Attach display_ to __str__
+ConZonotope.__str__ = lambda self: display_(self)
 
 # Attach static methods
 ConZonotope.empty = staticmethod(empty)

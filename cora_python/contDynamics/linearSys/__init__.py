@@ -6,7 +6,7 @@ linear time-invariant dynamical systems.
 """
 
 from .linearSys import LinearSys
-from .display import display
+from .display import display, display_
 from .eq import eq
 from .isequal import isequal
 from .ne import ne
@@ -30,6 +30,10 @@ from .verify import verify
 
 # Attach methods to the LinearSys class
 LinearSys.display = display
+LinearSys.display_ = display_
+
+# Attach display_ to __str__
+LinearSys.__str__ = lambda self: display_(self)
 LinearSys.__eq__ = lambda self, other: eq(self, other) if isinstance(other, LinearSys) else False
 LinearSys.__ne__ = lambda self, other: ne(self, other)
 LinearSys.eq = eq

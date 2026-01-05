@@ -24,7 +24,7 @@ from .empty import empty
 from .Inf import Inf
 from .origin import origin
 from .copy import copy
-from .display import display
+from .display import display, display_
 from .mtimes import mtimes
 from .plus import plus
 from .project import project
@@ -83,6 +83,7 @@ Polytope.Inf = staticmethod(Inf)
 Polytope.origin = staticmethod(origin)
 Polytope.copy = copy
 Polytope.display = display
+Polytope.display_ = display_
 Polytope.mtimes = mtimes
 Polytope.plus = plus
 Polytope.project = project
@@ -144,7 +145,7 @@ Polytope.minkDiff = minkDiff # Attach the minkDiff method
 # Attach operator overloads
 Polytope.__contains__ = lambda self, other: contains_(self, other)
 Polytope.__rcontains__ = lambda self, other: contains_(other, self)
-Polytope.__str__ = display
+Polytope.__str__ = lambda self: display_(self)
 Polytope.__add__ = lambda self, other: plus(self, other)
 Polytope.__radd__ = lambda self, other: plus(other, self)
 Polytope.__sub__ = lambda self, other: minus(self, other)

@@ -210,10 +210,6 @@ class SpectraShadow(ContSet):
         """String representation of the SpectraShadow object"""
         return self.display()
 
-    def __str__(self) -> str:
-        """String representation of the SpectraShadow object"""
-        return self.display()
-
 
 # Auxiliary functions -----------------------------------------------------
 

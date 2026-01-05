@@ -2,12 +2,16 @@ import numpy as np
 from cora_python.contDynamics.contDynamics import ContDynamics
 from cora_python.g.functions.verbose.display import display_matrix_vector
 
-def display(self):
+def display_(self):
     """
-    Displays a linearARX object on the command window
+    Displays a linearARX object (internal function that returns string)
+    
+    Returns:
+        str: String representation
     """
     # Get display from parent
-    parent_str = super(type(self), self).display()
+    from cora_python.contDynamics.contDynamics.display import display_ as parent_display
+    parent_str = parent_display(self)
 
     # Create own display
     res = [parent_str]
@@ -28,4 +32,11 @@ def display(self):
     for i in range(dim_display + 1):
         res.append(display_matrix_vector(self.B_bar[i], f"B_bar{i+1}"))
 
-    return '\n'.join(res) 
+    return '\n'.join(res)
+
+
+def display(self):
+    """
+    Displays a linearARX object on the command window (prints to stdout)
+    """
+    print(display_(self), end='') 

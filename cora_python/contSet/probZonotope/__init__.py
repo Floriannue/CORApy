@@ -18,9 +18,15 @@ from .empty import empty
 from .origin import origin
 from .generateRandom import generateRandom
 from .sigma import sigma
+from .display import display, display_
 
 
 ProbZonotope.dim = dim
+ProbZonotope.display = display
+ProbZonotope.display_ = display_
+
+# Attach display_ to __str__
+ProbZonotope.__str__ = lambda self: display_(self)
 ProbZonotope.isemptyobject = isemptyobject
 ProbZonotope.sigma = sigma
 

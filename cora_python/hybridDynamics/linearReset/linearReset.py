@@ -107,9 +107,6 @@ class LinearReset(AbstractReset):
     
     def __repr__(self) -> str:
         return f"LinearReset(A={self.A}, B={self.B}, c={self.c})"
-    
-    def __str__(self) -> str:
-        return self.__repr__()
 
 
 def _aux_parseInputArgs(*args):

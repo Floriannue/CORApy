@@ -6,7 +6,7 @@ from .ellipsoid import Ellipsoid
 from .center import center
 from .contains_ import contains_
 from .dim import dim
-from .display import display
+from .display import display, display_
 from .ellipsoidNorm import ellipsoidNorm
 from .empty import empty
 from .enclosePoints import enclosePoints
@@ -59,6 +59,10 @@ Ellipsoid.center = center
 Ellipsoid.contains_ = contains_
 Ellipsoid.dim = dim
 Ellipsoid.display = display
+Ellipsoid.display_ = display_
+
+# Attach display_ to __str__
+Ellipsoid.__str__ = lambda self: display_(self)
 Ellipsoid.ellipsoidNorm = ellipsoidNorm
 Ellipsoid.empty = staticmethod(empty)
 Ellipsoid.enclosePoints = staticmethod(enclosePoints)

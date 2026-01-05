@@ -34,9 +34,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .capsule import Capsule
 
-def display(C: 'Capsule') -> str:
+def display_(C: 'Capsule') -> str:
     """
-    Displays the properties of a capsule object
+    Displays the properties of a capsule object (internal function that returns string)
     
     Args:
         C: capsule object
@@ -81,4 +81,14 @@ def display(C: 'Capsule') -> str:
     lines.append(str(C.r))
     lines.append("")
     
-    return "\n".join(lines) 
+    return "\n".join(lines)
+
+
+def display(C: 'Capsule') -> None:
+    """
+    Displays the properties of a capsule object (prints to stdout)
+    
+    Args:
+        C: capsule object
+    """
+    print(display_(C), end='') 

@@ -38,9 +38,9 @@ if TYPE_CHECKING:
 from cora_python.g.functions.verbose.display.dispEmptySet import dispEmptySet
 
 
-def display(E: 'Ellipsoid') -> str:
+def display_(E: 'Ellipsoid') -> str:
     """
-    Displays the properties of an ellipsoid object
+    Displays the properties of an ellipsoid object (internal function that returns string)
     
     Args:
         E: ellipsoid object
@@ -101,4 +101,14 @@ def display(E: 'Ellipsoid') -> str:
     except:
         result += "    unknown\n"
     
-    return result.rstrip()  # Remove trailing newline 
+    return result.rstrip()  # Remove trailing newline
+
+
+def display(E: 'Ellipsoid') -> None:
+    """
+    Displays the properties of an ellipsoid object (prints to stdout)
+    
+    Args:
+        E: ellipsoid object
+    """
+    print(display_(E), end='') 

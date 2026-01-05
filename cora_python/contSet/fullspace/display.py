@@ -28,9 +28,9 @@ Last revision: ---
 """
 
 
-def display(fs):
+def display_(fs):
     """
-    Displays the properties of a fullspace object
+    Displays the properties of a fullspace object (internal function that returns string)
     
     Args:
         fs: fullspace object
@@ -43,4 +43,14 @@ def display(fs):
     result = f"fullspace:\n"
     result += f"- dimension: {fs.dimension}"
     
-    return result 
+    return result
+
+
+def display(fs):
+    """
+    Displays the properties of a fullspace object (prints to stdout)
+    
+    Args:
+        fs: fullspace object
+    """
+    print(display_(fs), end='') 

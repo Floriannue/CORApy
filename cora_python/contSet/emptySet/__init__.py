@@ -7,7 +7,7 @@ from .plus import plus
 from .and_ import and_
 from .center import center
 from .dim import dim
-from .display import display
+from .display import display, display_
 from .isemptyobject import isemptyobject
 from .empty import empty
 from .generateRandom import generateRandom
@@ -39,6 +39,10 @@ EmptySet.and_ = and_
 EmptySet.center = center
 EmptySet.dim = dim
 EmptySet.display = display
+EmptySet.display_ = display_
+
+# Attach display_ to __str__
+EmptySet.__str__ = lambda self: display_(self)
 EmptySet.isemptyobject = isemptyobject
 EmptySet.copy = copy
 EmptySet.isBounded = isBounded

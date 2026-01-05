@@ -24,11 +24,14 @@ def test_location_01_empty():
     TRANSLATED TEST - Empty constructor test
     
     Tests Location with no arguments.
+    MATLAB: invariant = []; transition = transition(); contDynamics = contDynamics();
     """
+    import numpy as np
     loc = Location()
     
     assert loc.name == 'location', "Default name should be 'location'"
-    assert loc.invariant is None, "Invariant should be None"
+    # MATLAB uses empty arrays [], not None
+    assert isinstance(loc.invariant, np.ndarray) and loc.invariant.size == 0, "Invariant should be empty array"
     assert loc.transition == [], "Transition should be empty list"
     assert loc.contDynamics is None, "contDynamics should be None"
 

@@ -14,8 +14,8 @@ class TestEllipsoidDisplay:
     
     def capture_display_output(self, ellipsoid):
         """Helper function to capture display output."""
-        # Since display() returns a string, just call it directly
-        return ellipsoid.display()
+        # Use display_() to get the string
+        return ellipsoid.display_()
     
     def test_display_empty_ellipsoid(self):
         """Test display of empty ellipsoid."""

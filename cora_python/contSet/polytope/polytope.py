@@ -472,16 +472,6 @@ class Polytope(ContSet):
         except Exception as e:
             return f"Polytope object (error in repr: {e})"
 
-    def __str__(self) -> str:
-        """
-        Informal string representation for users.
-        Uses the display method for MATLAB-style output.
-        """
-        try:
-            from cora_python.contSet.polytope.display import display as display_func
-            return display_func(self)
-        except Exception as e:
-            return f"Polytope object (error in str: {e})"
 
 
 # Auxiliary functions (outside the class definition)

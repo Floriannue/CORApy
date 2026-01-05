@@ -35,18 +35,6 @@ class ContSet(ABC):
         """
         pass
     
-    def __str__(self) -> str:
-        """
-        Informal string representation for users.
-        Should be readable and user-friendly.
-        """
-        # For most contSet objects, use the display method if available
-        if hasattr(self, 'display') and callable(getattr(self, 'display')):
-            return self.display()
-        
-        # Fallback to repr if display is not available or fails
-        return self.__repr__()
-    
     
     # Operator overloading with proper polymorphic dispatch
     def subsasgn(self, *args):

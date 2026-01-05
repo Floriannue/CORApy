@@ -32,9 +32,10 @@ from scipy.sparse import issparse
 from .interval import Interval
 
 
-def display(I: Interval, name: str = None) -> str:
+def display_(I: Interval, name: str = None) -> str:
     """
     Displays the properties of an interval object, mirroring MATLAB behavior.
+    (Internal function that returns string)
     
     Args:
         I: Interval object
@@ -251,4 +252,15 @@ def _format_number(num: float) -> str:
     else:
         # Use fixed-point notation, remove trailing zeros
         formatted = f"{num:.4f}".rstrip('0').rstrip('.')
-        return formatted if formatted else "0" 
+        return formatted if formatted else "0"
+
+
+def display(I: Interval, name: str = None) -> None:
+    """
+    Displays the properties of an interval object (prints to stdout)
+    
+    Args:
+        I: Interval object
+        name: Variable name to display
+    """
+    print(display_(I, name), end='') 

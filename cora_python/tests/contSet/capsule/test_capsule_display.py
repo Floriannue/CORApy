@@ -23,20 +23,33 @@ class TestCapsuleDisplay:
         n = 2
         C = Capsule.empty(n)
         
-        # Get display output
-        output = C.display()
+        # Get display output using display_()
+        output = C.display_()
         
         # Check that output contains relevant information
         assert "empty" in output.lower() or "Empty" in output
         assert "capsule" in output.lower() or "Capsule" in output
+        
+        # Test that display() prints
+        import io
+        import sys
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            C.display()
+            printed_output = buffer.getvalue()
+            # Should be exactly equal now
+            assert printed_output == output
+        finally:
+            sys.stdout = old_stdout
 
     def test_display_center_only(self):
         """Test display of capsule with center only"""
         c = np.array([2, 0])
         C = Capsule(c)
         
-        # Get display output
-        output = C.display()
+        # Get display output using display_()
+        output = C.display_()
         
         # Check that output contains center values
         assert "2" in output
@@ -49,8 +62,8 @@ class TestCapsuleDisplay:
         g = np.array([1, -1])
         C = Capsule(c, g)
         
-        # Get display output
-        output = C.display()
+        # Get display output using display_()
+        output = C.display_()
         
         # Check that output contains center and generator values
         assert "2" in output
@@ -64,8 +77,8 @@ class TestCapsuleDisplay:
         r = 0.5
         C = Capsule(c, g, r)
         
-        # Get display output
-        output = C.display()
+        # Get display output using display_()
+        output = C.display_()
         
         # Check that output contains all values
         assert "2" in output

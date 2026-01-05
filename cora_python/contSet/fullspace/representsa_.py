@@ -33,7 +33,7 @@ Automatic python translation: Florian Nüssel BA 2025
 import numpy as np
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
-def representsa_(fs, type_, tol, *args):
+def representsa_(fs, type_, tol, *args, **kwargs):
     """
     Checks if a fullspace can also be represented by a
     different set, e.g., a special case

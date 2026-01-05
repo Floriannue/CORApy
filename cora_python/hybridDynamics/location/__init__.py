@@ -24,7 +24,7 @@ from .potOut import potOut
 from .reach import reach
 from .isequal import isequal
 from .isemptyobject import isemptyobject
-from .display import display
+from .display import display, display_
 
 # Attach methods to the Location class
 Location.calcBasis = calcBasis
@@ -43,9 +43,13 @@ Location.reach = reach
 Location.isequal = isequal
 Location.isemptyobject = isemptyobject
 Location.display = display
+Location.display_ = display_
+
+# Attach display_ to __str__
+Location.__str__ = lambda self: display_(self)
 
 __all__ = ['Location', 'calcBasis', 'checkFlow', 'guardIntersect', 'guardIntersect_zonoGirard', 
            'guardIntersect_nondetGuard', 'guardIntersect_levelSet', 'guardIntersect_polytope', 
            'guardIntersect_conZonotope', 'guardIntersect_hyperplaneMap', 'guardIntersect_pancake', 
-           'potInt', 'potOut', 'reach', 'isequal', 'isemptyobject', 'display']
+           'potInt', 'potOut', 'reach', 'isequal', 'isemptyobject', 'display', 'display_']
 

@@ -4,8 +4,8 @@ def test_display(ConcreteContDynamics):
     # Create a contDynamics object
     sys = ConcreteContDynamics('test_system', 3, 1, 2, 4, 5)
 
-    # Get display string
-    disp_str = sys.display()
+    # Get display string using display_()
+    disp_str = sys.display_()
 
     # Expected output string
     expected_str = (

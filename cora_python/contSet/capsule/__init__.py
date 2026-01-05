@@ -8,7 +8,7 @@ Each method is implemented in its own file following the MATLAB structure.
 from .capsule import Capsule
 from .empty import empty
 from .origin import origin
-from .display import display
+from .display import display, display_
 from .representsa_ import representsa_
 from .isemptyobject import isemptyobject
 from .dim import dim
@@ -19,6 +19,10 @@ from .contains_ import contains_
 Capsule.empty = staticmethod(empty)
 Capsule.origin = staticmethod(origin)
 Capsule.display = display
+Capsule.display_ = display_
+
+# Attach display_ to __str__
+Capsule.__str__ = lambda self: display_(self)
 Capsule.representsa_ = representsa_
 Capsule.is_empty = isemptyobject
 Capsule.isemptyobject = isemptyobject

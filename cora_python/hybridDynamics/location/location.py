@@ -86,9 +86,10 @@ class Location:
         assertNarginConstructor([0, 1, 3, 4], len(args))
         if len(args) == 0:
             self.name = 'location'
-            # MATLAB [] is a 2D matrix (0x0), not 1D array
-            self.invariant = np.empty((0, 0))  # MATLAB: invariant = []
-            self.transition = []  # MATLAB: transition = transition()
+            # MATLAB: invariant = []; transition = transition(); contDynamics = contDynamics();
+            # MATLAB [] is a 2D empty array (0x0), not None
+            self.invariant = np.empty((0, 0))  # MATLAB: invariant = [] (empty array)
+            self.transition = []  # MATLAB: transition = transition() (empty array)
             self.contDynamics = None  # MATLAB: contDynamics = contDynamics() - object, None is OK
             return
         

@@ -30,10 +30,11 @@ if TYPE_CHECKING:
     from .polytope import Polytope
 
 
-def display(P: 'Polytope', name: str = None) -> str:
+def display_(P: 'Polytope', name: str = None) -> str:
     """
     Displays the properties of a polytope object, mirroring MATLAB behavior.
     Only shows computed representations without triggering conversions.
+    (Internal function that returns string)
     
     Args:
         P: Polytope object
@@ -150,4 +151,15 @@ def display(P: 'Polytope', name: str = None) -> str:
     output_lines.append(f"Minimal vertex representation?    {aux_prop2string(P.minVRep)}")
     output_lines.append("")
     
-    return "\n".join(output_lines) 
+    return "\n".join(output_lines)
+
+
+def display(P: 'Polytope', name: str = None) -> None:
+    """
+    Displays the properties of a polytope object (prints to stdout)
+    
+    Args:
+        P: Polytope object
+        name: Variable name to display
+    """
+    print(display_(P, name), end='') 

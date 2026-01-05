@@ -45,7 +45,7 @@ def display_matrix_vector(x, varname):
         res.append(f"{varname} = all-zero {x_size[0]}-by-{x_size[1]} {text}")
     elif is_identity:
         res.append(f"{varname} = {x_size[0]}-by-{x_size[1]} identity matrix")
-    elif all(s <= DISPLAYDIM_MAX for s in x_size):
+    elif all(s <= DISPLAYDIM_MAX() for s in x_size):
         res.append(f"{varname} = \n{x}")
     else:
         res.append(f"{varname} = {x_size[0]}-by-{x_size[1]} {text}")

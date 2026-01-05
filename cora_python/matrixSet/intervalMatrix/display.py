@@ -35,9 +35,9 @@ if TYPE_CHECKING:
     from .intervalMatrix import IntervalMatrix
 
 
-def display(intMat: 'IntervalMatrix') -> str:
+def display_(intMat: 'IntervalMatrix') -> str:
     """
-    Displays an intervalMatrix object
+    Displays an intervalMatrix object (internal function that returns string)
     
     Args:
         intMat: intervalMatrix object
@@ -56,8 +56,19 @@ def display(intMat: 'IntervalMatrix') -> str:
     lines.append("")
     
     # Display the interval representation
-    # Use the interval's display method
-    interval_display = intMat.int.display()
+    # Use the interval's display_ method
+    from cora_python.contSet.interval.display import display_ as interval_display_
+    interval_display = interval_display_(intMat.int)
     lines.append(interval_display)
     
-    return "\n".join(lines) 
+    return "\n".join(lines)
+
+
+def display(intMat: 'IntervalMatrix') -> None:
+    """
+    Displays an intervalMatrix object (prints to stdout)
+    
+    Args:
+        intMat: intervalMatrix object
+    """
+    print(display_(intMat), end='') 

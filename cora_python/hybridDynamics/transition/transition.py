@@ -68,7 +68,8 @@ class Transition:
         # 0. empty
         assertNarginConstructor([0, 1, 3, 4], len(args))
         if len(args) == 0:
-            # MATLAB [] is a 2D matrix (0x0), not 1D array
+            # MATLAB: guard = []; reset = []; target = [];
+            # MATLAB [] is a 2D empty array (0x0), not None
             self.guard = np.empty((0, 0))  # MATLAB: guard = [] (empty array)
             self.reset = np.empty((0, 0))  # MATLAB: reset = [] (empty array)
             self.target = np.empty((0, 0))  # MATLAB: target = [] (empty array)
@@ -102,9 +103,6 @@ class Transition:
     
     def __repr__(self) -> str:
         return f"Transition(guard={self.guard}, reset={self.reset}, target={self.target})"
-    
-    def __str__(self) -> str:
-        return self.__repr__()
 
 
 def _aux_parseInputArgs(*args):

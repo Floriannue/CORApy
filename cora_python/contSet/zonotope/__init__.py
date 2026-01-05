@@ -17,7 +17,7 @@ from .dim import dim
 from .empty import empty
 from .origin import origin
 from .isemptyobject import isemptyobject
-from .display import display
+from .display import display, display_
 from .randPoint_ import randPoint_
 from .vertices_ import vertices_
 from .project import project
@@ -92,6 +92,10 @@ Zonotope.origin = staticmethod(origin)
 Zonotope.isemptyobject = isemptyobject
 Zonotope.is_empty = isemptyobject
 Zonotope.display = display
+Zonotope.display_ = display_
+
+# Attach display_ to __str__
+Zonotope.__str__ = lambda self: display_(self)
 Zonotope.randPoint_ = randPoint_
 Zonotope.vertices_ = vertices_
 Zonotope.project = project

@@ -35,9 +35,9 @@ if TYPE_CHECKING:
     from .spectraShadow import SpectraShadow
 
 
-def display(SpS: 'SpectraShadow') -> str:
+def display_(SpS: 'SpectraShadow') -> str:
     """
-    Displays the properties of a spectraShadow object
+    Displays the properties of a spectraShadow object (internal function that returns string)
     
     Args:
         SpS: spectraShadow object
@@ -78,6 +78,16 @@ def display(SpS: 'SpectraShadow') -> str:
     lines.append(f"Full-dimensional set? {_prop_to_string(SpS.fullDim)}")
     
     return "\n".join(lines)
+
+
+def display(SpS: 'SpectraShadow') -> None:
+    """
+    Displays the properties of a spectraShadow object (prints to stdout)
+    
+    Args:
+        SpS: spectraShadow object
+    """
+    print(display_(SpS), end='')
 
 
 def _format_matrix(matrix: np.ndarray, name: str = None, max_display_size: int = 10) -> str:

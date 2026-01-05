@@ -27,9 +27,9 @@ from typing import Any
 from .neuralNetwork import NeuralNetwork
 
 
-def display(obj: NeuralNetwork) -> str:
+def display_(obj: NeuralNetwork) -> str:
     """
-    Displays the properties of a neuralNetwork object
+    Displays the properties of a neuralNetwork object (internal function that returns string)
     
     Args:
         obj: NeuralNetwork object
@@ -68,7 +68,14 @@ def display(obj: NeuralNetwork) -> str:
     
     display_str += "\n"
     
-    # Print to console (like MATLAB's display)
-    print(display_str)
-    
     return display_str
+
+
+def display(obj: NeuralNetwork) -> None:
+    """
+    Displays the properties of a neuralNetwork object (prints to stdout)
+    
+    Args:
+        obj: NeuralNetwork object
+    """
+    print(display_(obj), end='')

@@ -48,7 +48,7 @@ from .isequal import isequal
 from .isempty import isempty
 
 # Import display and utility functions
-from .display import display
+from .display import display, display_
 from .copy import copy
 
 # Import static methods
@@ -171,6 +171,10 @@ ContSet.contains = contains
 ContSet.contains_ = contains_
 ContSet.copy = copy
 ContSet.display = display
+ContSet.display_ = display_
+
+# Attach display_ to __str__
+ContSet.__str__ = lambda self: display_(self)
 
 # Mathematical operations
 ContSet.times = times

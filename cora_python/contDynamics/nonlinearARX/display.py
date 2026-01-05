@@ -1,11 +1,15 @@
 from cora_python.contDynamics.contDynamics import ContDynamics
 
-def display(self):
+def display_(self):
     """
-    Displays a nonlinearARX object on the command window
+    Displays a nonlinearARX object (internal function that returns string)
+    
+    Returns:
+        str: String representation
     """
     # Get display from parent
-    parent_str = super(type(self), self).display()
+    from cora_python.contDynamics.contDynamics.display import display_ as parent_display
+    parent_str = parent_display(self)
 
     # Create own display
     res = [parent_str]
@@ -19,4 +23,11 @@ def display(self):
         fun_name = self.mFile.__name__
     res.append(f"Function handle: {fun_name}")
 
-    return '\n'.join(res) 
+    return '\n'.join(res)
+
+
+def display(self):
+    """
+    Displays a nonlinearARX object on the command window (prints to stdout)
+    """
+    print(display_(self), end='') 

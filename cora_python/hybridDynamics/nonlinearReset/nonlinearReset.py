@@ -100,9 +100,6 @@ class NonlinearReset(AbstractReset):
     
     def __repr__(self) -> str:
         return f"NonlinearReset(f={self.f}, preStateDim={self.preStateDim}, inputDim={self.inputDim}, postStateDim={self.postStateDim})"
-    
-    def __str__(self) -> str:
-        return self.__repr__()
 
 
 def _aux_parseInputArgs(*args):

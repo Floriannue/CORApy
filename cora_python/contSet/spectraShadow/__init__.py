@@ -17,13 +17,17 @@ from .isemptyobject import isemptyobject
 from .empty import empty
 from .origin import origin
 from .generateRandom import generateRandom
-from .display import display
+from .display import display, display_
 
 # Attach methods to the SpectraShadow class
 # dim and isemptyobject are required by ContSet
 SpectraShadow.dim = dim
 SpectraShadow.isemptyobject = isemptyobject
 SpectraShadow.display = display
+SpectraShadow.display_ = display_
+
+# Attach display_ to __str__
+SpectraShadow.__str__ = lambda self: display_(self)
 
 # Attach static methods
 SpectraShadow.empty = staticmethod(empty)

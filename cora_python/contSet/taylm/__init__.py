@@ -20,6 +20,7 @@ from .generateRandom import generateRandom
 from .mtimes import mtimes
 from .plus import plus
 from .times import times
+from .display import display, display_
 
 # Attach methods to the Taylm class
 # dim and isemptyobject are required by parent class (but Taylm doesn't inherit from ContSet)
@@ -38,6 +39,11 @@ Taylm.__add__ = lambda self, other: plus(self, other)
 Taylm.__radd__ = lambda self, other: plus(other, self)
 Taylm.__mul__ = lambda self, other: times(self, other)
 Taylm.__rmul__ = lambda self, other: times(other, self)
+Taylm.display = display
+Taylm.display_ = display_
+
+# Attach display_ to __str__
+Taylm.__str__ = lambda self: display_(self)
 
 # Attach static methods
 Taylm.empty = staticmethod(empty)
