@@ -34,61 +34,72 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .capsule import Capsule
 
-def display_(C: 'Capsule') -> str:
+def display_(C: 'Capsule', var_name: str = None) -> str:
     """
     Displays the properties of a capsule object (internal function that returns string)
     
     Args:
         C: capsule object
+        var_name: Optional variable name
         
     Returns:
         str: formatted display string
     """
+    from cora_python.contSet.contSet.representsa import representsa
+    from cora_python.g.functions.verbose.display.dispEmptySet import dispEmptySet
+    from cora_python.g.functions.verbose.display.dispRn import dispRn
+    from cora_python.contSet.contSet.display import display_ as contSet_display
+    
+    # Special cases
+    if representsa(C, 'emptySet'):
+        return dispEmptySet(C, var_name)
+    elif representsa(C, 'fullspace'):
+        return dispRn(C, var_name)
+    
     lines = []
     lines.append("")
     
-    # Check for empty capsule
-    if C.is_empty():
-        lines.append(f"Empty capsule in R^{C.dim()}")
-        lines.append("")
-        return "\n".join(lines)
-    
-    lines.append("capsule")
+    # Display input variable
+    if var_name is None:
+        var_name = 'C'
+    lines.append(f"{var_name} =")
     lines.append("")
     
-    # Display dimension
-    lines.append(f"dimension: {C.dim()}")
+    # Display dimension (using contSet display)
+    contSet_str = contSet_display(C)
+    lines.append(contSet_str)
     lines.append("")
     
     # Display center
-    lines.append("center:")
+    lines.append("center: ")
     if C.c is not None:
-        lines.append(str(C.c.flatten()))
+        lines.append(str(C.c))
     else:
         lines.append("[]")
     lines.append("")
     
     # Display generator
-    lines.append("generator:")
+    lines.append("generator: ")
     if C.g is not None:
-        lines.append(str(C.g.flatten()))
+        lines.append(str(C.g))
     else:
         lines.append("[]")
     lines.append("")
     
     # Display radius
-    lines.append("radius:")
+    lines.append("radius: ")
     lines.append(str(C.r))
     lines.append("")
     
     return "\n".join(lines)
 
 
-def display(C: 'Capsule') -> None:
+def display(C: 'Capsule', var_name: str = None) -> None:
     """
     Displays the properties of a capsule object (prints to stdout)
     
     Args:
         C: capsule object
+        var_name: Optional variable name
     """
-    print(display_(C), end='') 
+    print(display_(C, var_name), end='') 

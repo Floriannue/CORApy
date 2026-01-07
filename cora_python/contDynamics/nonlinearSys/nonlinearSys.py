@@ -196,6 +196,10 @@ class NonlinearSys(ContDynamics):
             pass
         elif version == 'int':
             pass
+    
+    def __repr__(self) -> str:
+        """String representation of the nonlinearSys object"""
+        return f"NonlinearSys(name='{self.name}', states={self.nr_of_dims}, inputs={self.nr_of_inputs}, outputs={self.nr_of_outputs})"
 
 
 # Auxiliary functions -----------------------------------------------------
@@ -373,4 +377,3 @@ def _aux_computeProperties(fun, states, inputs, out_fun, outputs):
             out_isLinear = np.array([out_isLinear] if np.isscalar(out_isLinear) else out_isLinear)
     
     return states, inputs, out_fun, outputs, out_isLinear
-

@@ -84,20 +84,8 @@ def test_nonlinearReset_nonlinearReset_02_copy():
     """
     TRANSLATED TEST - Copy constructor test
     
-    Tests copy constructor for NonlinearReset.
+    NOTE: MATLAB has copy constructor commented out, so this test is skipped.
+    Copy constructor is not supported in NonlinearReset (as per MATLAB implementation).
     """
-    try:
-        from cora_python.hybridDynamics.nonlinearReset.nonlinearReset import NonlinearReset
-        
-        def reset_func(x, u):
-            return np.sin(x[0]) if len(x) > 0 else np.array([0])
-        
-        reset = NonlinearReset(reset_func)
-        reset_ = NonlinearReset(reset)
-        
-        assert reset_.preStateDim == reset.preStateDim, "preStateDim should match"
-        assert reset_.inputDim == reset.inputDim, "inputDim should match"
-        assert reset_.postStateDim == reset.postStateDim, "postStateDim should match"
-    except ImportError:
-        pytest.skip("NonlinearReset class not yet implemented")
+    pytest.skip("Copy constructor is not supported in NonlinearReset (commented out in MATLAB)")
 

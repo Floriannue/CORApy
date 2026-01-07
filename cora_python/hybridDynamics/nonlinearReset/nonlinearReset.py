@@ -107,6 +107,8 @@ def _aux_parseInputArgs(*args):
     from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
     
     # Init properties
+    # MATLAB: f = @(x,u) []; preStateDim = []; inputDim = []; postStateDim = [];
+    # MATLAB [] is empty array, in Python we use None to represent "not provided"
     f = lambda x, u: np.array([]).reshape(0, 1)
     preStateDim = None
     inputDim = None
@@ -168,36 +170,41 @@ def _aux_checkInputArgs(f: Any, preStateDim: Any, inputDim: Any, postStateDim: A
 
 
 def _aux_computeProperties(f: Callable, preStateDim: Any, inputDim: Any, postStateDim: Any) -> tuple:
-    """Compute number of states, inputs, and outputs"""
+    """
+    Compute number of states, inputs, and outputs
+    
+    MATLAB implementation:
+        if isempty(preStateDim)
+            [count,postStateDim] = inputArgsLength(f,2);
+            preStateDim = count(1);
+            inputDim = count(2);
+        end
+        inputDim = max(inputDim,1);
+    """
     from cora_python.g.functions.matlab.function_handle.inputArgsLength import inputArgsLength
     
-    # As long as aux_parseInputArgs enforces either 1 or 4 input arguments,
-    # we must only check 'preStateDim' and can then compute all values
+    # MATLAB: if isempty(preStateDim)
+    # In Python, None represents "not provided" (equivalent to MATLAB [])
     if preStateDim is None:
+        # MATLAB: [count,postStateDim] = inputArgsLength(f,2);
         count, postStateDim_tuple = inputArgsLength(f, 2)
+        # MATLAB: preStateDim = count(1);
         preStateDim = count[0]
+        # MATLAB: inputDim = count(2);
         # For ease of code, we always have at least one input dimension
         inputDim = count[1] if len(count) > 1 else 1
-        # postStateDim is computed by inputArgsLength as a tuple, extract the value
-        # MATLAB: postStateDim is a scalar, Python: it's a tuple, take first element
+        
+        # Extract postStateDim from tuple (inputArgsLength returns tuple)
         if isinstance(postStateDim_tuple, (tuple, list)) and len(postStateDim_tuple) > 0:
             postStateDim = postStateDim_tuple[0]
         elif isinstance(postStateDim_tuple, (int, np.integer)):
             postStateDim = int(postStateDim_tuple)
         else:
-            # If inputArgsLength didn't compute it, evaluate function to determine output size
-            try:
-                # Create dummy inputs based on computed dimensions
-                x_dummy = np.zeros((preStateDim, 1))
-                u_dummy = np.zeros((inputDim, 1))
-                f_out = f(x_dummy, u_dummy)
-                f_out = np.asarray(f_out)
-                postStateDim = len(f_out.flatten())
-            except Exception:
-                raise CORAerror('CORA:wrongInputInConstructor',
-                              'Could not determine post-state dimension from function handle.')
+            # If inputArgsLength didn't return a valid postStateDim, raise error
+            raise CORAerror('CORA:wrongInputInConstructor',
+                          'Could not determine post-state dimension from function handle.')
     
-    # Input dimension must also be >= 1
+    # MATLAB: inputDim = max(inputDim,1);
     inputDim = max(inputDim, 1) if inputDim is not None else 1
     
     # Ensure postStateDim is not None and is an integer

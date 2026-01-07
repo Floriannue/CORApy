@@ -24,12 +24,14 @@ def test_transition_01_empty():
     TRANSLATED TEST - Empty constructor test
     
     Tests Transition with no arguments.
+    MATLAB: guard = []; reset = []; target = [];
     """
     trans = Transition()
     
-    assert trans.guard is None, "guard should be None"
-    assert trans.reset is None, "reset should be None"
-    assert trans.target is None, "target should be None"
+    # MATLAB uses empty arrays [], not None
+    assert isinstance(trans.guard, np.ndarray) and trans.guard.size == 0, "guard should be empty array"
+    assert isinstance(trans.reset, np.ndarray) and trans.reset.size == 0, "reset should be empty array"
+    assert isinstance(trans.target, np.ndarray) and trans.target.size == 0, "target should be empty array"
     assert trans.syncLabel == '', "syncLabel should be empty string"
 
 

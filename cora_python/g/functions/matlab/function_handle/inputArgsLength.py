@@ -86,20 +86,25 @@ def inputArgsLength(f: callable, *varargin) -> Tuple[List[int], Tuple[int, ...]]
         
         # output dimension of f
         # MATLAB: out = size(fsym);
-        if isinstance(fsym, (list, tuple)):
-            out = (len(fsym),)
-        elif isinstance(fsym, np.ndarray):
+        if isinstance(fsym, np.ndarray):
             out = fsym.shape
+            # MATLAB fix for empty function handle case (08-October-2024)
+            # If output is empty array, out should be 0
+            if fsym.size == 0:
+                # Empty array: MATLAB returns 0 for empty function
+                out = (0,)
+            elif any(o <= 1 for o in out):
+                out = (max(out),)
+        elif isinstance(fsym, (list, tuple)):
+            out = (len(fsym),) if len(fsym) > 0 else (0,)
         elif hasattr(fsym, 'shape'):
             out = fsym.shape
+            if hasattr(fsym, 'size') and fsym.size == 0:
+                out = (0,)
+            elif any(o <= 1 for o in out):
+                out = (max(out),)
         else:
             out = (1,)
-        
-        # MATLAB: if any(out <= 1)
-        # MATLAB:     out = max(out);
-        # MATLAB: end
-        if any(o <= 1 for o in out):
-            out = (max(out),)
         
         # used variables from array of symbolic variables
         # MATLAB: vars = symvar(fsym);

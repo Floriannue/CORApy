@@ -99,30 +99,56 @@ def symVariables(sys: Any, *varargin) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     
     if is_nonlinearARX:
         # MATLAB: vars.x = aux_symVector('x',sys.n_p*sys.nrOfOutputs,withBrackets);
-        vars_dict['x'] = aux_symVector('x', sys.n_p * sys.nrOfOutputs, withBrackets)
+        # Use Python naming convention first
+        n_p = getattr(sys, 'n_p', 0)
+        
+        nr_of_outputs = getattr(sys, 'nr_of_outputs', None)
+        if nr_of_outputs is None:
+            nr_of_outputs = getattr(sys, 'nrOfOutputs', 0)
+        
+        nr_of_inputs = getattr(sys, 'nr_of_inputs', None)
+        if nr_of_inputs is None:
+            nr_of_inputs = getattr(sys, 'nrOfInputs', 0)
+        
+        vars_dict['x'] = aux_symVector('x', n_p * nr_of_outputs, withBrackets)
         # MATLAB: vars_der.x = aux_symVector('dx',sys.n_p*sys.nrOfOutputs,withBrackets);
-        vars_der['dx'] = aux_symVector('dx', sys.n_p * sys.nrOfOutputs, withBrackets)
+        vars_der['dx'] = aux_symVector('dx', n_p * nr_of_outputs, withBrackets)
         # MATLAB: vars.u = aux_symVector('u',(sys.n_p+1)*sys.nrOfInputs,withBrackets);
-        vars_dict['u'] = aux_symVector('u', (sys.n_p + 1) * sys.nrOfInputs, withBrackets)
+        vars_dict['u'] = aux_symVector('u', (n_p + 1) * nr_of_inputs, withBrackets)
         # MATLAB: vars_der.u = aux_symVector('du',(sys.n_p+1)*sys.nrOfInputs,withBrackets);
-        vars_der['du'] = aux_symVector('du', (sys.n_p + 1) * sys.nrOfInputs, withBrackets)
+        vars_der['du'] = aux_symVector('du', (n_p + 1) * nr_of_inputs, withBrackets)
     else:
         # MATLAB: vars.x = aux_symVector('x',sys.nrOfDims,withBrackets);
-        vars_dict['x'] = aux_symVector('x', sys.nrOfDims, withBrackets)
+        # Use Python naming convention first, fallback to MATLAB
+        # For required properties, 0 is a reasonable default (empty system is valid)
+        nr_of_dims = getattr(sys, 'nr_of_dims', None)
+        if nr_of_dims is None:
+            nr_of_dims = getattr(sys, 'nrOfDims', 0)
+        
+        nr_of_inputs = getattr(sys, 'nr_of_inputs', None)
+        if nr_of_inputs is None:
+            nr_of_inputs = getattr(sys, 'nrOfInputs', 0)
+        
+        vars_dict['x'] = aux_symVector('x', nr_of_dims, withBrackets)
         # MATLAB: vars_der.x = aux_symVector('dx',sys.nrOfDims,withBrackets);
-        vars_der['dx'] = aux_symVector('dx', sys.nrOfDims, withBrackets)
+        vars_der['dx'] = aux_symVector('dx', nr_of_dims, withBrackets)
         # MATLAB: vars.u = aux_symVector('u',sys.nrOfInputs,withBrackets);
-        vars_dict['u'] = aux_symVector('u', sys.nrOfInputs, withBrackets)
+        vars_dict['u'] = aux_symVector('u', nr_of_inputs, withBrackets)
         # MATLAB: vars_der.u = aux_symVector('du',sys.nrOfInputs,withBrackets);
-        vars_der['du'] = aux_symVector('du', sys.nrOfInputs, withBrackets)
+        vars_der['du'] = aux_symVector('du', nr_of_inputs, withBrackets)
     
     # algebraic constraints
     # MATLAB: if isprop(sys,'nrOfConstraints')
-    if hasattr(sys, 'nrOfConstraints'):
+    # Try Python naming first, then MATLAB naming
+    nr_of_constraints = getattr(sys, 'nr_of_constraints', None)
+    if nr_of_constraints is None:
+        nr_of_constraints = getattr(sys, 'nrOfConstraints', None)
+    
+    if nr_of_constraints is not None:
         # MATLAB: vars.y = aux_symVector('y',sys.nrOfConstraints,withBrackets);
-        vars_dict['y'] = aux_symVector('y', sys.nrOfConstraints, withBrackets)
+        vars_dict['y'] = aux_symVector('y', nr_of_constraints, withBrackets)
         # MATLAB: vars_der.y = aux_symVector('dy',sys.nrOfConstraints,withBrackets);
-        vars_der['dy'] = aux_symVector('dy', sys.nrOfConstraints, withBrackets)
+        vars_der['dy'] = aux_symVector('dy', nr_of_constraints, withBrackets)
     else:
         # MATLAB: vars.y = sym('y',[0,1]);
         vars_dict['y'] = sp.Matrix([])  # Empty symbolic matrix
@@ -131,15 +157,26 @@ def symVariables(sys: Any, *varargin) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     
     # outputs
     # MATLAB: vars.o = aux_symVector('y',sys.nrOfOutputs,withBrackets);
-    vars_dict['o'] = aux_symVector('y', sys.nrOfOutputs, withBrackets)
+    # Use Python naming convention first, fallback to MATLAB
+    # For required properties, 0 is a reasonable default (empty system)
+    nr_of_outputs = getattr(sys, 'nr_of_outputs', None)
+    if nr_of_outputs is None:
+        nr_of_outputs = getattr(sys, 'nrOfOutputs', 0)
+    
+    vars_dict['o'] = aux_symVector('y', nr_of_outputs, withBrackets)
     # MATLAB: vars_der.o = aux_symVector('do',sys.nrOfOutputs,withBrackets);
-    vars_der['do'] = aux_symVector('do', sys.nrOfOutputs, withBrackets)
+    vars_der['do'] = aux_symVector('do', nr_of_outputs, withBrackets)
     
     # parameters
     # MATLAB: if isprop(sys,'nrOfParam')
-    if hasattr(sys, 'nrOfParam'):
+    # Try Python naming first, then MATLAB naming
+    nr_of_param = getattr(sys, 'nr_of_param', None)
+    if nr_of_param is None:
+        nr_of_param = getattr(sys, 'nrOfParam', None)
+    
+    if nr_of_param is not None:
         # MATLAB: vars.p = aux_symVector('p',sys.nrOfParam,withBrackets);
-        vars_dict['p'] = aux_symVector('p', sys.nrOfParam, withBrackets)
+        vars_dict['p'] = aux_symVector('p', nr_of_param, withBrackets)
     else:
         # MATLAB: vars.p = sym('p',[0,1]);
         vars_dict['p'] = sp.Matrix([])  # Empty symbolic matrix

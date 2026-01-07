@@ -63,9 +63,13 @@ class TestSymVariables:
             assert len(vars_dict['x']) == 3
         
         # Check that vars.u has 1 element (nrOfInputs)
+        # When nrVars=1, aux_symVector returns a single Symbol, not a Matrix
         assert vars_dict['u'] is not None
         if isinstance(vars_dict['u'], sp.Matrix):
             assert vars_dict['u'].shape[0] == 1
+        elif isinstance(vars_dict['u'], sp.Symbol):
+            # Single variable case - this is correct behavior
+            assert True
         else:
             assert len(vars_dict['u']) == 1
         
@@ -172,7 +176,7 @@ def test_symVariables():
     test.test_symVariables_nonlinearARX()
     
     print("test_symVariables: all tests passed")
-    return True
+    # pytest expects None, not True
 
 
 if __name__ == "__main__":

@@ -100,9 +100,11 @@ class TestCapsuleDisplay:
         for C in capsules:
             # Should not raise any exceptions
             try:
-                output = C.display()
-                # Test passed if no exception is raised
+                # Use display_() which returns a string
+                output = C.display_()
+                # Test passed if no exception is raised and output is a string
                 assert isinstance(output, str)
+                assert len(output) > 0
             except Exception as e:
                 pytest.fail(f"Display raised unexpected exception: {e}")
 
@@ -117,9 +119,11 @@ class TestCapsuleDisplay:
         capsules = [C_1d, C_4d]
         
         for C in capsules:
-            output = C.display()
+            # Use display_() which returns a string
+            output = C.display_()
             
             # Should produce some output without errors
+            assert isinstance(output, str)
             assert len(output) > 0
 
 

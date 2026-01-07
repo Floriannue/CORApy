@@ -51,8 +51,10 @@ def test_hybridAutomaton_hybridAutomaton_02_standard():
     # flow equation
     dynamics_2D = LinearSys('linearSys', np.array([[0, 1], [0, 0]]), 
                            np.array([[0], [0]]), np.array([[0], [-9.81]]))
+    # MATLAB: linearSys([0,1,0;0,0,1;0,0,1],1) - scalar B=1 means 3x1 matrix of ones
+    # In Python, we need to pass a proper B matrix with correct dimensions
     dynamics_3D = LinearSys('linearSys', np.array([[0, 1, 0], [0, 0, 1], [0, 0, 1]]), 
-                           np.array([[1]]))
+                           np.ones((3, 1)))
     
     # define location
     loc_1 = Location('S1', inv_2D, [trans_2D], dynamics_2D)
@@ -87,8 +89,10 @@ def test_hybridAutomaton_hybridAutomaton_03_wrong_initializations():
     # flow equation
     dynamics_2D = LinearSys('linearSys', np.array([[0, 1], [0, 0]]), 
                            np.array([[0], [0]]), np.array([[0], [-9.81]]))
+    # MATLAB: linearSys([0,1,0;0,0,1;0,0,1],1) - scalar B=1 means 3x1 matrix of ones
+    # In Python, we need to pass a proper B matrix with correct dimensions
     dynamics_3D = LinearSys('linearSys', np.array([[0, 1, 0], [0, 0, 1], [0, 0, 1]]), 
-                           np.array([[1]]))
+                           np.ones((3, 1)))
     
     # define location
     loc_1 = Location('S1', inv_2D, [trans_2D], dynamics_2D)

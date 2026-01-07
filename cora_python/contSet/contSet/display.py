@@ -61,25 +61,9 @@ def display_(S: 'ContSet') -> str:
         except:
             pass
     
-    # Display additional properties based on the type
-    class_name = S.__class__.__name__.lower()
-    
-    if class_name == 'interval':
-        if hasattr(S, 'inf') and hasattr(S, 'sup'):
-            result += f"  infimum: {S.inf()}\n"
-            result += f"  supremum: {S.sup()}\n"
-    elif class_name == 'zonotope':
-        if hasattr(S, 'generators'):
-            result += f"  generators: {S.generators().shape[1]} columns\n"
-    elif class_name == 'polytope':
-        if hasattr(S, 'V') and S.V is not None:
-            result += f"  vertices: {S.V.shape[1]} columns\n"
-        if hasattr(S, 'A') and S.A is not None:
-            result += f"  constraints: {S.A.shape[0]} rows\n"
-    elif class_name == 'ellipsoid':
-        if hasattr(S, 'Q'):
-            result += f"  shape matrix: {S.Q.shape}\n"
-    
+    # MATLAB: fprintf('%s:\n', class(S))
+    # MATLAB: disp(['- dimension: ', num2str(dim(S))]);
+    # Simple display: just class name and dimension
     return result.rstrip()
 
 
