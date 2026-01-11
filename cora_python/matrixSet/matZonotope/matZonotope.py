@@ -144,32 +144,4 @@ class matZonotope:
             for i, Gi in enumerate(G_legacy):
                 G[:, :, i] = Gi
         
-        return C, G
-    
-    def numgens(self):
-        """Get number of generators"""
-        return self.G.shape[2] if len(self.G.shape) > 2 else 0
-    
-    def dim(self):
-        """Get dimensions of the matrix zonotope"""
-        return self.C.shape
-    
-    def size(self):
-        """Get size of the matrix zonotope"""
-        return self.C.shape
-    
-    def isempty(self):
-        """Check if matrix zonotope is empty"""
-        return self.C.size == 0
-    
-    def center(self):
-        """Get center matrix"""
-        return self.C
-    
-    def __str__(self):
-        """String representation"""
-        return f"matZonotope in R^{self.C.shape[0]}x{self.C.shape[1]} with {self.numgens()} generators"
-    
-    def __repr__(self):
-        """Detailed string representation"""
-        return self.__str__() 
+        return C, G 

@@ -33,7 +33,7 @@ def test_hybridAutomaton_reach_unsafeSet():
     """
     # simple automaton: the reachable set moves from left to right and vice
     # versa between two vertical guards, behind which there are unsafe sets
-    inv = Polytope(Interval(np.array([[-1], [-100]]), np.array([[1], [100]])))
+    inv = Interval(np.array([[-1], [-100]]), np.array([[1], [100]])).polytope()
     guard_right = Polytope(np.array([]), np.array([]),
                            np.array([[1, 0]]), np.array([[1]]))
     guard_left = Polytope(np.array([]), np.array([]),

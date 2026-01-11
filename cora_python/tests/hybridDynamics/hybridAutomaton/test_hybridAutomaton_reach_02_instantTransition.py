@@ -22,7 +22,6 @@ from cora_python.contDynamics.linearSys.linearSys import LinearSys
 from cora_python.contSet.polytope.polytope import Polytope
 from cora_python.contSet.zonotope.zonotope import Zonotope
 from cora_python.contSet.interval.interval import Interval
-from cora_python.g.functions.matlab.validate.check.isequal import isequal
 
 
 def test_hybridAutomaton_reach_02_instantTransition():
@@ -70,7 +69,7 @@ def test_hybridAutomaton_reach_02_instantTransition():
     linsys4 = LinearSys('linearSys', A, B, c4)
     
     # invariant set (same for all locations)
-    inv = Polytope(Interval(np.array([[-1], [-1]]), np.array([[1], [1]])))
+    inv = Interval(np.array([[-1], [-1]]), np.array([[1], [1]])).polytope()
     
     # guard sets
     guard1 = Polytope(np.array([]), np.array([]),
@@ -144,9 +143,9 @@ def test_hybridAutomaton_reach_02_instantTransition():
             f"Branch {i} should have same number of sets"
         
         # same start set and end set
-        assert isequal(R1[i_R1].timePoint['set'][0], R2[i].timePoint['set'][0]), \
+        assert R1[i_R1].timePoint['set'][0].isequal(R2[i].timePoint['set'][0]), \
             f"Branch {i} start sets should be equal"
-        assert isequal(R1[i_R1].timePoint['set'][-1], R2[i].timePoint['set'][-1]), \
+        assert R1[i_R1].timePoint['set'][-1].isequal(R2[i].timePoint['set'][-1]), \
             f"Branch {i} end sets should be equal"
         
         # increment index of R1

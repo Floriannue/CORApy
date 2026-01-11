@@ -142,3 +142,4 @@ def display(nlnsys: 'NonlinearSys', var_name: str = None) -> None:
     """
     print(display_(nlnsys, var_name), end='')
 
+

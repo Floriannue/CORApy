@@ -83,10 +83,12 @@ def isequalFunctionHandle(f: Callable, g: Callable) -> bool:
         # MATLAB: varName = ['argsIn_' num2str(i) '_'];
         varName = f'argsIn_{i}_'
         # MATLAB: argsIn{i} = sym(varName,[f_in(i),1],'real');
-        argsIn_i = sp.symbols(f'{varName}1:{f_in[i]+1}', real=True)
+        # Create column vector of symbolic variables
         if f_in[i] == 1:
-            argsIn.append(argsIn_i)
+            # Single symbol
+            argsIn.append(sp.Symbol(f'{varName}1', real=True))
         else:
+            # Column vector (Matrix)
             argsIn.append(sp.Matrix([sp.Symbol(f'{varName}{j+1}', real=True) for j in range(f_in[i])]))
     
     # MATLAB: f_sym = f(argsIn{:});
@@ -96,24 +98,45 @@ def isequalFunctionHandle(f: Callable, g: Callable) -> bool:
     
     # check symbolic expressions for equality
     # MATLAB: res = isequal(f_sym,g_sym);
-    # In sympy, we use equals() for symbolic equality
+    # MATLAB's isequal compares symbolic expressions element-wise
     try:
-        if isinstance(f_sym, (list, tuple, np.ndarray)) and isinstance(g_sym, (list, tuple, np.ndarray)):
-            if len(f_sym) != len(g_sym):
+        # Convert numpy arrays to sympy matrices if needed
+        if isinstance(f_sym, np.ndarray):
+            f_sym = sp.Matrix(f_sym)
+        if isinstance(g_sym, np.ndarray):
+            g_sym = sp.Matrix(g_sym)
+        
+        # Handle lists/tuples - convert to sympy Matrix
+        if isinstance(f_sym, (list, tuple)):
+            f_sym = sp.Matrix(f_sym)
+        if isinstance(g_sym, (list, tuple)):
+            g_sym = sp.Matrix(g_sym)
+        
+        # Both should be sympy objects now
+        # Use simplify and equals for proper symbolic comparison
+        # MATLAB's isequal for symbolic does element-wise comparison
+        if isinstance(f_sym, sp.Matrix) and isinstance(g_sym, sp.Matrix):
+            if f_sym.shape != g_sym.shape:
                 return False
-            # Compare element-wise
-            for fi, gi in zip(f_sym, g_sym):
-                if hasattr(fi, 'equals') and hasattr(gi, 'equals'):
-                    if not fi.equals(gi):
+            # Compare element-wise using simplify and check if difference is zero
+            # MATLAB's isequal for symbolic matrices does element-wise comparison
+            diff = sp.simplify(f_sym - g_sym)
+            # Check if all elements are zero (use is_zero for better symbolic comparison)
+            for i in range(diff.rows):
+                for j in range(diff.cols):
+                    elem = sp.simplify(diff[i, j])
+                    # Check if element is zero
+                    if not (elem == 0 or (hasattr(elem, 'is_zero') and elem.is_zero())):
                         return False
-                elif fi != gi:
-                    return False
             return True
-        elif hasattr(f_sym, 'equals') and hasattr(g_sym, 'equals'):
-            return f_sym.equals(g_sym)
+        elif isinstance(f_sym, (sp.Expr, sp.Symbol)) and isinstance(g_sym, (sp.Expr, sp.Symbol)):
+            # Scalar symbolic expressions
+            diff = sp.simplify(f_sym - g_sym)
+            return diff == 0
         else:
+            # Fallback to direct comparison
             return f_sym == g_sym
-    except:
+    except Exception as e:
         # If comparison fails, assume not equal
         return False
 

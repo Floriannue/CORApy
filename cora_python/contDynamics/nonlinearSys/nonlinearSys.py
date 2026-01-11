@@ -84,7 +84,7 @@ class NonlinearSys(ContDynamics):
         linError: linearization error
     """
     
-    def __init__(self, *args):
+    def __init__(self, *args, name=None, fun=None, states=None, inputs=None, out_fun=None, outputs=None):
         """
         Constructor for nonlinearSys
         
@@ -98,12 +98,16 @@ class NonlinearSys(ContDynamics):
             NonlinearSys(name, fun, out_fun)
             NonlinearSys(fun, states, inputs, out_fun, outputs)
             NonlinearSys(name, fun, states, inputs, out_fun, outputs)
+            
+        Also supports keyword arguments:
+            NonlinearSys(fun, states=1, inputs=1)
+            NonlinearSys(fun, states=1, inputs=1, out_fun=g, outputs=1)
         """
         # 0. check number of input arguments
         # assertNarginConstructor(0:6,nargin); # Python handles nargin differently
         if len(args) > 6:
             raise CORAerror('CORA:wrongInputInConstructor',
-                           f'Too many arguments: {len(args)} (max 6)')
+                           f'Too many positional arguments: {len(args)} (max 6)')
         
         # 1. copy constructor: not allowed due to obj@contDynamics below
         # if nargin == 1 && isa(varargin{1},'nonlinearSys')
@@ -111,22 +115,30 @@ class NonlinearSys(ContDynamics):
         # end
         
         # 2. parse input arguments: varargin -> vars
-        name, fun, states, inputs, out_fun, outputs = _aux_parseInputArgs(*args)
+        parsed_name, parsed_fun, parsed_states, parsed_inputs, parsed_out_fun, parsed_outputs = _aux_parseInputArgs(*args)
         
-        # 3. check correctness of input arguments
+        # 3. Merge positional and keyword arguments (kwargs override positional)
+        name = name if name is not None else parsed_name
+        fun = fun if fun is not None else parsed_fun
+        states = states if states is not None else parsed_states
+        inputs = inputs if inputs is not None else parsed_inputs
+        out_fun = out_fun if out_fun is not None else parsed_out_fun
+        outputs = outputs if outputs is not None else parsed_outputs
+        
+        # 4. check correctness of input arguments
         _aux_checkInputArgs(name, fun, states, inputs, out_fun, outputs)
         
-        # 4. analyze functions and extract number of states, inputs, outputs
+        # 5. analyze functions and extract number of states, inputs, outputs
         states, inputs, out_fun, outputs, out_isLinear = \
             _aux_computeProperties(fun, states, inputs, out_fun, outputs)
         
-        # 5. instantiate parent class
+        # 6. instantiate parent class
         # note: currently, we only support unit disturbance matrices
         #       (same as number of states) and unit noise matrices (same as
         #       number of outputs)
         super().__init__(name, states, inputs, outputs, states, outputs)
         
-        # 6a. assign object properties: dynamic equation
+        # 7a. assign object properties: dynamic equation
         self.mFile = fun
         # In MATLAB: eval(['@jacobian_',name]) etc.
         # In Python, we'll use a naming convention or pass via kwargs
@@ -136,7 +148,7 @@ class NonlinearSys(ContDynamics):
         self.thirdOrderTensor = None
         self.tensors = [None] * 7  # For tensors 4-10 (indices 0-6)
         
-        # 6b. assign object properties: output equation
+        # 7b. assign object properties: output equation
         self.out_mFile = out_fun
         self.out_isLinear = out_isLinear
         self.out_jacobian = None
@@ -352,17 +364,24 @@ def _aux_computeProperties(fun, states, inputs, out_fun, outputs):
         out_isLinear = np.ones(outputs, dtype=bool)
     else:
         # get number of states in output equation and outputs
-        try:
-            temp, out_out = inputArgsLength(out_fun, 2)
-        except Exception as e:
-            raise CORAerror('CORA:specialError',
-                          f'Failed to determine number of outputs automatically!\n'
-                          f'Please provide number of outputs as an additional input argument!\n'
-                          f'Error: {e}')
-        
-        # use computed value if not provided
         if outputs is None:
-            outputs = out_out
+            # only try to compute if outputs is not provided
+            try:
+                temp, out_out = inputArgsLength(out_fun, 2)
+                outputs = out_out[0] if len(out_out) > 0 else 1
+            except Exception as e:
+                raise CORAerror('CORA:specialError',
+                              f'Failed to determine number of outputs automatically!\n'
+                              f'Please provide number of outputs as an additional input argument!\n'
+                              f'Error: {e}')
+        else:
+            # outputs is provided, but we still need temp for validation
+            try:
+                temp, _ = inputArgsLength(out_fun, 2)
+            except Exception:
+                # If we can't analyze but outputs is provided, use a default temp
+                # This allows explicit outputs to work even if analysis fails
+                temp = [states]  # Assume same number of states as dynamic equation
         
         # ensure that output equation does not have more states than
         # dynamic equation

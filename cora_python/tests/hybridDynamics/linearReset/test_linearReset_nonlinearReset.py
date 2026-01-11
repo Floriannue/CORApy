@@ -26,7 +26,7 @@ def test_linearReset_nonlinearReset_01_empty():
     # For now, skip if not available
     try:
         from cora_python.hybridDynamics.nonlinearReset.nonlinearReset import NonlinearReset
-        nonlinReset = NonlinearReset(linReset)
+        nonlinReset = linReset.nonlinearReset()
         assert nonlinReset.preStateDim == 0, "preStateDim should be 0"
         assert nonlinReset.inputDim == 1, "inputDim should be 1"
         assert nonlinReset.postStateDim == 0, "postStateDim should be 0"
@@ -44,14 +44,14 @@ def test_linearReset_nonlinearReset_02_only_A():
         # only state matrix
         A = np.array([[1, 0], [0, 1]])
         linReset = LinearReset(A)
-        nonlinReset = NonlinearReset(linReset)
+        nonlinReset = linReset.nonlinearReset()
         assert nonlinReset.preStateDim == 2, "preStateDim should be 2"
         assert nonlinReset.inputDim == 1, "inputDim should be 1"
         assert nonlinReset.postStateDim == 2, "postStateDim should be 2"
         
         # Compare with direct nonlinearReset creation
         def f(x, u):
-            return np.array([x[0], x[1]])
+            return np.array([[x[0]], [x[1]]])  # Column vector
         nonlinReset_ = NonlinearReset(f)
         assert nonlinReset.isequal(nonlinReset_), "Converted reset should equal direct creation"
     except (ImportError, NotImplementedError):
@@ -69,7 +69,7 @@ def test_linearReset_nonlinearReset_03_A_and_B():
         A = np.array([[1, 0], [0, 1]])
         B = np.array([[1], [-1]])
         linReset = LinearReset(A, B)
-        nonlinReset = NonlinearReset(linReset)
+        nonlinReset = linReset.nonlinearReset()
         assert nonlinReset.preStateDim == 2, "preStateDim should be 2"
         assert nonlinReset.inputDim == 1, "inputDim should be 1"
         assert nonlinReset.postStateDim == 2, "postStateDim should be 2"
@@ -94,14 +94,14 @@ def test_linearReset_nonlinearReset_04_A_and_c():
         A = np.array([[1, 0], [0, 1]])
         c = np.array([[1], [-1]])
         linReset = LinearReset(A, None, c)
-        nonlinReset = NonlinearReset(linReset)
+        nonlinReset = linReset.nonlinearReset()
         assert nonlinReset.preStateDim == 2, "preStateDim should be 2"
         assert nonlinReset.inputDim == 1, "inputDim should be 1"
         assert nonlinReset.postStateDim == 2, "postStateDim should be 2"
         
         # Compare with direct nonlinearReset creation
         def f(x, u):
-            return np.array([x[0] + 1, x[1] - 1])
+            return np.array([[x[0] + 1], [x[1] - 1]])  # Column vector
         nonlinReset_ = NonlinearReset(f)
         assert nonlinReset.isequal(nonlinReset_), "Converted reset should equal direct creation"
     except (ImportError, NotImplementedError):
@@ -120,7 +120,7 @@ def test_linearReset_nonlinearReset_05_A_B_c():
         B = np.array([[0], [1]])
         c = np.array([[1], [-1]])
         linReset = LinearReset(A, B, c)
-        nonlinReset = NonlinearReset(linReset)
+        nonlinReset = linReset.nonlinearReset()
         assert nonlinReset.preStateDim == 2, "preStateDim should be 2"
         assert nonlinReset.inputDim == 1, "inputDim should be 1"
         assert nonlinReset.postStateDim == 2, "postStateDim should be 2"
