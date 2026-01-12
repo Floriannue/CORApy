@@ -58,7 +58,7 @@ def priv_initReach_Krylov(linsys: Any, params: Dict[str, Any],
     options['tFinal'] = params['tFinal']
     
     # initialize field for tp solutions
-    if not hasattr(linsys, 'krylov'):
+    if not hasattr(linsys, 'krylov') or linsys.krylov is None:
         linsys.krylov = {}
     linsys.krylov['Rhom_tp_prev'] = linsys.C @ params['R0']
     

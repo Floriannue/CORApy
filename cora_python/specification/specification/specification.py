@@ -87,6 +87,84 @@ class Specification:
         location: location where the specification is active (only hybrid systems)
     """
     
+    def __new__(cls, *args):
+        """
+        Override __new__ to handle list inputs (MATLAB behavior)
+        When a list is passed, return a list of Specification objects
+        """
+        if len(args) >= 1 and isinstance(args[0], list):
+            # MATLAB: specification({P1,P2},'unsafeSet') returns array of specifications
+            sets_list = args[0]
+            
+            # Validate input list
+            if len(sets_list) == 0:
+                raise CORAerror('CORA:wrongInputInConstructor',
+                    'Input list must be non-empty.')
+            
+            # Check what types of objects we have
+            are_contsets = all(hasattr(x, '__class__') and hasattr(x, 'dim') for x in sets_list)
+            are_stl = all(hasattr(x, '__class__') and x.__class__.__name__ == 'Stl' for x in sets_list)
+            are_fun_han = all(callable(x) for x in sets_list)
+            
+            if not (are_contsets or are_stl or are_fun_han):
+                raise CORAerror('CORA:wrongInputInConstructor',
+                    'All items in the list must be of the same type: '
+                    'contSet objects, STL formulas, or function handles.')
+            
+            # Determine type from second argument or default
+            spec_type = 'unsafeSet'
+            if len(args) >= 2:
+                from cora_python.specification.specification.specification import Specification as SpecClass
+                temp_spec = object.__new__(SpecClass)
+                type_, _, _ = temp_spec._read_out_input_arg(args[1], 2)
+                if type_ is not None:
+                    spec_type = type_
+                elif are_stl:
+                    spec_type = 'logic'
+                elif are_fun_han:
+                    spec_type = 'custom'
+            
+            # Create list of specifications
+            specs = []
+            for item in sets_list:
+                spec = object.__new__(cls)
+                spec.set = item
+                spec.time = None
+                spec.type = spec_type
+                spec.location = None
+                
+                # Handle additional arguments (location, time)
+                if len(args) >= 2:
+                    temp_spec = object.__new__(SpecClass)
+                    _, loc, time = temp_spec._read_out_input_arg(args[1], 2)
+                    if loc is not None:
+                        spec.location = loc
+                    if time is not None:
+                        spec.time = time
+                
+                if len(args) >= 3:
+                    temp_spec = object.__new__(SpecClass)
+                    _, loc, time = temp_spec._read_out_input_arg(args[2], 3)
+                    if loc is not None:
+                        spec.location = loc
+                    if time is not None and not (hasattr(time, 'isemptyobject') and time.isemptyobject()):
+                        spec.time = time
+                
+                if len(args) >= 4:
+                    temp_spec = object.__new__(SpecClass)
+                    _, loc, time = temp_spec._read_out_input_arg(args[3], 4)
+                    if loc is not None:
+                        spec.location = loc
+                    if time is not None and not (hasattr(time, 'isemptyobject') and time.isemptyobject()):
+                        spec.time = time
+                
+                specs.append(spec)
+            
+            return specs  # Return list of specifications
+        
+        # Normal case: return single instance
+        return object.__new__(cls)
+    
     def __init__(self, *args):
         """
         Constructor for specification objects
@@ -138,12 +216,10 @@ class Specification:
                 is_fun_han = False
                 is_stl = False
             elif isinstance(args[0], list):
-                # syntax: obj = Specification(list)
-                # In Python, constructors cannot return lists
-                # This should be handled by a factory function
-                raise CORAerror('CORA:wrongInputInConstructor',
-                    'Cannot create multiple specifications in constructor. '
-                    'Use create_specification_list() function instead.')
+                # This case is handled in __new__, so we shouldn't reach here
+                # But if we do, it means __new__ didn't handle it properly
+                raise CORAerror('CORA:specialError',
+                    'List input should be handled by __new__. This is a bug.')
             else:
                 raise CORAerror('CORA:wrongInputInConstructor',
                     'First argument must be a contSet, list, function, or STL formula.')

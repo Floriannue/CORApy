@@ -13,7 +13,7 @@ import pytest
 from cora_python.contDynamics.linearSys.linearSys import LinearSys
 from cora_python.contSet.zonotope.zonotope import Zonotope
 from cora_python.contSet.interval.interval import Interval
-from cora_python.g.classes.reachSet import ReachSet
+# Note: outputSet expects single sets, not ReachSet objects
 
 
 def test_outputSet_01_basic():
@@ -34,19 +34,9 @@ def test_outputSet_01_basic():
     C = np.array([[1, 0]])  # Output: y = x1
     sys = LinearSys('test_sys', A, B, None, C)
     
-    # Create a reachable set
+    # Create a reachable set (single set, not ReachSet)
+    # outputSet expects a single set, not a ReachSet object
     R = Zonotope(np.array([[1], [1]]), 0.1 * np.eye(2))
-    
-    # Create a ReachSet object
-    timePoint = {
-        'set': [R],
-        'time': [0.0, 0.1]
-    }
-    timeInterval = {
-        'set': [R],
-        'time': [Interval([0.0], [0.1])]
-    }
-    R_reach = ReachSet(timePoint=timePoint, timeInterval=timeInterval)
     
     params = {
         'U': Zonotope(np.zeros((1, 1)), np.array([]).reshape(1, 0)),
@@ -60,7 +50,7 @@ def test_outputSet_01_basic():
     
     # Execute
     # Note: linearSys.outputSet returns (Y, Verror) where Verror is always 0
-    result = sys.outputSet(R_reach, params, options)
+    result = sys.outputSet(R, params, options)
     if isinstance(result, tuple):
         Y, Verror = result
     else:
@@ -74,10 +64,9 @@ def test_outputSet_01_basic():
     # 2. Verror should be 0 for linear systems
     assert Verror == 0, "Verror should be 0 for linear systems"
     
-    # 3. If Y is a ReachSet, it should have timePoint and timeInterval
-    if isinstance(Y, ReachSet):
-        assert hasattr(Y, 'timePoint'), "Y should have timePoint"
-        assert hasattr(Y, 'timeInterval'), "Y should have timeInterval"
+    # 3. Y should be a set (Zonotope or similar)
+    # Note: outputSet returns a single set, not a ReachSet
+    assert Y is not None, "Y should be computed"
 
 
 def test_outputSet_02_no_output_equation():
@@ -92,16 +81,8 @@ def test_outputSet_02_no_output_equation():
     B = np.array([[1], [1]])
     sys = LinearSys('test_sys', A, B)  # No C matrix
     
+    # outputSet expects a single set, not a ReachSet object
     R = Zonotope(np.array([[1], [1]]), 0.1 * np.eye(2))
-    timePoint = {
-        'set': [R],
-        'time': [0.0, 0.1]
-    }
-    timeInterval = {
-        'set': [R],
-        'time': [Interval([0.0], [0.1])]
-    }
-    R_reach = ReachSet(timePoint=timePoint, timeInterval=timeInterval)
     
     params = {
         'U': Zonotope(np.zeros((1, 1)), np.array([]).reshape(1, 0)),
@@ -114,7 +95,7 @@ def test_outputSet_02_no_output_equation():
     }
     
     # Execute
-    result = sys.outputSet(R_reach, params, options)
+    result = sys.outputSet(R, params, options)
     if isinstance(result, tuple):
         Y, Verror = result
     else:
@@ -141,16 +122,8 @@ def test_outputSet_03_with_D_matrix():
     D = np.array([[0.5]])  # Direct feedthrough
     sys = LinearSys('test_sys', A, B, None, C, D)
     
+    # outputSet expects a single set, not a ReachSet object
     R = Zonotope(np.array([[1], [1]]), 0.1 * np.eye(2))
-    timePoint = {
-        'set': [R],
-        'time': [0.0, 0.1]
-    }
-    timeInterval = {
-        'set': [R],
-        'time': [Interval([0.0], [0.1])]
-    }
-    R_reach = ReachSet(timePoint=timePoint, timeInterval=timeInterval)
     
     params = {
         'U': Zonotope(np.array([[0.1]]), 0.05 * np.array([[1]])),
@@ -163,7 +136,7 @@ def test_outputSet_03_with_D_matrix():
     }
     
     # Execute
-    result = sys.outputSet(R_reach, params, options)
+    result = sys.outputSet(R, params, options)
     if isinstance(result, tuple):
         Y, Verror = result
     else:
@@ -188,16 +161,8 @@ def test_outputSet_04_compOutputSet_false():
     C = np.array([[1, 0]])
     sys = LinearSys('test_sys', A, B, None, C)
     
+    # outputSet expects a single set, not a ReachSet object
     R = Zonotope(np.array([[1], [1]]), 0.1 * np.eye(2))
-    timePoint = {
-        'set': [R],
-        'time': [0.0, 0.1]
-    }
-    timeInterval = {
-        'set': [R],
-        'time': [Interval([0.0], [0.1])]
-    }
-    R_reach = ReachSet(timePoint=timePoint, timeInterval=timeInterval)
     
     params = {
         'U': Zonotope(np.zeros((1, 1)), np.array([]).reshape(1, 0)),
@@ -210,7 +175,7 @@ def test_outputSet_04_compOutputSet_false():
     }
     
     # Execute
-    result = sys.outputSet(R_reach, params, options)
+    result = sys.outputSet(R, params, options)
     if isinstance(result, tuple):
         Y, Verror = result
     else:
@@ -236,16 +201,8 @@ def test_outputSet_05_with_reduction():
     C = np.array([[1, 0]])
     sys = LinearSys('test_sys', A, B, None, C)
     
+    # outputSet expects a single set, not a ReachSet object
     R = Zonotope(np.array([[1], [1]]), 0.1 * np.eye(2))
-    timePoint = {
-        'set': [R],
-        'time': [0.0, 0.1]
-    }
-    timeInterval = {
-        'set': [R],
-        'time': [Interval([0.0], [0.1])]
-    }
-    R_reach = ReachSet(timePoint=timePoint, timeInterval=timeInterval)
     
     params = {
         'U': Zonotope(np.zeros((1, 1)), np.array([]).reshape(1, 0)),
@@ -260,7 +217,7 @@ def test_outputSet_05_with_reduction():
     }
     
     # Execute
-    result = sys.outputSet(R_reach, params, options)
+    result = sys.outputSet(R, params, options)
     if isinstance(result, tuple):
         Y, Verror = result
     else:

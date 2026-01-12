@@ -165,6 +165,10 @@ def _validateOptions(linsys, params: Dict[str, Any], options: Dict[str, Any]) ->
     if 'R0' not in params:
         raise CORAerror('CORA:specialError', 'Initial set R0 must be specified')
     
+    # Set default linAlg if not present
+    if 'linAlg' not in options:
+        options['linAlg'] = 'standard'  # Default algorithm
+    
     # Set default values for options based on algorithm
     if options['linAlg'] in ['standard', 'wrapping-free', 'fromStart', 'decomp', 'krylov']:
         # Constant time step algorithms

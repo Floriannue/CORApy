@@ -62,8 +62,8 @@ def arnoldi(A: np.ndarray, vInit: np.ndarray, redDim: int) -> Tuple[np.ndarray, 
     else:
         vInit = np.asarray(vInit).flatten()
     
-    # preallocate H
-    H = np.zeros((redDim, redDim))
+    # preallocate H (need redDim+1 rows to store H(j+1,j) values)
+    H = np.zeros((redDim + 1, redDim))
     
     # initialize 
     v_norm = np.linalg.norm(vInit)
@@ -92,8 +92,12 @@ def arnoldi(A: np.ndarray, vInit: np.ndarray, redDim: int) -> Tuple[np.ndarray, 
             break
         V[:, j + 1] = w / H[j + 1, j]
     
-    # save H(j+1,j)
-    Hlast = H[j + 1, j] if j < redDim else 0.0
+    # save H(j+1,j) before removing the row
+    # After the loop, j = redDim - 1, so H[j+1, j] = H[redDim, redDim-1]
+    if not happyBreakdown:
+        Hlast = H[redDim, redDim - 1]  # Last subdiagonal element before removal
+    else:
+        Hlast = H[j + 1, j]  # Last computed element (happy breakdown case)
     
     # remove last column of V
     if not happyBreakdown:  # no happy breakdown

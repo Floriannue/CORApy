@@ -102,6 +102,7 @@ class Polytope(ContSet):
         - Polytope(A, b): Halfspace representation (inequalities only)
         - Polytope(A, b, Ae, be): Halfspace representation (inequalities + equalities)
         - Polytope(other_polytope): Copy constructor
+        - Polytope(interval): Convert Interval to Polytope (H-rep, positional, matching MATLAB)
         - Keyword arguments for flexibility (e.g., Polytope(V=V_array), Polytope(A=A_matrix, b=b_vector))
         """
         super().__init__() # Call parent constructor
@@ -146,14 +147,24 @@ class Polytope(ContSet):
 
                 self._copy_constructor(P)
                 return
-        else:
-            # Handle general constructors
-            # Only ignore 'dim' kwarg if positional args clearly specify a representation (numpy arrays)
-            kkwargs = dict(kwargs)
-            if 'dim' in kkwargs and any(hasattr(a, 'dtype') for a in args):
-                kkwargs.pop('dim')
-            self._general_constructor(*args, **kkwargs)
-            print(f"DEBUG (Polytope.__init__): self._dim_val after _general_constructor: {self._dim_val}")
+        
+        # Handle Interval conversion (positional only, matching MATLAB)
+        if len(args) == 1:
+            from ..interval import Interval
+            if isinstance(args[0], Interval):
+                # Convert interval to polytope using the interval's polytope method
+                P = args[0].polytope()
+                # Copy properties from the converted polytope
+                self._copy_constructor(P)
+                return
+        
+        # Handle general constructors
+        # Only ignore 'dim' kwarg if positional args clearly specify a representation (numpy arrays)
+        kkwargs = dict(kwargs)
+        if 'dim' in kkwargs and any(hasattr(a, 'dtype') for a in args):
+            kkwargs.pop('dim')
+        self._general_constructor(*args, **kkwargs)
+        print(f"DEBUG (Polytope.__init__): self._dim_val after _general_constructor: {self._dim_val}")
 
         # Ensure _dim_val is set after construction,
         # in case it was not explicitly set by _general_constructor for edge cases.
@@ -572,10 +583,27 @@ def _aux_validate_and_normalize_polytope_inputs(
 
         # Ensure empty constraint matrices have correct column dimension (0 rows, n columns)
         if n > 0:
-            if A.shape[1] != n: # If A has wrong dimension
-                 A = np.zeros((A.shape[0], n)) if A.shape[0] > 0 else np.zeros((0, n))
-            if Ae.shape[1] != n: # If Ae has wrong dimension
-                 Ae = np.zeros((Ae.shape[0], n)) if Ae.shape[0] > 0 else np.zeros((0, n))
+            # Handle A: check if it's empty or has wrong dimension
+            if A.size == 0:
+                # Empty array - reshape to (0, n)
+                A = np.zeros((0, n))
+            elif A.ndim == 1:
+                # 1D array - reshape to (len, n) or (0, n) if empty
+                A = np.zeros((A.shape[0], n)) if A.shape[0] > 0 else np.zeros((0, n))
+            elif A.ndim == 2 and A.shape[1] != n:
+                # 2D array with wrong column dimension
+                A = np.zeros((A.shape[0], n)) if A.shape[0] > 0 else np.zeros((0, n))
+            
+            # Handle Ae: check if it's empty or has wrong dimension
+            if Ae.size == 0:
+                # Empty array - reshape to (0, n)
+                Ae = np.zeros((0, n))
+            elif Ae.ndim == 1:
+                # 1D array - reshape to (len, n) or (0, n) if empty
+                Ae = np.zeros((Ae.shape[0], n)) if Ae.shape[0] > 0 else np.zeros((0, n))
+            elif Ae.ndim == 2 and Ae.shape[1] != n:
+                # 2D array with wrong column dimension
+                Ae = np.zeros((Ae.shape[0], n)) if Ae.shape[0] > 0 else np.zeros((0, n))
 
         # Check row consistency
         if A.shape[0] != b.shape[0]:

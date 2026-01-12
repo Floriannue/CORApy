@@ -109,7 +109,8 @@ class TestVerifyFastBeamCBF01:
         
         # nr of states
         # MATLAB: dim_x = length(A);
-        dim_x = len(A)
+        # Handle sparse matrices - use shape[0] instead of len()
+        dim_x = A.shape[0] if hasattr(A, 'shape') else len(A)
         
         # initial set: bar at rest
         # MATLAB: params.R0 = zonotope(zeros(dim_x,1));
@@ -136,7 +137,9 @@ class TestVerifyFastBeamCBF01:
         
         # construct linear system objects
         # MATLAB: sys = linearSys('beam',A,1,[],C);
-        sys = LinearSys('beam', A, np.array([[1]]), None, C)
+        # MATLAB: scalar B means inputs = states (B gets converted to B*eye(states) internally)
+        # So we should pass scalar 1, not a matrix
+        sys = LinearSys('beam', A, 1, None, C)
         
         # Specification -----------------------------------------------------------
         

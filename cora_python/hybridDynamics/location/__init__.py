@@ -25,6 +25,8 @@ from .reach import reach
 from .isequal import isequal
 from .isemptyobject import isemptyobject
 from .display import display, display_
+from .derivatives import derivatives
+from .eventFcn import eventFcn
 
 # Attach methods to the Location class
 Location.calcBasis = calcBasis
@@ -44,6 +46,8 @@ Location.isequal = isequal
 Location.isemptyobject = isemptyobject
 Location.display = display
 Location.display_ = display_
+Location.derivatives = derivatives
+Location.eventFcn = eventFcn
 
 # Attach display_ to __str__
 Location.__str__ = lambda self: display_(self)
@@ -51,5 +55,6 @@ Location.__str__ = lambda self: display_(self)
 __all__ = ['Location', 'calcBasis', 'checkFlow', 'guardIntersect', 'guardIntersect_zonoGirard', 
            'guardIntersect_nondetGuard', 'guardIntersect_levelSet', 'guardIntersect_polytope', 
            'guardIntersect_conZonotope', 'guardIntersect_hyperplaneMap', 'guardIntersect_pancake', 
-           'potInt', 'potOut', 'reach', 'isequal', 'isemptyobject', 'display', 'display_']
+           'potInt', 'potOut', 'reach', 'isequal', 'isemptyobject', 'display', 'display_',
+           'derivatives', 'eventFcn']
 

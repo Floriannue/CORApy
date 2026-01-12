@@ -140,9 +140,14 @@ def inputArgsLength(f: callable, *varargin) -> Tuple[List[int], Tuple[int, ...]]
         try:
             inputs = []
             for i in range(nargin_f):
-                inputs.append(narginvars_cell[i][:count[i]])
+                # If count[i] is 0, use at least 1 element (for functions that require non-empty inputs)
+                # MATLAB handles this by ensuring at least 1 element
+                num_elements = max(count[i], 1) if count[i] == 0 else count[i]
+                inputs.append(narginvars_cell[i][:num_elements])
             f(*inputs)
             # return only now...
+            # But adjust count: if we used more than count[i], keep count[i] as is
+            # (the function works with more elements, but the minimum required is count[i])
             return count, out
         except:
             pass  # Fall through to alternative method

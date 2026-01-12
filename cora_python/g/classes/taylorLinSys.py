@@ -59,6 +59,9 @@ class TaylorLinSys:
         # Don't compute inverse because A might be singular (only if explicitly requested)
         self.Ainv = None
         
+        # Initialize eAt to None (will be computed when needed)
+        self.eAt = None
+        
         # Initialize time step arrays (cell arrays in MATLAB)
         self.timeStep = []  # List of time steps that have been used
         self.eAdt = []  # List of eAdt matrices for each time step
@@ -111,28 +114,34 @@ class TaylorLinSys:
         Compute matrix exponential e^(A*timeStep)
         
         Args:
-            timeStep: Time step size (uses stored value if None)
+            timeStep: Time step size (required)
             
         Returns:
             Matrix exponential
         """
         if timeStep is None:
-            timeStep = self.timeStep
-        
-        if timeStep is None:
             raise CORAerror('CORA:specialError', 'Time step not specified')
         
         # Check if already computed for this time step
-        if (self.eAt is not None and self.timeStep is not None and 
-            abs(self.timeStep - timeStep) < 1e-12):
-            return self.eAt
+        idx = self.getIndexForTimeStep(timeStep)
+        if idx != -1 and idx < len(self.eAdt) and self.eAdt[idx] is not None:
+            # Update self.eAt for backward compatibility
+            self.eAt = self.eAdt[idx]
+            return self.eAdt[idx]
         
         # Compute matrix exponential
-        self.timeStep = timeStep
-        self.eAt = expm(self.A * timeStep)
-        self.eAdt = self.eAt  # Alias
+        eAt_computed = expm(self.A * timeStep)
         
-        return self.eAt
+        # Store in the list structure
+        if idx == -1:
+            self.makeNewTimeStep(timeStep)
+            idx = len(self.timeStep) - 1
+        self.eAdt[idx] = eAt_computed
+        
+        # Also update self.eAt for backward compatibility
+        self.eAt = eAt_computed
+        
+        return eAt_computed
     
     def _computeApower(self, ithpower: int) -> np.ndarray:
         """

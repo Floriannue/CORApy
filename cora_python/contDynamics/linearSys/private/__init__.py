@@ -20,6 +20,8 @@ from .priv_correctionMatrixState import priv_correctionMatrixState
 from .priv_correctionMatrixInput import priv_correctionMatrixInput
 from .priv_expmRemainder import priv_expmRemainder
 
+from .priv_verifySTL_kochdumper import priv_verifySTL_kochdumper
+
 __all__ = ['priv_reach_standard',
            'priv_reach_wrappingfree',
            'priv_outputSet_canonicalForm',
@@ -33,4 +35,5 @@ __all__ = ['priv_reach_standard',
            'priv_inputSolution_Krylov',
            'priv_correctionMatrixState',
            'priv_correctionMatrixInput',
-           'priv_expmRemainder'] 
+           'priv_expmRemainder',
+           'priv_verifySTL_kochdumper'] 

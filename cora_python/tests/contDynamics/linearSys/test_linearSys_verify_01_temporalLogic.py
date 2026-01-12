@@ -148,7 +148,11 @@ class TestLinearSysVerify01TemporalLogic:
             x = Stl('x', 2)
             goal = 0.2 * Interval(-np.array([[1], [0.1]]), np.array([[1], [0.1]])) + np.array([[1], [0]])
             # finally(in(x,goal),interval(0,2))
-            eq_safe = x.finally(x.in_(goal), Interval(0, 2))
+            # Note: 'finally' is a reserved keyword in Python, so we use 'finally_' method
+            # The __getattr__ allows x.finally() to work as an alias
+            # In MATLAB: finally(in(x,goal),interval(0,2))
+            # In Python: x.in_(goal).finally_(Interval(0, 2))
+            eq_safe = x.in_(goal).finally_(Interval(0, 2))
             specSafe = Specification(eq_safe, 'logic')
         except (ImportError, AttributeError) as e:
             pytest.skip(f"STL implementation not yet available: {e}")
@@ -160,7 +164,10 @@ class TestLinearSysVerify01TemporalLogic:
         # MATLAB: specUnsafe = specification(eq,'logic');
         x = Stl('x', 2)
         goal_unsafe = 0.2 * Interval(-np.array([[1], [0.1]]), np.array([[1], [0.1]])) + np.array([[1.2], [0]])
-        eq_unsafe = x.finally(x.in_(goal_unsafe), Interval(0, 2))
+        # Note: 'finally' is a reserved keyword in Python, so we use 'finally_' method
+        # In MATLAB: finally(in(x,goal_unsafe),interval(0,2))
+        # In Python: x.in_(goal_unsafe).finally_(Interval(0, 2))
+        eq_unsafe = x.in_(goal_unsafe).finally_(Interval(0, 2))
         specUnsafe = Specification(eq_unsafe, 'logic')
         
         # automated verification

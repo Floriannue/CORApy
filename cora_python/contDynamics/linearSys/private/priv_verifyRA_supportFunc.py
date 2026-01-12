@@ -64,6 +64,10 @@ def aux_getSetsFromSpec(spec: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dic
         G: list of safe set dicts with keys 'set' and 'time'
         F: list of unsafe set dicts with keys 'set', 'time', 'int', 'isBounded'
     """
+    # Normalize spec to always be a list (MATLAB handles both scalar and array)
+    if not isinstance(spec, list):
+        spec = [spec]
+    
     # MATLAB: G = {}; F = {};
     G = []
     F = []
@@ -138,7 +142,17 @@ def aux_canonicalForm(linsys: Any, params: Dict[str, Any]) -> Tuple[Dict[str, An
     # MATLAB: if isa(params.V,'interval')
     if isinstance(params.get('V'), Interval):
         # MATLAB: params.V = linsys.F*zonotope(params.V);
-        params['V'] = linsys.F @ params['V'].zonotope()
+        # F is (outputs, noises), V should be in noise space
+        # Convert Interval to zonotope first, then multiply by F
+        v_zonotope = params['V'].zonotope()
+        # Check dimension: v_zonotope should have dimension matching F.shape[1] (noise dimension)
+        v_dim = v_zonotope.dim()
+        f_noise_dim = linsys.F.shape[1] if linsys.F.ndim == 2 else 1
+        if v_dim != f_noise_dim:
+            raise CORAerror('CORA:dimensionMismatch',
+                          f'V dimension ({v_dim}) does not match F noise dimension ({f_noise_dim}). '
+                          f'V should be in noise space (dimension {f_noise_dim}).')
+        params['V'] = linsys.F @ v_zonotope
     
     # read out disturbance
     # MATLAB: centerW = center(params.W);
@@ -147,9 +161,13 @@ def aux_canonicalForm(linsys: Any, params: Dict[str, Any]) -> Tuple[Dict[str, An
     W = params['W'] + (-centerW)
     # read out sensor noise, combine with feedthrough if given
     # MATLAB: if any(any(linsys.D))
+    # IMPORTANT: Save U in input space BEFORE transforming it to state space
+    # We need U in input space for D @ U operation (D is (outputs, inputs))
+    U_input_space = params['U']  # U is still in input space at this point
     if linsys.D is not None and np.any(linsys.D):
         # MATLAB: params.V = linsys.D * params.U + params.V;
-        params['V'] = linsys.D @ params['U'] + params['V']
+        # D is (outputs, inputs), U should be in input space
+        params['V'] = linsys.D @ U_input_space + params['V']
     # MATLAB: centerV = center(params.V);
     centerV = params['V'].center()
     # MATLAB: params.V = params.V + (-centerV);
@@ -182,6 +200,13 @@ def aux_canonicalForm(linsys: Any, params: Dict[str, Any]) -> Tuple[Dict[str, An
     
     # put state equation in canonical form
     # MATLAB: params.U = linsys.B * params.U + W;
+    # B is (states, inputs), U should be in input space (dimension = inputs)
+    u_dim = params['U'].dim()
+    b_input_dim = linsys.B.shape[1] if linsys.B.ndim == 2 else 1
+    if u_dim != b_input_dim:
+        raise CORAerror('CORA:dimensionMismatch',
+                      f'U dimension ({u_dim}) does not match B input dimension ({b_input_dim}). '
+                      f'U should be in input space (dimension {b_input_dim}) before B transformation.')
     params['U'] = linsys.B @ params['U'] + W
     # MATLAB: params.uTransVec = linsys.B * uVec + linsys.c + centerW;
     params['uTransVec'] = linsys.B @ uVec + (linsys.c if linsys.c is not None else 0) + centerW
@@ -562,11 +587,18 @@ def aux_getApower(eta: int, A: np.ndarray, Apower: List[np.ndarray],
     else:
         # compute all terms A^i/i! until eta
         # MATLAB: maxeta = length(Apower);
+        # Note: MATLAB uses 1-based indexing: Apower{1} = A^1/1!, Apower{2} = A^2/2!, etc.
+        # Python uses 0-based: Apower[0] = A^1/1!, Apower[1] = A^2/2!, etc.
+        # So MATLAB's Apower{i} = Python's Apower[i-1]
         maxeta = len(Apower)
         # MATLAB: for i=maxeta:eta-1
+        # This computes Apower{maxeta+1} through Apower{eta}
+        # In Python, we need to compute Apower[maxeta] through Apower[eta-1]
         for i in range(maxeta, eta):
             # MATLAB: Apower{i+1} = Apower{i} * A / (i+1);
-            Apower_next = Apower[i] @ A / (i + 1)
+            # MATLAB's Apower{i} is Python's Apower[i-1], MATLAB's Apower{i+1} is Python's Apower[i]
+            # So: Apower[i] = Apower[i-1] * A / (i+1)
+            Apower_next = Apower[i - 1] @ A / (i + 1)
             # sparse/full storage for more efficiency
             # MATLAB: if nnz(Apower{i+1}) / (size(Apower{i+1},1)^2) < 0.1
             if hasattr(Apower_next, 'nnz'):
@@ -591,11 +623,13 @@ def aux_getApower(eta: int, A: np.ndarray, Apower: List[np.ndarray],
         else:
             # compute all powers |A|^i until eta
             # MATLAB: maxeta = length(Apower_abs);
+            # Note: MATLAB uses 1-based indexing, Python uses 0-based
             maxeta = len(Apower_abs)
             # MATLAB: for i=maxeta:eta-1
             for i in range(maxeta, eta):
                 # MATLAB: Apower_abs{i+1} = Apower_abs{i}*A_abs;
-                Apower_abs_next = Apower_abs[i] @ A_abs
+                # MATLAB's Apower_abs{i} is Python's Apower_abs[i-1]
+                Apower_abs_next = Apower_abs[i - 1] @ A_abs
                 # sparse/full storage for more efficiency
                 # MATLAB: if nnz(Apower_abs{i+1}) / (size(Apower_abs{i+1},1)^2) < 0.1
                 if hasattr(Apower_abs_next, 'nnz'):
@@ -1429,7 +1463,9 @@ def priv_verifyRA_supportFunc(linsys: Any, params: Dict[str, Any],
     # so that now we have already dealt with V for all sets;
     # note: we use only Cs instead of l = Cs*C as V is defined in output space!
     # MATLAB: ds = ds - Cs*center(params.V) - sum(abs(Cs*generators(params.V)),2);
-    ds = ds - Cs @ params['V'].center() - np.sum(np.abs(Cs @ params['V'].generators()), axis=1, keepdims=True)
+    # Convert to array to avoid matrix type issues with keepdims
+    Cs_V_gen = np.asarray(Cs @ params['V'].generators())
+    ds = ds - Cs @ params['V'].center() - np.sum(np.abs(Cs_V_gen), axis=1, keepdims=True)
     
     # read data from initial set (these remain constant for the algorithm!)
     # MATLAB: c_X0 = center(params.R0);
@@ -1439,7 +1475,9 @@ def priv_verifyRA_supportFunc(linsys: Any, params: Dict[str, Any],
     
     # compute distance of initial output set to each specification
     # MATLAB: dist_affine_tp_0 = (-ds + l'*c_X0 + sum(abs(l'*G_X0),2) + Cs*params.vTransVec(:,1))';
-    dist_affine_tp_0 = (-ds + l.T @ c_X0 + np.sum(np.abs(l.T @ G_X0), axis=1, keepdims=True) + Cs @ params['vTransVec'][:, [0]]).T
+    # Convert to array to avoid matrix type issues with keepdims
+    lT_G_X0 = np.asarray(l.T @ G_X0)
+    dist_affine_tp_0 = (-ds + l.T @ c_X0 + np.sum(np.abs(lT_G_X0), axis=1, keepdims=True) + Cs @ params['vTransVec'][:, [0]]).T
     
     # check initial output set (outside of verification loop below)
     # MATLAB: if any(dist_affine_tp_0 > 0)
@@ -1576,7 +1614,9 @@ def priv_verifyRA_supportFunc(linsys: Any, params: Dict[str, Any],
         # MATLAB: G1x_Cbloat = intmatF.center * G_X0;
         G1x_Cbloat = intmatF['center'] @ G_X0
         # MATLAB: G2x_Cbloat = intmatF.rad * sum(abs([c_X0 G_X0]),2);
-        G2x_Cbloat = intmatF['rad'] @ np.sum(np.abs(np.hstack([c_X0, G_X0])), axis=1, keepdims=True)
+        # Convert to array to avoid matrix type issues with keepdims
+        cX0_GX0 = np.asarray(np.hstack([c_X0, G_X0]))
+        G2x_Cbloat = intmatF['rad'] @ np.sum(np.abs(cX0_GX0), axis=1, keepdims=True)
         # MATLAB: if isu
         if isu:
             # MATLAB: cu_Cbloat = intmatG.center * u;
@@ -1589,7 +1629,9 @@ def priv_verifyRA_supportFunc(linsys: Any, params: Dict[str, Any],
         # first curvature distance out of the loop (better indexing)
         # MATLAB: dist.Cbloat(1,:) = l'*cx_Cbloat + sum(abs(l'*G1x_Cbloat),2) ...
         #     + abs(l'*G2x_Cbloat);
-        dist['Cbloat'][0, :] = (l.T @ cx_Cbloat + np.sum(np.abs(l.T @ G1x_Cbloat), axis=1, keepdims=True) 
+        # Convert to array to avoid matrix type issues with keepdims
+        lT_G1x = np.asarray(l.T @ G1x_Cbloat)
+        dist['Cbloat'][0, :] = (l.T @ cx_Cbloat + np.sum(np.abs(lT_G1x), axis=1, keepdims=True) 
                                 + np.abs(l.T @ G2x_Cbloat)).flatten()
         # MATLAB: if isu
         if isu:

@@ -102,7 +102,8 @@ class TestVerifyFastBeamCBC03:
         
         # nr of states
         # MATLAB: dim_x = length(A);
-        dim_x = len(A)
+        # Handle sparse matrices - use shape[0] instead of len()
+        dim_x = A.shape[0] if hasattr(A, 'shape') else len(A)
         
         # constant inputs
         # MATLAB: A_C = [ A, [zeros(dim_x-1,1);1]; zeros(1,dim_x+1) ];

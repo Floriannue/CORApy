@@ -82,7 +82,8 @@ class TestVerifyFastIssISSC01ISU02:
         
         # construct extended system matrices (inputs as additional states)
         # MATLAB: dim = length(A);
-        dim = len(A)
+        # Handle sparse matrices - use shape[0] instead of len()
+        dim = A.shape[0] if hasattr(A, 'shape') else len(A)
         # MATLAB: A_  = [A,B;zeros(size(B,2),dim + size(B,2))];
         A_ = np.block([[A, B],
                        [np.zeros((B.shape[1], dim + B.shape[1]))]])
