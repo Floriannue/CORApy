@@ -121,13 +121,17 @@ def test_arnoldi_03_zero_vector_error():
 
 def test_arnoldi_04_small_system():
     """
-    GENERATED TEST - Small system test
+    MATLAB I/O pairs from debug_matlab_arnoldi.m
+    This test has been verified against MATLAB execution.
     
     Tests arnoldi on a 2x2 system.
+    MATLAB shows happyBreakdown = 1 (true) for this case because the Krylov
+    subspace is exhausted (Hlast = 0, meaning the next vector has zero norm).
     """
+    # Setup: Create a 2x2 system (matching MATLAB test)
     A = np.array([[1, 2],
-                  [3, 4]])
-    vInit = np.array([[1], [0]])
+                  [3, 4]], dtype=float)
+    vInit = np.array([[1], [0]], dtype=float)
     redDim = 2
     
     # Execute
@@ -136,11 +140,20 @@ def test_arnoldi_04_small_system():
     # Verify
     assert V.shape == (2, 2), "V should have shape (2, 2)"
     assert H.shape == (2, 2), "H should have shape (2, 2)"
-    assert not happyBreakdown, "Should not have happy breakdown for full dimension"
+    # MATLAB: happyBreakdown = 1 (true) for this case
+    assert happyBreakdown, "Should have happy breakdown when Krylov subspace is exhausted"
+    # MATLAB: Hlast = 0 (next vector has zero norm)
+    assert abs(Hlast) < 1e-14, f"Hlast should be approximately 0, got {Hlast}"
+    
+    # MATLAB values: V = [1, 0; 0, 1], H = [1, 2; 3, 4]
+    V_matlab = np.array([[1, 0], [0, 1]], dtype=float)
+    H_matlab = np.array([[1, 2], [3, 4]], dtype=float)
+    np.testing.assert_allclose(V, V_matlab, atol=1e-14, err_msg="V should match MATLAB")
+    np.testing.assert_allclose(H, H_matlab, atol=1e-14, err_msg="H should match MATLAB")
     
     # Check orthonormality
     VTV = V.T @ V
-    np.testing.assert_allclose(VTV, np.eye(2), atol=1e-10)
+    np.testing.assert_allclose(VTV, np.eye(2), atol=1e-10, err_msg="V should be orthonormal")
 
 
 def test_arnoldi_05_sparse_matrix():

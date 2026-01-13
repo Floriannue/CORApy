@@ -40,11 +40,16 @@ def priv_expmRemainder(linsys, timeStep: float, truncationOrder: int):
     A_abs = np.abs(linsys.A)
     n = linsys.A.shape[0]
     M = np.eye(n)
+    options = {'timeStep': timeStep, 'ithpower': 1}
 
     # Compute powers for each term and sum of these
+    # MATLAB: uses getTaylor(linsys,'Apower_abs',options) and getTaylor(linsys,'dtoverfac',options)
     for eta in range(1, int(truncationOrder) + 1):
-        Apower_abs_i = np.linalg.matrix_power(A_abs, eta)
-        dtoverfac_i = (timeStep ** eta) / math.factorial(eta)
+        options['ithpower'] = eta
+        # MATLAB: Apower_abs_i = getTaylor(linsys,'Apower_abs',options);
+        Apower_abs_i = linsys.getTaylor('Apower_abs', **options)
+        # MATLAB: dtoverfac_i = getTaylor(linsys,'dtoverfac',options);
+        dtoverfac_i = linsys.getTaylor('dtoverfac', **options)
 
         # Additional term
         M_add = Apower_abs_i * dtoverfac_i

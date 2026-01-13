@@ -164,14 +164,34 @@ class NonlinearSys(ContDynamics):
         Args:
             version: 'standard' or 'int'
         """
+        from cora_python.g.macros.CORAROOT import CORAROOT
+        import os
+        import importlib.util
+        
+        path = os.path.join(CORAROOT(), 'models', 'auxiliary', self.name)
+        
         if version == 'standard':
-            # In MATLAB: eval(['@hessianTensor_' self.name])
-            # In Python, this would need to be set externally
-            pass
+            # MATLAB: eval(['@hessianTensor_' self.name])
+            hessian_file = os.path.join(path, f'hessianTensor_{self.name}.py')
+            if os.path.isfile(hessian_file):
+                module_name = f'hessianTensor_{self.name}_{id(self)}'
+                spec = importlib.util.spec_from_file_location(module_name, hessian_file)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    self.hessian = getattr(module, f'hessianTensor_{self.name}')
         elif version == 'int':
-            # In MATLAB: eval(['@hessianTensorInt_' self.name])
-            # In Python, this would need to be set externally
-            pass
+            # MATLAB: eval(['@hessianTensorInt_' self.name])
+            hessian_file = os.path.join(path, f'hessianTensorInt_{self.name}.py')
+            if os.path.isfile(hessian_file):
+                module_name = f'hessianTensorInt_{self.name}_{id(self)}'
+                spec = importlib.util.spec_from_file_location(module_name, hessian_file)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    self.hessian = getattr(module, f'hessianTensorInt_{self.name}')
+        
+        return self
     
     def setOutHessian(self, version: str):
         """

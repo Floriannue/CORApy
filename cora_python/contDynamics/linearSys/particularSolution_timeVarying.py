@@ -95,9 +95,16 @@ def particularSolution_timeVarying(linsys, U, timeStep: float, truncationOrder: 
     
     # Loop until Asum no longer changes (additional values too small) or
     # truncation order is reached
+    # Use getTaylor exactly like MATLAB (line 82-84 in MATLAB)
+    options = {'timeStep': timeStep, 'ithpower': 1}
     for eta in range(1, truncationOrder + 1):
-        Apower_mm = linsys.taylor._computeApower(eta)
-        dtoverfac = timeStep**(eta + 1) / math.factorial(eta + 1)
+        # MATLAB: options.ithpower = eta; Apower_mm = getTaylor(linsys,'Apower',options);
+        options['ithpower'] = eta
+        Apower_mm = linsys.getTaylor('Apower', options)
+        
+        # MATLAB: options.ithpower = eta+1; dtoverfac = getTaylor(linsys,'dtoverfac',options);
+        options['ithpower'] = eta + 1
+        dtoverfac = linsys.getTaylor('dtoverfac', options)
         
         # Additional term (only matrix)
         addTerm = Apower_mm * dtoverfac
@@ -116,6 +123,24 @@ def particularSolution_timeVarying(linsys, U, timeStep: float, truncationOrder: 
         # Add term (including U!)
         Ptp_eta = block_mtimes(addTerm, U_decomp)
         Ptp = block_operation(lambda a, b: a + b, Ptp, Ptp_eta)
+    
+    # MATLAB: if ~truncationOrderInf, add remainder term
+    if not truncationOrderInf:
+        # MATLAB: E = priv_expmRemainder(linsys,timeStep,truncationOrder);
+        from cora_python.contDynamics.linearSys.private.priv_expmRemainder import priv_expmRemainder
+        E = priv_expmRemainder(linsys, timeStep, truncationOrder)
+        
+        # MATLAB: try block_mtimes(E*timeStep,U_decomp), catch and convert to interval
+        # Try direct multiplication first (matches MATLAB try-catch logic)
+        E_times_dt = E * timeStep
+        try:
+            # MATLAB: Ptp = block_operation(@plus, Ptp, block_mtimes(E*timeStep,U_decomp));
+            Ptp = block_operation(lambda a, b: a + b, Ptp, block_mtimes(E_times_dt, U_decomp))
+        except:
+            # MATLAB: convert set to interval if interval matrix * set not supported
+            from cora_python.contSet.interval import Interval
+            U_decomp_interval = block_operation(lambda x: Interval(x), U_decomp)
+            Ptp = block_operation(lambda a, b: a + b, Ptp, block_mtimes(E_times_dt, U_decomp_interval))
     
     return Ptp
 

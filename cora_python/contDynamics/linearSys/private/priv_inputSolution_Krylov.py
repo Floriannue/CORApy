@@ -121,9 +121,19 @@ def priv_inputSolution_Krylov(linsys: Any, params: Dict[str, Any], options: Dict
             
             # error due to finite Taylor series
             # MATLAB: errorTaylor_g = supremum(V_Ug*E(:,1));
-            E_col = E[:, 0:1] if E.ndim > 1 else E.reshape(-1, 1)
+            # E is an Interval, so use indexing to get first column
+            if isinstance(E, Interval):
+                E_col = E[:, 0:1]  # Interval indexing returns Interval
+            else:
+                # E is numeric array
+                E_col = E[:, 0:1] if E.ndim > 1 else E.reshape(-1, 1)
             V_Ug_E = V_Ug @ E_col
-            errorTaylor_g = np.max(np.abs(V_Ug_E), axis=0)  # supremum approximation
+            # MATLAB: supremum(V_Ug*E(:,1)) - get supremum of interval result
+            if isinstance(V_Ug_E, Interval):
+                # supremum returns the upper bound
+                errorTaylor_g = V_Ug_E.sup.flatten()  # supremum of interval
+            else:
+                errorTaylor_g = np.max(np.abs(V_Ug_E), axis=0)  # supremum approximation for numeric
             errorTaylor_sum_rad = errorTaylor_sum_rad + errorTaylor_g[:linsys.nr_of_dims].reshape(-1, 1)
     
     # round to 0 for numerical stability

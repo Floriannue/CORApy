@@ -59,6 +59,13 @@ def initReach(nlnsys: Any, Rinit: Union[Any, List[Dict[str, Any]]],
         # MATLAB: R{1}.set = Rinit;
         # MATLAB: R{1}.error = zeros(size(options.maxError));
         # MATLAB: Rinit = R;
+        # Set default maxError if not present (default: Inf for each dimension)
+        if 'maxError' not in options:
+            # MATLAB default: maxError = Inf(nrOfDims, 1)
+            nr_of_dims = getattr(nlnsys, 'nr_of_dims', None)
+            if nr_of_dims is None:
+                nr_of_dims = getattr(nlnsys, 'nrOfDims', 6)  # fallback to 6 if not found
+            options['maxError'] = np.full((nr_of_dims, 1), np.inf)
         R = [{'set': Rinit, 'error': np.zeros_like(options['maxError'])}]
         Rinit = R
     

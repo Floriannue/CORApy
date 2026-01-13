@@ -74,7 +74,7 @@ IF** uncertain: Search manual and MATLAB source code
 All of them apply always
 
 ### **Priority Hierarchy (AI Decision Framework)**
-1. **CORRECTNESS**: Exact functional equivalence with MATLAB - compare translation against MATLAB original
+1. **CORRECTNESS**: Exact functional equivalence with MATLAB - use the same approach and logic from the beginning, providing a full and accurate translation. Match MATLAB's algorithm approach and logic step-by-step.
 2. **COMPLETENESS**: All features fully translated, no simplifications, no cheap workarounds
 3. **STRUCTURE**: Mirror MATLAB file organization by putting methods in their own files except for internal helpers
 4. **PYTHONIC**: Only where it doesn't conflict with 1-3
@@ -83,14 +83,20 @@ All of them apply always
 ### **Behavioral Requirements**
 
 #### Mandatory Actions:
+- **ALWAYS** start by doing it like MATLAB: Use the same approach and logic from the beginning, providing a full and accurate translation. Match MATLAB's algorithm step-by-step, but converting 1-based indexing to 0-based.
 - **ALWAYS** use `codebase_search` and `file_search` before making changes
 - **ALWAYS** read MATLAB source files before translating
 - **ALWAYS** search manual for function specifications
 - **ALWAYS** run tests after implementation
-- **ALWAYS** strucutre the Task into small steps in a ToDo List
+- **ALWAYS** structure the Task into small steps in a ToDo List
 - **ALWAYS** verify the mathematical correctness of both the implementation AND the tests, verify not just the algorithm implementation, but also the test expectations and mathematical assumptions.
 - **ALWAYS** after translating a file **report** back with a comparison against the MATLAB source
 - **ALWAYS** if there is an error, compare the logic step by step against matlab (python code and tests against matlab code and tests) to find the errors root cause
+- **ALWAYS** compare against MATLAB execution: Run MATLAB code with `matlab -batch "run('debug_matlab_function.m')"` to get exact expected values
+- **ALWAYS** mark test as generated if they are not directly translated from matlab
+- **ALWAYS** for generated tests: Create MATLAB verification script and extract exact input/output pairs before trusting the test
+- **ALWAYS** search for root cause: When errors occur, trace execution step-by-step in both MATLAB and Python, comparing intermediate results
+- **ALWAYS** use `object.method()` pattern: Never import class methods as standalone functions. All methods are attached to classes in `__init__.py` and must be called on object instances. This applies to ALL code including tests, implementation, and helper functions.
 
 #### Prohibited Actions:
 - **NEVER** create simplified versions
@@ -104,12 +110,26 @@ All of them apply always
 
 
 #### Conditional Actions:
-- **IF** MATLAB is available: generate results from the MATLAB method with `matlab -batch "run('your_matlab_test_script.m')"` and compare against Python method, integrate these input output pairs into tests
+- **IF** MATLAB is available: 
+    1. **ALWAYS** generate results from the MATLAB method with `matlab -batch "run('debug_matlab_function.m')"` 
+    2. **ALWAYS** compare against Python method output
+    3. **ALWAYS** integrate MATLAB input/output pairs into tests as exact expected values
+    4. **ALWAYS** use the same tolerance as MATLAB (check MATLAB test files for `tol = ...`)
 - **IF** tests fail: 
-    1. Investigate root cause and compare against MATLAB source code
-    2. Create debug scripts in python and matlab. (also usefuel to figure out correct excepted test values)
-    3. Check out all the dependencies, ensure they are fully translated and work flawlessly like matlab
-- **IF** uncertain: Search manual and MATLAB source code
+    1. **FIRST**: Run MATLAB code to get correct expected values - never guess what the output should be
+    2. **SECOND**: Create parallel debug scripts:
+       - MATLAB: `debug_matlab_function.m` - generates expected values and saves to file
+       - Python: `debug_python_function.py` - traces Python execution step-by-step
+    3. **THIRD**: Compare intermediate results at each step between MATLAB and Python
+    4. **FOURTH**: Investigate root cause by comparing logic against MATLAB source code line-by-line
+    5. **FIFTH**: Check all dependencies, ensure they are fully translated and work flawlessly like MATLAB
+    6. **NEVER** modify tests to pass without verifying against MATLAB that the test expectation is wrong
+- **IF** test is marked "GENERATED": 
+    1. **MUST** create MATLAB verification script (`debug_matlab_[test_name].m`)
+    2. **MUST** execute MATLAB script to get exact I/O pairs
+    3. **MUST** verify test logic matches MATLAB behavior
+    4. **MUST** update Python test with MATLAB-generated values
+- **IF** uncertain: Search manual and MATLAB source code, then run MATLAB to verify
 
 
 
@@ -144,8 +164,9 @@ python test_coverage.py "cora_python/contSet/interval" "cora_python/tests/contSe
 - Examples must not have tests. run them with `$env:PYTHONPATH = "C:\Bachelorarbeit\Translate_Cora";`
 
 ### Code structure
+- **CRITICAL**: Match MATLAB's logic exactly - use the same approach and algorithm, only convert 1-based indexing to 0-based indexing. Do not change the algorithm structure or computation order.
 - Use zero based indexing -> translate matlab 1 based indexing to 0 based indexing
-- be aware of inplace modifications of for example arrays. use array.copy() if not wanted.
+- Be aware of inplace modifications of for example arrays. use array.copy() if not wanted.
 - Classes start with capital letter: `zonotope` → `Zonotope`
 - Ensure keyword arguments and positional arguments are supported
 - Test files naming: `test_class_method` → test for class.method, `test_class` → class (constructor) test, `test_function` → standalone function test
@@ -162,17 +183,30 @@ python test_coverage.py "cora_python/contSet/interval" "cora_python/tests/contSe
 - `func` = public interface with validation (parent class)
 - `func_` = raw implementation for internal use (child overrides)
 - MATLABs nargout (how many outputs are expected) is not available in python -> solve with addtional methode parameters (e.g. return_set in representsa_), must be consistently used across functions
-- **NEVER** import methods as standalone functions. All methods are attached to classes in `__init__.py`.
-**WRONG:**
-```python
-from .other_method import other_method  # WRONG IMPORT
-result = other_method(obj_A, b)         # WRONG CALL
-```
-**CORRECT:**
-```python
-# The __init__.py handles the attachment
-result = obj_A.other_method(b)          # CORRECT CALL
-```
+- **CRITICAL: ALWAYS use `object.method()` pattern - NEVER import methods as standalone functions**
+  
+  All methods are attached to classes in `__init__.py` and must be called on object instances.
+  
+  **WRONG - Importing and calling as standalone function:**
+  ```python
+  # WRONG: Importing method as standalone function
+  from cora_python.contSet.interval.center import center
+  from cora_python.contSet.interval.rad import rad
+  
+  # WRONG: Calling as standalone function
+  E_center = center(E)  # WRONG
+  E_rad = rad(E)        # WRONG
+  ```
+  
+  **CORRECT - Using object.method() pattern:**
+  ```python
+  # CORRECT: No import needed - method is attached to class via __init__.py
+  from cora_python.contSet.interval import Interval
+  
+  # CORRECT: Call method on object instance
+  E_center = E.center()  # CORRECT
+  E_rad = E.rad()        # CORRECT
+  ```
 
 - Polymorphic Dispatch Templates:
 ```python
@@ -283,6 +317,41 @@ np.array([1, 0])                  # vector
 
 - **NEVER** modify tests to pass, only if you compared them against the MATLAB source code and Manual and they are wrong. The tests need to ensure the methods provide the same functionality as their MATLAB original
 
+#### **CRITICAL: Use `object.method()` Pattern in Tests**
+
+**ALWAYS use `object.method()` in test code - NEVER import methods as standalone functions.**
+
+This applies to ALL test code. Methods are attached to classes via `__init__.py` and must be called on object instances.
+
+**WRONG - Standalone function imports in tests:**
+```python
+# ❌ WRONG: Importing methods as standalone functions
+from cora_python.contSet.interval.center import center
+from cora_python.contSet.interval.rad import rad
+
+def test_interval_operations():
+    I = Interval([0, 1], [2, 3])
+    c = center(I)  # ❌ WRONG - calling as standalone function
+    r = rad(I)     # ❌ WRONG - calling as standalone function
+```
+
+**CORRECT - Using object.method() in tests:**
+```python
+# ✅ CORRECT: Import class, use object.method()
+from cora_python.contSet.interval import Interval
+
+def test_interval_operations():
+    I = Interval([0, 1], [2, 3])
+    c = I.center()  # ✅ CORRECT - calling as method on object
+    r = I.rad()     # ✅ CORRECT - calling as method on object
+```
+
+**Why this is critical:**
+- Tests must mirror how the code is actually used in practice
+- Using `object.method()` ensures proper method resolution and polymorphism
+- Standalone imports in tests can hide bugs that would appear in real usage
+- This pattern is consistent across the entire codebase - tests should follow the same conventions
+
 #### MATLAB Input/Output Pair Generation
 
 **When to Generate MATLAB I/O Pairs:**
@@ -295,15 +364,84 @@ np.array([1, 0])                  # vector
 **How to Create MATLAB Debug Scripts:**
 
 1. **Create `debug_matlab_[function_name].m`** in the project root:
-2. **Run MATLAB script** with `matlab -batch "run('debug_matlab_conv_avgpool.m')"`:
+   ```matlab
+   % Debug script to verify [function_name] against MATLAB
+   % This generates exact input/output pairs for Python tests
+   
+   % Set up test parameters (match Python test exactly)
+   A = [-1 -4; 4 -1];
+   % ... other inputs ...
+   
+   % Execute function
+   result = function_name(A, ...);
+   
+   % Output with high precision
+   fprintf('Result = [%.15g; %.15g]\n', result(1), result(2));
+   
+   % Save to file
+   fid = fopen('[function_name]_matlab_output.txt', 'w');
+   fprintf(fid, 'MATLAB [function_name] Test Output\n');
+   fprintf(fid, 'Result = [%.15g; %.15g]\n', result(1), result(2));
+   fclose(fid);
+   ```
+
+2. **Run MATLAB script** with `matlab -batch "run('debug_matlab_[function_name].m')"`:
+   ```powershell
+   matlab -batch "run('debug_matlab_affineSolution.m')" > matlab_output.txt 2>&1
+   ```
+
 3. **Extract values from output file** and embed directly in Python test as arrays
+   - Read `[function_name]_matlab_output.txt`
+   - Copy exact numeric values
+   - Note data types (double, zonotope, interval, etc.)
+   - Document tolerance used in MATLAB
 
 **Best Practices for MATLAB I/O Pair Generation:**
 
 1. **Always save exact input values** when using random numbers:
-2. **Save intermediate results** for debugging:
+   ```matlab
+   rng('default');  % Set seed for reproducibility
+   x = randn(10, 1);
+   fprintf('x = [%g', x(1));
+   for i=2:length(x), fprintf(', %g', x(i)); end
+   fprintf(']\n');
+   ```
+
+2. **Save intermediate results also in the tests** for debugging:
+   ```matlab
+   fprintf('Intermediate step 1: result1 = [%.15g; %.15g]\n', result1(1), result1(2));
+   fprintf('Intermediate step 2: result2 shape = %dx%d\n', size(result2,1), size(result2,2));
+   ```
+
 3. **Include shape information**:
+   ```matlab
+   fprintf('Result shape: %dx%d\n', size(result,1), size(result,2));
+   fprintf('Result type: %s\n', class(result));
+   ```
+
 4. **Save multiple test cases** (all-ones, random, edge cases):
+   ```matlab
+   % Test case 1: All ones
+   x1 = ones(5, 1);
+   result1 = function_name(x1);
+   
+   % Test case 2: Random
+   rng(42);
+   x2 = randn(5, 1);
+   result2 = function_name(x2);
+   
+   % Test case 3: Edge case (zeros, inf, etc.)
+   x3 = [0; inf; -inf; 1; -1];
+   result3 = function_name(x3);
+   ```
+
+5. **Always check MATLAB test tolerance**:
+   ```matlab
+   % Check what tolerance MATLAB test uses
+   % Read: cora_matlab/unitTests/.../test_function.m
+   % Look for: tol = 1e-14; or similar
+   % Use the SAME tolerance in Python test
+   ```
 
 #### Implementing Tests with MATLAB I/O Pairs
 
@@ -361,15 +499,57 @@ def test_nnConv2DLayer_random_input_matlab_validation():
 
 #### Error Investigation Protocol
 
+**CRITICAL**: Always start with MATLAB execution to get ground truth, never guess expected values.
+
 When tests fail:
-1. **Compare against MATLAB source**: `read_file cora_matlab/path/to/function.m`
-2. **Check manual specifications**: `grep_search "function_name" Cora2025.1.0_Manual.txt`
+1. **Execute MATLAB code first** (if available):
+   ```powershell
+   # Create debug_matlab_function.m with test logic
+   matlab -batch "run('debug_matlab_function.m')"
+   # Extract exact expected values from output
+   ```
+   - This provides the **ground truth** - what MATLAB actually produces
+   - Save output to file for reference: `function_matlab_output.txt`
+   - Document exact tolerance used in MATLAB test
+
+2. **Compare against MATLAB source**: 
+   - `read_file cora_matlab/path/to/function.m` - understand algorithm
+   - `read_file cora_matlab/unitTests/path/to/test_function.m` - see how MATLAB tests it
+   - Compare tolerance: MATLAB tests often use `tol = 1e-14` or similar
+
 3. **Create parallel debug scripts**:
-   - MATLAB: `debug_matlab_function.m` - generates expected values
-   - Python: `debug_python_function.py` - traces Python execution step-by-step
-4. **Compare intermediate results** at each step
-5. **Verify test logic** against MATLAB tests, MATLAB source code, and Manual
-6. **NEVER** modify tests to pass unless verified against MATLAB that the test expectation is wrong
+   - **MATLAB**: `debug_matlab_function.m` 
+     - Runs same test logic as Python test
+     - Outputs all intermediate values with high precision
+     - Saves exact I/O pairs to text file
+     - Verifies test logic is correct
+   - **Python**: `debug_python_function.py`
+     - Traces Python execution step-by-step
+     - Prints intermediate results at each step
+     - Compares against MATLAB intermediate results
+
+4. **Compare intermediate results** at each step:
+   - Line-by-line comparison between MATLAB and Python
+   - Check data types match (double vs Interval vs Zonotope)
+   - Verify array shapes and dimensions
+   - Compare numerical values with appropriate tolerance
+
+5. **Root cause analysis**:
+   - If difference is small (~1e-10 to 1e-12): Likely numerical precision, check tolerance
+   - If difference is large: Algorithm implementation error, compare logic step-by-step
+   - If types differ: Check if Python should return different type than MATLAB
+   - If shapes differ: Check indexing and array operations
+
+6. **Verify test logic** against MATLAB tests, MATLAB source code, and Manual:
+   - Ensure test expectations match MATLAB test expectations
+   - Use same tolerance as MATLAB (check MATLAB test file)
+   - Verify test structure matches MATLAB test structure
+
+7. **NEVER** modify tests to pass unless:
+   - You've verified against MATLAB that the test expectation is wrong
+   - You've run MATLAB code and confirmed the correct expected value
+   - You've documented why the test was wrong and what the correct expectation is
+   - You've check with the user that we use a different convention in python
 
 
 ## Workflows
@@ -621,20 +801,37 @@ def test_plus_edge_case1():
 pytest [path_to__tests] -args > test_output.txt 
 ```
 
-**Step 2: MATLAB Comparison**
-`read_file cora_matlab/contSet/@interval/plus.m` and `read_file cora_python/contSet/interval/plus.py` and compare them
+**Step 2: MATLAB Comparison (CRITICAL - Always do this first)**
+1. **Execute MATLAB code** to get ground truth:
+   ```powershell
+   # Create debug_matlab_function.m first, then:
+   matlab -batch "run('debug_matlab_function.m')" > matlab_output.txt 2>&1
+   ```
 
-**(If MATLAB available):**
-Create matlab debug script to compare against python (also use to verify excpeted values for tests)
-```matlab
-% Create matlab_test.m, for example:
-i1 = interval([1, 2]);
-i2 = interval([3, 4]);
-result = i1 + i2;
-disp(result);  % Compare with Python output
-```
+2. **Compare source code**:
+   - `read_file cora_matlab/contSet/@interval/plus.m` 
+   - `read_file cora_python/contSet/interval/plus.py`
+   - Compare algorithm logic line-by-line
 
-**Step 3: Documentation Verification**
+3. **Compare test logic**:
+   - `read_file cora_matlab/unitTests/.../test_function.m` (if exists)
+   - `read_file cora_python/tests/.../test_function.py`
+   - Verify Python test matches MATLAB test structure
+   - Check tolerance: MATLAB uses `tol = 1e-14` typically
+
+4. **Compare execution results**:
+   - Extract MATLAB output values
+   - Compare against Python output
+   - If differences exist, trace step-by-step
+
+**Step 3: Generated Tests Verification (If test is marked GENERATED)**
+1. **MUST** create MATLAB verification script
+2. **MUST** execute MATLAB script to get exact I/O pairs
+3. **MUST** verify test logic is correct
+4. **MUST** update Python test with MATLAB values
+5. **MUST** document this was done in test comments
+
+**Step 4: Documentation Verification**
 - [ ] Docstrings match MATLAB comments exactly
 - [ ] All parameters documented with types
 - [ ] Examples from MATLAB preserved
@@ -673,29 +870,48 @@ Apply the Self-Correction-Template
    - Documentation: [description]
    - Integration: [description]
 
-2. MATLAB COMPARISON:
+2. MATLAB EXECUTION (CRITICAL - Always do this first):
+   - MATLAB script created: [debug_matlab_function.m]
+   - MATLAB execution: [command used, output file]
+   - MATLAB expected values: [exact values from MATLAB]
+   - MATLAB tolerance: [tol value from MATLAB test]
+   - MATLAB data types: [double, zonotope, interval, etc.]
+   - Python actual values: [what Python produces]
+   - Difference: [numerical difference, if any]
+
+3. MATLAB COMPARISON:
    - Source file reviewed: [path]
+   - Test file reviewed: [path to MATLAB test, if exists]
+   - MATLAB test tolerance: [exact value]
    - Key differences found: [detailed list]
    - Algorithm discrepancies: [specific differences]
    - Edge case handling: [differences in behavior]
+   - Step-by-step comparison: [intermediate results at each step]
    - Evaluation of differences: [description]
 
-3. DISCREPANCIES ANALYSIS:
+4. ROOT CAUSE ANALYSIS:
+   - Debug scripts created: [MATLAB and Python debug scripts]
+   - Intermediate results compared: [step-by-step comparison]
    - Implementation errors: [specific bugs found]
-   - Test logic errors: [incorrect test assumptions]
+   - Test logic errors: [incorrect test assumptions - only if verified against MATLAB]
    - Missing functionality: [features not translated]
-   - Numerical precision issues: [data type problems]
+   - Numerical precision issues: [data type problems, tolerance issues]
+   - Type mismatches: [MATLAB returns X, Python returns Y - is this correct?]
 
-4. CORRECTION ACTIONS TAKEN:
+5. CORRECTION ACTIONS TAKEN:
    - Code fixes applied: [specific changes]
-   - Tests corrected: [only if verified against MATLAB]
+   - Tests corrected: [only if verified against MATLAB that test was wrong]
+   - MATLAB I/O pairs integrated: [if generated test was updated]
    - Documentation updated: [improvements made]
    - Integration issues resolved: [import fixes]
+   - Tolerance adjusted: [only if verified against MATLAB that different tolerance is needed]
 
-5. FINAL VERIFICATION:
+6. FINAL VERIFICATION:
    - All tests now pass: [Yes/No]
-   - MATLAB equivalence confirmed: [Yes/No]
+   - MATLAB execution matches: [Yes/No - verified by running MATLAB]
+   - MATLAB equivalence confirmed: [Yes/No - step-by-step comparison]
    - Manual compliance verified: [Yes/No]
+   - Generated test verified: [Yes/No - if applicable]
 ```
 
 #### Final Integration Verification:
@@ -736,6 +952,6 @@ Start with n=0 (first element)
 6. Go to back to step 2 with n+=1 and continue until you are at the end of the List
 
 
-**Your current task** is to translate. In case of error, compare all dependencies and every methode involved against matlab and create python-matlab debug scripts (you can execute matlab code)
+**Your current task** is to test and fix linearSys, nonlinearSys, and hybridDynamics. In case of error, compare all dependencies and every methode involved against matlab and create python-matlab debug scripts (you can execute matlab code)
 
 

@@ -52,6 +52,7 @@ from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.interval import Interval
 from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes
 from cora_python.g.functions.helper.sets.contSet.contSet import block_operation
+from .private.priv_correctionMatrixInput import priv_correctionMatrixInput
 from cora_python.g.classes.taylorLinSys import TaylorLinSys
 
 
@@ -103,7 +104,7 @@ def particularSolution_constant(linsys, U, timeStep: float, truncationOrder: int
     U_decomp = U.decompose(blocks)
     
     # Check if inverse can be used
-    Ainv = linsys.taylor.Ainv
+    Ainv = linsys.taylor.getTaylor('Ainv')
     if Ainv is not None:
         # Ainv would be None if there was no inverse
         eAdt = linsys.taylor.getTaylor('eAdt', timeStep=timeStep)
@@ -150,10 +151,20 @@ def particularSolution_constant(linsys, U, timeStep: float, truncationOrder: int
         # Add term to current Asum
         Asum = Asum + addTerm
     
-    # Compute particular solution
-    Ptp = block_mtimes(Asum, U_decomp)
-    if numericU:
-        Ptp = block_operation(_center, Ptp)
+    # If floating-point precision has not been reached, we require the remainder term
+    if truncationOrderInf:
+        Ptp = block_mtimes(Asum, U_decomp)
+        if numericU:
+            Ptp = block_operation(_center, Ptp)
+    else:
+        from .private.priv_expmRemainder import priv_expmRemainder
+        E = priv_expmRemainder(linsys, timeStep, truncationOrder)
+        # MATLAB: Ptp = block_operation(@plus,block_mtimes(Asum,U_decomp),block_mtimes(E*timeStep,U_decomp));
+        Ptp = block_operation(lambda a, b: a + b, 
+                              block_mtimes(Asum, U_decomp), 
+                              block_mtimes(E * timeStep, U_decomp))
+        if numericU:
+            Ptp = block_operation(_center, Ptp)
     
     # Compute time-interval solution if desired
     C_input = _priv_curvatureInput(linsys, U_decomp, timeStep, truncationOrder)
@@ -184,23 +195,37 @@ def _block_zeros(blocks):
 
 
 def _priv_curvatureInput(linsys, U_decomp, timeStep, truncationOrder):
-    """Compute curvature error for the input (simplified implementation)"""
+    """
+    Compute curvature error for the input
     
-    # This is a simplified implementation
-    # The full implementation would compute the curvature error based on
-    # higher-order terms in the Taylor expansion
+    MATLAB: 
+        G = priv_correctionMatrixInput(linsys,timeStep,truncationOrder);
+        try
+            C_input = block_mtimes(G,U);
+        catch
+            % convert set to interval if interval matrix * set not supported
+            C_input = block_mtimes(G,block_operation(@interval,U));
+        end
+    """
+    # Ensure taylorLinSys is initialized (required by priv_correctionMatrixInput)
+    if not hasattr(linsys, 'taylor') or linsys.taylor is None:
+        linsys.taylor = TaylorLinSys(linsys.A)
     
-    if isinstance(U_decomp, list):
-        # Decomposed case - return list of zero sets
-        result = []
-        for u_block in U_decomp:
-            dim = u_block.dim()
-            result.append(Zonotope.origin(dim))
-        return result
-    else:
-        # Single set case
-        dim = U_decomp.dim()
-        return Zonotope.origin(dim)
+    # Compute correction matrix G (interval matrix, size n x n)
+    # Note: After canonicalForm, U is already in state space (dimension n),
+    # so G (n x n) can be multiplied directly with U (n-dimensional)
+    G = priv_correctionMatrixInput(linsys, timeStep, truncationOrder)
+    
+    # Try block_mtimes(G, U_decomp)
+    try:
+        C_input = block_mtimes(G, U_decomp)
+    except:
+        # Convert set to interval if interval matrix * set not supported
+        from cora_python.contSet.interval import Interval
+        U_decomp_interval = block_operation(lambda x: Interval(x), U_decomp)
+        C_input = block_mtimes(G, U_decomp_interval)
+    
+    return C_input
 
 
 def _convHull(set1, set2):

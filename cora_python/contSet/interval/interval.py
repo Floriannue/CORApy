@@ -113,7 +113,9 @@ class Interval(ContSet):
                 # Convert zonotope to interval using MATLAB algorithm
                 Z = args[0]
                 c = Z.c.flatten()
-                delta = np.sum(np.abs(Z.G), axis=1)
+                # Use Kahan summation for improved precision
+                from cora_python.g.functions.helper.precision.kahan_sum import kahan_sum_abs
+                delta = kahan_sum_abs(Z.G, axis=1)
                 lb = c - delta
                 ub = c + delta
             else:

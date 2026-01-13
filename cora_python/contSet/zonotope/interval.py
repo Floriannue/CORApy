@@ -55,7 +55,9 @@ def interval(Z):
     
     # determine lower and upper bounds in each dimension
     # sum(abs(Z.G),2) in MATLAB sums along columns (axis=1 in Python)
-    delta = np.sum(np.abs(Z.G), axis=1)  # 1D array, shape (n,)
+    # Use Kahan summation for improved precision
+    from cora_python.g.functions.helper.precision.kahan_sum import kahan_sum_abs
+    delta = kahan_sum_abs(Z.G, axis=1)  # 1D array, shape (n,)
     leftLimit = c - delta
     rightLimit = c + delta
     

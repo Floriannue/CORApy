@@ -144,4 +144,27 @@ class matZonotope:
             for i, Gi in enumerate(G_legacy):
                 G[:, :, i] = Gi
         
-        return C, G 
+        return C, G
+    
+    def __mul__(self, other):
+        """Overloaded * operator"""
+        from .mtimes import mtimes
+        return mtimes(self, other)
+    
+    def __rmul__(self, other):
+        """Overloaded * operator for right multiplication"""
+        from .mtimes import mtimes
+        return mtimes(other, self)
+    
+    def __pow__(self, power):
+        """Overloaded ** operator for matrix power"""
+        if power == 0:
+            n = self.C.shape[0]
+            return matZonotope(np.eye(n), np.zeros((n, n, 0)))
+        elif power == 1:
+            return matZonotope(self.C, self.G)
+        else:
+            result = self
+            for _ in range(power - 1):
+                result = result * self
+            return result 

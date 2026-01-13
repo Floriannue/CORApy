@@ -44,9 +44,16 @@ def mtimes(factor1: Union[Interval, np.ndarray, float, int],
     Returns:
         res: Interval result
     """
-    # Handle contSet cases (not implemented yet, but structure for future)
+    # Handle contSet cases - interval * zonotope
+    if hasattr(factor2, '__class__') and factor2.__class__.__name__ == 'Zonotope':
+        # Convert factor1 to interval if needed
+        if not isinstance(factor1, Interval):
+            factor1 = _numeric_to_Interval(factor1)
+        return _aux_mtimes_zonotope(factor1, factor2)
+    
+    # Other contSet cases not supported yet
     if hasattr(factor2, '__class__') and factor2.__class__.__name__ in [
-        'polyZonotope', 'zonotope', 'conZonotope', 'zonoBundle']:
+        'polyZonotope', 'conZonotope', 'zonoBundle']:
         raise CORAerror('CORA:noops', f'Operation not supported with {type(factor2)}')
     
     # Other contSet cases not supported
@@ -285,15 +292,13 @@ def _mtimes_nonsparse(factor1: Interval, factor2: Union[Interval, np.ndarray]) -
             extSize = (1, factor2_numeric.shape[0])
             k2 = factor2_numeric.shape[0]
         else:
+            # MATLAB: extSize = [1, size(factor2)];
+            # For 2D array of shape (k, n), extSize = [1, k, n]
+            # This creates a leading dimension of 1 for broadcasting
             extSize = (1,) + factor2_numeric.shape
-            # For 2D arrays, k2 should be the second dimension (columns) for matrix multiplication
-            # If shape is (1, n), k2 = n (columns), not 1 (rows)
-            if factor2_numeric.shape[0] == 1 and factor2_numeric.ndim == 2:
-                # Row vector: (1, n) -> k2 = n
-                k2 = factor2_numeric.shape[1]
-            else:
-                # General case: k2 is the first dimension (rows) for compatibility check
-                k2 = factor2_numeric.shape[0]
+            # For matrix multiplication [m, k] * [k, n], k2 is the number of rows in factor2
+            # which is the first dimension (index 0) of factor2
+            k2 = factor2_numeric.shape[0]
         
         # Check dimension compatibility
         if k1 != k2:
@@ -373,16 +378,31 @@ def _mtimes_nonsparse(factor1: Interval, factor2: Union[Interval, np.ndarray]) -
             f1_sup_bc = f1_sup[:, :, np.newaxis]
         
         # Reshape f2_inf and f2_sup for 3D broadcasting: [1, k, n]
-        # f2_inf is (1, k) after reshape, need (1, k, n) where n is determined by extSize
+        # f2_inf is (1, k) or (1, k, n) after reshape, need (1, k, n) for broadcasting
         # MATLAB: [m, k, 1] .* [1, k, n] = [m, k, n]
         if f2_inf.ndim == 2:
-            # f2_inf is (1, k), reshape to (1, k, n) where n=1 for vector case
-            f2_inf_bc = f2_inf[:, :, np.newaxis]  # (1, k, 1)
-            f2_sup_bc = f2_sup[:, :, np.newaxis]  # (1, k, 1)
+            # f2_inf is (1, k) after reshape, need (1, k, n) where n is the last dimension of original factor2
+            # For 2D factor2 with shape (k, n), after reshape to extSize (1, k, n), we already have the right shape
+            # But we need to ensure it has the right number of dimensions for broadcasting
+            if len(extSize) == 2:
+                # extSize = (1, k) - this is a vector case, n=1
+                f2_inf_bc = f2_inf[:, :, np.newaxis]  # (1, k, 1)
+                f2_sup_bc = f2_sup[:, :, np.newaxis]  # (1, k, 1)
+            else:
+                # extSize = (1, k, n) - already has the right shape
+                f2_inf_bc = f2_inf
+                f2_sup_bc = f2_sup
         else:
             # Already higher dimensional, ensure it has trailing dimension
-            f2_inf_bc = f2_inf.reshape(extSize + (1,))
-            f2_sup_bc = f2_sup.reshape(extSize + (1,))
+            # extSize already includes all dimensions, just need to ensure compatibility
+            if len(extSize) == f2_inf.ndim:
+                # Shapes match, use as is
+                f2_inf_bc = f2_inf
+                f2_sup_bc = f2_sup
+            else:
+                # Need to add trailing dimension
+                f2_inf_bc = f2_inf.reshape(extSize + (1,))
+                f2_sup_bc = f2_sup.reshape(extSize + (1,))
         
         # MATLAB: res = factor1 .* factor2;
         # Element-wise multiplication: [m, k, 1] .* [1, k, n] = [m, k, n]
@@ -485,6 +505,54 @@ def _mtimes_vector_matrix(vector_interval: Interval, matrix_interval: Interval) 
     sup_result = np.max(sums, axis=-1)
     
     return Interval(inf_result, sup_result)
+
+
+def _aux_mtimes_zonotope(I: Interval, Z):
+    """
+    Auxiliary function for interval matrix * zonotope
+    See Theorem 3.3 in [1]
+    
+    Args:
+        I: Interval matrix
+        Z: Zonotope object
+        
+    Returns:
+        Zonotope: Result of multiplication
+    """
+    from cora_python.contSet.zonotope import Zonotope
+    from .center import center
+    from .rad import rad
+    
+    # Get center and radius of interval matrix
+    T = center(I)  # Center matrix
+    S = rad(I)     # Radius matrix
+    
+    # Compute sum of absolute values: sum(abs([Z.c, Z.G]), axis=1)
+    # MATLAB: Zabssum = sum(abs([Z.c,Z.G]),2)
+    Z_c_G = np.hstack([Z.c, Z.G]) if Z.G.size > 0 else Z.c
+    Zabssum = np.sum(np.abs(Z_c_G), axis=1, keepdims=True)
+    
+    # Compute new zonotope
+    # MATLAB: Z.c = T*Z.c
+    Z_c_new = T @ Z.c
+    
+    # MATLAB: Z.G = [T*Z.G, diag(S*Zabssum)]
+    if Z.G.size > 0:
+        Z_G_new = T @ Z.G
+    else:
+        Z_G_new = np.zeros((Z.c.shape[0], 0))
+    
+    # diag(S*Zabssum) - create diagonal matrix from vector
+    S_Zabssum = S @ Zabssum  # Matrix-vector multiplication
+    diag_S_Zabssum = np.diag(S_Zabssum.flatten())
+    
+    # Concatenate generators
+    if Z_G_new.size > 0:
+        Z_G_final = np.hstack([Z_G_new, diag_S_Zabssum])
+    else:
+        Z_G_final = diag_S_Zabssum
+    
+    return Zonotope(Z_c_new, Z_G_final)
 
 
 def _is_zero_Interval(obj: Interval) -> bool:

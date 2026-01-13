@@ -1,0 +1,61 @@
+﻿[Warning: Initializing MATLAB Graphics failed.
+This indicates a potentially serious problem in your MATLAB setup, which should be resolved as soon as possible.  Error detected was:
+MATLAB:badsubscript
+Index exceeds the number of array elements. Index must not exceed 1.] 
+[> In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('hgrc', 'C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\core\hg\hgrc.m', 225)" style="font-weight:bold">hgrc</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\core\hg\hgrc.m',225,0)">line 225</a>)
+In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('matlab.graphics.internal.initialize', 'C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\graphics\+matlab\+graphics\+internal\initialize.m', 15)" style="font-weight:bold">matlab.graphics.internal.initialize</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\graphics\+matlab\+graphics\+internal\initialize.m',15,0)">line 15</a>)
+In close
+In close
+In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('debug_matlab_expm_intervalMatrix', 'D:\Bachelorarbeit\Translate_Cora\debug_matlab_expm_intervalMatrix.m', 7)" style="font-weight:bold">debug_matlab_expm_intervalMatrix</a> (<a href="matlab: opentoline('D:\Bachelorarbeit\Translate_Cora\debug_matlab_expm_intervalMatrix.m',7,0)">line 7</a>)
+In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('run', 'C:\Program Files\MATLAB\R2025a\toolbox\matlab\lang\run.m', 112)" style="font-weight:bold">run</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2025a\toolbox\matlab\lang\run.m',112,0)">line 112</a>)] 
+
+=== Testing intervalMatrix expm ===
+
+--- Test Case 1: Simple 2x2 interval matrix ---
+eI center:
+    0.6185    0.6658
+   -0.6633    0.2878
+
+eI radius:
+    0.1795    0.1712
+    0.1722    0.1545
+
+
+Test Case 1: SUCCESS
+
+--- Test Case 2: With r and maxOrder ---
+eI2 center:
+    0.5883    0.6292
+   -0.6267    0.2767
+
+eI2 radius:
+    0.2326    0.2216
+    0.2241    0.2345
+
+E2 center:
+     0     0
+     0     0
+
+E2 radius:
+    0.0826    0.0957
+    0.0957    0.1305
+
+Number of iPow2: 3
+
+Test Case 2: SUCCESS
+
+--- Test Case 3: 3x3 interval matrix ---
+eI3 center:
+    0.5883    0.6292         0
+   -0.6267    0.2767         0
+         0         0    0.3308
+
+eI3 radius:
+    0.2326    0.2216         0
+    0.2241    0.2345         0
+         0         0    0.1300
+
+
+Test Case 3: SUCCESS
+
+=== Debug script complete ===

@@ -71,8 +71,10 @@ class TaylorLinSys:
         self.dtoverfac = []  # List of dt^i/i! factors
         
         # Fields depending on truncationOrder (directly as index usable)
-        # Note: zeroth element is always identity matrix, so index 0 stores i=1
-        self.Apower = [A]  # List of A^i: A, A^2, A^3, ...
+        # MATLAB: obj.Apower{1} = A; (1-based indexing, stores A^1)
+        # Python: self.Apower[0] = A (0-based indexing, stores A^1)
+        # So MATLAB index i → Python index i-1
+        self.Apower = [A]  # List of A^i: A (index 0 = A^1), A^2 (index 1), A^3 (index 2), ...
         self.Apower_abs = [np.abs(A)]  # List of |A|^i
         # Apos and Aneg
         Apos = A.copy()
@@ -95,6 +97,7 @@ class TaylorLinSys:
             **kwargs: Additional parameters for computation
                 - For 'Apower': needs 'ithpower' parameter
                 - For 'eAdt' or 'eAt': needs 'timeStep' parameter
+                - For 'dtoverfac': needs 'timeStep' and 'ithpower' parameters
                 
         Returns:
             Computed field value
@@ -102,10 +105,28 @@ class TaylorLinSys:
         if name == 'eAt' or name == 'eAdt':
             return self._computeEAt(**kwargs)
         elif name == 'Ainv':
+            # Compute Ainv if not already computed and A is invertible
+            if self.Ainv is None:
+                # Check if A is invertible (rank == nrOfDims)
+                rank_A = np.linalg.matrix_rank(self.A)
+                if rank_A == self.A.shape[0]:
+                    self.Ainv = inv(self.A)
+                else:
+                    # A is singular, Ainv remains None
+                    pass
             return self.Ainv
         elif name == 'Apower':
             ithpower = kwargs.get('ithpower', 1)
             return self._computeApower(ithpower)
+        elif name == 'Apower_abs':
+            ithpower = kwargs.get('ithpower', 1)
+            return self._computeApower_abs(ithpower)
+        elif name == 'dtoverfac':
+            timeStep = kwargs.get('timeStep')
+            ithpower = kwargs.get('ithpower', 1)
+            if timeStep is None:
+                raise CORAerror('CORA:specialError', 'Time step required for dtoverfac')
+            return self._computeDtoverfac(timeStep, ithpower)
         else:
             raise CORAerror('CORA:specialError', f'Unknown field: {name}')
     
@@ -145,24 +166,141 @@ class TaylorLinSys:
     
     def _computeApower(self, ithpower: int) -> np.ndarray:
         """
-        Compute i-th power of matrix A
+        Compute i-th power of matrix A (recursively, matching MATLAB exactly)
+        
+        MATLAB: compute_Apower(obj,ithpower) uses 1-based indexing
+        Python: Convert to 0-based indexing: MATLAB ithpower=1,2,3... → Python index=0,1,2...
         
         Args:
-            ithpower: Power to compute
+            ithpower: Power to compute (1-based, matching MATLAB)
             
         Returns:
             A^ithpower
         """
-        if ithpower == 0:
-            return np.eye(self.A.shape[0])
-        elif ithpower == 1:
-            return self.A
+        # MATLAB: if length(obj.Apower) >= ithpower
+        # Convert to 0-based: check if list has enough elements
+        if len(self.Apower) >= ithpower:
+            # MATLAB: Apower_i = readField(obj,'Apower',ithpower);
+            # Python: Access with 0-based index
+            return self.Apower[ithpower - 1]
+        
+        # MATLAB: Apower_mm = readField(obj,'Apower',ithpower-1);
+        # Get previous power (MATLAB uses 1-based, so ithpower-1 is previous)
+        if len(self.Apower) >= ithpower - 1:
+            Apower_mm = self.Apower[ithpower - 2]  # 0-based index for ithpower-1
         else:
-            # Compute iteratively
-            result = self.A
-            for i in range(2, ithpower + 1):
-                result = result @ self.A
-            return result
+            # MATLAB: if isempty(Apower_mm), recursive call
+            Apower_mm = self._computeApower(ithpower - 1)
+        
+        # MATLAB: Apower_i = Apower_mm * obj.A;
+        Apower_i = Apower_mm @ self.A
+        
+        # MATLAB: obj.Apower{ithpower} = Apower_i;
+        # Extend list if needed, then store at 0-based index
+        while len(self.Apower) < ithpower:
+            self.Apower.append(None)
+        self.Apower[ithpower - 1] = Apower_i
+        
+        return Apower_i
+    
+    def _computeApower_abs(self, ithpower: int) -> np.ndarray:
+        """
+        Compute i-th power of |A| (recursively, matching MATLAB exactly)
+        
+        MATLAB: compute_Apower_abs(obj,ithpower) uses 1-based indexing
+        Python: Convert to 0-based indexing: MATLAB ithpower=1,2,3... → Python index=0,1,2...
+        
+        Args:
+            ithpower: Power to compute (1-based, matching MATLAB)
+            
+        Returns:
+            |A|^ithpower
+        """
+        # MATLAB: if length(obj.Apower_abs) >= ithpower
+        if len(self.Apower_abs) >= ithpower:
+            # MATLAB: Apower_abs_i = readField(obj,'Apower_abs',ithpower);
+            return self.Apower_abs[ithpower - 1]
+        
+        # MATLAB: Apower_abs_mm = readField(obj,'Apower_abs',ithpower-1);
+        if len(self.Apower_abs) >= ithpower - 1:
+            Apower_abs_mm = self.Apower_abs[ithpower - 2]
+        else:
+            # MATLAB: if isempty(Apower_abs_mm), recursive call
+            Apower_abs_mm = self._computeApower_abs(ithpower - 1)
+        
+        # MATLAB: Apower_abs_i = Apower_abs_mm * obj.A_abs;
+        # Need to compute A_abs if not stored
+        if not hasattr(self, 'A_abs'):
+            self.A_abs = np.abs(self.A)
+        Apower_abs_i = Apower_abs_mm @ self.A_abs
+        
+        # MATLAB: obj.Apower_abs{ithpower} = Apower_abs_i;
+        while len(self.Apower_abs) < ithpower:
+            self.Apower_abs.append(None)
+        self.Apower_abs[ithpower - 1] = Apower_abs_i
+        
+        return Apower_abs_i
+    
+    def _computeDtoverfac(self, timeStep: float, ithpower: int) -> float:
+        """
+        Compute dt^ithpower / ithpower! recursively (matching MATLAB exactly)
+        
+        MATLAB: compute_dtoverfac(obj,timeStep,ithpower) uses 1-based indexing
+        Python: Convert to 0-based indexing: MATLAB ithpower=1,2,3... → Python index=0,1,2...
+        
+        Args:
+            timeStep: Time step size
+            ithpower: Power/factorial index (1-based, matching MATLAB)
+            
+        Returns:
+            dt^ithpower / ithpower!
+        """
+        # MATLAB: idx = getIndexForTimeStep(obj,timeStep);
+        idx = self.getIndexForTimeStep(timeStep)
+        if idx == -1:
+            # MATLAB: makeNewTimeStep(obj,timeStep); idx = length(obj.timeStep);
+            self.makeNewTimeStep(timeStep)
+            idx = len(self.timeStep) - 1
+            dtoverfac_mm = []
+        else:
+            # MATLAB: dtoverfac_mm = obj.dtoverfac{idx};
+            dtoverfac_mm = self.dtoverfac[idx]
+        
+        # MATLAB: if ~isempty(dtoverfac_mm) && length(dtoverfac_mm) >= ithpower
+        if len(dtoverfac_mm) > 0 and len(dtoverfac_mm) >= ithpower:
+            # MATLAB: dtoverfac = obj.dtoverfac{idx}(ithpower);
+            # Python: Access with 0-based index
+            return dtoverfac_mm[ithpower - 1]
+        
+        # MATLAB: if isempty(dtoverfac_mm) && ithpower == 1
+        if len(dtoverfac_mm) == 0 and ithpower == 1:
+            # MATLAB: dtoverfac = timeStep; obj.dtoverfac{idx}(ithpower) = dtoverfac;
+            dtoverfac = timeStep
+            # Extend list and store at 0-based index
+            while len(self.dtoverfac[idx]) < ithpower:
+                self.dtoverfac[idx].append(None)
+            self.dtoverfac[idx][ithpower - 1] = dtoverfac
+        # MATLAB: elseif length(dtoverfac_mm) < ithpower-1
+        elif len(dtoverfac_mm) < ithpower - 1:
+            # MATLAB: recursive call
+            dtoverfac = self._computeDtoverfac(timeStep, ithpower - 1)
+            # MATLAB: dtoverfac = dtoverfac * timeStep / ithpower;
+            dtoverfac = dtoverfac * timeStep / ithpower
+            # MATLAB: obj.dtoverfac{idx}(ithpower) = dtoverfac;
+            # Extend list and store at 0-based index
+            while len(self.dtoverfac[idx]) < ithpower:
+                self.dtoverfac[idx].append(None)
+            self.dtoverfac[idx][ithpower - 1] = dtoverfac
+        else:
+            # MATLAB: dtoverfac = dtoverfac_mm(end) * timeStep / ithpower;
+            dtoverfac = dtoverfac_mm[-1] * timeStep / ithpower
+            # MATLAB: obj.dtoverfac{idx}(ithpower) = dtoverfac;
+            # Extend list and store at 0-based index
+            while len(self.dtoverfac[idx]) < ithpower:
+                self.dtoverfac[idx].append(None)
+            self.dtoverfac[idx][ithpower - 1] = dtoverfac
+        
+        return dtoverfac
     
     def getTaylor(self, name: str, **kwargs) -> Any:
         """

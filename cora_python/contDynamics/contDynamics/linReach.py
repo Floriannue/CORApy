@@ -110,8 +110,10 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
     
     if is_nonlinParamSys and is_paramInt_interval:
         # MATLAB: [linsys,R] = initReach_inputDependence(linsys,Rdelta,linParams,linOptions);
-        # NOTE: initReach_inputDependence needs to be translated
-        raise NotImplementedError("initReach_inputDependence not yet translated")
+        from cora_python.contDynamics.linearParamSys.initReach_inputDependence import initReach_inputDependence
+        linsys, R, _ = initReach_inputDependence(linsys, Rdelta, linParams, linOptions)
+        Rtp = R['tp']
+        Rti = R['ti']
     # MATLAB: elseif isa(linsys,'linParamSys')
     elif hasattr(linsys, '__class__') and 'linParamSys' in linsys.__class__.__name__.lower():
         # MATLAB: R = initReach(linsys,Rdelta,linParams,linOptions);
@@ -242,7 +244,7 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
                 trueError, VerrorDyn = priv_abstrerr_lin(sys, Rmax, params, options)
                 
                 # MATLAB: VerrorStat = zeros(sys.nrOfDims,1);
-                VerrorStat = np.zeros((sys.nrOfDims, 1))
+                VerrorStat = np.zeros((sys.nr_of_dims, 1))
                 
             # compute the abstraction error using the conservative
             # polynomialization approach described in [2]    
@@ -302,7 +304,10 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
                 # MATLAB: Rerror_stat = particularSolution_constant(linsys,...
                 #    VerrorStat,options.timeStep,options.taylorTerms);
                 from cora_python.contDynamics.linearSys.particularSolution_constant import particularSolution_constant
-                Rerror_stat = particularSolution_constant(linsys, VerrorStat, options['timeStep'], options['taylorTerms'])
+                Rerror_stat, _, _ = particularSolution_constant(linsys, VerrorStat, options['timeStep'], options['taylorTerms'])
+                # Ensure Rerror_stat is a zonotope (not a vector)
+                if not isinstance(Rerror_stat, Zonotope):
+                    Rerror_stat = Zonotope(Rerror_stat) if isinstance(Rerror_stat, np.ndarray) else Rerror_stat
                 
                 # MATLAB: Rerror = Rerror_dyn + Rerror_stat;
                 Rerror = Rerror_dyn + Rerror_stat
@@ -389,7 +394,7 @@ def aux_deltaReach(sys: Any, Rinit: Any, RV: Any, Rtrans: Any, inputCorr: Any,
     
     # first time step homogeneous solution
     # MATLAB: n = sys.nrOfDims;
-    n = sys.nrOfDims
+    n = sys.nr_of_dims
     
     # MATLAB: Rhom_tp_delta = (eAt - eye(n))*Rinit + Rtrans;
     eye_n = np.eye(n)
@@ -484,8 +489,8 @@ def aux_linReach_linRem(sys: Any, R: Dict[str, Any], Rinit: Any, Rdelta: Any,
     
     if is_nonlinParamSys and is_paramInt_interval:
         # MATLAB: [~,Rlin] = initReach_inputDependence(linsys,Rdelta,linParams,linOptions);
-        # NOTE: initReach_inputDependence needs to be translated
-        raise NotImplementedError("initReach_inputDependence not yet translated")
+        from cora_python.contDynamics.linearParamSys.initReach_inputDependence import initReach_inputDependence
+        _, Rlin, _ = initReach_inputDependence(linsys, Rdelta, linParams, linOptions)
     elif is_linParamSys:
         # MATLAB: Rlin = initReach(linsys,Rdelta,linParams,linOptions);
         from cora_python.contDynamics.linearParamSys.initReach import initReach as linParamSys_initReach
@@ -564,7 +569,7 @@ def aux_approxDepReachOnly(linsys: Any, nlnsys: Any, R: Dict[str, Any],
             R_ti = PolyZonotope(R_ti.c, R_ti.G, R_ti.GI, E, id_unique)
         
         # MATLAB: Asum = options.timeStep*eye(linsys.nrOfDims);
-        Asum = options['timeStep'] * np.eye(linsys.nrOfDims)
+        Asum = options['timeStep'] * np.eye(linsys.nr_of_dims)
         
         # MATLAB: for i = 1:options.taylorTerms
         for i in range(options['taylorTerms']):

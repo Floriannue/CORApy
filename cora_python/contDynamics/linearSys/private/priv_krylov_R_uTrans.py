@@ -106,9 +106,11 @@ def priv_krylov_R_uTrans(linsys: Any, t: float, uTrans: np.ndarray,
     G = priv_correctionMatrixInput(linRedSys, t, options.get('taylorTerms', 10))
     # compute P*(...)*e_1 via indexing for fast computation
     # norm(equiv_state) = 1, so we leave it out;
-    inputCorr_unprojected = V_uT[:state_dim, :] @ G[:, 0:1]
+    inputCorr_unprojected_interval = V_uT[:state_dim, :] @ G[:, 0:1]
     # inputCorrection = zonotope(inputCorr_unprojected(1:state_dim)); 
-    inputCorr_unprojected = Zonotope(inputCorr_unprojected, np.array([]).reshape(inputCorr_unprojected.shape[0], 0))
+    # MATLAB: inputCorr_unprojected = zonotope(inputCorr_unprojected);
+    # Convert Interval to Zonotope
+    inputCorr_unprojected = Zonotope(inputCorr_unprojected_interval)
     
     # save results for future re-computations of correction matrix
     if not hasattr(linsys, 'krylov'):

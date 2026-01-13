@@ -84,6 +84,8 @@ class ContDynamics(ABC):
     
     @dim.setter
     def dim(self, value: int):
+        """Legacy setter"""
+        self.nr_of_dims = value
         """Legacy property setter: use nr_of_dims instead"""
         warnings.warn("Property 'dim' is deprecated, use 'nr_of_dims' instead", 
                      DeprecationWarning, stacklevel=2)

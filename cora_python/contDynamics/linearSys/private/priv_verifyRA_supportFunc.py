@@ -1881,7 +1881,8 @@ def priv_verifyRA_supportFunc(linsys: Any, params: Dict[str, Any],
             
             # suggest refinement based on H(tauk) (important if no input set)
             # MATLAB: if ~all(cellfun(@isempty,specUnsat,'UniformOutput',true))
-            if not all(len(x) == 0 for x in specUnsat):
+            # Check if all arrays are empty (size == 0, not len == 0)
+            if not all(x.size == 0 for x in specUnsat):
                 # shorten time horizon if possible
                 # MATLAB: params.tFinal = max(cellfun(@(x) x(end,2),specUnsat,'UniformOutput',true));
                 params['tFinal'] = max(x[-1, 1] if len(x) > 0 else 0 for x in specUnsat)
@@ -2076,7 +2077,8 @@ def priv_verifyRA_supportFunc(linsys: Any, params: Dict[str, Any],
         
         # specification is satisfied over entire time horizon
         # MATLAB: if all(cellfun(@isempty,specUnsat,'UniformOutput',true))
-        if all(len(x) == 0 for x in specUnsat):
+        # Check if all arrays are empty (size == 0, not len == 0, since reshape(2,0) has len=2 but size=0)
+        if all(x.size == 0 for x in specUnsat):
             # MATLAB: break
             break
         # for safety reasons, stop in case time step size becomes too small

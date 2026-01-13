@@ -402,6 +402,10 @@ def aux_writeTensors(fid: TextIO, H: List[Any], ind: List[Dict[str, Any]],
         fid.write(f'\n\n    {varName} = []\n\n')
         return
     
+    # Initialize list for Hf/Hg
+    # MATLAB: In MATLAB, cell arrays are automatically initialized, but in Python we need to do it explicitly
+    fid.write(f'\n    {varName} = [None] * {len(H)}\n\n')
+    
     # MATLAB: for k=1:length(H)
     for k in range(len(H)):
         # get matrix size

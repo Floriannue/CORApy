@@ -1,0 +1,100 @@
+﻿[Warning: Initializing MATLAB Graphics failed.
+This indicates a potentially serious problem in your MATLAB setup, which should be resolved as soon as possible.  Error detected was:
+MATLAB:badsubscript
+Index exceeds the number of array elements. Index must not exceed 1.] 
+[> In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('hgrc', 'C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\core\hg\hgrc.m', 225)" style="font-weight:bold">hgrc</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\core\hg\hgrc.m',225,0)">line 225</a>)
+In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('matlab.graphics.internal.initialize', 'C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\graphics\+matlab\+graphics\+internal\initialize.m', 15)" style="font-weight:bold">matlab.graphics.internal.initialize</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\graphics\+matlab\+graphics\+internal\initialize.m',15,0)">line 15</a>)
+In close
+In close
+In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('debug_matlab_expmOneParam', 'D:\Bachelorarbeit\Translate_Cora\debug_matlab_expmOneParam.m', 7)" style="font-weight:bold">debug_matlab_expmOneParam</a> (<a href="matlab: opentoline('D:\Bachelorarbeit\Translate_Cora\debug_matlab_expmOneParam.m',7,0)">line 7</a>)
+In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('run', 'C:\Program Files\MATLAB\R2025a\toolbox\matlab\lang\run.m', 112)" style="font-weight:bold">run</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2025a\toolbox\matlab\lang\run.m',112,0)">line 112</a>)] 
+
+=== Testing expmOneParam ===
+
+--- Test Case 1: Simple 2x2 matrix zonotope ---
+eZ center:
+    0.9951    0.0979
+   -0.0979    0.9461
+
+eZ generators:
+
+(:,:,1) =
+
+    0.0100    0.0010
+   -0.0010    0.0095
+
+
+(:,:,2) =
+
+   1.0e-03 *
+
+   -0.0001    0.5024
+   -0.5024   -0.2513
+
+
+(:,:,3) =
+
+   1.0e-04 *
+
+   -0.5000   -0.2498
+    0.2498   -0.3751
+
+
+(:,:,4) =
+
+   1.0e-06 *
+
+    0.4167   -0.6250
+    0.6250    0.7292
+
+eI center:
+     0     0
+     0     0
+
+eI radius:
+   1.0e-06 *
+
+    0.1546    0.2135
+    0.2135    0.2614
+
+E center:
+     0     0
+     0     0
+
+E radius:
+   1.0e-06 *
+
+    0.1546    0.2135
+    0.2135    0.2614
+
+RconstInput center:
+    0.0100
+   -0.0005
+
+RconstInput generators:
+   1.0e-04 *
+
+    0.4988    0.2508    0.0000   -0.0006
+   -0.0327   -0.0001   -0.0333    0.0003
+
+Number of zPow: 4
+Number of iPow: 0
+
+Test Case 1: SUCCESS
+
+--- Test Case 2: 3x3 matrix zonotope ---
+eZ2 center:
+    0.9988    0.0495         0
+   -0.0495    0.9740         0
+         0         0    0.9511
+
+eZ2 generators shape: [3 3 3]
+eI2 center:
+     0     0     0
+     0     0     0
+     0     0     0
+
+
+Test Case 2: SUCCESS
+
+=== Debug script complete ===

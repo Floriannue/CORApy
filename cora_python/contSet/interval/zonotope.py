@@ -28,8 +28,13 @@ def zonotope(I):
     
     # check if not a matrix set
     n = I.dim()
-    # Only raise error if n is an array/list with multiple elements (like MATLAB's numel(n) > 1)
-    if isinstance(n, (np.ndarray, list, tuple)) and len(n) > 1:
+    # MATLAB: if numel(n) > 1, raise error (interval matrices not supported)
+    # In Python, dim() can return int (for vectors) or list (for matrices)
+    # Only raise error if n is an array/list with multiple elements
+    if isinstance(n, (list, tuple)) and len(n) > 1:
+        raise CORAerror('CORA:wrongValue', 'first', 'Interval must not be an n-d array with n > 1.')
+    # Also check for numpy array case
+    if isinstance(n, np.ndarray) and n.size > 1:
         raise CORAerror('CORA:wrongValue', 'first', 'Interval must not be an n-d array with n > 1.')
     
     # obtain center

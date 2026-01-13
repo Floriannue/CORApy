@@ -59,6 +59,7 @@ Last revision: 07-October-2024 (MW, refactor)
 """
 
 import os
+import sys as sys_module
 import pickle
 import sympy as sp
 import numpy as np
@@ -123,6 +124,9 @@ def derivatives(sys: Any, *varargin) -> None:
             np.any(requiredFiles['higherOrders']) or
             np.any(requiredFiles_out['standard']) or np.any(requiredFiles_out['int']) or
             np.any(requiredFiles_out['higherOrders'])):
+        # Even if nothing new is required, we still need to load existing files
+        # MATLAB: After rehash, functions are available via eval(['@jacobian_',name])
+        _loadExistingDerivativeFiles(sys, path, requiredFiles, requiredFiles_out)
         return
     
     # delete all existing files if setttings have changed
@@ -169,7 +173,9 @@ def derivatives(sys: Any, *varargin) -> None:
         # MATLAB: mkdir(path);
         os.makedirs(path, exist_ok=True)
     # MATLAB: addpath(path);
-    # In Python, we don't need to add to path - importlib handles it
+    # In Python, we need to add path to sys.path so generated modules can be imported
+    if path not in sys_module.path:
+        sys_module.path.insert(0, path)
     
     # --- compute Jacobians ---------------------------------------------------
     # MATLAB: if options.verbose
@@ -197,10 +203,12 @@ def derivatives(sys: Any, *varargin) -> None:
             # Note: Jp.x and Jp.u are 3D arrays, we extract the first slice
             Jp_x_2d = [[Jp['x'][i][j][0] for j in range(len(Jp['x'][0]))] for i in range(len(Jp['x']))]
             Jp_u_2d = [[Jp['u'][i][j][0] for j in range(len(Jp['u'][0]))] for i in range(len(Jp['u']))]
-            writeMatrixFile([sp.Matrix(Jp_x_2d), sp.Matrix(Jp_u_2d)], path, fname,
+            jacobian_handle = writeMatrixFile([sp.Matrix(Jp_x_2d), sp.Matrix(Jp_u_2d)], path, fname,
                            'VarNamesIn', ['x', 'u', 'p'],
                            'VarNamesOut', ['A', 'B'],
                            'BracketSubs', True)
+            # Attach jacobian to system object
+            sys.jacobian = jacobian_handle
             # MATLAB: fname = ['parametricDynamicFile_' sys.name];
             fname = f'parametricDynamicFile_{sys.name}'
             # MATLAB: writeMatrixFile({fp},path,fname,...)
@@ -213,17 +221,21 @@ def derivatives(sys: Any, *varargin) -> None:
         # MATLAB: elseif ~isempty(vars.y)
         elif vars.get('y') is not None and (not hasattr(vars['y'], '__len__') or len(vars['y']) > 0):
             # MATLAB: writeMatrixFile({Jdyn.x,Jdyn.u,Jdyn.y,Jcon.x,Jcon.u,Jcon.y},path,fname,...)
-            writeMatrixFile([Jdyn['x'], Jdyn['u'], Jdyn['y'],
+            jacobian_handle = writeMatrixFile([Jdyn['x'], Jdyn['u'], Jdyn['y'],
                             Jcon['x'], Jcon['u'], Jcon['y']], path, fname,
                            'VarNamesIn', ['x', 'y', 'u'],
                            'VarNamesOut', ['A', 'B', 'C', 'D', 'E', 'F'],
                            'BracketSubs', True)
+            # Attach jacobian to system object
+            sys.jacobian = jacobian_handle
         else:
             # MATLAB: writeMatrixFile({Jdyn.x,Jdyn.u},path,fname,...)
-            writeMatrixFile([Jdyn['x'], Jdyn['u']], path, fname,
+            jacobian_handle = writeMatrixFile([Jdyn['x'], Jdyn['u']], path, fname,
                            'VarNamesIn', ['x', 'u'],
                            'VarNamesOut', ['A', 'B'],
                            'BracketSubs', True)
+            # Attach jacobian to system object
+            sys.jacobian = jacobian_handle
         
         # jacobian_freeParam
         # MATLAB: if ~isempty(vars.p)
@@ -312,6 +324,16 @@ def derivatives(sys: Any, *varargin) -> None:
         fname = f'hessianTensor_{sys.name}'
         # MATLAB: writeHessianTensorFile(J2dyn,J2con,path,fname,vars,false,options);
         writeHessianTensorFile(J2dyn, J2con, path, fname, vars, False, options)
+        # Load and attach hessian function handle
+        hessian_file = os.path.join(path, f'{fname}.py')
+        if os.path.isfile(hessian_file):
+            import importlib.util
+            module_name = f'{fname}_{id(sys)}'
+            spec = importlib.util.spec_from_file_location(module_name, hessian_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                sys.hessian = getattr(module, fname)
     # MATLAB: if requiredFiles.int(2)
     if requiredFiles['int'][1]:
         # MATLAB: fname = ['hessianTensorInt_' sys.name];
@@ -392,7 +414,10 @@ def derivatives(sys: Any, *varargin) -> None:
 
     # rehash the folder so that new generated files are used
     # MATLAB: rehash path;
-    # In Python, we don't need to rehash - importlib handles dynamic imports
+    # In Python, we need to load existing files that weren't regenerated
+    # MATLAB: After rehash, functions are available via eval(['@jacobian_',name])
+    # In Python, we need to explicitly import and attach them
+    _loadExistingDerivativeFiles(sys, path, requiredFiles, requiredFiles_out)
     
     # save data so that symbolic computations do not have to be re-computed
     # MATLAB: filename = sprintf('%s%s%s_%s.mat',path,filesep,sys.name,'lastVersion');
@@ -409,6 +434,68 @@ def derivatives(sys: Any, *varargin) -> None:
 
 
 # Auxiliary functions -----------------------------------------------------
+
+def _loadExistingDerivativeFiles(sys: Any, path: str, requiredFiles: Dict[str, Any], 
+                                  requiredFiles_out: Dict[str, Any]) -> None:
+    """
+    Load existing derivative files that weren't regenerated
+    Equivalent to MATLAB's eval(['@jacobian_',name]) after rehash path
+    
+    Args:
+        sys: contDynamics object
+        path: path to folder where derivative files are stored
+        requiredFiles: dict indicating which files need to be regenerated
+        requiredFiles_out: dict indicating which output files need to be regenerated
+    """
+    import importlib.util
+    
+    # Load jacobian if file exists but wasn't regenerated
+    # MATLAB: sys.jacobian = eval(['@jacobian_',sys.name]);
+    if not requiredFiles['standard'][0]:  # File exists, wasn't regenerated
+        jacobian_file = os.path.join(path, f'jacobian_{sys.name}.py')
+        if os.path.isfile(jacobian_file):
+            # Use a unique module name to avoid conflicts
+            module_name = f'jacobian_{sys.name}_{id(sys)}'
+            spec = importlib.util.spec_from_file_location(module_name, jacobian_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                jacobian_func = getattr(module, f'jacobian_{sys.name}')
+                sys.jacobian = jacobian_func
+    
+    # Load hessian if file exists but wasn't regenerated
+    if not requiredFiles['standard'][1]:
+        hessian_file = os.path.join(path, f'hessianTensor_{sys.name}.py')
+        if os.path.isfile(hessian_file):
+            module_name = f'hessianTensor_{sys.name}_{id(sys)}'
+            spec = importlib.util.spec_from_file_location(module_name, hessian_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                sys.hessian = getattr(module, f'hessianTensor_{sys.name}')
+    
+    # Load thirdOrderTensor if file exists but wasn't regenerated
+    if not requiredFiles['standard'][2]:
+        tensor3_file = os.path.join(path, f'thirdOrderTensor_{sys.name}.py')
+        if os.path.isfile(tensor3_file):
+            module_name = f'thirdOrderTensor_{sys.name}_{id(sys)}'
+            spec = importlib.util.spec_from_file_location(module_name, tensor3_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                sys.thirdOrderTensor = getattr(module, f'thirdOrderTensor_{sys.name}')
+    
+    # Load output jacobian if file exists but wasn't regenerated
+    if not requiredFiles_out['standard'][0]:
+        out_jacobian_file = os.path.join(path, f'out_jacobian_{sys.name}.py')
+        if os.path.isfile(out_jacobian_file):
+            module_name = f'out_jacobian_{sys.name}_{id(sys)}'
+            spec = importlib.util.spec_from_file_location(module_name, out_jacobian_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                sys.out_jacobian = getattr(module, f'out_jacobian_{sys.name}')
+
 
 def aux_defaultOptions(sys: Any) -> Dict[str, Any]:
     """

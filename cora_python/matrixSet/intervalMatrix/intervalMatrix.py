@@ -72,6 +72,13 @@ class IntervalMatrix(MatrixSet):
             if isinstance(matrixCenter, IntervalMatrix):
                 # Copy constructor
                 self.int = matrixCenter.int
+            elif hasattr(matrixCenter, 'C') and hasattr(matrixCenter, 'G'):
+                # Convert matZonotope to IntervalMatrix
+                # MATLAB: C = matZ.C; D = sum(abs(matZ.G),3);
+                from cora_python.contSet.interval.interval import Interval
+                C = matrixCenter.C
+                D = np.sum(np.abs(matrixCenter.G), axis=2)
+                self.int = Interval(C - D, C + D)
             else:
                 # Only center given, radius = 0
                 from cora_python.contSet.interval.interval import Interval
@@ -138,5 +145,28 @@ class IntervalMatrix(MatrixSet):
     def __str__(self) -> str:
         """String representation of the IntervalMatrix object"""
         return self.display()
+    
+    def __mul__(self, other):
+        """Overloaded * operator"""
+        from .mtimes import mtimes
+        return mtimes(self, other)
+    
+    def __rmul__(self, other):
+        """Overloaded * operator for right multiplication"""
+        from .mtimes import mtimes
+        return mtimes(other, self)
+    
+    def __pow__(self, power):
+        """Overloaded ** operator for matrix power"""
+        if power == 0:
+            n = self.int.shape[0]
+            return IntervalMatrix(np.eye(n), np.zeros((n, n)))
+        elif power == 1:
+            return IntervalMatrix(self.int.center(), self.int.rad())
+        else:
+            result = self
+            for _ in range(power - 1):
+                result = result * self
+            return result
     
  

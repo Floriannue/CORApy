@@ -124,6 +124,17 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
             # MATLAB: du = max(abs(infimum(IHu)),abs(supremum(IHu)));
             dx = np.maximum(np.abs(IHx.infimum()), np.abs(IHx.supremum()))
             du = np.maximum(np.abs(IHu.infimum()), np.abs(IHu.supremum()))
+            
+            # Ensure column vectors (MATLAB always returns column vectors)
+            # MATLAB: dx and du are column vectors
+            if dx.ndim == 1:
+                dx = dx.reshape(-1, 1)
+            elif dx.shape[1] != 1:
+                dx = dx.reshape(-1, 1)
+            if du.ndim == 1:
+                du = du.reshape(-1, 1)
+            elif du.shape[1] != 1:
+                du = du.reshape(-1, 1)
         
             # calculate the Lagrange remainder (second-order error)
             # ...acc. to Proposition 1 in [1]
@@ -136,13 +147,24 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
             # MATLAB: for i = 1:length(H)
             for i in range(len(H)):
                 # MATLAB: H_ = abs(H{i});
-                H_ = np.abs(H[i])
+                # H[i] is an Interval object (interval matrix)
+                # In MATLAB, abs() on interval returns interval with absolute bounds
+                # Then max(infimum, supremum) gets element-wise maximum
+                if isinstance(H[i], Interval):
+                    # For interval, use Python's built-in abs() (not np.abs)
+                    # abs() on interval returns interval with absolute bounds
+                    H_abs = abs(H[i])  # Uses Interval.__abs__
+                    # Then get max of inf and sup element-wise
+                    H_ = np.maximum(H_abs.infimum(), H_abs.supremum())
+                else:
+                    H_ = np.abs(H[i])
+                    # If result is still interval, get max of inf and sup
+                    if isinstance(H_, Interval):
+                        H_abs = abs(H_)
+                        H_ = np.maximum(H_abs.infimum(), H_abs.supremum())
                 
-                # MATLAB: H_ = max(infimum(H_),supremum(H_));
-                # H_ is an interval matrix, get max of inf and sup
-                if isinstance(H_, Interval):
-                    H_ = np.maximum(H_.infimum(), H_.supremum())
-                elif isinstance(H_, np.ndarray):
+                # Handle object arrays that might contain intervals
+                if isinstance(H_, np.ndarray):
                     # If H_ is already a numpy array, check if elements are intervals
                     if H_.dtype == object:
                         # Object array - might contain intervals
@@ -258,11 +280,11 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
         if len(ind_flat) == 0:
             # empty zonotope if all entries in T are empty
             # MATLAB: errorLagr = zonotope(zeros(sys.nrOfDims,1));
-            errorLagr = Zonotope(np.zeros((sys.nrOfDims, 1)))
+            errorLagr = Zonotope(np.zeros((sys.nr_of_dims, 1)))
         else:
             # skip tensors with all-zero entries using ind from tensor creation
             # MATLAB: errorLagr = interval(zeros(sys.nrOfDims,1),zeros(sys.nrOfDims,1));
-            errorLagr = Interval(np.zeros(sys.nrOfDims), np.zeros(sys.nrOfDims))
+            errorLagr = Interval(np.zeros(sys.nr_of_dims), np.zeros(sys.nr_of_dims))
             
             # MATLAB: for i=1:length(ind)
             for i in range(len(ind)):

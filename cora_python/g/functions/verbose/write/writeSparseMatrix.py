@@ -33,6 +33,7 @@ import numpy as np
 from typing import Any, TextIO
 from cora_python.g.functions.matlab.validate.preprocessing.setDefaultValues import setDefaultValues
 from cora_python.g.functions.matlab.string.bracketSubs import bracketSubs
+from cora_python.g.functions.verbose.write.writeMatrix import _convert_matlab_indexing_to_python
 
 
 def writeSparseMatrix(fid: TextIO, M: Any, var: str, *varargin) -> bool:
@@ -87,6 +88,8 @@ def writeSparseMatrix(fid: TextIO, M: Any, var: str, *varargin) -> bool:
             # vpa is variable precision arithmetic - in sympy we can use evalf or just convert
             elem_str = str(elem)
             elem_str = bracketSubs(elem_str)
+            # Convert MATLAB indexing to Python indexing
+            elem_str = _convert_matlab_indexing_to_python(elem_str)
             
             # Write with interval wrapper
             fid.write(f'    {var}[{row[i]-1}, {col[i]-1}] = Interval({elem_str})\n')
@@ -104,6 +107,8 @@ def writeSparseMatrix(fid: TextIO, M: Any, var: str, *varargin) -> bool:
             # MATLAB: bracketSubs(char(M(row(i),col(i))))
             elem_str = str(elem)
             elem_str = bracketSubs(elem_str)
+            # Convert MATLAB indexing to Python indexing
+            elem_str = _convert_matlab_indexing_to_python(elem_str)
             
             # Write without interval wrapper
             # Note: Python uses 0-based indexing, but we write 1-based for compatibility

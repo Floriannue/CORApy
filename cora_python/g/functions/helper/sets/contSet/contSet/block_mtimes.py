@@ -35,7 +35,14 @@ def block_mtimes(matrix: np.ndarray, sets: Union[object, List[object]]):
     # If sets is a single set (not decomposed), perform regular multiplication
     if not isinstance(sets, list):
         # Regular matrix multiplication
-        return matrix @ sets
+        # Handle Interval matrix case (matrix is Interval object)
+        if hasattr(matrix, '__class__') and matrix.__class__.__name__ == 'Interval':
+            # Use Interval's mtimes method for Interval * contSet
+            from cora_python.contSet.interval.mtimes import mtimes
+            return mtimes(matrix, sets)
+        else:
+            # Regular matrix multiplication for numeric matrices
+            return matrix @ sets
     
     # If sets is a list (decomposed), we need to handle block operations
     # This implements the MATLAB logic: for each output block i, compute

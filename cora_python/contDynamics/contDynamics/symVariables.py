@@ -198,7 +198,7 @@ def aux_symVector(varName: str, nrVars: int, withBrackets: bool) -> Any:
         withBrackets: if True, use format 'xL1R', 'xL2R', etc.; if False, use 'x1', 'x2', etc.
         
     Returns:
-        symVars: symbolic vector (sympy Matrix or single symbol)
+        symVars: symbolic vector (sympy Matrix - always returns Matrix for indexing compatibility)
     """
     
     if withBrackets:
@@ -210,8 +210,10 @@ def aux_symVector(varName: str, nrVars: int, withBrackets: bool) -> Any:
             # Create symbol with bracket format, then extract first element
             # In sympy, we create symbols with the format 'xL1R', 'xL2R', etc.
             # But for nrVars==1, MATLAB creates [2,1] then takes first, so we create just one
+            # However, we need to return a Matrix so it can be indexed like x[0, 0] or x[0]
+            # MATLAB's symVars(1) on a 2x1 matrix gives a 1x1 sym object that can still be indexed
             sym_str = f'{varName}L1R'
-            symVars = sp.Symbol(sym_str, real=True)
+            symVars = sp.Matrix([sp.Symbol(sym_str, real=True)])
         else:
             # MATLAB: symVars = sym([varName 'L%dR'],[nrVars,1],'real');
             # Create symbols with bracket format: 'xL1R', 'xL2R', ..., 'xLnR'
@@ -220,11 +222,10 @@ def aux_symVector(varName: str, nrVars: int, withBrackets: bool) -> Any:
     else:
         # MATLAB: symVars = sym(varName,[nrVars,1],'real');
         # Create symbols with simple format: 'x1', 'x2', ..., 'xn'
-        if nrVars == 1:
-            symVars = sp.Symbol(f'{varName}1', real=True)
-        else:
-            sym_strs = [f'{varName}{i+1}' for i in range(nrVars)]
-            symVars = sp.Matrix([sp.Symbol(s, real=True) for s in sym_strs])
+        # MATLAB's sym(varName, [nrVars, 1], 'real') always creates a column vector (Matrix),
+        # even for nrVars == 1, so we always return a Matrix for indexing compatibility
+        sym_strs = [f'{varName}{i+1}' for i in range(nrVars)]
+        symVars = sp.Matrix([sp.Symbol(s, real=True) for s in sym_strs])
     
     return symVars
 

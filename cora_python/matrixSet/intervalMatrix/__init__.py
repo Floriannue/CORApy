@@ -16,6 +16,13 @@ from .display import display, display_
 from .dim import dim
 from .getPrintSetInfo import getPrintSetInfo
 from .isempty import isempty
+from .mtimes import mtimes
+from .abs import abs
+from .powers import powers
+from .dependentTerms import dependentTerms
+from .exponentialRemainder import exponentialRemainder
+from .expm import expm
+from .expmInd import expmInd
 
 # Attach methods to the IntervalMatrix class
 IntervalMatrix.display = display
@@ -26,6 +33,7 @@ IntervalMatrix.__str__ = lambda self: display_(self)
 IntervalMatrix.dim = dim
 IntervalMatrix.getPrintSetInfo = getPrintSetInfo
 IntervalMatrix.isempty = isempty
+IntervalMatrix.abs = abs
 
 # Export the IntervalMatrix class and all methods
 __all__ = [
@@ -34,4 +42,11 @@ __all__ = [
     'dim',
     'getPrintSetInfo',
     'isempty',
+    'mtimes',
+    'abs',
+    'powers',
+    'dependentTerms',
+    'exponentialRemainder',
+    'expm',
+    'expmInd',
 ] 

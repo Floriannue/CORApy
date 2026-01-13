@@ -121,12 +121,16 @@ def aux_write2D(fid: TextIO, M: Any, varName: str, bracketSubsOn: bool,
     if bracketSubsOn:
         # MATLAB: M_char = bracketSubs(char(M));
         # For bracket substitution, we need to convert the matrix to string first
-        # then apply bracketSubs
+        # then apply bracketSubs, then convert MATLAB indexing to Python
         M_str = _matrix_to_python_code(M)
         M_char = bracketSubs(M_str)
+        # Convert MATLAB-style indexing x(1) to Python indexing x[0]
+        M_char = _convert_matlab_indexing_to_python(M_char)
     else:
         # MATLAB: M_char = char(M);
         M_char = _matrix_to_python_code(M)
+        # Still need to convert indexing even without bracketSubs
+        M_char = _convert_matlab_indexing_to_python(M_char)
     
     # additional text: sparse, then interval
     # MATLAB: if sparseOn
@@ -296,6 +300,7 @@ def _sympy_expr_to_python(expr: Any) -> str:
     Returns:
         Python code string
     """
+    import re
     # Use sympy's code generation
     # Replace common sympy functions with numpy equivalents
     code = str(expr)
@@ -314,9 +319,45 @@ def _sympy_expr_to_python(expr: Any) -> str:
     
     for sympy_name, numpy_name in replacements.items():
         # Replace function calls (e.g., sin(x) -> np.sin(x))
-        import re
         pattern = r'\b' + re.escape(sympy_name) + r'\s*\('
         code = re.sub(pattern, numpy_name + '(', code)
+    
+    return code
+
+
+def _convert_matlab_indexing_to_python(code: str) -> str:
+    """
+    Convert MATLAB-style indexing x(1) to Python indexing x[0, 0]
+    Note: In CORA, x and u are always 2D column vectors (shape (n, 1)),
+    so x(1) in MATLAB corresponds to x[0, 0] in Python
+    
+    Args:
+        code: Python code string with potential MATLAB indexing
+        
+    Returns:
+        Code string with Python indexing
+    """
+    import re
+    
+    # Convert MATLAB-style indexing x(1) to Python indexing x[0, 0]
+    # Pattern: variable name followed by (number) - this is MATLAB 1-based indexing
+    # In CORA, variables are 2D column vectors, so x(1) -> x[0, 0], x(2) -> x[1, 0], etc.
+    # Match patterns like: x(1), xL1R(2), u(1), etc.
+    # But avoid matching function calls like sin(x), sqrt(x), np.sqrt(x), etc.
+    def matlab_to_python_index(match):
+        var_name = match.group(1)  # Variable name (e.g., 'x', 'xL1R', 'u')
+        index = int(match.group(2))  # MATLAB 1-based index
+        python_index = index - 1  # Convert to Python 0-based index
+        # For 2D column vectors, use [index, 0]
+        return f'{var_name}[{python_index}, 0]'
+    
+    # Match variable names (can include L/R for bracket notation) followed by (number)
+    # Exclude common function names and numpy functions to avoid converting function calls
+    # Pattern: word boundary, variable name (can have L/R), opening paren, number, closing paren
+    # Negative lookbehind to exclude function names (np., function names, etc.)
+    # Match: identifier followed by (number) but not if preceded by np. or function name
+    pattern = r'(?<![a-zA-Z_\.])([a-zA-Z_][a-zA-Z0-9_]*L?\d*R?)\s*\(\s*(\d+)\s*\)'
+    code = re.sub(pattern, matlab_to_python_index, code)
     
     return code
 

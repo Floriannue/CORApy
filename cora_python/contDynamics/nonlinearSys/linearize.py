@@ -154,7 +154,7 @@ def linearize(nlnsys: Any, R: Any, params: Dict[str, Any],
     
     # save constant input
     # MATLAB: nlnsys.linError.f0=f0;
-    if not hasattr(nlnsys, 'linError'):
+    if nlnsys.linError is None:
         nlnsys.linError = type('obj', (object,), {})()
     nlnsys.linError.f0 = f0
     

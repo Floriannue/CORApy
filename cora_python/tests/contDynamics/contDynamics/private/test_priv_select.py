@@ -50,7 +50,8 @@ class TestPrivSelect:
         }
         
         params = {
-            'U': Zonotope(np.zeros((1, 1)), 0.05 * np.eye(1))
+            'U': Zonotope(np.zeros((1, 1)), 0.05 * np.eye(1)),
+            'uTrans': np.array([[0.0]])  # Required by linearize
         }
         
         options = {
@@ -78,7 +79,10 @@ class TestPrivSelect:
             'set': Zonotope(np.array([[0], [0]]), np.array([[1, 0.5], [0, 1]])),
             'error': np.array([[0.01], [0.01]])
         }
-        params = {'U': Zonotope(np.zeros((1, 1)), 0.05 * np.eye(1))}
+        params = {
+            'U': Zonotope(np.zeros((1, 1)), 0.05 * np.eye(1)),
+            'uTrans': np.array([[0.0]])  # Required by linearize
+        }
         options = {
             'maxError': np.array([[0.1], [0.1]]),
             'alg': 'linRem',  # Should be converted to 'lin'
@@ -105,7 +109,10 @@ class TestPrivSelect:
             'set': Zonotope(np.array([[0], [0]]), 0.01 * np.eye(2)),  # Small set
             'error': np.array([[0.001], [0.001]])  # Small error
         }
-        params = {'U': Zonotope(np.zeros((1, 1)), 0.01 * np.eye(1))}
+        params = {
+            'U': Zonotope(np.zeros((1, 1)), 0.01 * np.eye(1)),
+            'uTrans': np.array([[0.0]])  # Required by linearize
+        }
         options = {
             'maxError': np.array([[0.1], [0.1]]),  # Large maxError
             'alg': 'lin',

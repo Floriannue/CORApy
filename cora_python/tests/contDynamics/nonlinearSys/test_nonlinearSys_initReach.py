@@ -41,7 +41,8 @@ class TestNonlinearSysInitReach:
         params = {
             'R0': Zonotope(np.array([[2], [4], [4], [2], [10], [4]]), 0.2 * np.eye(dim_x)),
             'U': Zonotope(np.zeros((1, 1)), 0.005 * np.eye(1)),
-            'tFinal': 4
+            'tFinal': 4,
+            'uTrans': np.zeros((1, 1))  # Default: center of input set U
         }
         
         # reachability settings
@@ -58,9 +59,7 @@ class TestNonlinearSysInitReach:
         
         # options check
         # MATLAB: [params,options] = validateOptions(tank,params,options,'FunctionName','reach');
-        # Note: validateOptions should be called before initReach in the actual reach function
-        # For this test, we'll set up the options manually as validateOptions may not be fully translated yet
-        # The test assumes options are already validated
+        # Note: validateOptions is not yet translated, so maxError will be set by initReach if missing
         
         # compute derivations (explicitly, since reach-function is not called)
         from cora_python.contDynamics.contDynamics.derivatives import derivatives
@@ -74,7 +73,7 @@ class TestNonlinearSysInitReach:
         
         # compute only first step
         from cora_python.contDynamics.nonlinearSys.initReach import initReach
-        Rfirst = initReach(tank, params['R0'], params, options)
+        Rfirst, _ = initReach(tank, params['R0'], params, options)
         
         # obtain interval hull of reachable set of first point in time
         IH_tp = Interval(Rfirst['tp'][0]['set'])

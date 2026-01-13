@@ -12,6 +12,12 @@ from .numgens import numgens
 from .isempty import isempty
 from .size import size
 from .center import center
+from .mtimes import mtimes
+from .dependentTerms import dependentTerms
+from .powers import powers
+from .expmOneParam import expmOneParam
+from .expmMixed import expmMixed
+from .expmIndMixed import expmIndMixed
 
 # Attach methods to the matZonotope class
 matZonotope.display = display
@@ -25,4 +31,5 @@ matZonotope.center = center
 # Attach display_ to __str__
 matZonotope.__str__ = lambda self: display_(self)
 
-__all__ = ['matZonotope', 'display', 'display_', 'dim', 'numgens', 'isempty', 'size', 'center'] 
+__all__ = ['matZonotope', 'display', 'display_', 'dim', 'numgens', 'isempty', 'size', 'center',
+           'mtimes', 'dependentTerms', 'powers', 'expmOneParam', 'expmMixed', 'expmIndMixed'] 

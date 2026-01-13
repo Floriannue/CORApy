@@ -1,0 +1,115 @@
+﻿[Warning: Initializing MATLAB Graphics failed.
+This indicates a potentially serious problem in your MATLAB setup, which should be resolved as soon as possible.  Error detected was:
+MATLAB:badsubscript
+Index exceeds the number of array elements. Index must not exceed 1.] 
+[> In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('hgrc', 'C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\core\hg\hgrc.m', 225)" style="font-weight:bold">hgrc</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\core\hg\hgrc.m',225,0)">line 225</a>)
+In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('matlab.graphics.internal.initialize', 'C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\graphics\+matlab\+graphics\+internal\initialize.m', 15)" style="font-weight:bold">matlab.graphics.internal.initialize</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2025a\toolbox\matlab\graphics\graphics\+matlab\+graphics\+internal\initialize.m',15,0)">line 15</a>)
+In close
+In close
+In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('debug_matlab_expmIndMixed', 'D:\Bachelorarbeit\Translate_Cora\debug_matlab_expmIndMixed.m', 7)" style="font-weight:bold">debug_matlab_expmIndMixed</a> (<a href="matlab: opentoline('D:\Bachelorarbeit\Translate_Cora\debug_matlab_expmIndMixed.m',7,0)">line 7</a>)
+In <a href="matlab:matlab.lang.internal.introspective.errorDocCallback('run', 'C:\Program Files\MATLAB\R2025a\toolbox\matlab\lang\run.m', 112)" style="font-weight:bold">run</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2025a\toolbox\matlab\lang\run.m',112,0)">line 112</a>)] 
+
+=== Testing expmIndMixed ===
+
+--- Test Case 1: Simple 2x2 matrix zonotope ---
+eZ center:
+    0.5000    0.7500
+   -0.7500    0.1250
+
+eZ generators:
+
+(:,:,1) =
+
+    0.1000         0
+         0    0.1000
+
+
+(:,:,2) =
+
+         0    0.0500
+    0.0500         0
+
+
+(:,:,3) =
+
+         0    0.0500
+   -0.0500   -0.0250
+
+
+(:,:,4) =
+
+   -0.0250   -0.0125
+         0    0.0250
+
+
+(:,:,5) =
+
+         0    0.0500
+   -0.0500   -0.0250
+
+
+(:,:,6) =
+
+    0.0050         0
+         0    0.0050
+
+
+(:,:,7) =
+
+         0    0.0025
+    0.0025         0
+
+
+(:,:,8) =
+
+    0.0250         0
+   -0.0125   -0.0250
+
+
+(:,:,9) =
+
+         0    0.0025
+    0.0025         0
+
+
+(:,:,10) =
+
+    0.0013         0
+         0    0.0013
+
+eI center:
+    0.1177   -0.0875
+    0.0833    0.1618
+
+eI radius:
+    0.1045    0.1125
+    0.1118    0.1409
+
+E center:
+     0     0
+     0     0
+
+E radius:
+    0.0238    0.0321
+    0.0321    0.0391
+
+Number of zPow: 2
+Number of iPow: 4
+
+Test Case 1: SUCCESS
+
+--- Test Case 2: 3x3 matrix zonotope ---
+eZ2 center:
+    0.5000    0.7500         0
+   -0.7500    0.1250         0
+         0         0    0.5000
+
+eI2 center:
+    0.0833   -0.1250         0
+    0.1217    0.1477         0
+         0         0   -0.1702
+
+
+Test Case 2: SUCCESS
+
+=== Debug script complete ===
