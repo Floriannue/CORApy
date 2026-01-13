@@ -30,8 +30,17 @@ Authors: Matthias Althoff (MATLAB)
 from typing import Optional, Union, Any
 import numpy as np
 from ..contDynamics import ContDynamics
-from cora_python.matrixSet.intervalMatrix import intervalMatrix
-from cora_python.matrixSet.matZonotope import matZonotope
+
+# Import matrix set types
+try:
+    from cora_python.matrixSet.intervalMatrix.intervalMatrix import IntervalMatrix
+except ImportError:
+    IntervalMatrix = None
+
+try:
+    from cora_python.matrixSet.matZonotope import matZonotope
+except ImportError:
+    matZonotope = None
 
 
 class LinearParamSys(ContDynamics):
@@ -130,13 +139,23 @@ class LinearParamSys(ContDynamics):
         
         # Check A
         if A is not None:
-            if not isinstance(A, (np.ndarray, intervalMatrix, matZonotope)):
-                raise TypeError("A must be numeric, intervalMatrix, or matZonotope")
+            valid = isinstance(A, np.ndarray)
+            if not valid and IntervalMatrix is not None:
+                valid = isinstance(A, IntervalMatrix)
+            if not valid and matZonotope is not None:
+                valid = isinstance(A, matZonotope)
+            if not valid:
+                raise TypeError("A must be numeric, IntervalMatrix, or matZonotope")
         
         # Check B
         if B is not None:
-            if not isinstance(B, (np.ndarray, intervalMatrix, matZonotope)):
-                raise TypeError("B must be numeric, intervalMatrix, or matZonotope")
+            valid = isinstance(B, np.ndarray)
+            if not valid and IntervalMatrix is not None:
+                valid = isinstance(B, IntervalMatrix)
+            if not valid and matZonotope is not None:
+                valid = isinstance(B, matZonotope)
+            if not valid:
+                raise TypeError("B must be numeric, IntervalMatrix, or matZonotope")
         
         # Check c
         if c is not None:
@@ -155,7 +174,7 @@ class LinearParamSys(ContDynamics):
         
         if isinstance(A, np.ndarray):
             states = A.shape[0]
-        elif isinstance(A, (intervalMatrix, matZonotope)):
+        elif (IntervalMatrix is not None and isinstance(A, IntervalMatrix)) or (matZonotope is not None and isinstance(A, matZonotope)):
             states = A.dim()[0]
         else:
             raise TypeError(f"Unsupported type for A: {type(A)}")
@@ -170,7 +189,7 @@ class LinearParamSys(ContDynamics):
             inputs = states
         elif isinstance(B, np.ndarray):
             inputs = B.shape[1] if B.ndim > 1 else 1
-        elif isinstance(B, (intervalMatrix, matZonotope)):
+        elif (IntervalMatrix is not None and isinstance(B, IntervalMatrix)) or (matZonotope is not None and isinstance(B, matZonotope)):
             inputs = B.dim()[1]
         else:
             inputs = states  # Default

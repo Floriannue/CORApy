@@ -23,8 +23,14 @@ class TestInitReachInputDependence:
         # MATLAB I/O pairs from debug_matlab_initReach_inputDependence.m
         # TODO: Add MATLAB I/O pairs after running debug script
         
-        # Setup
-        A = np.array([[0, 1], [-1, -0.5]])
+        # Setup - A must be matZonotope or intervalMatrix for expmMixed
+        # Use 2 generators to avoid expmOneParam path (which requires linearized params)
+        from cora_python.matrixSet.matZonotope import matZonotope
+        A_center = np.array([[0, 1], [-1, -0.5]])
+        A_gen = np.zeros((2, 2, 2))
+        A_gen[:, :, 0] = np.array([[0.1, 0], [0, 0.1]])  # First generator
+        A_gen[:, :, 1] = np.array([[0, 0.05], [0.05, 0]])  # Second generator
+        A = matZonotope(A_center, A_gen)
         B = np.array([[0], [1]])
         c = np.array([[0], [0]])
         sys = LinearParamSys(A, B, c, 'constParam')
@@ -33,9 +39,12 @@ class TestInitReachInputDependence:
         Rinit = Zonotope(np.array([[0], [0]]), np.array([[0.1, 0], [0, 0.1]]))
         
         # Parameters
+        # U is in input dimension (1D), Uconst is in input dimension (1D), uTrans is in input dimension (1D)
+        # After linearization, these get transformed to state space dimension
         params = {
-            'Uconst': Zonotope(np.array([[0], [0]]), np.array([[0.05, 0], [0, 0.05]])),
-            'uTrans': np.array([[0.1], [0]])
+            'U': Zonotope(np.array([[0]]), np.array([[0.05]])),  # Input dimension (1D)
+            'Uconst': Zonotope(np.array([[0]]), np.array([[0.05]])),  # Input dimension (1D)
+            'uTrans': np.array([[0.1]])  # Input dimension (1D)
         }
         
         # Options

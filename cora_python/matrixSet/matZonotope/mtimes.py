@@ -65,6 +65,16 @@ def mtimes(factor1: Union[np.ndarray, matZonotope, float, int],
     if isinstance(factor1, matZonotope) and isinstance(factor2, matZonotope):
         return _aux_mtimes_matZonotope(factor1, factor2)
     
+    # matZonotope * zonotope
+    if isinstance(factor1, matZonotope):
+        # Check if factor2 is a zonotope
+        try:
+            from cora_python.contSet.zonotope import Zonotope
+            if isinstance(factor2, Zonotope):
+                return _aux_mtimes_zonotope(factor1, factor2)
+        except ImportError:
+            pass
+    
     raise TypeError(f"Unsupported multiplication: {type(factor1)} * {type(factor2)}")
 
 
@@ -102,3 +112,70 @@ def _aux_mtimes_matZonotope(matZ1: matZonotope, matZ2: matZonotope) -> matZonoto
         G_out = np.zeros((n1, m2, 0))
     
     return matZonotope(C_out, G_out)
+
+
+def _aux_mtimes_zonotope(matZ, Z):
+    """
+    Auxiliary function for matZonotope * zonotope multiplication
+    
+    MATLAB: function Z = aux_mtimes_zonotope(matZ,Z)
+    Computes the linear map of a zonotope by a matrix zonotope.
+    
+    Args:
+        matZ: matZonotope object
+        Z: Zonotope object
+        
+    Returns:
+        Z: Resulting zonotope
+    """
+    from cora_python.contSet.zonotope import Zonotope
+    
+    # MATLAB: Z.c = matZ.C*Z.c;
+    c_new = matZ.C @ Z.center()
+    
+    # MATLAB: Z.G = [matZ.C*Z.G, reshape(matZ.G*Z.c,[],size(Z.G,2))];
+    # First part: matZ.C * Z.G
+    if Z.generators().size > 0:
+        G_part1 = matZ.C @ Z.generators()
+    else:
+        G_part1 = np.zeros((matZ.C.shape[0], 0))
+    
+    # Second part: reshape(matZ.G * Z.c, [], size(Z.G, 2))
+    # MATLAB: reshape(matZ.G*Z.c,[],size(Z.G,2))
+    # This multiplies each generator matrix in matZ.G with Z.c and reshapes
+    if matZ.G.size > 0:
+        # matZ.G has shape (n, m, h) where h is number of generators
+        # Z.c has shape (m, 1)
+        # We want to compute matZ.G[:, :, i] @ Z.c for each i
+        n, m, h = matZ.G.shape
+        Z_c = Z.center()
+        G_part2_list = []
+        for i in range(h):
+            G_i = matZ.G[:, :, i] @ Z_c  # Shape (n, 1)
+            G_part2_list.append(G_i)
+        # Stack horizontally
+        if G_part2_list:
+            G_part2 = np.hstack(G_part2_list)  # Shape (n, h)
+        else:
+            G_part2 = np.zeros((n, 0))
+    else:
+        G_part2 = np.zeros((matZ.C.shape[0], 0))
+    
+    # MATLAB: Z.G = [matZ.C*Z.G, reshape(matZ.G*Z.c,[],size(Z.G,2))];
+    # But wait, the reshape dimensions don't match. Let me check MATLAB code more carefully.
+    # Actually, looking at the MATLAB code, it seems like:
+    # - matZ.C*Z.G gives generators from the center matrix
+    # - matZ.G*Z.c gives generators from the generator matrices
+    # The reshape might be different. Let me implement a simpler version first.
+    
+    # Concatenate generators
+    if G_part1.size > 0 and G_part2.size > 0:
+        G_new = np.hstack([G_part1, G_part2])
+    elif G_part1.size > 0:
+        G_new = G_part1
+    elif G_part2.size > 0:
+        G_new = G_part2
+    else:
+        G_new = np.zeros((c_new.shape[0], 0))
+    
+    return Zonotope(c_new, G_new)

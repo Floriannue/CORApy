@@ -56,6 +56,12 @@ PolyZonotope.display_ = display_
 # Attach display_ to __str__
 PolyZonotope.__str__ = lambda self: display_(self)
 
+# Attach operator overloads
+PolyZonotope.__matmul__ = lambda self, other: mtimes(self, other)  # @ operator (matrix multiplication)
+PolyZonotope.__rmatmul__ = lambda self, other: mtimes(other, self)  # @ operator (reverse)
+PolyZonotope.__add__ = lambda self, other: plus(self, other)  # + operator
+PolyZonotope.__radd__ = lambda self, other: plus(other, self)  # + operator (reverse)
+
 # Attach static methods
 PolyZonotope.empty = staticmethod(empty)
 PolyZonotope.origin = staticmethod(origin)

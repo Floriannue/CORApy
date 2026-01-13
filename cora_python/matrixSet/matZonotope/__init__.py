@@ -18,6 +18,7 @@ from .powers import powers
 from .expmOneParam import expmOneParam
 from .expmMixed import expmMixed
 from .expmIndMixed import expmIndMixed
+from .mpower import mpower
 
 # Attach methods to the matZonotope class
 matZonotope.display = display
@@ -27,9 +28,14 @@ matZonotope.numgens = numgens
 matZonotope.isempty = isempty
 matZonotope.size = size
 matZonotope.center = center
+matZonotope.mpower = mpower
 
-# Attach display_ to __str__
+# Attach operator overloads
+matZonotope.__mul__ = lambda self, other: mtimes(self, other)
+matZonotope.__rmul__ = lambda self, other: mtimes(other, self)
+matZonotope.__pow__ = lambda self, other: mpower(self, other)
 matZonotope.__str__ = lambda self: display_(self)
+matZonotope.__repr__ = lambda self: display_(self)
 
 __all__ = ['matZonotope', 'display', 'display_', 'dim', 'numgens', 'isempty', 'size', 'center',
-           'mtimes', 'dependentTerms', 'powers', 'expmOneParam', 'expmMixed', 'expmIndMixed'] 
+           'mtimes', 'mpower', 'dependentTerms', 'powers', 'expmOneParam', 'expmMixed', 'expmIndMixed'] 

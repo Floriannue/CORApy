@@ -69,6 +69,8 @@ EmptySet.vertices_ = vertices_
 EmptySet.__invert__ = not_op  # ~ operator
 EmptySet.__add__ = plus  # + operator
 EmptySet.__radd__ = plus  # + operator (right side)
+EmptySet.__matmul__ = mtimes  # @ operator (matrix multiplication)
+EmptySet.__rmatmul__ = lambda self, other: mtimes(other, self)  # @ operator (reverse)
 
 # Attach static methods
 EmptySet.empty = staticmethod(empty)

@@ -72,8 +72,28 @@ def priv_mappingMatrix(sys: Any, params: Dict[str, Any], options: Dict[str, Any]
     # Mapping matrices
     # MATLAB: obj.mappingMatrixSet.zono = eZ + eImid;
     # MATLAB: obj.mappingMatrixSet.int = eI + (-eImid);
-    sys.mappingMatrixSet['zono'] = eZ + eImid
-    sys.mappingMatrixSet['int'] = eI + (-eImid)
+    # Convert eImid to matZonotope for addition with eZ (if eZ is matZonotope)
+    if isinstance(eZ, matZonotope):
+        # eImid is numeric, add to center of matZonotope
+        sys.mappingMatrixSet['zono'] = matZonotope(eZ.C + eImid, eZ.G)
+    else:
+        sys.mappingMatrixSet['zono'] = eZ + eImid
+    
+    # For interval part, eI is intervalMatrix, eImid is numeric
+    # MATLAB: intMat.int = intMat.int + summand (adds to both inf and sup)
+    if hasattr(eI, 'int'):
+        # eI.int is an Interval, add -eImid to both inf and sup
+        from cora_python.matrixSet.intervalMatrix import IntervalMatrix
+        eI_int = eI.int
+        # Create new interval with updated bounds
+        new_inf = eI_int.inf - eImid
+        new_sup = eI_int.sup - eImid
+        # IntervalMatrix constructor expects center and width
+        new_center = (new_inf + new_sup) / 2
+        new_width = (new_sup - new_inf) / 2
+        sys.mappingMatrixSet['int'] = IntervalMatrix(new_center, new_width)
+    else:
+        sys.mappingMatrixSet['int'] = eI - eImid
     
     # Powers
     # MATLAB: obj.power.zono = zPow;

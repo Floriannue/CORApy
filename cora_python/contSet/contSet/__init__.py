@@ -190,6 +190,9 @@ ContSet.__neg__ = lambda self: uminus(self)
 ContSet.__pos__ = lambda self: uplus(self)
 ContSet.__mul__ = lambda self, other: mtimes(other, self)  # Note: MATLAB style
 ContSet.__rmul__ = lambda self, other: mtimes(other, self)
+ContSet.__matmul__ = lambda self, other: mtimes(other, self)  # @ operator (matrix multiplication)
+ContSet.__rmatmul__ = lambda self, other: mtimes(other, self)  # @ operator (reverse)
+ContSet.mtimes = mtimes  # Also attach as method
 
 # Comparison operations
 ContSet.__eq__ = lambda self, other: eq(self, other)

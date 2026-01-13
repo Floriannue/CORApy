@@ -64,7 +64,8 @@ def priv_inputSolution(sys: Any, params: Dict[str, Any], options: Dict[str, Any]
         # MATLAB: inputSet = inputSet + taylorTerm*V;
         inputSet = inputSet + taylorTerm * V
         # MATLAB: intM = intM + intervalMatrix(taylorTerm);
-        intM = intM + intervalMatrix(taylorTerm)
+        from cora_python.matrixSet.intervalMatrix import IntervalMatrix
+        intM = intM + IntervalMatrix(taylorTerm)
     
     # Interval matrix
     # MATLAB: for i=(length(obj.power.zono)+1):length(obj.power.int)
