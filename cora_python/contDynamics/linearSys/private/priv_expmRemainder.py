@@ -21,6 +21,7 @@ import numpy as np
 import scipy.linalg
 import math
 from cora_python.contSet.interval import Interval
+from cora_python.matrixSet.intervalMatrix import IntervalMatrix
 
 def priv_expmRemainder(linsys, timeStep: float, truncationOrder: int):
     """
@@ -63,7 +64,11 @@ def priv_expmRemainder(linsys, timeStep: float, truncationOrder: int):
     # Determine error due to finite Taylor series
     # (compute absolute value of W for numerical stability)
     W = np.abs(scipy.linalg.expm(A_abs * timeStep) - M)
-    E = Interval(-W, W)
+    # MATLAB: E = interval(-W, W);
+    # This creates an interval from -W to W (symmetric around zero)
+    # IntervalMatrix(matrixCenter, matrixDelta) creates [center-delta, center+delta]
+    # So to get [-W, W], we need center=0 and delta=W
+    E = IntervalMatrix(np.zeros_like(W), W)
 
     # Save in taylorLinSys object
     if not hasattr(linsys.taylor, '_E_cache'):

@@ -51,7 +51,7 @@ Python translation: 2025
 """
 
 import numpy as np
-from typing import Tuple, Optional, Union
+from typing import Tuple, Optional
 from cora_python.contSet.zonotope import Zonotope
 
 
@@ -72,33 +72,61 @@ def oneStep(linsys, X, U, u, timeStep: float, truncationOrder: int,
     Returns:
         Tuple of (Rtp, Rti, Htp, Hti, PU, Pu, C_state, C_input)
     """
-    # Compute homogeneous solution
-    Htp, Hti, C_state = linsys.homogeneousSolution(X, timeStep, truncationOrder, blocks)
+    # MATLAB: narginchk(6,7);
+    # MATLAB: blocks = setDefaultValues({[1,linsys.nrOfDims]},varargin);
+    # by default no block decomposition, i.e., a single block
+    if blocks is None:
+        blocks = np.array([[1, linsys.nr_of_dims]])
     
-    # Compute particular solution due to constant input
-    Pu, C_input_const, _ = linsys.particularSolution_constant(u, timeStep, truncationOrder, blocks)
-    
-    # Compute particular solution due to time-varying input
+    # MATLAB: PU = particularSolution_timeVarying(linsys,U,timeStep,truncationOrder,blocks);
+    # compute time-varying input solution
     PU = linsys.particularSolution_timeVarying(U, timeStep, truncationOrder, blocks)
     
-    # For now, assume no curvature error from time-varying input (simplified)
-    if blocks is None:
-        C_input_tv = Zonotope.origin(linsys.nr_of_dims)
+    # MATLAB: [Pu,C_input] = particularSolution_constant(linsys,u,timeStep,truncationOrder,blocks);
+    # compute constant input solution
+    Pu, C_input_const, _ = linsys.particularSolution_constant(u, timeStep, truncationOrder, blocks)
+    
+    # For time-varying input curvature error (simplified - assume zero for now)
+    # This is handled in particularSolution_timeVarying, but we need to combine with C_input_const
+    # Since C_input_tv is always zero, we can just use C_input_const directly
+    # (C_input_const can be a single Zonotope or a list of Zonotopes depending on blocks)
+    C_input = C_input_const
+    
+    # MATLAB: Htp = homogeneousSolution(linsys,X,timeStep,truncationOrder,blocks);
+    # compute homogeneous time-point solution (only Htp, not Hti or C_state)
+    # Note: homogeneousSolution decomposes X internally, but we'll decompose it again below
+    Htp_result = linsys.homogeneousSolution(X, timeStep, truncationOrder, blocks)
+    if isinstance(Htp_result, tuple):
+        Htp = Htp_result[0]  # Only take Htp, ignore Hti and C_state
     else:
-        if blocks.shape[0] == 1:
-            dim = blocks[0, 1] - blocks[0, 0] + 1
-            C_input_tv = Zonotope.origin(dim)
-        else:
-            C_input_tv = []
-            for i in range(blocks.shape[0]):
-                dim = blocks[i, 1] - blocks[i, 0] + 1
-                C_input_tv.append(Zonotope.origin(dim))
+        Htp = Htp_result
     
-    # Combine input corrections
-    C_input = C_input_const + C_input_tv
+    # MATLAB: Htp = block_operation(@plus,Htp,Pu);
+    # extend to affine time-point solution
+    from cora_python.g.functions.helper.sets.contSet.contSet import block_operation
+    Htp = block_operation(lambda a, b: a + b, Htp, Pu)
     
-    # Compute reachable sets
-    Rtp = Htp + PU + Pu
-    Rti = Hti + PU + Pu + C_input
+    # MATLAB: X = decompose(X,blocks);
+    # decompose start set (remains the same if no blocks given)
+    X = X.decompose(blocks)
     
-    return Rtp, Rti, Htp, Hti, PU, Pu, C_state, C_input 
+    # MATLAB: C_state = priv_curvatureState(linsys,X,timeStep,truncationOrder);
+    # compute curvature error for the state
+    from cora_python.contDynamics.linearSys.homogeneousSolution import priv_curvatureState
+    C_state = priv_curvatureState(linsys, X, timeStep, truncationOrder)
+    
+    # MATLAB: Hti = block_operation(@plus,block_operation(@enclose,X,Htp),C_state);
+    # compute affine time-interval solution
+    from cora_python.g.functions.helper.sets.contSet.contSet import enclose
+    Hti_approx = block_operation(enclose, X, Htp)
+    Hti = block_operation(lambda a, b: a + b, Hti_approx, C_state)
+    
+    # MATLAB: Rtp = block_operation(@plus,Htp,PU);
+    # reachable set as addition of affine and particular solution
+    Rtp = block_operation(lambda a, b: a + b, Htp, PU)
+    
+    # MATLAB: Rti = block_operation(@plus,Hti,block_operation(@plus,PU,C_input));
+    PU_C_input = block_operation(lambda a, b: a + b, PU, C_input)
+    Rti = block_operation(lambda a, b: a + b, Hti, PU_C_input)
+    
+    return Rtp, Rti, Htp, Hti, PU, Pu, C_state, C_input

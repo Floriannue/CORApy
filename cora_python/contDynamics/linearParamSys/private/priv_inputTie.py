@@ -18,7 +18,7 @@ Authors:       Matthias Althoff (MATLAB)
 
 import numpy as np
 from typing import Any, Dict
-from cora_python.matrixSet.intervalMatrix import intervalMatrix
+from cora_python.matrixSet.intervalMatrix import IntervalMatrix
 from cora_python.contSet.interval import Interval
 
 
@@ -41,7 +41,7 @@ def priv_inputTie(sys: Any, options: Dict[str, Any]) -> Any:
     # MATLAB: for i=1:length(obj.power.zono)
     for i in range(len(sys.power['zono'])):
         # MATLAB: Apower{i}=intervalMatrix(obj.power.zono{i});
-        Apower[i] = intervalMatrix(sys.power['zono'][i])
+        Apower[i] = IntervalMatrix(sys.power['zono'][i])
     
     # Interval matrix
     # MATLAB: for i=(length(obj.power.zono)+1):length(obj.power.int)
@@ -58,7 +58,7 @@ def priv_inputTie(sys: Any, options: Dict[str, Any]) -> Any:
     # MATLAB: Asum=timeInterval*Apower{1}*(1/factorial(2));
     infimum = -0.25 * r  # *r^2 already included in Apower
     supremum = 0.0
-    timeInterval = intervalMatrix(0.5 * (supremum + infimum), 0.5 * (supremum - infimum))
+    timeInterval = IntervalMatrix(0.5 * (supremum + infimum), 0.5 * (supremum - infimum))
     Asum = timeInterval * Apower[0] * (1.0 / np.math.factorial(2))  # Apower[1] in MATLAB is index 0 in Python
     
     # MATLAB: for i=3:obj.taylorTerms
@@ -71,11 +71,18 @@ def priv_inputTie(sys: Any, options: Dict[str, Any]) -> Any:
         exp2 = -1 / (i - 1)
         infimum = (i ** exp1 - i ** exp2) * r  # *r^i already included in Apower
         supremum = 0.0
-        timeInterval = intervalMatrix(0.5 * (supremum + infimum), 0.5 * (supremum - infimum))
+        timeInterval = IntervalMatrix(0.5 * (supremum + infimum), 0.5 * (supremum - infimum))
         
         # Compute powers
         # MATLAB: Aadd=timeInterval*Apower{i-1};
-        Aadd = timeInterval * Apower[i - 2]  # Python 0-based, MATLAB uses i-1 which is i-2 in Python
+        # MATLAB uses 1-based indexing: Apower{i-1} where i starts at 3, so i-1 = 2 (1-based)
+        # Python uses 0-based indexing: Apower[i-2] where i starts at 3, so i-2 = 1 (0-based)
+        power_idx = i - 2  # Convert MATLAB i-1 to Python 0-based index
+        if power_idx < len(Apower) and Apower[power_idx] is not None:
+            Aadd = timeInterval * Apower[power_idx]
+        else:
+            # Skip if power doesn't exist (shouldn't happen, but handle gracefully)
+            continue
         
         # Compute sum
         # MATLAB: Asum=Asum+Aadd*(1/factorial(i));
@@ -109,13 +116,18 @@ def priv_inputTie(sys: Any, options: Dict[str, Any]) -> Any:
                (np.math.factorial(sys.taylorTerms + 1) * (1 - epsilon)))
         # MATLAB: Einput = ones(length(obj.A))*interval(-1,1)*phi/norm_A;
         n = sys.nr_of_dims
-        Einput = np.ones((n, n)) * Interval(-1, 1) * phi / norm_A
-        # Convert to intervalMatrix
-        Einput = intervalMatrix(Einput)
+        # Create interval with scaled bounds
+        interval_scaled = Interval(-1, 1) * phi / norm_A
+        # Create matrix where each element is the scaled interval
+        # Extract center and radius from the interval
+        center_val = interval_scaled.center()
+        rad_val = interval_scaled.rad()
+        # Create IntervalMatrix with center and width matrices
+        Einput = IntervalMatrix(np.ones((n, n)) * center_val, np.ones((n, n)) * rad_val)
     else:
         # MATLAB: Einput = interval(-Inf,Inf);
         n = sys.nr_of_dims
-        Einput = intervalMatrix(np.full((n, n), -np.inf), np.full((n, n), np.inf))
+        Einput = IntervalMatrix(np.full((n, n), -np.inf), np.full((n, n), np.inf))
         print('Taylor order not high enough')
     
     # Write to object structure

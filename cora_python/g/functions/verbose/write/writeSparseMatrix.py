@@ -57,19 +57,92 @@ def writeSparseMatrix(fid: TextIO, M: Any, var: str, *varargin) -> bool:
     # MATLAB: [row,col] = find(M~=0);
     # Find non-zero entries
     if isinstance(M, sp.Matrix):
-        # Convert to numpy for finding non-zeros
-        M_np = np.array(M.tolist())
-        row_indices, col_indices = np.nonzero(M_np != 0)
-        row = row_indices + 1  # MATLAB uses 1-based indexing
-        col = col_indices + 1
+        # For SymPy matrices, check each element individually to correctly identify zeros
+        # MATLAB: [row,col] = find(M~=0);
+        rows, cols = M.shape
+        row_list = []
+        col_list = []
+        for i in range(rows):
+            for j in range(cols):
+                elem = M[i, j]
+                # Check if element is non-zero (handle symbolic expressions)
+                # Skip None values (they shouldn't be in the matrix, but handle gracefully)
+                if elem is None:
+                    continue
+                
+                is_nonzero = False
+                if isinstance(elem, sp.Basic):
+                    # For symbolic expressions, check if it simplifies to zero
+                    # First check is_zero property (most reliable)
+                    if hasattr(elem, 'is_zero'):
+                        if elem.is_zero is True:
+                            is_nonzero = False
+                        elif elem.is_zero is False:
+                            is_nonzero = True
+                        else:
+                            # is_zero is None - try to simplify and check
+                            try:
+                                simplified = sp.simplify(elem)
+                                # Check if simplified is zero
+                                if isinstance(simplified, sp.Basic) and hasattr(simplified, 'is_zero'):
+                                    if simplified.is_zero is True:
+                                        is_nonzero = False
+                                    else:
+                                        is_nonzero = True
+                                else:
+                                    # Not a symbolic expression, check == 0
+                                    is_nonzero = (simplified != 0)
+                            except:
+                                # If simplification fails, check == 0
+                                try:
+                                    if elem == 0:
+                                        is_nonzero = False
+                                    else:
+                                        is_nonzero = True
+                                except:
+                                    # If comparison fails, assume non-zero (conservative)
+                                    is_nonzero = True
+                    else:
+                        # No is_zero attribute, check == 0
+                        try:
+                            if elem == 0:
+                                is_nonzero = False
+                            else:
+                                is_nonzero = True
+                        except:
+                            # If comparison fails, assume non-zero
+                            is_nonzero = True
+                else:
+                    # Numeric value
+                    is_nonzero = (elem != 0 and elem is not None)
+                
+                if is_nonzero:
+                    row_list.append(i + 1)  # MATLAB uses 1-based indexing
+                    col_list.append(j + 1)
+        row = np.array(row_list)
+        col = np.array(col_list)
     else:
-        # Assume numpy array
-        row_indices, col_indices = np.nonzero(M != 0)
+        # Assume numpy array or list
+        # Convert to numpy if it's a list
+        if isinstance(M, list):
+            M = np.array(M)
+        # Handle 1D and 2D matrices
+        if M.ndim == 1:
+            # 1D array - treat as column vector
+            nonzero_indices = np.nonzero(M != 0)[0]
+            row_indices = nonzero_indices
+            col_indices = np.zeros_like(nonzero_indices)  # All in column 0
+        else:
+            # 2D array
+            row_indices, col_indices = np.nonzero(M != 0)
         row = row_indices + 1
         col = col_indices + 1
     
     # MATLAB: empty = isempty(row);
     empty = len(row) == 0
+    
+    # Debug: if verbose, print what we found
+    # (This will be removed later, but helps debug the indZero issue)
     
     # loop over all non-zero entries and print them one-by-one
     # MATLAB: if taylMod
@@ -103,9 +176,16 @@ def writeSparseMatrix(fid: TextIO, M: Any, var: str, *varargin) -> bool:
             else:
                 elem = M[row[i]-1, col[i]-1]
             
+            # Skip if element is None (shouldn't happen if guard worked correctly)
+            if elem is None:
+                continue
+            
             # Convert to string with bracket substitution
             # MATLAB: bracketSubs(char(M(row(i),col(i))))
             elem_str = str(elem)
+            # Skip if string representation is None
+            if elem_str == 'None':
+                continue
             elem_str = bracketSubs(elem_str)
             # Convert MATLAB indexing to Python indexing
             elem_str = _convert_matlab_indexing_to_python(elem_str)

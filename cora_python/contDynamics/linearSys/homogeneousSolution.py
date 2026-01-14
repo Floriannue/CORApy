@@ -126,6 +126,8 @@ def priv_curvatureState(linsys, X, timeStep: float, truncationOrder: int):
     """
     Compute curvature error for the state
     
+    MATLAB: C_state = priv_curvatureState(linsys,X,timeStep,truncationOrder);
+    
     Args:
         linsys: LinearSys object
         X: Start set (possibly decomposed)
@@ -135,20 +137,24 @@ def priv_curvatureState(linsys, X, timeStep: float, truncationOrder: int):
     Returns:
         Curvature error set
     """
-    # This is a simplified implementation
-    # The full implementation would compute the curvature error based on
-    # higher-order terms in the Taylor expansion
+    # MATLAB: F = priv_correctionMatrixState(linsys,timeStep,truncationOrder);
+    from cora_python.contDynamics.linearSys.private.priv_correctionMatrixState import priv_correctionMatrixState
+    F = priv_correctionMatrixState(linsys, timeStep, truncationOrder)
     
-    # For now, return a zero set of appropriate dimension
+    # MATLAB: try
+    #     C_state = block_mtimes(F,X);
+    # catch
+    #     % convert set to interval if interval matrix * set not supported
+    #     C_state = block_mtimes(F,block_operation(@interval,X));
+    # end
+    try:
+        from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes
+        C_state = block_mtimes(F, X)
+    except (TypeError, ValueError, AttributeError):
+        # convert set to interval if interval matrix * set not supported
+        from cora_python.g.functions.helper.sets.contSet.contSet import block_operation
+        from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes
+        X_interval = block_operation(lambda x: x.interval(), X)
+        C_state = block_mtimes(F, X_interval)
     
-    if isinstance(X, list):
-        # Decomposed case - return list of zero sets
-        result = []
-        for x_block in X:
-            dim = x_block.dim()
-            result.append(Zonotope.origin(dim))
-        return result
-    else:
-        # Single set case
-        dim = X.dim()
-        return Zonotope.origin(dim) 
+    return C_state 

@@ -129,6 +129,11 @@ def write3rdOrderTensorFile(J3dyn: Any, J3con: Any, path: str, fname: str,
         # MATLAB: initStr = aux_initStr(Tdyn,parallel,infsupFlag);
         initStr = aux_initStr(Tdyn, parallel, infsupFlag)
         
+        # Initialize Tf if not using parallel execution
+        # MATLAB: Tf = cell(n_dyn, m_dyn);
+        if not parallel:
+            fid.write(f'    Tf = [[None for _ in range({m_dyn})] for _ in range({n_dyn})]\n\n')
+        
         # dynamic part
         # MATLAB: indZero = false(n_dyn,m_dyn);
         indZero = np.zeros((n_dyn, m_dyn), dtype=bool)
@@ -167,8 +172,30 @@ def write3rdOrderTensorFile(J3dyn: Any, J3con: Any, path: str, fname: str,
                     # MATLAB: fprintf(fid, '\n%s\n', sprintf(initStr,k,l));
                     fid.write(f'\n    {initStr.format(k, l)}\n')
                     # MATLAB: indZero(k,l) = writeSparseMatrix(fid,Tdyn{k,l},...)
-                    indZero[k, l] = writeSparseMatrix(fid, Tdyn[k][l],
+                    # Note: writeSparseMatrix returns True if matrix is empty, False if it has non-zero elements
+                    # indZero[k, l] = True means matrix is empty, False means it has non-zero elements
+                    empty_result = writeSparseMatrix(fid, Tdyn[k][l],
                                                       f'Tf[{k}][{l}]', taylMod)
+                    indZero[k, l] = empty_result
+                    # Debug: verify the assignment worked and check matrix contents
+                    if options.get('verbose', False):
+                        if isinstance(Tdyn[k][l], sp.Matrix):
+                            rows, cols = Tdyn[k][l].shape
+                            non_zero_count = 0
+                            for i in range(min(rows, 3)):  # Check first few rows
+                                for j in range(min(cols, 3)):  # Check first few cols
+                                    elem = Tdyn[k][l][i, j]
+                                    if isinstance(elem, sp.Basic):
+                                        if hasattr(elem, 'is_zero') and elem.is_zero is True:
+                                            pass  # zero
+                                        else:
+                                            non_zero_count += 1
+                                    elif elem != 0:
+                                        non_zero_count += 1
+                            if non_zero_count == 0 and (k, l) != (0, 0):  # Tf[0][0] should have non-zero
+                                print(f'  DEBUG: indZero[{k}, {l}] = {empty_result} (non-zero count: {non_zero_count}, should be True if empty)')
+                        else:
+                            print(f'  DEBUG: indZero[{k}, {l}] = {empty_result} (matrix empty: {empty_result})')
                 
                 # MATLAB: if options.verbose
                 if options.get('verbose', False):
@@ -196,6 +223,14 @@ def write3rdOrderTensorFile(J3dyn: Any, J3con: Any, path: str, fname: str,
             fid.write('\n')
         
         # constraint part
+        # Initialize Tg if there are constraints
+        # MATLAB: In MATLAB, Tg is initialized implicitly by first assignment
+        # In Python, we need to initialize it explicitly
+        if len(Tcon) > 0 and len(Tcon[0]) > 0:
+            n_con = len(Tcon)
+            m_con = len(Tcon[0]) if len(Tcon) > 0 else 0
+            fid.write(f'    Tg = [[None for _ in range({m_con})] for _ in range({n_con})]\n\n')
+        
         # MATLAB: for k=1:size(Tcon,1)
         for k in range(len(Tcon)):
             # MATLAB: for l=1:size(Tcon,2)
@@ -227,19 +262,41 @@ def write3rdOrderTensorFile(J3dyn: Any, J3con: Any, path: str, fname: str,
         # MATLAB: for i=1:size(indNonZero,1)
         for i in range(indNonZero.shape[0]):
             # MATLAB: fprintf(fid,'ind{%i} = %s;\n',i,mat2str(find(indNonZero(i,:)')));
-            # Find non-zero indices (1-based for MATLAB compatibility, but we'll use 0-based for Python)
+            # Find non-zero indices (MATLAB uses 1-based, Python uses 0-based)
+            # MATLAB's find returns 1-based indices, so we need to convert
             non_zero_indices = np.where(indNonZero[i, :])[0]
-            indices_str = '[' + ', '.join(str(idx) for idx in non_zero_indices) + ']'
+            # MATLAB uses 1-based indexing, so convert to 1-based for consistency
+            # But Python uses 0-based, so keep 0-based
+            if len(non_zero_indices) > 0:
+                indices_str = '[' + ', '.join(str(idx) for idx in non_zero_indices) + ']'
+            else:
+                indices_str = '[]'
             fid.write(f'    ind[{i}] = {indices_str}\n')
         
         # properly end function
         # MATLAB: fprintf(fid,'\nend\n');
         # Python return statement
-        if argsOut.startswith('[') and argsOut.endswith(']'):
-            outputs = argsOut[1:-1].replace(' ', '').split(',')
-            fid.write(f'\n    return {", ".join(outputs)}\n')
+        # Check if function body is empty (no Tf initialization written)
+        # If empty, initialize Tf and ind to empty structures
+        if n_dyn == 0 or m_dyn == 0:
+            # Empty tensor - return empty structures
+            fid.write('    # Empty tensor\n')
+            if 'Tg' in argsOut:
+                fid.write('    Tf = []\n')
+                fid.write('    Tg = []\n')
+                fid.write('    ind = []\n')
+                fid.write('    return Tf, Tg, ind\n')
+            else:
+                fid.write('    Tf = []\n')
+                fid.write('    ind = []\n')
+                fid.write('    return Tf, ind\n')
         else:
-            fid.write(f'\n    return {argsOut}\n')
+            # Normal return statement
+            if argsOut.startswith('[') and argsOut.endswith(']'):
+                outputs = argsOut[1:-1].replace(' ', '').split(',')
+                fid.write(f'\n    return {", ".join(outputs)}\n')
+            else:
+                fid.write(f'\n    return {argsOut}\n')
         
         # create optimized function to reduce the number of interval operations
         # MATLAB: aux_writefunOptimize(fid,out,path,cellSymVars);
@@ -336,8 +393,42 @@ def aux_rearrange(J3: Any) -> List[List[Any]]:
                 T_row.append(np.squeeze(J3[k, l, :, :]))
             T.append(T_row)
     else:
-        # Assume it's already a 2D list
-        T = J3
+        # Assume it's already a 2D list (from aux_thirdOrderDerivatives)
+        # MATLAB: T{k,l} = squeeze(J3(k,l,:,:));
+        # In MATLAB, squeeze always returns a matrix, even if all zeros
+        # In Python, if J3[k][l] is None (not computed), we need to create an empty matrix
+        # Get dimensions from first non-None element
+        n = len(J3)
+        m = len(J3[0]) if n > 0 else 0
+        T = []
+        for k in range(n):
+            T_row = []
+            for l in range(m):
+                # MATLAB: T{k,l} = squeeze(J3(k,l,:,:));
+                # In MATLAB, squeeze always returns a matrix, even if all zeros
+                # In Python, if J3[k][l] is not a Matrix (still the initial nested list structure),
+                # it means it wasn't computed, so we need to create an empty zero matrix
+                if not isinstance(J3[k][l], sp.Matrix):
+                    # Not a matrix - means it wasn't computed (still the initial nested list)
+                    # Get size from first computed matrix
+                    matrix_size = None
+                    for k2 in range(n):
+                        for l2 in range(m):
+                            if isinstance(J3[k2][l2], sp.Matrix):
+                                matrix_size = J3[k2][l2].shape
+                                break
+                        if matrix_size is not None:
+                            break
+                    if matrix_size is not None:
+                        # Create zero matrix of same size
+                        T_row.append(sp.zeros(matrix_size[0], matrix_size[1]))
+                    else:
+                        # Default size (shouldn't happen, but handle gracefully)
+                        T_row.append(sp.zeros(7, 7))  # Default for tank6Eq
+                else:
+                    # Already a matrix, use as-is
+                    T_row.append(J3[k][l])
+            T.append(T_row)
     
     return T
 

@@ -73,34 +73,42 @@ def canonicalForm(linsys, U, uVec, W, V, vVec) -> Tuple[LinearSys, Zonotope, np.
     
     # Read out all centers
     centerU = _center(U)
-    centerW = _center(W)
-    centerV = _center(V)
+    centerW = _center(W) if W is not None else np.zeros((linsys.nr_of_dims, 1))
+    centerV = _center(V) if V is not None else np.zeros((linsys.nr_of_outputs, 1))
     
     # Shift all sets so that they are centered at the origin
     U = U + (-centerU)
-    W = W + (-centerW)
-    V = V + (-centerV)
+    if W is not None:
+        W = W + (-centerW)
+    if V is not None:
+        V = V + (-centerV)
     
     # Offset vector the output: if it is not constant, we require an additional
     # column in U because there are steps+1 time points (on which we evaluate
     # the output set) but only steps time intervals (for which we need uVec)
     if uVec.shape[1] == 1:
         # Handle F matrix multiplication: if F is a column vector, use element-wise multiplication
-        if linsys.F.shape[1] == 1 and (centerV + vVec).shape == linsys.F.shape:
-            F_term = linsys.F * (centerV + vVec)
+        if V is not None and np.any(linsys.F):
+            if linsys.F.shape[1] == 1 and (centerV + vVec).shape == linsys.F.shape:
+                F_term = linsys.F * (centerV + vVec)
+            else:
+                F_term = linsys.F @ (centerV + vVec)
         else:
-            F_term = linsys.F @ (centerV + vVec)
+            F_term = np.zeros((linsys.nr_of_outputs, 1))
         v_ = linsys.D @ uVec + linsys.k + F_term
-    elif not np.any(linsys.D) and not np.any(linsys.k) and not np.any(linsys.F):
+    elif not np.any(linsys.D) and not np.any(linsys.k) and (V is None or not np.any(linsys.F)):
         v_ = np.zeros((linsys.nr_of_outputs, 1))
     else:
         # Only compute if a non-zero result is to be expected
         uVec_extended = np.hstack([uVec, np.zeros((linsys.nr_of_inputs, 1))])
         # Handle F matrix multiplication: if F is a column vector, use element-wise multiplication
-        if linsys.F.shape[1] == 1 and (centerV + vVec).shape == linsys.F.shape:
-            F_term = linsys.F * (centerV + vVec)
+        if V is not None and np.any(linsys.F):
+            if linsys.F.shape[1] == 1 and (centerV + vVec).shape == linsys.F.shape:
+                F_term = linsys.F * (centerV + vVec)
+            else:
+                F_term = linsys.F @ (centerV + vVec)
         else:
-            F_term = linsys.F @ (centerV + vVec)
+            F_term = np.zeros((linsys.nr_of_outputs, 1))
         v_ = linsys.D @ uVec_extended + linsys.k + F_term
     
     # Simplify representation if result is all-zero
@@ -108,13 +116,21 @@ def canonicalForm(linsys, U, uVec, W, V, vVec) -> Tuple[LinearSys, Zonotope, np.
         v_ = np.zeros((linsys.nr_of_outputs, 1))
     
     # Time-varying uncertainty on the output
-    V_ = linsys.D @ (U + centerU) + linsys.F @ V
+    if V is not None and np.any(linsys.F):
+        V_ = linsys.D @ (U + centerU) + linsys.F @ V
+    else:
+        V_ = linsys.D @ (U + centerU)
     
     # Offset vector for state
-    u_ = linsys.B @ uVec + linsys.B @ centerU + linsys.c + linsys.E @ centerW
+    u_ = linsys.B @ uVec + linsys.B @ centerU + linsys.c
+    if W is not None and np.any(linsys.E):
+        u_ = u_ + linsys.E @ centerW
     
     # Time-varying uncertainty for state
-    U_ = linsys.B @ U + linsys.E @ W
+    if W is not None and np.any(linsys.E):
+        U_ = linsys.B @ U + linsys.E @ W
+    else:
+        U_ = linsys.B @ U
     
     # Update system dynamics
     n = linsys.nr_of_dims

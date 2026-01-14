@@ -62,7 +62,22 @@ def priv_reduceGirard(Z: 'Zonotope', order: int) -> 'Zonotope':
                 idxUnred = ~idxRed
             else:
                 # Pick generators with largest h values to be kept
-                indUnred = np.argsort(h)[-(nUnreduced):]
+                # MATLAB: [~,indUnred] = maxk(fliplr(h),nUnreduced);
+                # MATLAB: indUnred = nrOfGens - indUnred + 1; % maintain ordering
+                # Reverse h, find maxk, then reverse indices back
+                # MATLAB uses 1-based indexing, Python uses 0-based
+                h_flipped = np.flip(h)
+                # Use argsort to get indices of largest values (equivalent to maxk)
+                # argsort gives indices in ascending order, so take last nUnreduced
+                indUnred_flipped_0based = np.argsort(h_flipped)[-(nUnreduced):]
+                # Convert to 1-based for MATLAB formula
+                indUnred_flipped_1based = indUnred_flipped_0based + 1
+                # MATLAB: indUnred = nrOfGens - indUnred + 1 (1-based)
+                indUnred_1based = nrOfGens - indUnred_flipped_1based + 1
+                # Convert back to 0-based
+                indUnred = indUnred_1based - 1
+                # Sort to maintain ordering (MATLAB maintains original order)
+                indUnred = np.sort(indUnred)
                 idxUnred = np.zeros(nrOfGens, dtype=bool)
                 idxUnred[indUnred] = True
                 idxRed = ~idxUnred

@@ -29,6 +29,8 @@ from .dependentTerms import dependentTerms
 from .exponentialRemainder import exponentialRemainder
 from .expm import expm
 from .expmInd import expmInd
+from .infimum import infimum
+from .supremum import supremum
 
 # Attach methods to the IntervalMatrix class
 IntervalMatrix.display = display
@@ -45,10 +47,14 @@ IntervalMatrix.rad = rad
 IntervalMatrix.delta = delta
 IntervalMatrix.shape = shape
 IntervalMatrix.mpower = mpower
+IntervalMatrix.infimum = infimum
+IntervalMatrix.supremum = supremum
 IntervalMatrix.__add__ = lambda self, other: plus(self, other)
 IntervalMatrix.__radd__ = lambda self, other: plus(other, self)
 IntervalMatrix.__mul__ = lambda self, other: mtimes(self, other)
 IntervalMatrix.__rmul__ = lambda self, other: mtimes(other, self)
+IntervalMatrix.__matmul__ = lambda self, other: mtimes(self, other)
+IntervalMatrix.__rmatmul__ = lambda self, other: mtimes(other, self)
 IntervalMatrix.__pow__ = lambda self, other: mpower(self, other)
 IntervalMatrix.__repr__ = lambda self: display_(self)
 IntervalMatrix.__str__ = lambda self: display_(self)
@@ -73,4 +79,6 @@ __all__ = [
     'exponentialRemainder',
     'expm',
     'expmInd',
+    'infimum',
+    'supremum',
 ] 

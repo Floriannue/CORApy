@@ -1,21 +1,14 @@
 """
-test_priv_abstrerr_poly - GENERATED TEST
-   No MATLAB source test exists. This test was created by analyzing the MATLAB 
-   implementation logic in priv_abstrerr_poly.py and ensuring thorough coverage.
+test_priv_abstrerr_poly - Test for priv_abstrerr_poly function
+   MATLAB I/O pairs from debug_matlab_nonlinearSys_initReach_abstrerr_chain.m
 
    This test verifies that priv_abstrerr_poly correctly computes the abstraction 
-   error for the polynomialization approach, including:
-   - Computing intervals of reachable set and input
-   - Computing second-order dynamic error
-   - Handling tensorOrder == 3 (with third-order error)
-   - Handling tensorOrder >= 4 (with higher-order error)
-   - Using interval arithmetic vs range bounding
-   - Computing static and dynamic error components
+   error for the polynomialization approach using the 6D tank example.
 
 Syntax:
     pytest cora_python/tests/contDynamics/contDynamics/private/test_priv_abstrerr_poly.py
 
-Authors:       Generated test based on MATLAB implementation
+Authors:       MATLAB I/O pairs from debug_matlab_nonlinearSys_initReach_abstrerr_chain.m
 Written:       2025
 Last revision: ---
                Automatic python translation: Florian Nüssel BA 2025
@@ -26,6 +19,10 @@ import pytest
 from cora_python.contSet.zonotope import Zonotope
 from cora_python.contSet.interval import Interval
 from cora_python.contDynamics.contDynamics.private.priv_abstrerr_poly import priv_abstrerr_poly
+from cora_python.contDynamics.nonlinearSys import NonlinearSys
+from cora_python.models.Cora.tank.tank6Eq import tank6Eq
+from cora_python.contDynamics.contDynamics.derivatives import derivatives
+from cora_python.contDynamics.contDynamics.linReach import linReach
 
 
 class MockNonlinearSys:
@@ -76,6 +73,71 @@ class MockNonlinearSys:
 
 class TestPrivAbstrerrPoly:
     """Test class for priv_abstrerr_poly functionality"""
+    
+    def test_priv_abstrerr_poly_tank6_example(self):
+        """Test with 6D tank example (same as MATLAB test_nonlinearSys_initReach with alg='poly')"""
+        # Model parameters (same as MATLAB test)
+        dim_x = 6
+        params = {
+            'R0': Zonotope(np.array([[2], [4], [4], [2], [10], [4]]), 0.2 * np.eye(dim_x)),
+            'U': Zonotope(np.zeros((1, 1)), 0.005 * np.eye(1)),
+            'tFinal': 4,
+            'uTrans': np.zeros((1, 1))
+        }
+        
+        # Reachability settings (same as MATLAB test)
+        # Note: tensorOrder=3 is needed for priv_precompStatError to be called
+        options = {
+            'timeStep': 4,
+            'taylorTerms': 4,
+            'zonotopeOrder': 50,
+            'alg': 'poly',
+            'tensorOrder': 3,  # Use 3 so priv_precompStatError is called
+            'reductionTechnique': 'girard',
+            'errorOrder': 10,
+            'intermediateOrder': 10,
+            'maxError': np.full((dim_x, 1), np.inf)  # Required by linReach
+        }
+        
+        # System dynamics
+        tank = NonlinearSys(tank6Eq, states=6, inputs=1)
+        
+        # Compute derivatives (required)
+        derivatives(tank, options)
+        
+        # Compute factors
+        for i in range(1, options['taylorTerms'] + 2):
+            options['factor'] = options.get('factor', [])
+            options['factor'].append((options['timeStep'] ** i) / np.math.factorial(i))
+        
+        # Prepare Rstart structure (as expected by linReach)
+        Rstart = {'set': params['R0'], 'error': np.zeros((dim_x, 1))}
+        
+        # Call linReach to get Rmax (which includes abstraction error)
+        # linReach calls priv_abstrerr_poly internally when alg='poly'
+        Rti, Rtp, dimForSplit, options_out = linReach(tank, Rstart, params, options)
+        
+        # MATLAB result: linErrors (poly) = [0.000243530072665516; 0.00039402546364495; ...]
+        expected_error = np.array([
+            [0.000243530072665516],
+            [0.00039402546364495],
+            [0.000225203967329969],
+            [0.000572556128362841],
+            [0.000565233191232288],
+            [0.000377256719313722]
+        ])
+        
+        # Compare the error from linReach (which calls priv_abstrerr_poly internally)
+        actual_error = Rtp['error']
+        
+        # Ensure both are 1D arrays for comparison
+        if actual_error.ndim > 1:
+            actual_error = actual_error.flatten()
+        if expected_error.ndim > 1:
+            expected_error = expected_error.flatten()
+        
+        # Compare with MATLAB results (exact match expected)
+        np.testing.assert_allclose(actual_error, expected_error, rtol=1e-6, atol=1e-9)
     
     def test_priv_abstrerr_poly_basic(self):
         """Test basic priv_abstrerr_poly computation"""

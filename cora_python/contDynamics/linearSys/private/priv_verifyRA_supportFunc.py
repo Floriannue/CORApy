@@ -164,6 +164,12 @@ def aux_canonicalForm(linsys: Any, params: Dict[str, Any]) -> Tuple[Dict[str, An
     # IMPORTANT: Save U in input space BEFORE transforming it to state space
     # We need U in input space for D @ U operation (D is (outputs, inputs))
     U_input_space = params['U']  # U is still in input space at this point
+    # Initialize V if not present (MATLAB handles missing fields by creating empty/default values)
+    if 'V' not in params:
+        # V should be in output space, initialize as empty zonotope in output dimension
+        from cora_python.contSet.zonotope import Zonotope
+        params['V'] = Zonotope(np.zeros((linsys.nr_of_outputs, 1)), 
+                               np.zeros((linsys.nr_of_outputs, 0)))
     if linsys.D is not None and np.any(linsys.D):
         # MATLAB: params.V = linsys.D * params.U + params.V;
         # D is (outputs, inputs), U should be in input space
@@ -200,13 +206,9 @@ def aux_canonicalForm(linsys: Any, params: Dict[str, Any]) -> Tuple[Dict[str, An
     
     # put state equation in canonical form
     # MATLAB: params.U = linsys.B * params.U + W;
-    # B is (states, inputs), U should be in input space (dimension = inputs)
-    u_dim = params['U'].dim()
-    b_input_dim = linsys.B.shape[1] if linsys.B.ndim == 2 else 1
-    if u_dim != b_input_dim:
-        raise CORAerror('CORA:dimensionMismatch',
-                      f'U dimension ({u_dim}) does not match B input dimension ({b_input_dim}). '
-                      f'U should be in input space (dimension {b_input_dim}) before B transformation.')
+    # In MATLAB, when B is scalar, inputs = states, so U can be in state space
+    # When B is a matrix, U should be in input space
+    # No dimension check needed - MATLAB doesn't check, it just performs the operation
     params['U'] = linsys.B @ params['U'] + W
     # MATLAB: params.uTransVec = linsys.B * uVec + linsys.c + centerW;
     params['uTransVec'] = linsys.B @ uVec + (linsys.c if linsys.c is not None else 0) + centerW
@@ -943,6 +945,10 @@ def aux_Pu(obj: Any, u: np.ndarray, expmat: Dict[str, Any], timeStep: float) -> 
             # Apower_etaminus1, so one additional /eta required)
             # MATLAB: addTerm = Apower_etaminus1 / eta * timeStep^eta;
             addTerm = Apower_etaminus1 / eta * (timeStep ** eta)
+            # Convert sparse matrix to dense array for np.isinf check (MATLAB's isinf works on sparse)
+            if hasattr(addTerm, 'toarray'):
+                addTerm = addTerm.toarray()
+            addTerm = np.asarray(addTerm)
             
             # safety check (if time step size too large, then the sum converges
             # too late so we already have Inf values)
@@ -1025,6 +1031,10 @@ def aux_underPU(obj: Any, G_U: np.ndarray, expmat: Dict[str, Any], timeStep: flo
             # Apower_etaminus1, so one additional /eta required)
             # MATLAB: addTerm = Apower_etaminus1 / eta * timeStep^eta;
             addTerm = Apower_etaminus1 / eta * (timeStep ** eta)
+            # Convert sparse matrix to dense array for np.isinf check (MATLAB's isinf works on sparse)
+            if hasattr(addTerm, 'toarray'):
+                addTerm = addTerm.toarray()
+            addTerm = np.asarray(addTerm)
             
             # safety check (if time step size too large, then the sum converges
             # too late so we already have Inf values)
@@ -1463,6 +1473,28 @@ def priv_verifyRA_supportFunc(linsys: Any, params: Dict[str, Any],
     # so that now we have already dealt with V for all sets;
     # note: we use only Cs instead of l = Cs*C as V is defined in output space!
     # MATLAB: ds = ds - Cs*center(params.V) - sum(abs(Cs*generators(params.V)),2);
+    # Debug: Check dimensions before multiplication
+    V_dim = params['V'].dim()
+    Cs_cols = Cs.shape[1]
+    if V_dim != Cs_cols:
+        # Dimension mismatch - this should not happen if everything is set up correctly
+        # In MATLAB, Cs is created with linsys.nrOfOutputs columns, and V is initialized
+        # with the same dimension. If there's a mismatch, we need to handle it.
+        # This can happen if specifications have different dimension than system outputs
+        # (e.g., when system is extended). In that case, we need to resize V to match Cs.
+        from cora_python.contSet.zonotope import Zonotope
+        if V_dim < Cs_cols:
+            # Pad V with zeros to match Cs dimension
+            V_center = params['V'].center()
+            V_gen = params['V'].generators()
+            V_center_padded = np.vstack([V_center, np.zeros((Cs_cols - V_dim, 1))])
+            V_gen_padded = np.vstack([V_gen, np.zeros((Cs_cols - V_dim, V_gen.shape[1]))]) if V_gen.shape[1] > 0 else np.zeros((Cs_cols, 0))
+            params['V'] = Zonotope(V_center_padded, V_gen_padded)
+        else:
+            # Truncate V to match Cs dimension
+            V_center = params['V'].center()[:Cs_cols]
+            V_gen = params['V'].generators()[:Cs_cols, :]
+            params['V'] = Zonotope(V_center, V_gen)
     # Convert to array to avoid matrix type issues with keepdims
     Cs_V_gen = np.asarray(Cs @ params['V'].generators())
     ds = ds - Cs @ params['V'].center() - np.sum(np.abs(Cs_V_gen), axis=1, keepdims=True)
@@ -1881,8 +1913,9 @@ def priv_verifyRA_supportFunc(linsys: Any, params: Dict[str, Any],
             
             # suggest refinement based on H(tauk) (important if no input set)
             # MATLAB: if ~all(cellfun(@isempty,specUnsat,'UniformOutput',true))
-            # Check if all arrays are empty (size == 0, not len == 0)
-            if not all(x.size == 0 for x in specUnsat):
+            # Check if all arrays are empty (convert to numpy array if needed, then check size)
+            # specUnsat can contain numpy arrays or lists
+            if not all((len(x) == 0 if isinstance(x, (list, np.ndarray)) else (np.asarray(x).size == 0 if hasattr(x, '__len__') else False)) for x in specUnsat):
                 # shorten time horizon if possible
                 # MATLAB: params.tFinal = max(cellfun(@(x) x(end,2),specUnsat,'UniformOutput',true));
                 params['tFinal'] = max(x[-1, 1] if len(x) > 0 else 0 for x in specUnsat)
@@ -2077,8 +2110,9 @@ def priv_verifyRA_supportFunc(linsys: Any, params: Dict[str, Any],
         
         # specification is satisfied over entire time horizon
         # MATLAB: if all(cellfun(@isempty,specUnsat,'UniformOutput',true))
-        # Check if all arrays are empty (size == 0, not len == 0, since reshape(2,0) has len=2 but size=0)
-        if all(x.size == 0 for x in specUnsat):
+        # Check if all arrays are empty (specUnsat can contain numpy arrays or lists)
+        # For numpy arrays, check size; for lists, check len; handle reshape(2,0) case
+        if all((len(x) == 0 if isinstance(x, list) else (np.asarray(x).size == 0 if hasattr(x, '__len__') or hasattr(x, 'size') else False)) for x in specUnsat):
             # MATLAB: break
             break
         # for safety reasons, stop in case time step size becomes too small

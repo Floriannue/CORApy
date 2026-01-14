@@ -84,15 +84,23 @@ class TestVerifyFastIssISSC01ISS02:
         
         # construct extended system matrices (inputs as additional states)
         # MATLAB: dim_x = length(A);
-        # Handle sparse matrices - use shape[0] instead of len()
-        dim_x = A.shape[0] if hasattr(A, 'shape') else len(A)
+        # Handle sparse matrices - convert to dense and use shape[0] instead of len()
+        if hasattr(A, 'toarray'):
+            A = A.toarray()
+        if hasattr(B, 'toarray'):
+            B = B.toarray()
+        if hasattr(C, 'toarray'):
+            C = C.toarray()
+        dim_x = A.shape[0]
         # MATLAB: A_  = [A,B;zeros(size(B,2),dim_x + size(B,2))];
-        A_ = np.block([[A, B],
-                       [np.zeros((B.shape[1], dim_x + B.shape[1]))]])
+        # Use np.hstack and np.vstack for better compatibility with sparse matrices
+        A_top = np.hstack([A, B])
+        A_bottom = np.zeros((B.shape[1], dim_x + B.shape[1]))
+        A_ = np.vstack([A_top, A_bottom])
         # MATLAB: B_  = zeros(dim_x+size(B,2),1);
         B_ = np.zeros((dim_x + B.shape[1], 1))
         # MATLAB: C_  = [C,zeros(size(C,1),size(B,2))];
-        C_ = np.block([[C, np.zeros((C.shape[0], B.shape[1]))]])
+        C_ = np.hstack([C, np.zeros((C.shape[0], B.shape[1]))])
         
         # construct the linear system object
         # MATLAB: sys = linearSys('iss',A_,B_,[],C_);

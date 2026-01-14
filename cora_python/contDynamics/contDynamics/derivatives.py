@@ -369,6 +369,13 @@ def derivatives(sys: Any, *varargin) -> None:
     # state equation/constraint equation
     # MATLAB: if requiredFiles.standard(3) || requiredFiles.int(3)
     if requiredFiles['standard'][2] or requiredFiles['int'][2]:
+        # J2dyn and J2con are needed for third-order derivatives
+        # If they weren't computed above, compute them now
+        if 'J2dyn' not in locals() or J2dyn is None:
+            J2dyn = aux_hessians(fdyn, vars, simplifyOpt)
+        if 'J2con' not in locals() or J2con is None:
+            J2con = aux_hessians(fcon, vars, simplifyOpt)
+        
         # MATLAB: J3dyn = aux_thirdOrderDerivatives(J2dyn,vars,simplifyOpt);
         J3dyn = aux_thirdOrderDerivatives(J2dyn, vars, simplifyOpt)
         # MATLAB: J3con = aux_thirdOrderDerivatives(J2con,vars,simplifyOpt);
@@ -983,15 +990,32 @@ def aux_thirdOrderDerivatives(H: Any, vars: Dict[str, Any], simplifyOpt: str) ->
             # compute 3rd-order Jacobians
             # MATLAB: if ~isempty(find(H(k,l,:), 1))
             # Check if H[k][l, :] has any non-zero elements
-            H_kl = H[k][l, :] if isinstance(H[k], sp.Matrix) else H[k][l, :]
-            if isinstance(H_kl, sp.Matrix):
-                has_nonzero = any(H_kl[i] != 0 for i in range(H_kl.shape[0]))
+            # H[k] is a SymPy Matrix, H[k][l, :] extracts a row
+            if isinstance(H[k], sp.Matrix):
+                H_kl = H[k][l, :]
+                # Convert row to column vector (1D Matrix)
+                if H_kl.shape[0] == 1:
+                    # Row vector, extract the row
+                    H_kl_list = H_kl.tolist()[0] if hasattr(H_kl, 'tolist') else list(H_kl)
+                else:
+                    # Already a column, convert to list
+                    H_kl_list = H_kl.tolist() if hasattr(H_kl, 'tolist') else list(H_kl)
+                # Check for non-zero elements
+                has_nonzero = any(H_kl_list[i] != 0 for i in range(len(H_kl_list)))
             else:
-                has_nonzero = np.any(H_kl != 0)
+                # H[k] is not a Matrix, try to extract directly
+                H_kl = H[k][l, :] if hasattr(H[k], '__getitem__') else H[k]
+                if isinstance(H_kl, (list, np.ndarray)):
+                    has_nonzero = np.any(np.array(H_kl) != 0)
+                    H_kl_list = list(H_kl) if isinstance(H_kl, list) else H_kl.tolist()
+                else:
+                    has_nonzero = H_kl != 0
+                    H_kl_list = [H_kl]
             
             if has_nonzero:
                 # MATLAB: T(k,l,:,:) = jacobian(reshape(H(k,l,:),[nrOfVars,1]),z);
-                H_kl_reshaped = H_kl.reshape(nrOfVars, 1) if isinstance(H_kl, sp.Matrix) else sp.Matrix(H_kl).reshape(nrOfVars, 1)
+                # Convert to SymPy Matrix column vector
+                H_kl_reshaped = sp.Matrix(H_kl_list).reshape(nrOfVars, 1)
                 T_kl = H_kl_reshaped.jacobian(z)
                 if isSimplify:
                     # MATLAB: T(k,l,:,:) = simplify(T(k,l,:,:));
@@ -999,8 +1023,13 @@ def aux_thirdOrderDerivatives(H: Any, vars: Dict[str, Any], simplifyOpt: str) ->
                 elif isCollect:
                     # MATLAB: T(k,l,:,:) = collect(T(k,l,:,:),z);
                     T_kl = sp.collect(T_kl, z)
-                # Store as 2D matrix
-                T[k][l] = T_kl.tolist() if isinstance(T_kl, sp.Matrix) else T_kl
+                # Store as 2D matrix (keep as SymPy Matrix, not list)
+                # MATLAB stores T as a 4D array, but we use nested lists
+                # T[k][l] should be a matrix (nrOfVars x nrOfVars)
+                if isinstance(T_kl, sp.Matrix):
+                    T[k][l] = T_kl  # Keep as Matrix
+                else:
+                    T[k][l] = sp.Matrix(T_kl)  # Convert to Matrix
     
     return T
 

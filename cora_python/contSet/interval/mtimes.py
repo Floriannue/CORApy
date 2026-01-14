@@ -227,11 +227,23 @@ def _mtimes_matrix_scalar(factor1: Interval, factor2: Interval) -> Interval:
     """
     # MATLAB: obtain possible values
     # Check if factor2 is numeric (converted to interval)
-    factor2_is_numeric = np.allclose(factor2.inf, factor2.sup)
+    # Handle sparse matrices
+    import scipy.sparse
+    if scipy.sparse.issparse(factor2.inf) or scipy.sparse.issparse(factor2.sup):
+        # For sparse matrices, check if they're equal by converting to dense
+        factor2_is_numeric = np.allclose(factor2.inf.toarray() if scipy.sparse.issparse(factor2.inf) else factor2.inf,
+                                         factor2.sup.toarray() if scipy.sparse.issparse(factor2.sup) else factor2.sup)
+    else:
+        factor2_is_numeric = np.allclose(factor2.inf, factor2.sup)
     
     if factor2_is_numeric:
         # MATLAB: if isnumeric(factor2)
-        factor2_val = factor2.inf.item()
+        # Handle sparse matrices
+        import scipy.sparse
+        if scipy.sparse.issparse(factor2.inf):
+            factor2_val = factor2.inf.toarray().item()
+        else:
+            factor2_val = factor2.inf.item()
         if factor2_val < 0:
             # MATLAB: infimum and supremum
             # res = interval(factor2*factor1.sup, factor2*factor1.inf);

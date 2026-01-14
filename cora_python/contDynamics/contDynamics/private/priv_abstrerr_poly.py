@@ -171,7 +171,7 @@ def priv_abstrerr_poly(sys: Any, Rall: Any, Rdiff: Any, params: Dict[str, Any],
         
         # calculate the Lagrange remainder term
         # MATLAB: error_thirdOrder_dyn = interval(zeros(sys.nrOfDims,1),zeros(sys.nrOfDims,1));
-        error_thirdOrder_dyn = Interval(np.zeros(sys.nrOfDims), np.zeros(sys.nrOfDims))
+        error_thirdOrder_dyn = Interval(np.zeros(sys.nr_of_dims), np.zeros(sys.nr_of_dims))
         
         # MATLAB: for i=1:length(ind)
         for i in range(len(ind)):
@@ -200,7 +200,7 @@ def priv_abstrerr_poly(sys: Any, Rall: Any, Rdiff: Any, params: Dict[str, Any],
         
         # no terms of order >= 4
         # MATLAB: remainder = zonotope(zeros(sys.nrOfDims,1));
-        remainder = Zonotope(np.zeros((sys.nrOfDims, 1)))
+        remainder = Zonotope(np.zeros((sys.nr_of_dims, 1)))
     
     else:
         # tensorOrder >= 4
@@ -248,7 +248,7 @@ def priv_abstrerr_poly(sys: Any, Rall: Any, Rdiff: Any, params: Dict[str, Any],
         
         # init higher-order error
         # MATLAB: remainder = interval(zeros(sys.nrOfDims,1),zeros(sys.nrOfDims,1));
-        remainder = Interval(np.zeros(sys.nrOfDims), np.zeros(sys.nrOfDims))
+        remainder = Interval(np.zeros(sys.nr_of_dims), np.zeros(sys.nr_of_dims))
         
         # exact evaluation of intermediate taylor terms
         # MATLAB: for i=4:options.tensorOrder-1

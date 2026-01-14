@@ -61,15 +61,22 @@ def plus(summand1: Union[IntervalMatrix, np.ndarray],
         # MATLAB: intMat.int = intMat.int + summand;
         # Add numeric to interval (adds to both inf and sup)
         summand_array = np.asarray(summand)
-        # Ensure summand_array has the right shape
-        if summand_array.ndim == 0:
-            # Scalar - add to all elements
-            new_int = type(intMat.int)(intMat.int.inf + summand_array, 
-                                        intMat.int.sup + summand_array)
-        else:
-            # Array - add element-wise
-            new_int = type(intMat.int)(intMat.int.inf + summand_array, 
-                                        intMat.int.sup + summand_array)
+        # Ensure summand_array has the right shape to match intMat.int
+        int_shape = intMat.int.shape
+        if summand_array.shape != int_shape:
+            # Try to broadcast or reshape
+            if summand_array.size == 1:
+                # Scalar - broadcast to all elements
+                summand_array = np.full(int_shape, summand_array.item())
+            elif summand_array.size == int_shape[0] * int_shape[1] if len(int_shape) == 2 else int_shape[0]:
+                # Can be reshaped
+                summand_array = summand_array.reshape(int_shape)
+            else:
+                raise ValueError(f"Cannot add array of shape {summand_array.shape} to IntervalMatrix of shape {int_shape}")
+        
+        # Add to both inf and sup
+        new_int = type(intMat.int)(intMat.int.inf + summand_array, 
+                                    intMat.int.sup + summand_array)
         return IntervalMatrix((new_int.inf + new_int.sup) / 2, 
                                (new_int.sup - new_int.inf) / 2)
     

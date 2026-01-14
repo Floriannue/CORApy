@@ -137,9 +137,9 @@ class TestVerifyFastBeamCBF02:
         
         # construct linear system objects
         # MATLAB: sys = linearSys('beam',A,1,[],C);
-        # MATLAB expands scalar 1 to column vector of ones with size matching A
-        B = np.ones((dim_x, 1))
-        sys = LinearSys('beam', A, B, None, C)
+        # MATLAB: scalar B means inputs = states (B gets converted to B*eye(states) internally)
+        # So we should pass scalar 1, not a matrix
+        sys = LinearSys('beam', A, 1, None, C)
         
         # Specification -----------------------------------------------------------
         

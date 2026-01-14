@@ -64,7 +64,11 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
     
     # compute intervals of total reachable set
     # MATLAB: totalInt_x = IHx + sys.linError.p.x;
-    totalInt_x = IHx + sys.linError.p.x
+    # Ensure sys.linError.p.x is a column vector (2D) as expected by hessian functions
+    linError_x = np.asarray(sys.linError.p.x)
+    if linError_x.ndim == 1:
+        linError_x = linError_x.reshape(-1, 1)  # Make it a column vector
+    totalInt_x = IHx + linError_x
     
     # compute intervals of input
     # MATLAB: IHu = interval(params.U);
@@ -72,7 +76,11 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
     
     # translate intervals by linearization point
     # MATLAB: totalInt_u = IHu + sys.linError.p.u;
-    totalInt_u = IHu + sys.linError.p.u
+    # Ensure sys.linError.p.u is a column vector (2D) as expected by hessian functions
+    linError_u = np.asarray(sys.linError.p.u)
+    if linError_u.ndim == 1:
+        linError_u = linError_u.reshape(-1, 1)  # Make it a column vector
+    totalInt_u = IHu + linError_u
     
     # MATLAB: if options.tensorOrder == 2
     if options['tensorOrder'] == 2:
@@ -149,39 +157,35 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
                 # MATLAB: H_ = abs(H{i});
                 # H[i] is an Interval object (interval matrix)
                 # In MATLAB, abs() on interval returns interval with absolute bounds
-                # Then max(infimum, supremum) gets element-wise maximum
-                if isinstance(H[i], Interval):
-                    # For interval, use Python's built-in abs() (not np.abs)
-                    # abs() on interval returns interval with absolute bounds
-                    H_abs = abs(H[i])  # Uses Interval.__abs__
-                    # Then get max of inf and sup element-wise
-                    H_ = np.maximum(H_abs.infimum(), H_abs.supremum())
-                else:
-                    H_ = np.abs(H[i])
-                    # If result is still interval, get max of inf and sup
-                    if isinstance(H_, Interval):
-                        H_abs = abs(H_)
-                        H_ = np.maximum(H_abs.infimum(), H_abs.supremum())
+                H_abs = abs(H[i])  # Uses Interval.__abs__
                 
-                # Handle object arrays that might contain intervals
-                if isinstance(H_, np.ndarray):
-                    # If H_ is already a numpy array, check if elements are intervals
-                    if H_.dtype == object:
-                        # Object array - might contain intervals
-                        H_flat = H_.flatten()
-                        H_max = np.zeros_like(H_flat, dtype=float)
-                        for j in range(len(H_flat)):
-                            if isinstance(H_flat[j], Interval):
-                                H_max[j] = max(H_flat[j].infimum(), H_flat[j].supremum())
-                            else:
-                                H_max[j] = float(H_flat[j])
-                        H_ = H_max.reshape(H_.shape)
-                    else:
-                        # Regular numeric array
-                        H_ = np.abs(H_)
+                # MATLAB: H_ = max(infimum(H_),supremum(H_));
+                # Get max of inf and sup element-wise
+                H_inf = H_abs.infimum()
+                H_sup = H_abs.supremum()
+                
+                # Handle sparse matrices
+                import scipy.sparse
+                if scipy.sparse.issparse(H_inf):
+                    H_inf = H_inf.toarray()
+                if scipy.sparse.issparse(H_sup):
+                    H_sup = H_sup.toarray()
+                
+                H_ = np.maximum(H_inf, H_sup)
+                
+                # Ensure H_ is a regular numpy array (not object array)
+                if H_.dtype == object:
+                    # Convert object array to float array
+                    H_ = np.array([[float(H_[j, k]) for k in range(H_.shape[1])] 
+                                   for j in range(H_.shape[0])], dtype=float)
                 
                 # MATLAB: errorLagr(i) = 0.5 * dz' * H_ * dz;
-                errorLagr[i] = 0.5 * dz.T @ H_ @ dz
+                # dz.T @ H_ @ dz returns a 1x1 matrix, extract scalar
+                result = dz.T @ H_ @ dz
+                if isinstance(result, np.ndarray):
+                    errorLagr[i] = 0.5 * result.item() if result.size == 1 else 0.5 * result[0, 0]
+                else:
+                    errorLagr[i] = 0.5 * float(result)
         
             # check if Lagrange remainder is too large
             # MATLAB: if any(isnan(errorLagr)) || any(isinf(errorLagr))

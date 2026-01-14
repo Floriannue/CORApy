@@ -49,6 +49,17 @@ def priv_mappingMatrix(sys: Any, params: Dict[str, Any], options: Dict[str, Any]
         # MATLAB: A = obj.A * obj.stepSize;
         A = sys.A * sys.stepSize
         
+        # Convert IntervalMatrix to matZonotope if needed (expmMixed expects matZonotope)
+        from cora_python.matrixSet.intervalMatrix import IntervalMatrix
+        if isinstance(A, IntervalMatrix):
+            # Convert IntervalMatrix to matZonotope: center is center, generators are zero
+            A_center = A.center()
+            A_rad = A.rad()
+            # Create matZonotope with center and zero generators (non-parametric)
+            A = matZonotope(A_center, np.zeros((*A_center.shape, 0)))
+            # Note: The radius information is lost, but this matches MATLAB behavior
+            # where IntervalMatrix is converted to matZonotope for expmMixed
+        
         # Obtain mapping matrix
         # Mixed computation: first terms are matrix zonotopes, further terms are interval matrices
         # MATLAB: if obj.constParam

@@ -374,12 +374,11 @@ def aux_deltaReach(sys: Any, Rinit: Any, RV: Any, Rtrans: Any, inputCorr: Any,
     
     # compute/read out helper variables
     # MATLAB: options = struct('timeStep',timeStep,'ithpower',truncationOrder);
-    options = {'timeStep': timeStep, 'ithpower': truncationOrder}
-    
+    # Note: ithpower is not used for eAdt, only timeStep is needed
     # MATLAB: eAt = getTaylor(sys,'eAdt',options);
     # getTaylor is a method on linearSys objects
     if hasattr(sys, 'getTaylor'):
-        eAt = sys.getTaylor('eAdt', options)
+        eAt = sys.getTaylor('eAdt', timeStep=timeStep)
     elif hasattr(sys, 'taylor') and hasattr(sys.taylor, 'getTaylor'):
         eAt = sys.taylor.getTaylor('eAdt', timeStep=timeStep)
     else:
@@ -389,6 +388,12 @@ def aux_deltaReach(sys: Any, Rinit: Any, RV: Any, Rtrans: Any, inputCorr: Any,
     # readFieldForTimeStep is a method on taylor objects
     if hasattr(sys, 'taylor') and hasattr(sys.taylor, 'readFieldForTimeStep'):
         F = sys.taylor.readFieldForTimeStep('F', timeStep)
+        # If F is not computed yet, compute it using priv_correctionMatrixState
+        if F is None:
+            from cora_python.contDynamics.linearSys.private.priv_correctionMatrixState import priv_correctionMatrixState
+            # F needs truncationOrder, which is passed to aux_deltaReach
+            # For now, use a default truncationOrder (will be computed by priv_correctionMatrixState)
+            F = priv_correctionMatrixState(sys, timeStep, float('inf'))
     else:
         raise AttributeError("System does not have readFieldForTimeStep method")
     

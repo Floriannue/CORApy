@@ -43,6 +43,18 @@ def _get_class_for_name(class_name: str) -> Type:
         from cora_python.hybridDynamics.hybridAutomaton.hybridAutomaton import HybridAutomaton
         _CLASS_MAP[class_name] = HybridAutomaton
         return HybridAutomaton
+    elif class_name == 'specification':
+        from cora_python.specification.specification.specification import Specification
+        _CLASS_MAP[class_name] = Specification
+        return Specification
+    elif class_name == 'stl':
+        # STL class might not exist yet, but we can try to import it
+        try:
+            from cora_python.specification.stl.stl import Stl
+            _CLASS_MAP[class_name] = Stl
+            return Stl
+        except ImportError:
+            pass
     
     return None
 
@@ -315,15 +327,28 @@ def checkValueAttributes(value: Any, check_type: str, attributes) -> bool:
         class_check_passed = isinstance(value, np.ndarray)
     else:
         # MATLAB: isa(value, class) - check if value is instance of class
-        # Try to get the Python class for the MATLAB class name
-        python_class = _get_class_for_name(class_name)
-        if python_class is not None:
-            # Direct isinstance check (matches MATLAB's isa)
-            class_check_passed = isinstance(value, python_class)
+        # Handle lists of objects (e.g., list of specifications)
+        if isinstance(value, (list, tuple)) and len(value) > 0:
+            # Check if all items in the list are of the correct class
+            python_class = _get_class_for_name(class_name)
+            if python_class is not None:
+                class_check_passed = all(isinstance(item, python_class) for item in value)
+            else:
+                # Fallback: check MRO for class name match for all items
+                class_check_passed = all(
+                    any(c.__name__.lower() == class_name.lower() for c in type(item).mro())
+                    for item in value
+                )
         else:
-            # Fallback: check MRO for class name match
-            mro = type(value).mro()
-            class_check_passed = any(c.__name__.lower() == class_name.lower() for c in mro)
+            # Try to get the Python class for the MATLAB class name
+            python_class = _get_class_for_name(class_name)
+            if python_class is not None:
+                # Direct isinstance check (matches MATLAB's isa)
+                class_check_passed = isinstance(value, python_class)
+            else:
+                # Fallback: check MRO for class name match
+                mro = type(value).mro()
+                class_check_passed = any(c.__name__.lower() == class_name.lower() for c in mro)
 
     resvec[0] = class_check_passed
 

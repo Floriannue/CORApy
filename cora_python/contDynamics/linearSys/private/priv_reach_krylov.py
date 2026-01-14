@@ -93,8 +93,13 @@ def priv_reach_krylov(linsys: Any, params: Dict[str, Any], options: Dict[str, An
     timePoint['set'][0] = linsys.C @ params['R0']
     timePoint['time'][0] = 0.0
     
+    print(f"Krylov reachability: starting computation for {steps} steps")
     # loop over all reachability steps
     for k in range(1, steps):  # k from 1 to steps-1 (0-based: 1 to steps-1)
+        
+        # Print progress every 100 steps
+        if k % 100 == 0:
+            print(f"Krylov reachability: step {k}/{steps-1} ({(k/(steps-1)*100):.1f}%)")
         
         # increment time
         options['t'] = tVec[k]
@@ -219,7 +224,14 @@ def _aux_propagation(sys: Any, params: Dict[str, Any], options: Dict[str, Any]) 
     # we save U_0_sol as interval because otherwise we would have way too many
     # generators to justify the loss in precision
     # MATLAB: U_0_sol = U_0_sol + interval(RV_proj);
-    U_0_sol = U_0_sol + RV_proj.interval()
+    # In MATLAB, Zonotope + Interval returns an Interval (to save generators)
+    # In Python, Zonotope + Interval returns a Zonotope, so we convert to Interval to match MATLAB
+    U_0_sol_temp = U_0_sol + RV_proj.interval()
+    # Convert to Interval to match MATLAB behavior (saves generators)
+    if isinstance(U_0_sol_temp, Zonotope):
+        U_0_sol = U_0_sol_temp.interval()
+    else:
+        U_0_sol = U_0_sol_temp
     # MATLAB: U_0_sol = reduce(U_0_sol,options.reductionTechnique,options.zonotopeOrder);
     U_0_sol = U_0_sol.reduce(options.get('reductionTechnique', 'girard'), 
                              options.get('zonotopeOrder', 5))
@@ -227,7 +239,10 @@ def _aux_propagation(sys: Any, params: Dict[str, Any], options: Dict[str, Any]) 
     # next time step solution
     Rhom_tp_proj = Htp + RTrans_new_proj
     # MATLAB: R_tp_proj = Rhom_tp_proj + zonotope(U_0_sol);
-    R_tp_proj = Rhom_tp_proj + U_0_sol.zonotope()
+    # In MATLAB, U_0_sol is an Interval, so zonotope(U_0_sol) converts it to Zonotope
+    # Import at top level to avoid repeated imports in loop
+    U_0_sol_zono = U_0_sol.zonotope()
+    R_tp_proj = Rhom_tp_proj + U_0_sol_zono
     
     # affine time interval solution
     # MATLAB: TI_apx = enclose(Rhom_tp_prev,Rhom_tp_proj);
@@ -236,7 +251,32 @@ def _aux_propagation(sys: Any, params: Dict[str, Any], options: Dict[str, Any]) 
     # complete time-interval solution
     inputCorr = sys.krylov.get('inputCorr', Zonotope(np.zeros((sys.nr_of_outputs if hasattr(sys, 'nr_of_outputs') else sys.nrOfOutputs, 1)),
                                                      np.array([]).reshape(sys.nr_of_outputs if hasattr(sys, 'nr_of_outputs') else sys.nrOfOutputs, 0)))
-    R_ti_proj = TI_apx + U_0_sol + TIE_new_proj + inputCorr
+    # MATLAB: R_ti_proj = TI_apx + U_0_sol + TIE_new_proj + sys.krylov.inputCorr;
+    # In MATLAB:
+    #   - TI_apx is a Zonotope (from enclose)
+    #   - U_0_sol is an Interval (saved as interval to reduce generators)
+    #   - TIE_new_proj (hom_tie) is an Interval (from aux_propagate_HomSol)
+    #   - inputCorr is a Zonotope
+    # MATLAB handles Zonotope + Interval automatically (converts Interval to Zonotope)
+    # In Python, we need to convert Intervals to Zonotopes for addition
+    # Convert U_0_sol (Interval) to Zonotope for addition
+    if isinstance(U_0_sol, Interval):
+        U_0_sol_zono = U_0_sol.zonotope()
+    else:
+        U_0_sol_zono = U_0_sol
+    
+    # Convert TIE_new_proj (Interval or numpy array) to Zonotope for addition
+    if isinstance(TIE_new_proj, Interval):
+        TIE_new_proj_zono = TIE_new_proj.zonotope()
+    elif isinstance(TIE_new_proj, np.ndarray):
+        # Convert numpy array to Zonotope (center only, no generators)
+        if TIE_new_proj.ndim == 1:
+            TIE_new_proj = TIE_new_proj.reshape(-1, 1)
+        TIE_new_proj_zono = Zonotope(TIE_new_proj, np.array([]).reshape(TIE_new_proj.shape[0], 0))
+    else:
+        TIE_new_proj_zono = TIE_new_proj
+    
+    R_ti_proj = TI_apx + U_0_sol_zono + TIE_new_proj_zono + inputCorr
     
     # order reduction
     Rnext = {
@@ -309,6 +349,8 @@ def _aux_propagate_HomSol(c_sys: Any, g_sys: list, timeStep: float, time: float,
     
     if c_sys is None or (hasattr(c_sys, '__len__') and len(c_sys) == 0):
         c_new = np.zeros((dim_proj, 1))
+        # MATLAB: hom_tie = zeros(dim_proj,1);
+        # In Python, we'll convert to Zonotope later for consistency
         hom_tie = np.zeros((dim_proj, 1))
     else:
         # Compute new center
@@ -332,8 +374,27 @@ def _aux_propagate_HomSol(c_sys: Any, g_sys: list, timeStep: float, time: float,
         
         # Compute new TIE
         # MATLAB: [~,F_c] = taylorMatrices(c_sys,timeStep,taylorTerms);
-        _, F_c = c_sys.taylorMatrices(timeStep, taylorTerms)
-        hom_tie = c_norm * (c_sys.B.T @ c_expMatrix @ F_c[:, 0:1])
+        # taylorMatrices returns (E, F, G), we only need F
+        _, F_c, _ = c_sys.taylorMatrices(timeStep, taylorTerms)
+        # MATLAB: hom_tie = c_norm*c_sys.B'*c_expMatrix*F_c(:,1);
+        # F_c is an IntervalMatrix, F_c(:,1) extracts a column which should be an Interval
+        # In MATLAB, F_c(:,1) returns an Interval (vector), not an IntervalMatrix
+        # Extract the first column as an Interval (vector)
+        from cora_python.matrixSet.intervalMatrix import IntervalMatrix
+        from cora_python.contSet.interval import Interval
+        if isinstance(F_c, IntervalMatrix):
+            # Extract first column as Interval (vector)
+            F_c_col_inf = F_c.infimum()[:, 0]
+            F_c_col_sup = F_c.supremum()[:, 0]
+            F_c_col = Interval(F_c_col_inf, F_c_col_sup)
+            # c_expMatrix is a regular matrix, F_c_col is an Interval (vector)
+            # c_expMatrix @ F_c_col should return an Interval (vector)
+            from cora_python.contSet.interval.mtimes import mtimes as interval_mtimes
+            temp = interval_mtimes(c_expMatrix, F_c_col)
+            # c_sys.B.T is a regular matrix, temp is an Interval (vector)
+            hom_tie = c_norm * interval_mtimes(c_sys.B.T, temp)
+        else:
+            hom_tie = c_norm * (c_sys.B.T @ c_expMatrix @ F_c[:, 0:1])
     
     # preallocation
     nrOfGens = G.shape[1] if G.ndim > 1 and G.shape[1] > 0 else 0
@@ -389,8 +450,19 @@ def _aux_propagate_HomSol(c_sys: Any, g_sys: list, timeStep: float, time: float,
             # For non-zero generators, we need expMatrix (already computed above)
             if g_norm > 0 and expMatrix is not None:
                 # MATLAB: [~,F_g] = taylorMatrices(g_sys{iGen},timeStep,taylorTerms);
-                _, F_g = g_sys_i.taylorMatrices(timeStep, taylorTerms)
-                hom_tie = hom_tie + g_norm * (g_sys_i.B.T @ expMatrix @ F_g[:, 0:1])
+                # taylorMatrices returns (E, F, G), we only need F
+                _, F_g, _ = g_sys_i.taylorMatrices(timeStep, taylorTerms)
+                # Extract first column as Interval (vector) if F_g is IntervalMatrix
+                if isinstance(F_g, IntervalMatrix):
+                    F_g_col_inf = F_g.infimum()[:, 0]
+                    F_g_col_sup = F_g.supremum()[:, 0]
+                    F_g_col = Interval(F_g_col_inf, F_g_col_sup)
+                    from cora_python.contSet.interval.mtimes import mtimes as interval_mtimes
+                    temp = interval_mtimes(expMatrix, F_g_col)
+                    F_g_term = g_norm * interval_mtimes(g_sys_i.B.T, temp)
+                    hom_tie = hom_tie + F_g_term
+                else:
+                    hom_tie = hom_tie + g_norm * (g_sys_i.B.T @ expMatrix @ F_g[:, 0:1])
     else:
         G_new = np.array([]).reshape(dim_proj, 0)  # no generators
     
@@ -413,5 +485,10 @@ def _aux_propagate_HomSol(c_sys: Any, g_sys: list, timeStep: float, time: float,
     else:
         hom_tp = Zonotope(c_new, G_new) if G_new.size > 0 else Zonotope(c_new, np.array([]).reshape(dim_proj, 0))
     
+    # MATLAB: hom_tie can be a numeric array (zeros) or an Interval
+    # In MATLAB, it's used directly in addition operations which handle type conversion
+    # In Python, we keep it as-is and let the addition operations handle conversion
+    # If it's a numpy array, it will be converted during addition
+    # If it's an Interval, it will be converted to Zonotope during addition
     return hom_tp, hom_tie
 

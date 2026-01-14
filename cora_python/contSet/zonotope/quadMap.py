@@ -98,8 +98,44 @@ def _aux_quadMapSingle(Z: Zonotope, Q: List[np.ndarray]) -> Zonotope:
     
     # For each dimension, compute generator elements
     for i in range(dimQ):
-        Q_i = np.asarray(Q[i])
-        Qnonempty[i] = np.any(Q_i)
+        # MATLAB: Qnonempty(i) = any(Q{i}(:));
+        # Q[i] can be an Interval object (from Hessian tensor)
+        from cora_python.contSet.interval import Interval
+        if isinstance(Q[i], Interval):
+            # For Interval, check if any element is non-zero
+            # Flatten the interval and check if any element is non-zero
+            # MATLAB: any(Q{i}(:)) checks if any element in the flattened matrix is non-zero
+            Q_i_inf_flat = Q[i].inf.flatten()
+            Q_i_sup_flat = Q[i].sup.flatten()
+            # Check if any element is non-zero (either inf or sup is non-zero)
+            Qnonempty[i] = bool(np.any(Q_i_inf_flat != 0) or np.any(Q_i_sup_flat != 0))
+            Q_i = Q[i]  # Keep as Interval for matrix multiplication (uses @ operator)
+        else:
+            # Handle different types: numeric array, sparse matrix, etc.
+            try:
+                import scipy.sparse
+                if scipy.sparse.issparse(Q[i]):
+                    # For sparse matrices, check if any element is non-zero
+                    Qnonempty[i] = Q[i].nnz > 0
+                    Q_i = Q[i]  # Keep as sparse matrix
+                else:
+                    # For regular arrays
+                    Q_i = np.asarray(Q[i])
+                    # Flatten and check if any element is non-zero
+                    if Q_i.size > 0:
+                        Q_i_flat = Q_i.flatten()
+                        # Use .item() to extract scalar from np.any result
+                        Qnonempty[i] = bool(np.any(Q_i_flat).item() if hasattr(np.any(Q_i_flat), 'item') else np.any(Q_i_flat))
+                    else:
+                        Qnonempty[i] = False
+            except ImportError:
+                # No scipy, assume regular array
+                Q_i = np.asarray(Q[i])
+                if Q_i.size > 0:
+                    Q_i_flat = Q_i.flatten()
+                    Qnonempty[i] = bool(np.any(Q_i_flat).item() if hasattr(np.any(Q_i_flat), 'item') else np.any(Q_i_flat))
+                else:
+                    Qnonempty[i] = False
         
         if Qnonempty[i]:
             # Pure quadratic evaluation
@@ -163,8 +199,40 @@ def _aux_quadMapMixed(Z1: Zonotope, Z2: Zonotope, Q: List[np.ndarray]) -> Zonoto
 
     # For each dimension, compute center + generator elements
     for i in range(dimQ):
-        Q_i = np.asarray(Q[i])
-        Qnonempty[i] = np.any(Q_i)
+        # MATLAB: Qnonempty(i) = any(Q{i}(:));
+        # Q[i] can be an Interval object (from Hessian tensor) or sparse matrix
+        from cora_python.contSet.interval import Interval
+        if isinstance(Q[i], Interval):
+            # For Interval, check if any element is non-zero
+            Q_i_inf_flat = Q[i].inf.flatten()
+            Q_i_sup_flat = Q[i].sup.flatten()
+            Qnonempty[i] = bool(np.any(Q_i_inf_flat != 0) or np.any(Q_i_sup_flat != 0))
+            Q_i = Q[i]  # Keep as Interval for matrix multiplication (uses @ operator)
+        else:
+            # Handle different types: numeric array, sparse matrix, etc.
+            try:
+                import scipy.sparse
+                if scipy.sparse.issparse(Q[i]):
+                    # For sparse matrices, check if any element is non-zero
+                    Qnonempty[i] = Q[i].nnz > 0
+                    Q_i = Q[i]  # Keep as sparse matrix
+                else:
+                    # For regular arrays
+                    Q_i = np.asarray(Q[i])
+                    if Q_i.size > 0:
+                        Q_i_flat = Q_i.flatten()
+                        # Use .item() to extract scalar from np.any result
+                        Qnonempty[i] = bool(np.any(Q_i_flat).item() if hasattr(np.any(Q_i_flat), 'item') else np.any(Q_i_flat))
+                    else:
+                        Qnonempty[i] = False
+            except ImportError:
+                # No scipy, assume regular array
+                Q_i = np.asarray(Q[i])
+                if Q_i.size > 0:
+                    Q_i_flat = Q_i.flatten()
+                    Qnonempty[i] = bool(np.any(Q_i_flat).item() if hasattr(np.any(Q_i_flat), 'item') else np.any(Q_i_flat))
+                else:
+                    Qnonempty[i] = False
         
         if Qnonempty[i]:
             # Pure quadratic evaluation

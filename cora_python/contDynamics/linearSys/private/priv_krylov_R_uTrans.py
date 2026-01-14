@@ -106,10 +106,16 @@ def priv_krylov_R_uTrans(linsys: Any, t: float, uTrans: np.ndarray,
     G = priv_correctionMatrixInput(linRedSys, t, options.get('taylorTerms', 10))
     # compute P*(...)*e_1 via indexing for fast computation
     # norm(equiv_state) = 1, so we leave it out;
-    inputCorr_unprojected_interval = V_uT[:state_dim, :] @ G[:, 0:1]
+    V_uT_sliced = V_uT[:state_dim, :]
+    G_sliced = G[:, 0:1]
+    inputCorr_unprojected_interval = V_uT_sliced @ G_sliced
     # inputCorrection = zonotope(inputCorr_unprojected(1:state_dim)); 
     # MATLAB: inputCorr_unprojected = zonotope(inputCorr_unprojected);
-    # Convert Interval to Zonotope
+    # Convert IntervalMatrix to Interval, then to Zonotope
+    # If inputCorr_unprojected_interval is an IntervalMatrix, extract the underlying interval
+    if hasattr(inputCorr_unprojected_interval, 'int'):
+        # It's an IntervalMatrix, get the underlying interval
+        inputCorr_unprojected_interval = inputCorr_unprojected_interval.int
     inputCorr_unprojected = Zonotope(inputCorr_unprojected_interval)
     
     # save results for future re-computations of correction matrix
@@ -118,7 +124,17 @@ def priv_krylov_R_uTrans(linsys: Any, t: float, uTrans: np.ndarray,
     linsys.krylov['uTrans_sys'] = linRedSys
     linsys.krylov['R_uTrans'] = V_uT[:state_dim, :] @ expMat[:, 0:1]
     linsys.krylov['R_uTrans_proj'] = R_uTrans_proj
-    linsys.krylov['inputCorr'] = linsys.C @ inputCorr_unprojected
+    # MATLAB: linsys.krylov.inputCorr = linsys.C*inputCorr_unprojected;
+    # If linsys.C is an IntervalMatrix, the result will be a Zonotope (via _aux_mtimes_zonotope)
+    # If linsys.C is a regular matrix, use regular matrix multiplication
+    from cora_python.matrixSet.intervalMatrix import IntervalMatrix
+    if isinstance(linsys.C, IntervalMatrix):
+        # IntervalMatrix * Zonotope returns a Zonotope via _aux_mtimes_zonotope
+        linsys.krylov['inputCorr'] = linsys.C @ inputCorr_unprojected
+    else:
+        # Regular matrix * Zonotope
+        from cora_python.contSet.zonotope.mtimes import mtimes as zonotope_mtimes
+        linsys.krylov['inputCorr'] = zonotope_mtimes(linsys.C, inputCorr_unprojected)
     from cora_python.contSet.zonotope.radius import radius
     linsys.krylov['inputCorr_radius'] = radius(inputCorr_unprojected)
     

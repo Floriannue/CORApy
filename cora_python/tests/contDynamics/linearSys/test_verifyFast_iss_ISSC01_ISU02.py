@@ -21,6 +21,7 @@ Last revision: ---
 import numpy as np
 import pytest
 import scipy.io
+from scipy import sparse
 import os
 from cora_python.contDynamics.linearSys.linearSys import LinearSys
 from cora_python.contSet.zonotope import Zonotope
@@ -82,15 +83,14 @@ class TestVerifyFastIssISSC01ISU02:
         
         # construct extended system matrices (inputs as additional states)
         # MATLAB: dim = length(A);
-        # Handle sparse matrices - use shape[0] instead of len()
         dim = A.shape[0] if hasattr(A, 'shape') else len(A)
         # MATLAB: A_  = [A,B;zeros(size(B,2),dim + size(B,2))];
-        A_ = np.block([[A, B],
-                       [np.zeros((B.shape[1], dim + B.shape[1]))]])
+        A_ = LinearSys._vstack([LinearSys._hstack([A, B]), 
+                                np.zeros((B.shape[1], dim + B.shape[1]))])
         # MATLAB: B_  = zeros(dim+size(B,2),1);
         B_ = np.zeros((dim + B.shape[1], 1))
         # MATLAB: C_  = [C,zeros(size(C,1),size(B,2))];
-        C_ = np.block([[C, np.zeros((C.shape[0], B.shape[1]))]])
+        C_ = LinearSys._hstack([C, np.zeros((C.shape[0], B.shape[1]))])
         
         # construct the linear system object
         # MATLAB: sys = linearSys('iss',A_,B_,[],C_);

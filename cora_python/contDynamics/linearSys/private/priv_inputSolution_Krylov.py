@@ -122,6 +122,10 @@ def priv_inputSolution_Krylov(linsys: Any, params: Dict[str, Any], options: Dict
             # error due to finite Taylor series
             # MATLAB: errorTaylor_g = supremum(V_Ug*E(:,1));
             # E is an Interval, so use indexing to get first column
+            # Handle IntervalMatrix - extract underlying interval if needed
+            if hasattr(E, 'int') and hasattr(E, 'dim'):
+                # E is an IntervalMatrix, get the underlying interval
+                E = E.int
             if isinstance(E, Interval):
                 E_col = E[:, 0:1]  # Interval indexing returns Interval
             else:

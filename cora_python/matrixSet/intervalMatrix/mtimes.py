@@ -109,13 +109,32 @@ def _aux_mtimes_zonotope(intMat, Z):
     # MATLAB: Zabssum = sum(abs([Z.c,Z.G]),2);
     Z_c = Z.center()
     Z_G = Z.generators()
+    # Ensure Z_c is a column vector (n x 1) where n matches T's column dimension
+    if Z_c.ndim == 1:
+        Z_c = Z_c.reshape(-1, 1)
+    elif Z_c.ndim == 2:
+        if Z_c.shape[1] != 1:
+            # If it's a row vector or matrix, flatten and reshape to column vector
+            Z_c = Z_c.flatten().reshape(-1, 1)
+        # Z_c is already a column vector, but check if dimension matches T
+        if Z_c.shape[0] != T.shape[1]:
+            # Dimension mismatch - this shouldn't happen in correct usage
+            raise ValueError(f"Dimension mismatch: IntervalMatrix is {T.shape[0]}x{T.shape[1]}, but zonotope center is {Z_c.shape[0]}D")
+    
     if Z_G.size > 0:
+        # Ensure Z_G is 2D (n x p) where n matches Z_c
+        if Z_G.ndim == 1:
+            Z_G = Z_G.reshape(-1, 1)
+        elif Z_G.ndim == 2 and Z_G.shape[0] != Z_c.shape[0]:
+            # Reshape if needed to match Z_c dimension
+            Z_G = Z_G.reshape(Z_c.shape[0], -1)
         Z_combined = np.hstack([Z_c, Z_G])
     else:
         Z_combined = Z_c
     Zabssum = np.sum(np.abs(Z_combined), axis=1, keepdims=True)
     
     # MATLAB: Z.c = T*Z.c;
+    # T is (n x m), Z_c is (m x 1), result is (n x 1)
     c_new = T @ Z_c
     
     # MATLAB: Z.G = [T*Z.G,diag(S*Zabssum)];

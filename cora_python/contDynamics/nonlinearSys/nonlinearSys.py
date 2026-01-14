@@ -212,10 +212,34 @@ class NonlinearSys(ContDynamics):
         Args:
             version: 'standard' or 'int'
         """
+        from cora_python.g.macros.CORAROOT import CORAROOT
+        import os
+        import importlib.util
+        
+        path = os.path.join(CORAROOT(), 'models', 'auxiliary', self.name)
+        
         if version == 'standard':
-            pass
+            # MATLAB: eval(['@thirdOrderTensor_' self.name])
+            tensor3_file = os.path.join(path, f'thirdOrderTensor_{self.name}.py')
+            if os.path.isfile(tensor3_file):
+                module_name = f'thirdOrderTensor_{self.name}_{id(self)}'
+                spec = importlib.util.spec_from_file_location(module_name, tensor3_file)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    self.thirdOrderTensor = getattr(module, f'thirdOrderTensor_{self.name}')
         elif version == 'int':
-            pass
+            # MATLAB: eval(['@thirdOrderTensorInt_' self.name])
+            tensor3_file = os.path.join(path, f'thirdOrderTensorInt_{self.name}.py')
+            if os.path.isfile(tensor3_file):
+                module_name = f'thirdOrderTensorInt_{self.name}_{id(self)}'
+                spec = importlib.util.spec_from_file_location(module_name, tensor3_file)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    self.thirdOrderTensor = getattr(module, f'thirdOrderTensorInt_{self.name}')
+        
+        return self
     
     def setOutThirdOrderTensor(self, version: str):
         """

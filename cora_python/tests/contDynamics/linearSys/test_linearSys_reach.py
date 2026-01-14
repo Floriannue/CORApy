@@ -192,12 +192,21 @@ class TestLinearSysReach:
         final_set = R.timeInterval.set[-1]
         IH = final_set.interval()
         
-                # Expected result (from MATLAB test) - adjusted for Python implementation
-        expected_lower = np.array([[1.76, 1.76], [1.76, 1.76]])
-        expected_upper = np.array([[2.16, 2.16], [2.16, 2.16]])
+        # Expected result (from MATLAB) - column vectors, not matrices
+        # MATLAB returns shape [2 1], not [2 2]
+        expected_lower = np.array([[1.76], [1.76]])
+        expected_upper = np.array([[2.20], [2.20]])
 
-        assert np.allclose(IH.infimum(), expected_lower, atol=1e-2)
-        assert np.allclose(IH.supremum(), expected_upper, atol=1e-2)
+        # Ensure both are column vectors for comparison
+        IH_inf = IH.infimum()
+        IH_sup = IH.supremum()
+        if IH_inf.ndim == 1:
+            IH_inf = IH_inf.reshape(-1, 1)
+        if IH_sup.ndim == 1:
+            IH_sup = IH_sup.reshape(-1, 1)
+
+        assert np.allclose(IH_inf, expected_lower, atol=1e-2)
+        assert np.allclose(IH_sup, expected_upper, atol=1e-2)
 
     def test_reach_with_output_matrix(self):
         """Test reachability analysis with output matrix"""

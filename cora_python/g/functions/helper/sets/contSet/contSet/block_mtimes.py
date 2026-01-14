@@ -21,12 +21,12 @@ import numpy as np
 from typing import Union, List
 
 
-def block_mtimes(matrix: np.ndarray, sets: Union[object, List[object]]):
+def block_mtimes(matrix: Union[np.ndarray, object], sets: Union[object, List[object]]):
     """
     Block matrix multiplication for sets
     
     Args:
-        matrix: Matrix to multiply with
+        matrix: Matrix to multiply with (numeric, Interval, or IntervalMatrix)
         sets: Single set or list of sets (block-decomposed)
         
     Returns:
@@ -37,6 +37,7 @@ def block_mtimes(matrix: np.ndarray, sets: Union[object, List[object]]):
     if not isinstance(sets, list):
         # Regular matrix multiplication: M * S
         # This handles both contSet objects and numeric arrays
+        # Use @ operator which will call __matmul__ or __rmatmul__
         return matrix @ sets
     
     # If sets is a list (decomposed), we need to handle block operations
@@ -73,9 +74,27 @@ def block_mtimes(matrix: np.ndarray, sets: Union[object, List[object]]):
             # Extract matrix block M_ij
             row_start, row_end = blocks[i, 0], blocks[i, 1] + 1
             col_start, col_end = blocks[j, 0], blocks[j, 1] + 1
-            M_block = matrix[row_start:row_end, col_start:col_end]
+            
+            # Handle different matrix types (numeric, Interval, IntervalMatrix)
+            from cora_python.matrixSet.intervalMatrix import IntervalMatrix
+            if isinstance(matrix, IntervalMatrix):
+                # Extract block from IntervalMatrix
+                M_block_inf = matrix.int.inf[row_start:row_end, col_start:col_end]
+                M_block_sup = matrix.int.sup[row_start:row_end, col_start:col_end]
+                M_block = IntervalMatrix(M_block_inf, M_block_sup)
+            elif hasattr(matrix, '__getitem__'):
+                # Other matrix-like object (e.g., Interval)
+                try:
+                    M_block = matrix[row_start:row_end, col_start:col_end]
+                except (TypeError, AttributeError):
+                    # Fallback: try direct indexing
+                    M_block = matrix[row_start:row_end, col_start:col_end]
+            else:
+                # Numeric array
+                M_block = matrix[row_start:row_end, col_start:col_end]
             
             # Compute M_ij * S_j
+            # Use @ operator which will call __matmul__ or __rmatmul__
             term = M_block @ sets[j]
             
             # Add to result

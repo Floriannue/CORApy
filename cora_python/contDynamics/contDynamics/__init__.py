@@ -12,6 +12,7 @@ from .linReach import linReach
 from .symVariables import symVariables
 from .derivatives import derivatives
 from .outputSet import outputSet
+from .reach import reach
 
 # Import private functions
 from .private.priv_simulateStandard import priv_simulateStandard
@@ -29,4 +30,4 @@ ContDynamics.__str__ = lambda self: display_(self)
 ContDynamics.derivatives = derivatives
 ContDynamics.outputSet = outputSet
 
-__all__ = ['ContDynamics', 'linReach', 'symVariables', 'derivatives', 'outputSet'] 
+__all__ = ['ContDynamics', 'linReach', 'symVariables', 'derivatives', 'outputSet', 'reach'] 

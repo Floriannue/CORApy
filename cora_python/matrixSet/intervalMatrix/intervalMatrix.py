@@ -96,4 +96,67 @@ class IntervalMatrix(MatrixSet):
             from cora_python.contSet.interval.interval import Interval
             self.int = Interval(matrixCenter - matrixDelta, matrixCenter + matrixDelta)
     
+    @property
+    def shape(self):
+        """Return the shape of the interval matrix"""
+        return self.int.inf.shape
+    
+    @property
+    def ndim(self):
+        """Return the number of dimensions of the interval matrix (NumPy compatibility)"""
+        return self.int.inf.ndim
+    
+    def __getitem__(self, key):
+        """
+        Support subscripting for IntervalMatrix (e.g., M[0:2, :])
+        
+        Args:
+            key: slice or tuple of slices
+            
+        Returns:
+            IntervalMatrix with sliced interval
+        """
+        # Slice the underlying interval
+        sliced_int = self.int[key]
+        
+        # Create new IntervalMatrix from sliced interval
+        result = IntervalMatrix.__new__(IntervalMatrix)
+        result.int = sliced_int
+        return result
+    
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        """
+        Handle numpy universal functions
+        
+        This allows IntervalMatrix to work properly with numpy array operations.
+        """
+        import numpy as np
+        
+        if ufunc == np.add:
+            if method == '__call__':
+                # Handle addition with numpy arrays
+                if len(inputs) == 2:
+                    if inputs[0] is self:
+                        return self.__add__(inputs[1])
+                    else:
+                        return self.__radd__(inputs[0])
+        elif ufunc == np.multiply:
+            if method == '__call__':
+                # Handle multiplication with numpy arrays
+                if len(inputs) == 2:
+                    if inputs[0] is self:
+                        return self.__mul__(inputs[1])
+                    else:
+                        return self.__rmul__(inputs[0])
+        elif ufunc == np.matmul:
+            if method == '__call__':
+                # Handle matrix multiplication with numpy arrays
+                if len(inputs) == 2:
+                    if inputs[0] is self:
+                        return self.__matmul__(inputs[1]) if hasattr(self, '__matmul__') else self.__mul__(inputs[1])
+                    else:
+                        return self.__rmatmul__(inputs[0]) if hasattr(self, '__rmatmul__') else self.__rmul__(inputs[0])
+        
+        # For other ufuncs, return NotImplemented to let numpy handle it
+        return NotImplemented
  

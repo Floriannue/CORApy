@@ -13,6 +13,7 @@ Date: 2025-06-08
 from typing import Optional, Union, Tuple, Any
 import numpy as np
 import warnings
+from scipy import sparse
 from ..contDynamics import ContDynamics
 
 
@@ -151,6 +152,99 @@ class LinearSys(ContDynamics):
         
         return name, A, B, c, C, D, k, E, F
     
+    @staticmethod
+    def _convert_to_dense(arr: Any) -> np.ndarray:
+        """
+        Convert input to dense numpy array, handling sparse matrices
+        
+        Args:
+            arr: Input array (can be numpy array, sparse matrix, or other array-like)
+            
+        Returns:
+            Dense numpy array (or None if input is None)
+        """
+        if arr is None:
+            return None
+        
+        # Check if it's a sparse matrix and convert to dense
+        if sparse.issparse(arr):
+            return arr.toarray()
+        
+        # Check if it has a toarray method (for other sparse matrix types)
+        if hasattr(arr, 'toarray'):
+            return arr.toarray()
+        
+        # Otherwise, convert to numpy array
+        return np.asarray(arr)
+    
+    @staticmethod
+    def _hstack(arrays):
+        """
+        Horizontal stack that handles both sparse and dense matrices
+        
+        Args:
+            arrays: List of arrays to stack horizontally
+            
+        Returns:
+            Horizontally stacked array (sparse if any input is sparse, dense otherwise)
+        """
+        # Filter out None values
+        arrays = [arr for arr in arrays if arr is not None]
+        if not arrays:
+            return None
+        
+        # Check if any array is sparse
+        has_sparse = any(sparse.issparse(arr) for arr in arrays)
+        
+        if has_sparse:
+            # Convert all to sparse and use sparse.hstack
+            sparse_arrays = []
+            for arr in arrays:
+                if sparse.issparse(arr):
+                    sparse_arrays.append(arr)
+                else:
+                    sparse_arrays.append(sparse.csr_matrix(arr))
+            result = sparse.hstack(sparse_arrays)
+            # Convert to dense for LinearSys (it will convert anyway, but do it here for consistency)
+            return result.toarray() if sparse.issparse(result) else result
+        else:
+            # Use numpy hstack
+            return np.hstack(arrays)
+    
+    @staticmethod
+    def _vstack(arrays):
+        """
+        Vertical stack that handles both sparse and dense matrices
+        
+        Args:
+            arrays: List of arrays to stack vertically
+            
+        Returns:
+            Vertically stacked array (sparse if any input is sparse, dense otherwise)
+        """
+        # Filter out None values
+        arrays = [arr for arr in arrays if arr is not None]
+        if not arrays:
+            return None
+        
+        # Check if any array is sparse
+        has_sparse = any(sparse.issparse(arr) for arr in arrays)
+        
+        if has_sparse:
+            # Convert all to sparse and use sparse.vstack
+            sparse_arrays = []
+            for arr in arrays:
+                if sparse.issparse(arr):
+                    sparse_arrays.append(arr)
+                else:
+                    sparse_arrays.append(sparse.csr_matrix(arr))
+            result = sparse.vstack(sparse_arrays)
+            # Convert to dense for LinearSys (it will convert anyway, but do it here for consistency)
+            return result.toarray() if sparse.issparse(result) else result
+        else:
+            # Use numpy vstack
+            return np.vstack(arrays)
+    
     def _check_input_args(self, name: str, A, B, c, C, D, k, E, F, n_in: int):
         """Check correctness of input arguments"""
         
@@ -161,45 +255,45 @@ class LinearSys(ContDynamics):
         if not isinstance(name, str):
             raise TypeError("Name must be a string")
         
-        # Check A matrix
+        # Check A matrix (convert sparse to dense)
         if A is not None:
-            A = np.asarray(A)
+            A = self._convert_to_dense(A)
             if A.ndim != 2 or A.shape[0] != A.shape[1]:
                 raise ValueError("State matrix A must be square")
         
-        # Check other matrices if provided
+        # Check other matrices if provided (convert sparse to dense)
         if B is not None:
-            B = np.asarray(B)
+            B = self._convert_to_dense(B)
             if B.ndim > 2:
                 raise ValueError("Input matrix B must be 1D or 2D")
         
         if c is not None:
-            c = np.asarray(c)
+            c = self._convert_to_dense(c)
             if c.ndim > 1 and c.shape[1] != 1:
                 raise ValueError("Offset c must be a vector")
         
         if C is not None:
-            C = np.asarray(C)
+            C = self._convert_to_dense(C)
             if C.ndim > 2:
                 raise ValueError("Output matrix C must be 1D or 2D")
         
         if D is not None:
-            D = np.asarray(D)
+            D = self._convert_to_dense(D)
             if D.ndim > 2:
                 raise ValueError("Feedthrough matrix D must be 1D or 2D")
         
         if k is not None:
-            k = np.asarray(k)
+            k = self._convert_to_dense(k)
             if k.ndim > 1 and k.shape[1] != 1:
                 raise ValueError("Offset k must be a vector")
         
         if E is not None:
-            E = np.asarray(E)
+            E = self._convert_to_dense(E)
             if E.ndim > 2:
                 raise ValueError("Disturbance matrix E must be 1D or 2D")
         
         if F is not None:
-            F = np.asarray(F)
+            F = self._convert_to_dense(F)
             if F.ndim > 2:
                 raise ValueError("Noise matrix F must be 1D or 2D")
         
@@ -209,13 +303,13 @@ class LinearSys(ContDynamics):
             
             # Check c dimensions
             if c is not None:
-                c = np.asarray(c)
+                c = self._convert_to_dense(c)
                 if c.size != states:
                     raise ValueError("Length of offset c must match dimension of state matrix A")
             
             # Check B dimensions
             if B is not None:
-                B = np.asarray(B)
+                B = self._convert_to_dense(B)
                 if B.ndim == 1:
                     if B.size != states:
                         raise ValueError("Input matrix B must have same number of rows as A")
@@ -225,7 +319,7 @@ class LinearSys(ContDynamics):
             
             # Check E dimensions
             if E is not None:
-                E = np.asarray(E)
+                E = self._convert_to_dense(E)
                 if E.ndim == 1:
                     if E.size != states:
                         raise ValueError("Disturbance matrix E must have same number of rows as A")
@@ -235,7 +329,7 @@ class LinearSys(ContDynamics):
             
             # Check C dimensions
             if C is not None:
-                C = np.asarray(C)
+                C = self._convert_to_dense(C)
                 if C.ndim == 1:
                     if C.size != states:
                         raise ValueError("Output matrix C must have same number of columns as A")
@@ -253,6 +347,7 @@ class LinearSys(ContDynamics):
             A = np.array([[]])
             states = 0
         else:
+            A = self._convert_to_dense(A)
             A = np.asarray(A, dtype=float)
             states = A.shape[0]
         
@@ -260,6 +355,7 @@ class LinearSys(ContDynamics):
         if A.size > 0 and B is None:
             B = np.zeros((states, 1))
         elif B is not None:
+            B = self._convert_to_dense(B)
             B = np.asarray(B, dtype=float)
             if B.ndim == 1:
                 B = B.reshape(-1, 1)
@@ -280,6 +376,7 @@ class LinearSys(ContDynamics):
         if c is None:
             c = np.zeros((states, 1)) if states > 0 else np.array([[]])
         else:
+            c = self._convert_to_dense(c)
             c = np.asarray(c, dtype=float)
             if c.ndim == 1:
                 c = c.reshape(-1, 1)
@@ -289,6 +386,7 @@ class LinearSys(ContDynamics):
             C = np.eye(states) if states > 0 else np.array([[]])
             outputs = states
         else:
+            C = self._convert_to_dense(C)
             C = np.asarray(C, dtype=float)
             if C.ndim == 1:
                 C = C.reshape(1, -1)
@@ -298,6 +396,7 @@ class LinearSys(ContDynamics):
         if D is None:
             D = np.zeros((outputs, inputs)) if outputs > 0 and inputs > 0 else np.array([[]])
         else:
+            D = self._convert_to_dense(D)
             D = np.asarray(D, dtype=float)
             if D.ndim == 1:
                 D = D.reshape(1, -1)
@@ -309,6 +408,7 @@ class LinearSys(ContDynamics):
         if k is None:
             k = np.zeros((outputs, 1)) if outputs > 0 else np.array([[]])
         else:
+            k = self._convert_to_dense(k)
             k = np.asarray(k, dtype=float)
             if k.ndim == 1:
                 k = k.reshape(-1, 1)
@@ -318,6 +418,7 @@ class LinearSys(ContDynamics):
             E = np.zeros((states, 1)) if states > 0 else np.array([[]])
             dists = 1 if states > 0 else 0
         else:
+            E = self._convert_to_dense(E)
             E = np.asarray(E, dtype=float)
             if np.isscalar(E) or (E.ndim == 0):
                 # Scalar E means dists = states (MATLAB behavior)
@@ -336,6 +437,7 @@ class LinearSys(ContDynamics):
             F = np.zeros((outputs, 1)) if outputs > 0 else np.array([[]])
             noises = 1 if outputs > 0 else 0  # MATLAB behavior: when F is empty, noises = F.shape[1] = 1
         else:
+            F = self._convert_to_dense(F)
             F = np.asarray(F, dtype=float)
             if np.isscalar(F) or (F.ndim == 0):
                 # Scalar F means noises = outputs (MATLAB behavior)
@@ -350,20 +452,7 @@ class LinearSys(ContDynamics):
                 noises = F.shape[1]
         
         return name, A, B, c, C, D, k, E, F, states, inputs, outputs, dists, noises
-    
-    def get_taylor(self, name: str, *args):
-        """
-        Wrapper function to read out auxiliary values stored in sys.taylor
-        If the requested value is not there, we compute it
-        """
-        # This is a placeholder - actual implementation would depend on 
-        # the taylorLinSys class which handles Taylor expansion computations
-        if name not in self.taylor:
-            # Compute and store the value
-            # This would call appropriate computation functions
-            pass
-        return self.taylor.get(name, None)
-    
+
     def getTaylor(self, name: str, *args, **kwargs):
         """
         Wrapper function to read out auxiliary values stored in sys.taylor,

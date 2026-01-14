@@ -92,13 +92,28 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
     
     # Save particular solution
     PU_next = PU
-    PU = Interval(PU) if not isinstance(PU, Interval) else PU
+    # MATLAB: PU = interval(PU);
+    # Use interval() method on Zonotope to convert to Interval
+    PU = PU.interval() if hasattr(PU, 'interval') else Interval(PU)
+    # Ensure PU is 1D (vector interval, not matrix interval)
+    if PU.inf.ndim > 1:
+        PU = Interval(PU.inf.flatten(), PU.sup.flatten())
     
     if hasattr(Pu, 'center'):
         Pu_c = Pu.center()
-        Pu_int = Interval(Pu) - Pu_c
+        # MATLAB: Pu_int = interval(Pu) - Pu_c;
+        # Use interval() method on Zonotope to convert to Interval
+        Pu_interval = Pu.interval()
+        # Ensure Pu_c is reshaped to match Pu_interval dimension
+        # Pu_interval is 1D from interval(), so Pu_c should be 1D too
+        Pu_c_reshaped = Pu_c.flatten() if Pu_c.ndim > 1 else Pu_c
+        # Ensure Pu_c_reshaped has the same length as Pu_interval
+        if len(Pu_c_reshaped) != len(Pu_interval.inf):
+            # If dimension mismatch, take first nr_of_dims elements
+            Pu_c_reshaped = Pu_c_reshaped[:linsys.nr_of_dims]
+        Pu_int = Pu_interval - Pu_c_reshaped
     else:
-        Pu_int = np.zeros((linsys.nr_of_dims, 1))
+        Pu_int = np.zeros((linsys.nr_of_dims,))
         Pu_c = Pu
     
     # Compute output set of start set and first time-interval solution
@@ -131,9 +146,14 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
             # Check if Pu is a contSet (has center method) or a matrix
             if hasattr(Pu, 'center'):
                 Pu_c = Pu.center()
-                Pu_int = Interval(Pu) - Pu_c
+                # MATLAB: Pu_int = interval(Pu) - Pu_c;
+                # Use interval() method on Zonotope to convert to Interval
+                Pu_interval = Pu.interval()
+                # Ensure Pu_c is 1D to match Pu_interval (which is 1D from interval())
+                Pu_c_1d = Pu_c.flatten() if Pu_c.ndim > 1 else Pu_c
+                Pu_int = Pu_interval - Pu_c_1d
             else:
-                Pu_int = np.zeros((linsys.nr_of_dims, 1))
+                Pu_int = np.zeros((linsys.nr_of_dims,))
                 Pu_c = Pu
         else:
             # Propagate affine solution
@@ -142,7 +162,27 @@ def priv_reach_wrappingfree(linsys, params: Dict[str, Any], options: Dict[str, A
         
         # Propagate particular solution (interval)
         PU_next = eAdt @ PU_next
-        PU = PU + Interval(PU_next) + Pu_int
+        # MATLAB: PU = PU + interval(PU_next) + Pu_int;
+        # Use interval() method on Zonotope to convert to Interval
+        PU_next_int = PU_next.interval()
+        # Ensure all terms are 1D before addition
+        # Zonotope.interval() already returns 1D, but ensure it's flattened
+        if PU_next_int.inf.ndim > 1:
+            PU_next_int = Interval(PU_next_int.inf.flatten(), PU_next_int.sup.flatten())
+        # Ensure PU is 1D before addition
+        if PU.inf.ndim > 1:
+            PU = Interval(PU.inf.flatten(), PU.sup.flatten())
+        # Ensure Pu_int is 1D
+        if isinstance(Pu_int, np.ndarray) and Pu_int.ndim > 1:
+            Pu_int = Pu_int.flatten()
+        elif isinstance(Pu_int, Interval) and Pu_int.inf.ndim > 1:
+            Pu_int = Interval(Pu_int.inf.flatten(), Pu_int.sup.flatten())
+        # Add in steps
+        PU = PU + PU_next_int
+        PU = PU + Pu_int
+        # Ensure PU remains 1D after addition
+        if PU.inf.ndim > 1:
+            PU = Interval(PU.inf.flatten(), PU.sup.flatten())
         
         # Full solution
         Rti = Hti + PU + C_input
