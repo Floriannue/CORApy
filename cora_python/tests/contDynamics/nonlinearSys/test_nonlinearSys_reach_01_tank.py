@@ -77,12 +77,11 @@ class TestNonlinearSysReach01Tank:
         # Reachability Analysis ---------------------------------------------------
         # MATLAB: R = reach(tank,params,options);
         # Note: reach function should be in contDynamics.reach or nonlinearSys.reach
-        from cora_python.contDynamics.contDynamics.reach import reach
-        R = reach(tank, params, options)
+        R = tank.reach(params, options)
         
         # Numerical Evaluation ----------------------------------------------------
         # MATLAB: IH = interval(R.timeInterval.set{end});
-        IH = Interval(R['timeInterval']['set'][-1])
+        IH = Interval(R.timeInterval.set[-1])
         
         # MATLAB: IH_saved = interval( ...
         IH_saved = Interval(

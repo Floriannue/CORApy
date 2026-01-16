@@ -50,14 +50,14 @@ def interval(Z):
         n = zonotope_dim(Z)
         return interval_empty(n)
 
-    # extract center
-    c = np.asarray(Z.c).flatten()  # ensure 1D as in MATLAB
+    # extract center (keep column vector shape)
+    c = np.asarray(Z.c)
+    if c.ndim == 1:
+        c = c.reshape(-1, 1)
     
     # determine lower and upper bounds in each dimension
-    # sum(abs(Z.G),2) in MATLAB sums along columns (axis=1 in Python)
-    # Use Kahan summation for improved precision
-    from cora_python.g.functions.helper.precision.kahan_sum import kahan_sum_abs
-    delta = kahan_sum_abs(Z.G, axis=1)  # 1D array, shape (n,)
+    # MATLAB: sum(abs(Z.G),2) uses standard summation
+    delta = np.sum(np.abs(Z.G), axis=1).reshape(-1, 1)
     leftLimit = c - delta
     rightLimit = c + delta
     

@@ -29,5 +29,6 @@ ContDynamics.display_ = display_
 ContDynamics.__str__ = lambda self: display_(self)
 ContDynamics.derivatives = derivatives
 ContDynamics.outputSet = outputSet
+ContDynamics.reach = reach
 
 __all__ = ['ContDynamics', 'linReach', 'symVariables', 'derivatives', 'outputSet', 'reach'] 

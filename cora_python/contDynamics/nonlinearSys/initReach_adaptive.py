@@ -54,30 +54,13 @@ def initReach_adaptive(nlnsys: Any, options: Dict[str, Any]) -> Tuple[Dict[str, 
     # Call linReach_adaptive
     # NOTE: linReach_adaptive for nonlinearSys needs to be translated first
     # For now, we'll import it and call it
-    try:
-        from cora_python.contDynamics.nonlinearSys.linReach_adaptive import linReach_adaptive
-    except ImportError:
-        raise CORAerror('CORA:notImplemented',
-                       'linReach_adaptive for nonlinearSys is not yet translated. '
-                       'Please translate linReach_adaptive first.')
-    
     # MATLAB: [Rti,Rtp,~,options] = linReach_adaptive(nlnsys,options,options.R);
-    # Note: MATLAB signature is linReach_adaptive(nlnsys,Rstart,params,options)
-    # But initReach_adaptive calls it as linReach_adaptive(nlnsys,options,options.R)
-    # This suggests options contains params, and Rstart is options.R
-    
-    # Extract params from options if needed, or pass options as params
-    # Based on MATLAB code, it seems options is passed as both params and options
+    # In Python, use object.method pattern and pass params explicitly
     params = options.copy() if 'params' not in options else options.get('params', {})
-    
-    Rti, Rtp, _, options = linReach_adaptive(nlnsys, options['R'], params, options)
+    Rti, Rtp, options = nlnsys.linReach_adaptive(options['R'], params, options)
     
     # store the results
-    Rnext = {
-        'tp': Rtp,
-        'ti': Rti,
-        'R0': options['R']
-    }
+    Rnext = {'tp': Rtp, 'ti': Rti, 'R0': options['R']}
     
     return Rnext, options
 

@@ -69,9 +69,11 @@ def plus(Z, S):
         # Check for zonotope using both isinstance and class name for robustness
         if isinstance(S, Zonotope) or (hasattr(S, '__class__') and S.__class__.__name__ == 'Zonotope'):
             # Zonotope + Zonotope: see Equation 2.1 in [1]
-            new_c = S_out.c + S.c
-            if new_c.size == 0:
-                return Zonotope.empty(S_out.dim())
+            if S.c.size == 0 and S.c.ndim >= 2 and S.c.shape[1] == 0:
+                # MATLAB: empty center with non-empty generators yields empty center
+                new_c = np.zeros((S_out.c.shape[0], 0))
+            else:
+                new_c = S_out.c + S.c
             
             # Concatenate generator matrices
             if S_out.G.size > 0 and S.G.size > 0:
@@ -114,9 +116,11 @@ def plus(Z, S):
             S_zono = zonotope(S)
             
             # Add zonotopes
-            new_c = S_out.c + S_zono.c
-            if new_c.size == 0:
-                return Zonotope.empty(S_out.dim())
+            if S_zono.c.size == 0 and S_zono.c.ndim >= 2 and S_zono.c.shape[1] == 0:
+                # MATLAB: empty center with non-empty generators yields empty center
+                new_c = np.zeros((S_out.c.shape[0], 0))
+            else:
+                new_c = S_out.c + S_zono.c
             
             # Concatenate generator matrices
             if S_out.G.size > 0 and S_zono.G.size > 0:

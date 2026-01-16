@@ -98,7 +98,7 @@ def lin_error2dAB(R: Any, U: Any, hessian: Callable, p: Dict[str, np.ndarray],
     # MATLAB: for i = 1:length(H)
     for i in range(len(H)):
         # MATLAB: H_ = abs(H{i});
-        H_ = np.abs(H[i])
+        H_ = abs(H[i])
         
         # MATLAB: H_inf = infimum(H_);
         # MATLAB: H_sup = supremum(H_);

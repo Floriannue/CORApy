@@ -84,15 +84,14 @@ class TestNonlinearSysApproxDepReach:
         # MATLAB: R = reach(tank,params,options);
         options_over = options.copy()
         options_over['approxDepOnly'] = False
-        from cora_python.contDynamics.contDynamics.reach import reach
-        R = reach(tank, params, options_over)
+        R = tank.reach(params, options_over)
         
         # compute approximation of the reachable set
         # MATLAB: options.approxDepOnly = true;
         # MATLAB: Rapprox = reach(tank,params,options);
         options_approx = options.copy()
         options_approx['approxDepOnly'] = True
-        Rapprox = reach(tank, params, options_approx)
+        Rapprox = tank.reach(params, options_approx)
         
         # -> since the same parameters are used and we chose a large zonotope
         # order (i.e., we do not need to account for reduction errors), we expect
@@ -102,14 +101,11 @@ class TestNonlinearSysApproxDepReach:
         # zonotope representing the over-approximative reachable set are stored in 
         # the independent generator matrix
         # MATLAB: assert(contains(zonotope(R.timePoint.set{end}),zonotope(Rapprox.timePoint.set{end}),'approx:st',1e-6));
-        from cora_python.contSet.zonotope import Zonotope
-        from cora_python.contSet.zonotope.contains import contains
-        
-        R_end_zono = Zonotope(R['timePoint']['set'][-1])
-        Rapprox_end_zono = Zonotope(Rapprox['timePoint']['set'][-1])
+        R_end_zono = Zonotope(R.timePoint.set[-1])
+        Rapprox_end_zono = Zonotope(Rapprox.timePoint.set[-1])
         
         # Check that Rapprox is contained in R
-        assert contains(R_end_zono, Rapprox_end_zono, 'approx:st', 1e-6), \
+        assert R_end_zono.contains_(Rapprox_end_zono, 'approx:st', 1e-6), \
             "Approximative reachable set should be subset of over-approximative set"
         
         # combine results

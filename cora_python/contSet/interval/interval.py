@@ -108,14 +108,23 @@ class Interval(ContSet):
     def _parse_input_args(self, *args):
         """Parse input arguments from user and assign to variables"""
         if len(args) == 1:
-            # Check if it's a Zonotope object
-            if hasattr(args[0], '__class__') and args[0].__class__.__name__ == 'Zonotope':
-                # Convert zonotope to interval using MATLAB algorithm
+            # Prefer contSet interval conversion when available
+            if hasattr(args[0], 'interval') and callable(getattr(args[0], 'interval')):
+                I = args[0].interval()
+                if isinstance(I, Interval):
+                    lb = I.inf
+                    ub = I.sup
+                else:
+                    lb = np.atleast_1d(np.asarray(I, dtype=float))
+                    ub = lb.copy()
+            # Check if it's a Zonotope object (fallback for direct conversion)
+            elif hasattr(args[0], '__class__') and args[0].__class__.__name__ == 'Zonotope':
+                # Convert zonotope to interval using MATLAB algorithm (sum of abs generators)
                 Z = args[0]
-                c = Z.c.flatten()
-                # Use Kahan summation for improved precision
-                from cora_python.g.functions.helper.precision.kahan_sum import kahan_sum_abs
-                delta = kahan_sum_abs(Z.G, axis=1)
+                c = Z.c
+                if c.ndim == 1:
+                    c = c.reshape(-1, 1)
+                delta = np.sum(np.abs(Z.G), axis=1).reshape(-1, 1)
                 lb = c - delta
                 ub = c + delta
             else:

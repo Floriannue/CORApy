@@ -39,6 +39,7 @@ class MatrixSet(ABC):
         Constructor for MatrixSet base class.
         This is an abstract class and should not be instantiated directly.
         """
-        pass
+        # Ensure numpy prefers MatrixSet __array_ufunc__ over contSet
+        self.__array_priority__ = 2000
     
  

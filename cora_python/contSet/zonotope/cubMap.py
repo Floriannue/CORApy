@@ -95,12 +95,18 @@ def _aux_cubMapSingle(Z: Zonotope, T: List, ind: List) -> Zonotope:
     for i in range(n):
         listQuad = [np.zeros((N, N)) for _ in range(N)]
         for k in range(len(ind[i])):
-            Z_full = np.hstack([Z.center(), Z.generators()])
+            Zc = Z.center()
+            if Zc.ndim == 1:
+                Zc = Zc.reshape(-1, 1)
+            Z_full = np.hstack([Zc, Z.generators()])
             quadMat = Z_full.T @ T[i][ind[i][k] - 1] @ Z_full
             temp = np.tril(quadMat, -1)
             quadMat = quadMat - temp + temp.T
             for j in range(N):
-                Zj = np.hstack([Z.center(), Z.generators()])
+                Zc = Z.center()
+                if Zc.ndim == 1:
+                    Zc = Zc.reshape(-1, 1)
+                Zj = np.hstack([Zc, Z.generators()])
                 listQuad[j] += quadMat * Zj[ind[i][k] - 1, j]
         for k in range(1, N):
             for j in range(k):
@@ -132,12 +138,21 @@ def _aux_cubMapMixed(Z1: Zonotope, Z2: Zonotope, Z3: Zonotope, T: List, ind: Lis
     Zcub = np.zeros((n, N1 * N2 * N3))
     for i in range(n):
         for k in range(len(ind[i])):
-            Z1_full = np.hstack([Z1.center(), Z1.generators()])
-            Z2_full = np.hstack([Z2.center(), Z2.generators()])
+            Z1c = Z1.center()
+            Z2c = Z2.center()
+            if Z1c.ndim == 1:
+                Z1c = Z1c.reshape(-1, 1)
+            if Z2c.ndim == 1:
+                Z2c = Z2c.reshape(-1, 1)
+            Z1_full = np.hstack([Z1c, Z1.generators()])
+            Z2_full = np.hstack([Z2c, Z2.generators()])
             quadMat = Z1_full.T @ T[i][ind[i][k] - 1] @ Z2_full
             quadVec = quadMat.flatten()
             for j in range(N3):
-                Z3j = np.hstack([Z3.center, Z3.generators()])
+                Z3c = Z3.center()
+                if Z3c.ndim == 1:
+                    Z3c = Z3c.reshape(-1, 1)
+                Z3j = np.hstack([Z3c, Z3.generators()])
                 Zcub[i, (j)*Nq:(j+1)*Nq] += quadVec * Z3j[ind[i][k] - 1, j]
     # The output should be the full matrix as in MATLAB: Zonotope(Zcub)
     return Zonotope(Zcub) 

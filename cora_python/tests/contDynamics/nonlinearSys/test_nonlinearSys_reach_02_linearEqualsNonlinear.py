@@ -84,18 +84,17 @@ class TestNonlinearSysReach02LinearEqualsNonlinear:
                       [0, 0, -3, 1, 0],
                       [0, 0, -1, -3, 0],
                       [0, 0, 0, 0, -2]])
-        B = np.array([[1], [1], [1], [1], [1]])
+        B = 1
         fiveDimSys = LinearSys(A, B, name='fiveDimSys')
         
         # nonlinear system
         # MATLAB: fiveDimSysNonlinear = nonlinearSys(@fiveDimSysEq);
-        fiveDimSysNonlinear = NonlinearSys(fiveDimSysEq, states=5, inputs=1)
+        fiveDimSysNonlinear = NonlinearSys(fiveDimSysEq, states=5, inputs=5)
         
         # Reachability Analysis ---------------------------------------------------
         # linear system
         # MATLAB: Rlin = reach(fiveDimSys, params, optionsLin);
-        from cora_python.contDynamics.contDynamics.reach import reach
-        Rlin = reach(fiveDimSys, params, optionsLin)
+        Rlin = fiveDimSys.reach(params, optionsLin)
         
         # nonlinear system (conservative linearization)
         # MATLAB: optionsNonLin.alg = 'lin';
@@ -104,7 +103,7 @@ class TestNonlinearSysReach02LinearEqualsNonlinear:
         optionsNonLin1 = optionsNonLin.copy()
         optionsNonLin1['alg'] = 'lin'
         optionsNonLin1['tensorOrder'] = 2
-        Rnonlin1 = reach(fiveDimSysNonlinear, params, optionsNonLin1)
+        Rnonlin1 = fiveDimSysNonlinear.reach(params, optionsNonLin1)
         
         # nonlinear system (conservative polynomialization)
         # MATLAB: optionsNonLin.alg = 'poly';
@@ -117,22 +116,22 @@ class TestNonlinearSysReach02LinearEqualsNonlinear:
         optionsNonLin2['tensorOrder'] = 3
         optionsNonLin2['intermediateOrder'] = 100 * optionsNonLin['zonotopeOrder']
         optionsNonLin2['errorOrder'] = 1
-        Rnonlin2 = reach(fiveDimSysNonlinear, params, optionsNonLin2)
+        Rnonlin2 = fiveDimSysNonlinear.reach(params, optionsNonLin2)
         
         # Numerical Evaluation ----------------------------------------------------
         # enclosing intervals of final reachable sets
         # MATLAB: IH = interval(Rlin.timePoint.set{end});
         # MATLAB: IH_nonlinear_T1 = interval(Rnonlin1.timePoint.set{end});
         # MATLAB: IH_nonlinear_T2 = interval(Rnonlin2.timePoint.set{end});
-        IH = Rlin['timePoint']['set'][-1].interval()
-        IH_nonlinear_T1 = Rnonlin1['timePoint']['set'][-1].interval()
-        IH_nonlinear_T2 = Rnonlin2['timePoint']['set'][-1].interval()
+        IH = Rlin.timePoint.set[-1].interval()
+        IH_nonlinear_T1 = Rnonlin1.timePoint.set[-1].interval()
+        IH_nonlinear_T2 = Rnonlin2.timePoint.set[-1].interval()
         
         # final result
         # MATLAB: assert(isequal(IH,IH_nonlinear_T1,1e-8) && isequal(IH,IH_nonlinear_T2,1e-8));
-        assert Interval.isequal(IH, IH_nonlinear_T1, 1e-8), \
+        assert IH.isequal(IH_nonlinear_T1, 1e-8), \
             "Linear and nonlinear (lin) results should match"
-        assert Interval.isequal(IH, IH_nonlinear_T2, 1e-8), \
+        assert IH.isequal(IH_nonlinear_T2, 1e-8), \
             "Linear and nonlinear (poly) results should match"
 
 

@@ -1,0 +1,30 @@
+MATLAB outputSet Generated Tests Output
+========================================
+
+Test 1: No output equation (y = x)
+-----------------------------------
+Y.c = [1; 1]
+Y.G shape = 2x2
+Y.G = [0.1, 0; 0, 0.1]
+Y should equal R (no output equation)
+
+Test 2: With D matrix (direct feedthrough)
+------------------------------------------
+Y.c = [1.1]
+Y.G shape = 1x3
+Y.G = [0.1, 0, 0.025]
+
+Test 3: compOutputSet false
+---------------------------
+Y should equal R (compOutputSet = false)
+Y.c = [1; 1]
+Y.G shape = 2x2
+Y.G = [0.1, 0; 0, 0.1]
+
+Test 4: With order reduction
+----------------------------
+Y.c = [1]
+Y.G shape = 1x1
+Y.G = [0.1]
+Y should have reduced order (saveOrder = 5)
+

@@ -25,46 +25,22 @@ def priv_reduceGirard(Z: 'Zonotope', order: int) -> 'Zonotope':
     """
     from cora_python.contSet.zonotope import Zonotope
     
-    # Get dimension and number of generators
-    n = Z.dim()
-    G = Z.G
-    
-    # If zonotope is already lower order or empty, return as-is
-    if G.shape[1] <= order or G.shape[1] == 0:
-        return Z.copy()
-    
-    # Compute norms of generators
-    h = np.linalg.norm(G, axis=0, ord=1)  # L1 norm of each generator
-    
-    # Sort generators by norm (ascending order)
-    idx = np.argsort(h)
-    
-    # Keep the largest generators
-    keep_idx = idx[-(order):] if order > 0 else []
-    reduce_idx = idx[:-(order)] if order > 0 else idx
-    
-    # Build reduced generator matrix
-    if len(keep_idx) > 0:
-        G_keep = G[:, keep_idx]
+    from cora_python.g.functions.helper.sets.contSet.zonotope.pickedGenerators import pickedGenerators
+
+    # MATLAB: [center, Gunred, Gred] = pickedGeneratorsFast(Z, order);
+    center, Gunred, Gred, _ = pickedGenerators(Z, order)
+
+    # box remaining generators
+    # MATLAB: d = sum(abs(Gred),2); Gbox = diag(d);
+    if Gred.size > 0:
+        d = np.sum(np.abs(Gred), axis=1, keepdims=True)
+        Gbox = np.diag(d.flatten())
+        G_new = np.hstack([Gunred, Gbox]) if Gunred.size > 0 else Gbox
     else:
-        G_keep = np.zeros((n, 0))
-    
-    # Sum up the reduced generators into interval hull
-    if len(reduce_idx) > 0:
-        G_reduce = G[:, reduce_idx]
-        # Create interval hull: sum of absolute values of reduced generators
-        d = np.sum(np.abs(G_reduce), axis=1, keepdims=True)
-        # Convert to diagonal matrix representation
-        G_interval = np.diag(d.flatten())
-        # Combine with kept generators
-        if G_keep.size > 0:
-            G_new = np.hstack([G_keep, G_interval])
-        else:
-            G_new = G_interval
-    else:
-        G_new = G_keep
-    
-    return Zonotope(Z.c, G_new)
+        G_new = Gunred
+
+    # build reduced zonotope
+    return Zonotope(center, G_new)
 
 
 def priv_reduceCombastel(Z: 'Zonotope', order: int) -> 'Zonotope':

@@ -132,6 +132,7 @@ class Polytope(ContSet):
             # Copy constructor
             self._copy_constructor(args[0])
             # The dim value is copied directly in _copy_constructor
+            self.precedence = 80
             return
         
 
@@ -144,8 +145,8 @@ class Polytope(ContSet):
                 # Convert zonotope to polytope using the zonotope's polytope method
                 P = Z.polytope()
                 # Copy properties from the converted polytope
-
                 self._copy_constructor(P)
+                self.precedence = 80
                 return
         
         # Handle Interval conversion (positional only, matching MATLAB)
@@ -156,6 +157,7 @@ class Polytope(ContSet):
                 P = args[0].polytope()
                 # Copy properties from the converted polytope
                 self._copy_constructor(P)
+                self.precedence = 80
                 return
         
         # Handle general constructors
@@ -165,6 +167,7 @@ class Polytope(ContSet):
             kkwargs.pop('dim')
         self._general_constructor(*args, **kkwargs)
         print(f"DEBUG (Polytope.__init__): self._dim_val after _general_constructor: {self._dim_val}")
+        self.precedence = 80
 
         # Ensure _dim_val is set after construction,
         # in case it was not explicitly set by _general_constructor for edge cases.
@@ -220,6 +223,7 @@ class Polytope(ContSet):
         self._minHRep_val = other._minHRep_val
         self._minVRep_val = other._minVRep_val
         self._dim_val = other._dim_val # Copy the cached dimension
+        self.precedence = other.precedence if hasattr(other, 'precedence') else 80
 
 
     def _general_constructor(self, *args, **kwargs):

@@ -45,6 +45,13 @@ def representsa_(Z, set_type: str, tol: float = 1e-12, method: str = 'linearize'
     
     # Check if we need to return the converted set
     return_set = 'return_set' in kwargs and kwargs['return_set']
+
+    # Handle empty list input (e.g., missing set -> empty)
+    if isinstance(Z, list) and len(Z) == 0:
+        res = (set_type == 'emptySet')
+        if return_set:
+            return res, Z
+        return res
     
     # Check empty object case
     try:

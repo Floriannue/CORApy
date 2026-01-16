@@ -1,0 +1,9 @@
+MATLAB priv_initReach_Krylov Generated Tests Output
+====================================================
+MP toolbox available: 1
+MP toolbox initialization failed: Undefined function 'mpfr_construct_dd' for input arguments of type 'double'.
+MP toolbox works: 0
+WARNING: All Krylov methods (Jawecki, Saad, Wang) require MP toolbox.
+Tests will fail because priv_inputSolution_Krylov is hardcoded to use Jawecki method.
+Skipping tests that require MP toolbox.
+

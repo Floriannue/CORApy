@@ -127,11 +127,11 @@ def _aux_outputSet(sys: Any, tensorOrderOutput: int, R: Any, params: Dict[str, A
     # evaluate output function and Jacobian at expansion point
     D_lin = np.zeros((r, m))
     
-    if (hasattr(sys, '__class__') and 
-        (sys.__class__.__name__ == 'nonlinearSys' or sys.__class__.__name__ == 'nonlinearSysDT')):
+    class_name = sys.__class__.__name__.lower() if hasattr(sys, '__class__') else ''
+    if class_name in ['nonlinearsys', 'nonlinearsysdt']:
         zerothorder = sys.out_mFile(p_x, p_u)
         J, D_lin = sys.out_jacobian(p_x, p_u)
-    elif hasattr(sys, '__class__') and sys.__class__.__name__ == 'nonlinParamSys':
+    elif class_name == 'nonlinparamsys':
         if 'paramInt' in params and isinstance(params['paramInt'], Interval):
             # ...copied from nonlinParamSys/linearize
             # constant
@@ -164,7 +164,14 @@ def _aux_outputSet(sys: Any, tensorOrderOutput: int, R: Any, params: Dict[str, A
     # first-order
     firstorder = J @ (R + (-p_x)) + D_lin @ (U + (-p_u))
     
-    if sys.out_isLinear if hasattr(sys, 'out_isLinear') else False:
+    is_linear = False
+    if hasattr(sys, 'out_isLinear'):
+        val = sys.out_isLinear
+        try:
+            is_linear = bool(np.all(val))
+        except Exception:
+            is_linear = bool(val)
+    if is_linear:
         # only affine map
         secondorder = Zonotope(np.zeros((J.shape[0], 1)), np.array([]).reshape(J.shape[0], 0))
         thirdorder = np.zeros((r, 1))
@@ -235,9 +242,13 @@ def _aux_outputSet(sys: Any, tensorOrderOutput: int, R: Any, params: Dict[str, A
         # include factor and convert remainder to zonotope for quadMap below
         thirdorder = Zonotope((1/6) * thirdorder)
     
-    # compute output set
+    # compute output set (ensure contSet handles numeric offsets)
     Verror = secondorder + thirdorder
-    Y = zerothorder + firstorder + Verror
+    if isinstance(zerothorder, np.ndarray):
+        Y = firstorder + zerothorder
+    else:
+        Y = zerothorder + firstorder
+    Y = Y + Verror
     
     return Y, Verror
 

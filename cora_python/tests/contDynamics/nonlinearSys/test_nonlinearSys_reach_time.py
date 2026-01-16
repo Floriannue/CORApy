@@ -20,13 +20,13 @@ Last revision: ---
 
 import numpy as np
 import pytest
+import sympy as sp
 from cora_python.contDynamics.nonlinearSys import NonlinearSys
 from cora_python.contSet.zonotope import Zonotope
-from cora_python.contDynamics.contDynamics.reach import reach
 from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 
-def test_system_dynamics(x, u):
+def system_dynamics(x, u):
     """
     Test system dynamics function
     
@@ -37,10 +37,16 @@ def test_system_dynamics(x, u):
     Returns:
         dx: time-derivate of the system state
     """
-    dx = np.zeros((3, 1))
-    dx[0, 0] = -x[1, 0] * x[2, 0]
-    dx[1, 0] = -x[0, 0] + u[0, 0]
-    dx[2, 0] = -x[1, 0] * x[0, 0]
+    if isinstance(x, sp.MatrixBase) or isinstance(u, sp.MatrixBase):
+        dx = sp.zeros(3, 1)
+        dx[0, 0] = -x[1, 0] * x[2, 0]
+        dx[1, 0] = -x[0, 0] + u[0, 0]
+        dx[2, 0] = -x[1, 0] * x[0, 0]
+    else:
+        dx = np.zeros((3, 1))
+        dx[0, 0] = -x[1, 0] * x[2, 0]
+        dx[1, 0] = -x[0, 0] + u[0, 0]
+        dx[2, 0] = -x[1, 0] * x[0, 0]
     return dx
 
 
@@ -57,7 +63,7 @@ class TestNonlinearSysReachTime:
         m = 1
         # MATLAB: f = @(x,u) [-x(2)*x(3); -x(1) + u(1); -x(2)*x(1)];
         # MATLAB: sys = nonlinearSys(f,n,m);
-        sys = NonlinearSys(test_system_dynamics, states=n, inputs=m)
+        sys = NonlinearSys(system_dynamics, states=n, inputs=m)
         
         # model parameters
         # MATLAB: params.R0 = zonotope(2*ones(n,1),0.05*diag(ones(n,1)));
@@ -91,20 +97,20 @@ class TestNonlinearSysReachTime:
         
         # reachability analysis
         # MATLAB: R = reach(sys,params,options);
-        R = reach(sys, params, options)
+        R = sys.reach(params, options)
         
         # check if times are correct
         # MATLAB: assert(withinTol(R.timePoint.time{1},params.tStart))
-        assert withinTol(R['timePoint']['time'][0], params['tStart']), \
-            f"First time point {R['timePoint']['time'][0]} should equal tStart {params['tStart']}"
+        assert withinTol(R.timePoint.time[0], params['tStart']), \
+            f"First time point {R.timePoint.time[0]} should equal tStart {params['tStart']}"
         
         # MATLAB: assert(length(R.timePoint.time) == steps + 1)
-        assert len(R['timePoint']['time']) == steps + 1, \
-            f"Number of time points {len(R['timePoint']['time'])} should equal steps + 1 = {steps + 1}"
+        assert len(R.timePoint.time) == steps + 1, \
+            f"Number of time points {len(R.timePoint.time)} should equal steps + 1 = {steps + 1}"
         
         # MATLAB: assert(withinTol(R.timePoint.time{end},params.tFinal))
-        assert withinTol(R['timePoint']['time'][-1], params['tFinal']), \
-            f"Last time point {R['timePoint']['time'][-1]} should equal tFinal {params['tFinal']}"
+        assert withinTol(R.timePoint.time[-1], params['tFinal']), \
+            f"Last time point {R.timePoint.time[-1]} should equal tFinal {params['tFinal']}"
         
         return res
 

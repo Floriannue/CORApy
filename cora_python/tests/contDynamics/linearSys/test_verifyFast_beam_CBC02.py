@@ -55,11 +55,11 @@ class TestVerifyFastBeamCBC02:
         # MATLAB: ell = L/N;      % length of individual discrete element
         ell = L / N  # length of individual discrete element
         
-        # mass matrix (NxN)
+        # mass matrix (diagonal)
         # MATLAB: M = (rho*Q*ell) / 2 * diag([2*ones(N-1,1);1]);
         # MATLAB: Minv = M^(-1);
-        M = (rho * Q * ell) / 2 * np.diag(np.concatenate([2 * np.ones(N - 1), [1]]))
-        Minv = np.linalg.inv(M)
+        M_diag = (rho * Q * ell) / 2 * np.concatenate([2 * np.ones(N - 1), [1]])
+        Minv_diag = 1.0 / M_diag
         
         # load
         # MATLAB: F = zonotope(10000,100);
@@ -74,15 +74,11 @@ class TestVerifyFastBeamCBC02:
         # MATLAB:     mat(r,2+(r-2)) = 2;
         # MATLAB:     mat(r,3+(r-2)) = -1;
         # MATLAB: end
-        mat = np.zeros((N, N))
-        mat[0, 0] = 2
-        mat[0, 1] = -1
-        mat[N - 1, N - 2] = -1
-        mat[N - 1, N - 1] = 1
-        for r in range(1, N - 1):
-            mat[r, 0 + (r - 1)] = -1
-            mat[r, 1 + (r - 1)] = 2
-            mat[r, 2 + (r - 1)] = -1
+        # build tridiagonal efficiently (same as MATLAB loop)
+        mat = np.diag(2 * np.ones(N))
+        mat[-1, -1] = 1
+        mat += np.diag(-1 * np.ones(N - 1), -1)
+        mat += np.diag(-1 * np.ones(N - 1), 1)
         
         # stiffness matrix (NxN)
         # MATLAB: K = E*Q/ell * mat;
@@ -93,12 +89,14 @@ class TestVerifyFastBeamCBC02:
         # MATLAB: D = a*K + b*M;
         a = 1e-6
         b = 1e-6
-        D = a * K + b * M
+        D = a * K + b * np.diag(M_diag)
         
         # state matrix (damped)
         # MATLAB: A = [zeros(N) eye(N); -Minv*K -Minv*D];
+        MinvK = Minv_diag[:, None] * K
+        MinvD = Minv_diag[:, None] * D
         A = np.block([[np.zeros((N, N)), np.eye(N)],
-                      [-Minv @ K, -Minv @ D]])
+                      [-MinvK, -MinvD]])
         
         # nr of states
         # MATLAB: dim_x = length(A);
@@ -122,7 +120,7 @@ class TestVerifyFastBeamCBC02:
         # initial set: bar at rest
         # MATLAB: params.R0 = cartProd( zonotope(zeros(dim_x,1)), Minv(end,end)*F );
         Z1 = Zonotope(np.zeros((dim_x, 1)), np.zeros((dim_x, 0)))
-        Z2 = Zonotope(Minv[-1, -1] * F.c, Minv[-1, -1] * F.G)
+        Z2 = Zonotope(Minv_diag[-1] * F.c, Minv_diag[-1] * F.G)
         params['R0'] = cartProd_(Z1, Z2)
         
         # input set

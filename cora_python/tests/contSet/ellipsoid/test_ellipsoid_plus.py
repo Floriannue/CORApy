@@ -59,8 +59,8 @@ def test_plus_origin():
     assert np.allclose(E_result.q, E1.q)
 
 
-def test_plus_ellipsoid_not_implemented():
-    """Test that ellipsoid-ellipsoid addition raises NotImplementedError"""
+def test_plus_ellipsoid_ellipsoid():
+    """Test Minkowski sum between two ellipsoids returns an ellipsoid"""
     E1 = Ellipsoid(np.array([[5.4387811500952807, 12.4977183618314545], 
                             [12.4977183618314545, 29.6662117284481646]]), 
                    np.array([[-0.7445068341257537], [3.5800647524843665]]))
@@ -69,9 +69,9 @@ def test_plus_ellipsoid_not_implemented():
                             [0.6346400221575309, 0.0946946398147988]]), 
                    np.array([[-2.4653656883489115], [0.2717868749873985]]))
     
-    # This should raise NotImplementedError until private functions are translated
-    with pytest.raises(NotImplementedError):
-        E1.plus(E2)
+    E_out = E1.plus(E2)
+    assert isinstance(E_out, Ellipsoid)
+    assert E_out.Q.shape == E1.Q.shape
 
 
 def test_plus_operator_overload():

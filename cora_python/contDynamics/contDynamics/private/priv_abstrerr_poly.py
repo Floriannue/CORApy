@@ -118,10 +118,10 @@ def priv_abstrerr_poly(sys: Any, Rall: Any, Rdiff: Any, params: Dict[str, Any],
     # MATLAB: error_secondOrder_dyn = 0.5*(quadMap(Zdelta,Z_diff,H) ...
     #                                  + quadMap(Z_diff,Zdelta,H) + quadMap(Z_diff,H));
     # quadMap can be called as quadMap(Z1, Z2, H) for mixed case or quadMap(Z, H) for single case
-    from cora_python.contSet.zonotope.quadMap import quadMap
-    error_secondOrder_dyn = 0.5 * (quadMap(Zdelta, Z_diff, H) +
-                                   quadMap(Z_diff, Zdelta, H) +
-                                   quadMap(Z_diff, H))
+    # Use object.method() pattern for quadMap
+    error_secondOrder_dyn = 0.5 * (Zdelta.quadMap(Z_diff, H) +
+                                   Z_diff.quadMap(Zdelta, H) +
+                                   Z_diff.quadMap(H))
     
     # third-order error
     # MATLAB: if options.tensorOrder == 3
@@ -235,15 +235,15 @@ def priv_abstrerr_poly(sys: Any, Rall: Any, Rdiff: Any, params: Dict[str, Any],
         #                                cubMap(Z_diff3,Zdelta3,Zdelta3,T,ind3) + ...
         #                                cubMap(Z_diff3,Z_diff3,Zdelta3,T,ind3));
         # cubMap can be called as cubMap(Z, T, ind) for single case or cubMap(Z1, Z2, Z3, T, ind) for mixed case
-        from cora_python.contSet.zonotope.cubMap import cubMap
+        # Use object.method() pattern for cubMap
         error_thirdOrder_dyn = (1.0 / 6.0) * (
-            cubMap(Zdelta3, T, ind3) +
-            cubMap(Zdelta3, Zdelta3, Z_diff3, T, ind3) +
-            cubMap(Zdelta3, Z_diff3, Z_diff3, T, ind3) +
-            cubMap(Zdelta3, Z_diff3, Zdelta3, T, ind3) +
-            cubMap(Z_diff3, Zdelta3, Z_diff3, T, ind3) +
-            cubMap(Z_diff3, Zdelta3, Zdelta3, T, ind3) +
-            cubMap(Z_diff3, Z_diff3, Zdelta3, T, ind3)
+            Zdelta3.cubMap(T, ind3) +
+            Zdelta3.cubMap(Zdelta3, Z_diff3, T, ind3) +
+            Zdelta3.cubMap(Z_diff3, Z_diff3, T, ind3) +
+            Zdelta3.cubMap(Z_diff3, Zdelta3, T, ind3) +
+            Z_diff3.cubMap(Zdelta3, Z_diff3, T, ind3) +
+            Z_diff3.cubMap(Zdelta3, Zdelta3, T, ind3) +
+            Z_diff3.cubMap(Z_diff3, Zdelta3, T, ind3)
         )
         
         # init higher-order error

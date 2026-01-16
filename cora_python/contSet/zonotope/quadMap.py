@@ -105,8 +105,11 @@ def _aux_quadMapSingle(Z: Zonotope, Q: List[np.ndarray]) -> Zonotope:
             # For Interval, check if any element is non-zero
             # Flatten the interval and check if any element is non-zero
             # MATLAB: any(Q{i}(:)) checks if any element in the flattened matrix is non-zero
-            Q_i_inf_flat = Q[i].inf.flatten()
-            Q_i_sup_flat = Q[i].sup.flatten()
+            import scipy.sparse as sp
+            Q_inf = Q[i].inf.toarray() if sp.issparse(Q[i].inf) else Q[i].inf
+            Q_sup = Q[i].sup.toarray() if sp.issparse(Q[i].sup) else Q[i].sup
+            Q_i_inf_flat = np.asarray(Q_inf).flatten()
+            Q_i_sup_flat = np.asarray(Q_sup).flatten()
             # Check if any element is non-zero (either inf or sup is non-zero)
             Qnonempty[i] = bool(np.any(Q_i_inf_flat != 0) or np.any(Q_i_sup_flat != 0))
             Q_i = Q[i]  # Keep as Interval for matrix multiplication (uses @ operator)

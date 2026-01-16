@@ -117,8 +117,7 @@ def oneStep(linsys, X, U, u, timeStep: float, truncationOrder: int,
     
     # MATLAB: Hti = block_operation(@plus,block_operation(@enclose,X,Htp),C_state);
     # compute affine time-interval solution
-    from cora_python.g.functions.helper.sets.contSet.contSet import enclose
-    Hti_approx = block_operation(enclose, X, Htp)
+    Hti_approx = block_operation(lambda a, b: a.enclose(b), X, Htp)
     Hti = block_operation(lambda a, b: a + b, Hti_approx, C_state)
     
     # MATLAB: Rtp = block_operation(@plus,Htp,PU);

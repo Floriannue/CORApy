@@ -1,5 +1,5 @@
 """
-mldivide - overloaded \ operator for set difference P1 \ P2
+mldivide - overloaded \\ operator for set difference P1 \\ P2
 
 Exact MATLAB translation of control flow; uses existing helpers.
 """
@@ -33,8 +33,26 @@ def mldivide(P1, P2):
 
     if P1c.isFullDim() and P2c.isFullDim():
         for i in range(b2.shape[0]):
-            A = np.vstack([-A2[i:i+1, :], A2[:i, :], A1])
-            b = np.vstack([-b2[i:i+1, :], b2[:i, :], b1])
+            # Handle empty arrays properly
+            parts_A = []
+            parts_b = []
+            
+            # Add -A2[i:i+1, :]
+            parts_A.append(-A2[i:i+1, :])
+            parts_b.append(-b2[i:i+1, :])
+            
+            # Add A2[:i, :] if not empty
+            if i > 0:
+                parts_A.append(A2[:i, :])
+                parts_b.append(b2[:i, :])
+            
+            # Add A1 if not empty
+            if A1.shape[0] > 0:
+                parts_A.append(A1)
+                parts_b.append(b1)
+            
+            A = np.vstack(parts_A) if parts_A else np.zeros((0, n))
+            b = np.vstack(parts_b) if parts_b else np.zeros((0, 1))
             Pi = Polytope(A, b)
             if Pi.isFullDim():
                 P_out = Pi
@@ -47,11 +65,30 @@ def mldivide(P1, P2):
         # shift open half-space of P2 slightly
         shift_tol = 1e-12
         for i in range(b1.shape[0]):
-            A = np.vstack([-A2[i:i+1, :], A2[:i, :], A1])
-            b = np.vstack([-(b2[i, 0] + shift_tol).reshape(1, 1), b2[:i, :], b1])
+            # Handle empty arrays properly
+            parts_A = []
+            parts_b = []
+            
+            # Add -A2[i:i+1, :]
+            parts_A.append(-A2[i:i+1, :])
+            parts_b.append(-(b2[i, 0] + shift_tol).reshape(1, 1))
+            
+            # Add A2[:i, :] if not empty
+            if i > 0:
+                parts_A.append(A2[:i, :])
+                parts_b.append(b2[:i, :])
+            
+            # Add A1 if not empty
+            if A1.shape[0] > 0:
+                parts_A.append(A1)
+                parts_b.append(b1)
+            
+            A = np.vstack(parts_A) if parts_A else np.zeros((0, n))
+            b = np.vstack(parts_b) if parts_b else np.zeros((0, 1))
             # Create a copy to avoid modifying the original array
             b_copy = b.copy()
-            b_copy[0, 0] = b_copy[0, 0] + shift_tol
+            if b_copy.shape[0] > 0:
+                b_copy[0, 0] = b_copy[0, 0] + shift_tol
             Pi = Polytope(A, b_copy)
             P_out = Pi if P_out.A.shape[0] == 0 else P_out
         return P_out

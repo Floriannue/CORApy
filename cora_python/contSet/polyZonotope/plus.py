@@ -43,9 +43,11 @@ def plus(pZ: Union[PolyZonotope, np.ndarray], S: Union[ContSet, np.ndarray]) -> 
         temp = pZ
         pZ = S
         S = temp
-        S_out = pZ # After swap, pZ is the PolyZonotope
+        # Work on a copy to avoid mutating the input object
+        S_out = pZ.copy()
     elif isinstance(pZ, PolyZonotope):
-        S_out = pZ
+        # Work on a copy to avoid mutating the input object
+        S_out = pZ.copy()
     else:
         raise CORAerror('CORA:wrongInputInFunction', 'First input must be a PolyZonotope object or compatible numeric.')
 
@@ -99,7 +101,7 @@ def plus(pZ: Union[PolyZonotope, np.ndarray], S: Union[ContSet, np.ndarray]) -> 
             return S_out
 
         # summand is a numeric vector (point)
-        if isinstance(S, np.ndarray) and S.ndim <= 1:
+        if isinstance(S, np.ndarray) and (S.ndim == 1 or (S.ndim == 2 and S.shape[1] == 1)):
             # Ensure S is a column vector for addition if it's a point
             if S.ndim == 1:
                 S = S.reshape(-1, 1)

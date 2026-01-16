@@ -37,7 +37,6 @@ Last revision: ---
 import numpy as np
 from typing import Tuple, Any, Dict
 from cora_python.contSet.zonotope import Zonotope
-from cora_python.contSet.zonotope.center import center
 
 
 def linearize(nlnsys: Any, R: Any, params: Dict[str, Any], 
@@ -77,7 +76,7 @@ def linearize(nlnsys: Any, R: Any, params: Dict[str, Any],
     else:
         # center of start set
         # MATLAB: cx = center(R);
-        cx = center(R)
+        cx = R.center()
         
         # linearization point p.x of the state is the center of the last
         # reachable set R translated by 0.5*delta_t*f0
@@ -137,10 +136,11 @@ def linearize(nlnsys: Any, R: Any, params: Dict[str, Any],
     # set up options for linearized system
     # MATLAB: linParams.U = B*(params.U+params.uTrans-p.u);
     linParams = {}
-    linParams['U'] = B * (params['U'] + params['uTrans'] - p['u'])
+    # MATLAB: B*(params.U+params.uTrans-p.u) is matrix multiplication
+    linParams['U'] = B @ (params['U'] + params['uTrans'] - p['u'])
     
     # MATLAB: Ucenter = center(linParams.U);
-    Ucenter = center(linParams['U'])
+    Ucenter = linParams['U'].center()
     
     # MATLAB: linParams.U = linParams.U - Ucenter;
     linParams['U'] = linParams['U'] - Ucenter

@@ -26,6 +26,26 @@ class ContSet(ABC):
     def __init__(self):
         """Initialize the base ContSet"""
         self.precedence = 50  # Default precedence for operator overloading
+        # Ensure numpy prefers contSet's __r*__ operators for mixed ops
+        self.__array_priority__ = 1000
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        """
+        Allow numpy ufuncs (notably matmul) to dispatch to contSet operators.
+        """
+        import numpy as np
+        other = inputs[1] if len(inputs) == 2 and inputs[0] is self else inputs[0] if len(inputs) == 2 else None
+        if other is not None and hasattr(other, 'precedence'):
+            if other.precedence > self.precedence:
+                return NotImplemented
+
+        if method == '__call__' and ufunc == np.matmul and len(inputs) == 2:
+            if inputs[0] is self and hasattr(self, '__matmul__'):
+                return self.__matmul__(inputs[1])
+            if inputs[1] is self and hasattr(self, '__rmatmul__'):
+                return self.__rmatmul__(inputs[0])
+
+        return NotImplemented
     
     @abstractmethod
     def __repr__(self) -> str:

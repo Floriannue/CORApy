@@ -144,5 +144,12 @@ class matZonotope:
             for i, Gi in enumerate(G_legacy):
                 G[:, :, i] = Gi
         
+        # Ensure generator matrices use 3D shape (n x m x h)
+        if isinstance(G, np.ndarray) and G.ndim == 2:
+            if G.size == 0:
+                G = np.zeros((*C.shape, 0))
+            else:
+                G = G[:, :, np.newaxis]
+
         return C, G
     

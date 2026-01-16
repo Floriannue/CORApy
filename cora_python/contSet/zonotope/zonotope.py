@@ -114,6 +114,10 @@ class Zonotope(ContSet):
         """Parse input arguments from user and assign to variables"""
         
         if len(args) == 1:
+            # Check if it's a PolyZonotope object
+            if hasattr(args[0], '__class__') and args[0].__class__.__name__ == 'PolyZonotope':
+                Z_from_poly = args[0].zonotope()
+                return Z_from_poly.c, Z_from_poly.G
             # Check if it's an Interval object
             if hasattr(args[0], '__class__') and args[0].__class__.__name__ == 'Interval':
                 # Convert interval to zonotope using interval's zonotope method
@@ -169,8 +173,12 @@ class Zonotope(ContSet):
         if n_in == 2:
             # Check dimensions
             if c.size == 0 and G.size > 0:
-                raise CORAerror('CORA:wrongInputInConstructor',
-                              'Center is empty')
+                # Allow MATLAB-style empty center zeros(n,0) with non-empty generators
+                if c.ndim >= 2 and c.shape[1] == 0 and c.shape[0] == G.shape[0]:
+                    pass
+                else:
+                    raise CORAerror('CORA:wrongInputInConstructor',
+                                  'Center is empty')
             elif c.size > 0 and c.ndim > 1 and min(c.shape) > 1:
                 raise CORAerror('CORA:wrongInputInConstructor',
                               'Center is not a vector')

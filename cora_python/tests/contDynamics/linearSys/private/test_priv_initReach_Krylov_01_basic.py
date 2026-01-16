@@ -7,6 +7,12 @@ Verified: 2025-01-XX
 
 Tests the initialization function for Krylov subspace reachability analysis.
 Note: priv_initReach_Krylov is a private method, accessed by changing to private directory.
+
+IMPORTANT: MATLAB verification attempted via debug_matlab_initReach_Krylov_generated.m,
+but all Krylov methods (Jawecki, Saad, Wang) require the MP (Multiple Precision) toolbox.
+The MP toolbox must be properly installed and configured for these tests to run in MATLAB.
+priv_inputSolution_Krylov is hardcoded to use the Jawecki method which requires MP.
+If MP is not available or not properly configured, MATLAB tests will be skipped.
 """
 
 import numpy as np

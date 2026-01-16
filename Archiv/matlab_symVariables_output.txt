@@ -1,0 +1,70 @@
+MATLAB symVariables Test Output
+================================
+
+Test 1: Basic symVariables without brackets
+-------------------------------------------
+Input:
+sys.nrOfDims = 3
+sys.nrOfInputs = 1
+sys.nrOfOutputs = 2
+withBrackets = false
+
+Output:
+vars.x length: 3
+vars.x(1) = x1
+vars.x(2) = x2
+vars.x(3) = x3
+vars.u length: 1
+vars.u(1) = u1
+vars.o length: 2
+vars.o(1) = y1
+vars.o(2) = y2
+vars_der.x length: 3
+vars_der.x(1) = dx1
+vars_der.u length: 1
+vars_der.u(1) = du1
+vars_der.o length: 2
+vars_der.o(1) = do1
+vars_der.o(2) = do2
+
+Test 2: symVariables with brackets
+-----------------------------------
+Input:
+sys2.nrOfDims = 2
+withBrackets = true
+
+Output:
+vars2.x length: 2
+vars2.x(1) = xL1R
+vars2.x(2) = xL2R
+vars_der2.x length: 2
+vars_der2.x(1) = dxL1R
+
+Test 3: symVariables with constraints
+-------------------------------------
+Note: contDynamics base class does not have nrOfConstraints property.
+This test would require a subclass like nonlinDASys.
+Skipping for now - constraints are handled by isprop check.
+
+Test 4: symVariables without constraints
+---------------------------------------
+Input:
+sys4 has nrOfConstraints: 0
+
+Output:
+vars4.y length: 0
+
+Test 5: symVariables with parameters
+------------------------------------
+Note: contDynamics base class does not have nrOfParam property.
+This test would require a subclass like nonlinParamSys.
+Skipping for now - parameters are handled by isprop check.
+
+Test 6: symVariables without parameters
+---------------------------------------
+Input:
+sys6 has nrOfParam: 0
+
+Output:
+vars6.p length: 0
+

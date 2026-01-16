@@ -21,9 +21,8 @@ Last revision: ---
 import numpy as np
 import pytest
 import time
-from cora_python.contDynamics.nonlinearSys.nonlinearSys import NonlinearSys
-from cora_python.contSet.zonotope.zonotope import Zonotope
-from cora_python.contSet.interval.interval import Interval
+from cora_python.contDynamics.nonlinearSys import NonlinearSys
+from cora_python.contSet.zonotope import Zonotope
 from cora_python.models.Cora.contDynamics.nonlinearSys.models.jetEngine import jetEngine
 
 
@@ -48,10 +47,13 @@ def test_nonlinearSys_reach_adaptive_01_jetEngine():
     # MATLAB: options.alg = 'lin-adaptive';
     options = {}
     options['alg'] = 'lin-adaptive'
+    # progress logging to spot non-termination
+    options['progress'] = True
+    options['progressInterval'] = 10
     
     # init system
     # MATLAB: sys = nonlinearSys(@jetEngine,dim_x,1);
-    sys = NonlinearSys('jetEngine', jetEngine, dim_x, 1)
+    sys = NonlinearSys(name='jetEngine', fun=jetEngine, states=dim_x, inputs=1)
     
     # MATLAB: adapTime = tic; [R,~,opt] = reach(sys,params,options); tComp = toc(adapTime);
     adapTime = time.time()
@@ -76,7 +78,7 @@ def test_nonlinearSys_reach_adaptive_01_jetEngine():
         if len(timePoint_sets) > 0:
             endset = timePoint_sets[-1]
             # MATLAB: gamma_o = 2*rad(interval(endset));
-            gamma_o = 2 * endset.interval().radius()
+            gamma_o = 2 * endset.interval().rad()
         else:
             pytest.skip("No time point sets computed")
     else:

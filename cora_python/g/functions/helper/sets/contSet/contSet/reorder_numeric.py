@@ -1,4 +1,5 @@
 from typing import Any
+import numpy as np
 
 def reorder_numeric(S1: Any, S2: Any) -> tuple[Any, Any]:
     """
@@ -18,7 +19,7 @@ def reorder_numeric(S1: Any, S2: Any) -> tuple[Any, Any]:
         is the numeric value.
     """
     # Classic temporary-swap
-    if isinstance(S1, (int, float, complex)):
+    if isinstance(S1, (int, float, complex, np.number, np.ndarray)):
         S1, S2 = S2, S1
     
     return S1, S2 

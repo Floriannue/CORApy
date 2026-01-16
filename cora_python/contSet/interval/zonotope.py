@@ -37,6 +37,10 @@ def zonotope(I):
     if isinstance(n, np.ndarray) and n.size > 1:
         raise CORAerror('CORA:wrongValue', 'first', 'Interval must not be an n-d array with n > 1.')
     
+    # empty set -> empty zonotope
+    if hasattr(I, 'representsa_') and I.representsa_('emptySet', 1e-9):
+        return Zonotope.empty(I.dim())
+
     # obtain center
     c = I.center()
     

@@ -1,0 +1,29 @@
+MATLAB interval plus debug output
+case_empty_I_plus empty=1
+case_empty_v_plus empty=1
+case_bounded_numeric_v_plus class=interval inf=[0;0] sup=[5;5]
+case_bounded_numeric_I_plus class=interval inf=[0;0] sup=[5;5]
+case_unbounded_numeric_I_plus class=interval inf=-Inf sup=3
+case_unbounded_numeric_v_plus class=interval inf=-Inf sup=3
+case_bounded_interval_I1_plus_I2 class=interval inf=[-3;-4] sup=[4;3]
+case_bounded_interval_I2_plus_I1 class=interval inf=[-3;-4] sup=[4;3]
+case_unbounded_interval_I1_plus_I2 class=interval inf=[-Inf;-2] sup=[3;Inf]
+case_unbounded_interval_I2_plus_I1 class=interval inf=[-Inf;-2] sup=[3;Inf]
+case_interval_matrix_I_plus class=interval inf=[0 1;2 4] sup=[5 7;4 5]
+case_interval_matrix_v_plus class=interval inf=[0 1;2 4] sup=[5 7;4 5]
+case_scalar_I_plus class=interval inf=[4;5] sup=[7;8]
+case_scalar_v_plus class=interval inf=[4;5] sup=[7;8]
+case_vector_I_plus class=interval inf=[0;-1] sup=[3;2]
+case_vector_v_plus class=interval inf=[0;-1] sup=[3;2]
+case_matrix_I1_plus_I2 class=interval inf=[-1 -1;0 -1] sup=[3 1;5 3]
+case_zero_scalar_I_plus class=interval inf=[-1;0] sup=[2;3]
+case_zero_vector_I_plus class=interval inf=[-1;0] sup=[2;3]
+case_assoc_left class=interval inf=[-2;-2] sup=[4;4]
+case_assoc_right class=interval inf=[-2;-2] sup=[4;4]
+case_interval_plus_zonotope class=zonotope c=[0;0] G=[1 0 1 0;0 1 0 1] size_c=[2 1] size_G=[2 4] empty=0
+case_zonotope_plus_interval class=zonotope c=[0;0] G=[1 0 1 0;0 1 0 1] size_c=[2 1] size_G=[2 4] empty=0
+case_interval_plus_zonotope_diff class=zonotope c=[2;-1.5] G=[0.5 0 1 0;0 0.5 0 1.5] size_c=[2 1] size_G=[2 4] empty=0
+case_interval_plus_zonotope_1d class=zonotope c=1.5 G=[2 2.5] size_c=[1 1] size_G=[1 2] empty=0
+case_interval_plus_zonotope_point class=zonotope c=[2;2] G=[1 0;0 1] size_c=[2 1] size_G=[2 2] empty=0
+case_interval_plus_zonotope_empty class=zonotope c=zeros(2,0) G=[1 0;0 1] size_c=[2 0] size_G=[2 2] empty=0
+case_zonotope_plus_interval_empty class=zonotope c=zeros(2,0) G=[1 0;0 1] size_c=[2 0] size_G=[2 2] empty=0

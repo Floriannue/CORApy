@@ -42,13 +42,17 @@ def mtimes(factor1: Union[np.ndarray, 'IntervalMatrix'],
     if isinstance(factor1, np.ndarray):
         # MATLAB: res.int = factor1 * factor2.int;
         res_int = interval_mtimes(factor1, factor2.int)
-        return IntervalMatrix(res_int.inf, res_int.sup - res_int.inf)
+        center = 0.5 * (res_int.inf + res_int.sup)
+        delta = 0.5 * (res_int.sup - res_int.inf)
+        return IntervalMatrix(center, delta)
     
     # factor2 is numeric, factor1 is intervalMatrix
     if isinstance(factor2, np.ndarray):
         # MATLAB: res.int = factor1.int * factor2;
         res_int = interval_mtimes(factor1.int, factor2)
-        return IntervalMatrix(res_int.inf, res_int.sup - res_int.inf)
+        center = 0.5 * (res_int.inf + res_int.sup)
+        delta = 0.5 * (res_int.sup - res_int.inf)
+        return IntervalMatrix(center, delta)
     
     # Scalar multiplication: intervalMatrix * scalar or scalar * intervalMatrix
     if isinstance(factor1, (int, float, np.number)) and isinstance(factor2, IntervalMatrix):
@@ -65,7 +69,9 @@ def mtimes(factor1: Union[np.ndarray, 'IntervalMatrix'],
     if isinstance(factor1, IntervalMatrix) and isinstance(factor2, IntervalMatrix):
         # MATLAB: res.int = factor1.int * factor2.int;
         res_int = interval_mtimes(factor1.int, factor2.int)
-        return IntervalMatrix(res_int.inf, res_int.sup - res_int.inf)
+        center = 0.5 * (res_int.inf + res_int.sup)
+        delta = 0.5 * (res_int.sup - res_int.inf)
+        return IntervalMatrix(center, delta)
     
     # intervalMatrix * zonotope
     if isinstance(factor1, IntervalMatrix):

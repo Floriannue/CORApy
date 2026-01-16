@@ -55,11 +55,11 @@ class TestVerifyFastBeamCBF01:
         # MATLAB: ell = L/N;      % length of individual discrete element
         ell = L / N  # length of individual discrete element
         
-        # mass matrix (NxN)
+        # mass matrix (diagonal)
         # MATLAB: M = (rho*Q*ell) / 2 * diag([2*ones(N-1,1);1]);
         # MATLAB: Minv = M^(-1);
-        M = (rho * Q * ell) / 2 * np.diag(np.concatenate([2 * np.ones(N - 1), [1]]))
-        Minv = np.linalg.inv(M)
+        M_diag = (rho * Q * ell) / 2 * np.concatenate([2 * np.ones(N - 1), [1]])
+        Minv_diag = 1.0 / M_diag
         
         # load
         # MATLAB: F = zonotope(10000,100);
@@ -93,12 +93,14 @@ class TestVerifyFastBeamCBF01:
         # MATLAB: D = a*K + b*M;
         a = 1e-6
         b = 1e-6
-        D = a * K + b * M
+        D = a * K + b * np.diag(M_diag)
         
         # state matrix (damped)
         # MATLAB: A = [zeros(N) eye(N); -Minv*K -Minv*D];
+        MinvK = Minv_diag[:, None] * K
+        MinvD = Minv_diag[:, None] * D
         A = np.block([[np.zeros((N, N)), np.eye(N)],
-                      [-Minv @ K, -Minv @ D]])
+                      [-MinvK, -MinvD]])
         
         # Parameters --------------------------------------------------------------
         
@@ -119,7 +121,7 @@ class TestVerifyFastBeamCBF01:
         # input set
         # MATLAB: params.U = cartProd( zonotope(zeros(dim_x-1,1)), Minv(end,end)*F );
         Z1 = Zonotope(np.zeros((dim_x - 1, 1)), np.zeros((dim_x - 1, 0)))
-        Z2 = Zonotope(Minv[-1, -1] * F.c, Minv[-1, -1] * F.G)
+        Z2 = Zonotope(Minv_diag[-1] * F.c, Minv_diag[-1] * F.G)
         params['U'] = cartProd_(Z1, Z2)
         
         # MATLAB: options = struct();

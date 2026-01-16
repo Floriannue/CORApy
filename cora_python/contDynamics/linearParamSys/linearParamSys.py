@@ -149,7 +149,7 @@ class LinearParamSys(ContDynamics):
         
         # Check B
         if B is not None:
-            valid = isinstance(B, np.ndarray)
+            valid = isinstance(B, (np.ndarray, int, float, np.number))
             if not valid and IntervalMatrix is not None:
                 valid = isinstance(B, IntervalMatrix)
             if not valid and matZonotope is not None:

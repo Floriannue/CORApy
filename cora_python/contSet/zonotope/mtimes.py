@@ -33,6 +33,8 @@ Last update:   04-October-2024 (MW, remove InferiorClasses from zonotope) (MATLA
 
 import numpy as np
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+from cora_python.matrixSet.matZonotope.mtimes import mtimes as matZ_mtimes
+from cora_python.matrixSet.matZonotope.matZonotope import matZonotope
 from .zonotope import Zonotope
 
 def mtimes(factor1, factor2):
@@ -48,6 +50,10 @@ def mtimes(factor1, factor2):
     """
     
     try:
+        # matZonotope * zonotope
+        if isinstance(factor1, matZonotope):
+            return matZ_mtimes(factor1, factor2)
+
         # matrix/scalar * zonotope
         if isinstance(factor1, (int, float, np.number, list, tuple, np.ndarray)):
             factor1_mat = np.asarray(factor1)

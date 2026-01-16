@@ -32,7 +32,6 @@ import pytest
 import time
 from cora_python.contDynamics.nonlinearSys import NonlinearSys
 from cora_python.contSet.zonotope import Zonotope
-from cora_python.contDynamics.contDynamics.reach import reach
 from cora_python.models.Cora.tank.tank6Eq import tank6Eq
 
 
@@ -80,7 +79,7 @@ class TestNonlinearSysReach06TankLinearRemainder:
         # MATLAB: tComp1 = toc(tx1);
         # MATLAB: disp(['computation time of reachable set with normal lagrange remainder: ',num2str(tComp1)]);
         tx1 = time.time()
-        R_wo_linear = reach(tank, params, options)  # with normal remainder
+        R_wo_linear = tank.reach(params, options)  # with normal remainder
         tComp1 = time.time() - tx1
         print(f'computation time of reachable set with normal lagrange remainder: {tComp1}')
         
@@ -93,7 +92,7 @@ class TestNonlinearSysReach06TankLinearRemainder:
         tx2 = time.time()
         options['alg'] = 'linRem'
         options['intermediateOrder'] = 5
-        R = reach(tank, params, options)  # remainder added to system matrices
+        R = tank.reach(params, options)  # remainder added to system matrices
         tComp2 = time.time() - tx2
         print(f'computation time of reachable set with remainder added to system matrix: {tComp2}')
         

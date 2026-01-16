@@ -44,17 +44,21 @@ def mtimes(factor1: Union[Interval, np.ndarray, float, int],
     Returns:
         res: Interval result
     """
-    # Handle contSet cases - interval * zonotope
-    if hasattr(factor2, '__class__') and factor2.__class__.__name__ == 'Zonotope':
+    # Handle contSet cases - interval * zonotope/polyZonotope/conZonotope/zonoBundle
+    if hasattr(factor2, '__class__'):
+        cls_name = factor2.__class__.__name__
         # Convert factor1 to interval if needed
-        if not isinstance(factor1, Interval):
+        if not isinstance(factor1, Interval) and cls_name in [
+            'Zonotope', 'PolyZonotope', 'ConZonotope', 'ZonoBundle']:
             factor1 = _numeric_to_Interval(factor1)
-        return _aux_mtimes_zonotope(factor1, factor2)
-    
-    # Other contSet cases not supported yet
-    if hasattr(factor2, '__class__') and factor2.__class__.__name__ in [
-        'polyZonotope', 'conZonotope', 'zonoBundle']:
-        raise CORAerror('CORA:noops', f'Operation not supported with {type(factor2)}')
+        if cls_name == 'Zonotope':
+            return _aux_mtimes_zonotope(factor1, factor2)
+        if cls_name == 'PolyZonotope':
+            return _aux_mtimes_polyZonotope(factor1, factor2)
+        if cls_name == 'ConZonotope':
+            return _aux_mtimes_conZonotope(factor1, factor2)
+        if cls_name == 'ZonoBundle':
+            return _aux_mtimes_zonoBundle(factor1, factor2)
     
     # Other contSet cases not supported
     if (hasattr(factor2, 'precedence') and 
@@ -565,6 +569,89 @@ def _aux_mtimes_zonotope(I: Interval, Z):
         Z_G_final = diag_S_Zabssum
     
     return Zonotope(Z_c_new, Z_G_final)
+
+
+def _aux_mtimes_polyZonotope(I: Interval, pZ):
+    """
+    Auxiliary function for interval matrix * polyZonotope
+    Matches MATLAB's aux_mtimes_polyZonotope implementation.
+    """
+    from cora_python.contSet.polyZonotope import PolyZonotope
+    from .center import center
+    from .rad import rad
+
+    # Work on a copy to avoid mutating input
+    pZ_out = pZ.copy() if hasattr(pZ, 'copy') else PolyZonotope(pZ)
+
+    # center and radius of interval matrix
+    m = center(I)
+    r = rad(I)
+
+    # interval over-approximation of polyZonotope
+    I_pZ = pZ_out.interval() if hasattr(pZ_out, 'interval') else Interval(pZ_out)
+    s = np.abs(center(I_pZ)) + rad(I_pZ)
+
+    # compute new polyZonotope
+    pZ_out.c = m @ pZ_out.c
+    if pZ_out.G.size > 0:
+        pZ_out.G = m @ pZ_out.G
+    if pZ_out.GI.size > 0:
+        GI_new = m @ pZ_out.GI
+        diag_term = np.diag((r @ s).flatten())
+        pZ_out.GI = np.hstack([GI_new, diag_term]) if GI_new.size > 0 else diag_term
+    else:
+        pZ_out.GI = np.diag((r @ s).flatten())
+
+    return pZ_out
+
+
+def _aux_mtimes_conZonotope(I: Interval, cZ):
+    """
+    Auxiliary function for interval matrix * conZonotope
+    Matches MATLAB's aux_mtimes_conZonotope implementation.
+    """
+    from cora_python.contSet.conZonotope import ConZonotope
+    from .center import center
+    from .rad import rad
+
+    # Work on a copy to avoid mutating input
+    cZ_out = ConZonotope(cZ)
+
+    # center and radius of interval matrix
+    m = center(I)
+    r = rad(I)
+
+    # absolute value of zonotope center and generators
+    Z_c_G = np.hstack([cZ_out.c, cZ_out.G]) if cZ_out.G.size > 0 else cZ_out.c
+    Zabssum = np.sum(np.abs(Z_c_G), axis=1, keepdims=True)
+
+    # construct resulting conZonotope
+    cZ_out.c = m @ cZ_out.c
+    if cZ_out.G.size > 0:
+        G_new = m @ cZ_out.G
+    else:
+        G_new = np.zeros((cZ_out.c.shape[0], 0))
+    diag_term = np.diag((r @ Zabssum).flatten())
+    cZ_out.G = np.hstack([G_new, diag_term]) if G_new.size > 0 else diag_term
+
+    # extend constraint matrix
+    if hasattr(cZ_out, 'A') and cZ_out.A.size > 0:
+        cZ_out.A = np.hstack([cZ_out.A, np.zeros((cZ_out.A.shape[0], Zabssum.shape[0]))])
+
+    return cZ_out
+
+
+def _aux_mtimes_zonoBundle(I: Interval, zB):
+    """
+    Auxiliary function for interval matrix * zonoBundle
+    Matches MATLAB's aux_mtimes_zonoBundle implementation.
+    """
+    from cora_python.contSet.zonoBundle import ZonoBundle
+
+    zB_out = ZonoBundle(zB)
+    for i in range(zB_out.parallelSets):
+        zB_out.Z[i] = _aux_mtimes_zonotope(I, zB_out.Z[i])
+    return zB_out
 
 
 def _is_zero_Interval(obj: Interval) -> bool:

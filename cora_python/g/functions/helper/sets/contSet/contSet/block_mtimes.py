@@ -75,23 +75,13 @@ def block_mtimes(matrix: Union[np.ndarray, object], sets: Union[object, List[obj
             row_start, row_end = blocks[i, 0], blocks[i, 1] + 1
             col_start, col_end = blocks[j, 0], blocks[j, 1] + 1
             
-            # Handle different matrix types (numeric, Interval, IntervalMatrix)
+            # Handle matrix-like objects (IntervalMatrix, Interval, numpy, etc.)
             from cora_python.matrixSet.intervalMatrix import IntervalMatrix
-            if isinstance(matrix, IntervalMatrix):
-                # Extract block from IntervalMatrix
-                M_block_inf = matrix.int.inf[row_start:row_end, col_start:col_end]
-                M_block_sup = matrix.int.sup[row_start:row_end, col_start:col_end]
-                M_block = IntervalMatrix(M_block_inf, M_block_sup)
-            elif hasattr(matrix, '__getitem__'):
-                # Other matrix-like object (e.g., Interval)
-                try:
-                    M_block = matrix[row_start:row_end, col_start:col_end]
-                except (TypeError, AttributeError):
-                    # Fallback: try direct indexing
-                    M_block = matrix[row_start:row_end, col_start:col_end]
-            else:
-                # Numeric array
+            from cora_python.contSet.interval import Interval
+            if isinstance(matrix, IntervalMatrix) or isinstance(matrix, Interval):
                 M_block = matrix[row_start:row_end, col_start:col_end]
+            else:
+                M_block = np.asarray(matrix)[row_start:row_end, col_start:col_end]
             
             # Compute M_ij * S_j
             # Use @ operator which will call __matmul__ or __rmatmul__

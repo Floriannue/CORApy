@@ -75,7 +75,8 @@ def inputArgsLength(f: callable, *varargin) -> Tuple[List[int], Tuple[int, ...]]
         narginvars_list = []
         for i in range(nargin_f):
             vars_i = sp.symbols(f'x_{i}_1:{maxNumVars+1}', real=True)
-            narginvars_list.append(np.array(vars_i))
+            # Use column Matrix so functions can index x[1,0] like MATLAB
+            narginvars_list.append(sp.Matrix(vars_i).reshape(maxNumVars, 1))
         
         # MATLAB: narginvars_cell = num2cell(narginvars,1);
         narginvars_cell = [arr for arr in narginvars_list]
@@ -113,6 +114,11 @@ def inputArgsLength(f: callable, *varargin) -> Tuple[List[int], Tuple[int, ...]]
             for elem in fsym.flatten():
                 if hasattr(elem, 'free_symbols'):
                     vars_used.update(elem.free_symbols)
+        elif isinstance(fsym, sp.MatrixBase):
+            vars_used = set()
+            for elem in fsym:
+                if hasattr(elem, 'free_symbols'):
+                    vars_used.update(elem.free_symbols)
         elif hasattr(fsym, 'free_symbols'):
             vars_used = fsym.free_symbols
         else:
@@ -143,7 +149,7 @@ def inputArgsLength(f: callable, *varargin) -> Tuple[List[int], Tuple[int, ...]]
                 # If count[i] is 0, use at least 1 element (for functions that require non-empty inputs)
                 # MATLAB handles this by ensuring at least 1 element
                 num_elements = max(count[i], 1) if count[i] == 0 else count[i]
-                inputs.append(narginvars_cell[i][:num_elements])
+                inputs.append(narginvars_cell[i][:num_elements, :])
             f(*inputs)
             # return only now...
             # But adjust count: if we used more than count[i], keep count[i] as is
@@ -207,7 +213,7 @@ def inputArgsLength(f: callable, *varargin) -> Tuple[List[int], Tuple[int, ...]]
     narginvars_list = []
     for i in range(nargin_f):
         vars_i = sp.symbols(f'x_{i}_1:{bound+1}', real=True)
-        narginvars_list.append(np.array(vars_i))
+        narginvars_list.append(sp.Matrix(vars_i).reshape(bound, 1))
     
     # MATLAB: narginvars_cell = num2cell(narginvars,1);
     narginvars_cell = [arr for arr in narginvars_list]
@@ -254,7 +260,7 @@ def inputArgsLength(f: callable, *varargin) -> Tuple[List[int], Tuple[int, ...]]
                 # MATLAB: for j = 1:narginf
                 for j in range(nargin_f):
                     # MATLAB: input{j} = narginvars_cell{j}(1:curr_comb(j));
-                    input_list.append(narginvars_cell[j][:curr_comb[j]])
+                    input_list.append(narginvars_cell[j][:curr_comb[j], :])
                 
                 # MATLAB: output = f(input{:});
                 output = f(*input_list)

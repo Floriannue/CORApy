@@ -353,7 +353,8 @@ def aux_listRequiredFiles(sys: Any, isState: bool, options: Dict[str, Any]) -> D
         tensorOrder = options['tensorOrder']
     else:
         # MATLAB: tensorOrder = options.tensorOrderOutput;
-        tensorOrder = options['tensorOrderOutput']
+        # Default to tensorOrder if tensorOrderOutput is missing (MATLAB options often reuse tensorOrder)
+        tensorOrder = options.get('tensorOrderOutput', options.get('tensorOrder'))
     
     # always compute Jacobian...
     # MATLAB: files.standard(1) = true;

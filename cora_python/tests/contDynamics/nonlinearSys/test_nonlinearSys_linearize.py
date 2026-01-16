@@ -57,8 +57,7 @@ class TestNonlinearSysLinearize:
         # MATLAB: tank = nonlinearSys(@tank6Eq);
         tank = NonlinearSys(tank6Eq, states=6, inputs=1)
         # MATLAB: derivatives(tank);
-        from cora_python.contDynamics.contDynamics.derivatives import derivatives
-        derivatives(tank)
+        tank.derivatives(options)
         
         # linearize system
         # MATLAB: dim_x = 6;
@@ -87,15 +86,11 @@ class TestNonlinearSysLinearize:
         assert compareMatrices(linsys.A, A_true, tol, "equal", True)
         # MATLAB: assert(isequal(linOptions.U,U_true,tol));
         # Note: isequal for zonotopes - check center and generators
-        assert np.allclose(linsys.B, linParams.get('U', Zonotope(np.zeros((dim_x, 1)))).center(), atol=tol)
-        # Actually, MATLAB checks linOptions.U, which should be in linParams
+        # MATLAB: assert(isequal(linOptions.U,U_true,tol));
         if 'U' in linParams:
             U_obtained = linParams['U']
             assert np.allclose(U_obtained.center(), U_true.center(), atol=tol)
-            # Compare generators (may need to handle order differences)
-            U_obtained_gen = U_obtained.generators()
-            U_true_gen = U_true.generators()
-            assert compareMatrices(U_obtained_gen, U_true_gen, tol, "equal", False)
+            assert compareMatrices(U_obtained.generators(), U_true.generators(), tol, "equal", False)
 
 
 def test_nonlinearSys_linearize():

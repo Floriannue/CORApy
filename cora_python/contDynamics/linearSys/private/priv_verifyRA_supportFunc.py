@@ -1700,6 +1700,10 @@ def priv_verifyRA_supportFunc(linsys: Any, params: Dict[str, Any],
         # compute distance of affine time-point solutions H(tk) to unsafe set
         # MATLAB: for k=1:nrSteps
         for k in range(nrSteps):
+            if options.get('progress', False):
+                interval = int(options.get('progressInterval', 100))
+                if interval > 0 and (k == 0 or (k + 1) % interval == 0):
+                    print(f"[verifyFast] step={k+1}/{nrSteps} t={(k+1)*timeStep:.6g}", flush=True)
             # log
             # MATLAB: if options.verbose && nrSteps > 10 && k > round(nrSteps * logVar)
             if options.get('verbose', False) and nrSteps > 10 and logVar is not None and k > round(nrSteps * logVar):

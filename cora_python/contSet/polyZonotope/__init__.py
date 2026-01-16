@@ -24,6 +24,7 @@ from .plus import plus
 from .enclose import enclose
 from .randPoint_ import randPoint_
 from .interval import interval
+from .center import center
 from .supportFunc_ import supportFunc_
 from .splitLongestGen import splitLongestGen
 from .splitDepFactor import splitDepFactor
@@ -32,12 +33,14 @@ from .compact_ import compact_
 from .restructure import restructure
 from .approxVolumeRatio import approxVolumeRatio
 from .display import display, display_
+from .copy import copy
 
 # Attach methods to the PolyZonotope class
 # dim and isemptyobject are required by ContSet
 PolyZonotope.dim = dim
 PolyZonotope.isemptyobject = isemptyobject
 PolyZonotope.interval = interval
+PolyZonotope.center = center
 PolyZonotope.representsa_ = representsa_
 PolyZonotope.polytope = polytope
 PolyZonotope.mtimes = mtimes
@@ -52,6 +55,7 @@ PolyZonotope.compact_ = compact_
 PolyZonotope.restructure = restructure
 PolyZonotope.display = display
 PolyZonotope.display_ = display_
+PolyZonotope.copy = copy
 
 # Attach display_ to __str__
 PolyZonotope.__str__ = lambda self: display_(self)
@@ -77,6 +81,7 @@ __all__ = [
     'generateRandom',
     'representsa_',
     'interval',
+    'center',
     'supportFunc_',
     'splitLongestGen',
     'splitDepFactor',
@@ -84,4 +89,5 @@ __all__ = [
     'compact_',
     'restructure',
     'approxVolumeRatio',
+    'copy',
 ] 

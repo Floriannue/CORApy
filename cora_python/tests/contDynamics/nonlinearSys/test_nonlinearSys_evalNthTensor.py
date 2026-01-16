@@ -160,10 +160,18 @@ class TestNonlinearSysEvalNthTensor:
             # MATLAB: res_test(i) = eval(subs(first,[x;y],p)) + eval(subs(second,[x;y],p)) + ...
             #                  eval(subs(third,[x;y],p)) + eval(subs(fourth,[x;y],p));
             # Convert symbolic expressions to numeric values
-            first_val = float(first_sym.subs([(x, p[0]), (y, p[1])])) if hasattr(first_sym, 'subs') else float(first_sym)
-            second_val = float(second_sym.subs([(x, p[0]), (y, p[1])])) if hasattr(second_sym, 'subs') else float(second_sym)
-            third_val = float(third_sym.subs([(x, p[0]), (y, p[1])])) if hasattr(third_sym, 'subs') else float(third_sym)
-            fourth_val = float(fourth_sym.subs([(x, p[0]), (y, p[1])])) if hasattr(fourth_sym, 'subs') else float(fourth_sym)
+            def _eval_expr(expr):
+                expr_val = expr
+                if isinstance(expr_val, np.ndarray):
+                    expr_val = expr_val.reshape(-1)[0]
+                if hasattr(expr_val, 'subs'):
+                    expr_val = expr_val.subs([(x, p[0]), (y, p[1])])
+                return float(sp.N(expr_val))
+
+            first_val = _eval_expr(first_sym)
+            second_val = _eval_expr(second_sym)
+            third_val = _eval_expr(third_sym)
+            fourth_val = _eval_expr(fourth_sym)
             
             res_test[i] = first_val + second_val + third_val + fourth_val
         

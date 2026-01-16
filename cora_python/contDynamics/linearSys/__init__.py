@@ -27,6 +27,8 @@ from .particularSolution_timeVarying import particularSolution_timeVarying
 from .outputSet import outputSet
 from .taylorMatrices import taylorMatrices
 from .verify import verify
+from .errorSolution_adaptive import errorSolution_adaptive
+from .initReach_adaptive import initReach_adaptive
 
 # Attach methods to the LinearSys class
 LinearSys.display = display
@@ -51,6 +53,8 @@ LinearSys.particularSolution_timeVarying = particularSolution_timeVarying
 LinearSys.outputSet = outputSet
 LinearSys.taylorMatrices = taylorMatrices
 LinearSys.verify = verify
+LinearSys.errorSolution_adaptive = errorSolution_adaptive
+LinearSys.initReach_adaptive = initReach_adaptive
 
 # Attach static methods
 LinearSys.generateRandom = staticmethod(generateRandom)
@@ -58,4 +62,5 @@ LinearSys.taylorLinSys = lambda self, options=None: TaylorLinSys(self.A)
 
 __all__ = ['LinearSys', 'display', 'eq', 'isequal', 'ne', 'generateRandom', 'simulate', 
            'simulateRandom', 'reach', 'canonicalForm', 'oneStep', 'TaylorLinSys', 'priv_reach_standard', 
-           'priv_reach_wrappingfree', 'priv_outputSet_canonicalForm', 'homogeneousSolution', 'affineSolution'] 
+           'priv_reach_wrappingfree', 'priv_outputSet_canonicalForm', 'homogeneousSolution', 'affineSolution',
+           'errorSolution_adaptive', 'initReach_adaptive']

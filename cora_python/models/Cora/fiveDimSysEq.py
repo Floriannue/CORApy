@@ -24,6 +24,7 @@ Last revision: ---
 """
 
 import numpy as np
+import sympy as sp
 
 
 def fiveDimSysEq(x, u):
@@ -37,12 +38,20 @@ def fiveDimSysEq(x, u):
     Returns:
         dx: time-derivative of the system state
     """
-    dx = np.zeros((5, 1))
-    dx[0, 0] = -x[0, 0] - 4 * x[1, 0] + u[0, 0]
-    dx[1, 0] = 4 * x[0, 0] - x[1, 0] + u[1, 0]
-    dx[2, 0] = -3 * x[2, 0] + x[3, 0] + u[2, 0]
-    dx[3, 0] = -x[2, 0] - 3 * x[3, 0] + u[3, 0]
-    dx[4, 0] = -2 * x[4, 0] + u[4, 0]
+    if isinstance(x, sp.MatrixBase) or isinstance(u, sp.MatrixBase):
+        dx = sp.zeros(5, 1)
+        dx[0, 0] = -x[0, 0] - 4 * x[1, 0] + u[0, 0]
+        dx[1, 0] = 4 * x[0, 0] - x[1, 0] + u[1, 0]
+        dx[2, 0] = -3 * x[2, 0] + x[3, 0] + u[2, 0]
+        dx[3, 0] = -x[2, 0] - 3 * x[3, 0] + u[3, 0]
+        dx[4, 0] = -2 * x[4, 0] + u[4, 0]
+    else:
+        dx = np.zeros((5, 1))
+        dx[0, 0] = -x[0, 0] - 4 * x[1, 0] + u[0, 0]
+        dx[1, 0] = 4 * x[0, 0] - x[1, 0] + u[1, 0]
+        dx[2, 0] = -3 * x[2, 0] + x[3, 0] + u[2, 0]
+        dx[3, 0] = -x[2, 0] - 3 * x[3, 0] + u[3, 0]
+        dx[4, 0] = -2 * x[4, 0] + u[4, 0]
     
     return dx
 

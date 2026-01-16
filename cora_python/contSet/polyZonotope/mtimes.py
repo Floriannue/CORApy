@@ -24,9 +24,14 @@ def mtimes(factor1: Union[np.ndarray, float, int, PolyZonotope], factor2: Union[
     try:
         # numeric matrix/scalar * polynomial zonotope
         if isinstance(factor1, (np.ndarray, float, int)) and isinstance(factor2, PolyZonotope):
-            c = factor1 * factor2.c
-            G = factor1 * factor2.G
-            GI = factor1 * factor2.GI
+            if isinstance(factor1, np.ndarray):
+                c = factor1 @ factor2.c
+                G = factor1 @ factor2.G
+                GI = factor1 @ factor2.GI
+            else:
+                c = factor1 * factor2.c
+                G = factor1 * factor2.G
+                GI = factor1 * factor2.GI
             pZ = PolyZonotope(c, G, GI, factor2.E, factor2.id)
             return pZ
 

@@ -1,0 +1,66 @@
+MATLAB arnoldi Test Output
+==========================
+
+Test 1: Basic functionality test
+---------------------------------
+Input:
+A shape: 5x5
+A(1,1) = -0.53824389372927
+A(1,2) = 0.172009062971566
+vInit shape: 5x1
+vInit(1) = -0.343554269032129
+vInit(2) = 0.039357461662057
+redDim = 3
+
+Output:
+V shape: 5x3
+V(1,1) = -0.343554269032129
+V(2,1) = 0.039357461662057
+V(1,2) = 0.0610428370258458
+H shape: 3x3
+H(1,1) = -0.652603500864434
+H(1,2) = 0.41721209267439
+H(2,1) = 0.41721209267439
+Hlast = 0.953933887734142
+happyBreakdown = 0
+V.T @ V (should be identity):
+VTV(1,1) = 1
+VTV(1,2) = 5.82867087928207e-16
+VTV(2,2) = 1
+
+Test 2: Happy breakdown test
+----------------------------
+Input:
+A2 = eye(3)
+vInit2 = [1; 0; 0]
+redDim2 = 5
+
+Output:
+V2 shape: 3x1
+H2 shape: 1x1
+happyBreakdown2 = 1
+
+Test 3: Error handling test (zero vector)
+----------------------------------------
+Input:
+vInit3 = zeros(3,1)
+redDim3 = 3
+
+Output:
+ERROR: Should have raised an error for zero vector
+
+Test 4: Sparse matrix test
+-------------------------
+Input:
+A4 is sparse: 1
+A4 shape: 3x3
+vInit4 shape: 3x1
+redDim4 = 2
+
+Output:
+V4 shape: 3x2
+V4(1,1) = 0.577350269189626
+H4 shape: 2x2
+H4(1,1) = 15
+happyBreakdown4 = 0
+

@@ -69,25 +69,29 @@ def enclose(Z: Zonotope, Z2_or_M=None, Zplus: Optional[Zonotope] = None) -> Zono
         # Three argument form: enclose(Z, M, Zplus)
         M = Z2_or_M
         Z2 = (M @ Z) + Zplus
+
+    # MATLAB objects are value types; avoid mutating input zonotopes in Python.
+    Z_local = Z.copy()
+    Z2_local = Z2.copy() if isinstance(Z2, Zonotope) else Z2
     
     # Retrieve number of generators of the zonotopes
-    generators1 = Z.G.shape[1]
-    generators2 = Z2.G.shape[1]
+    generators1 = Z_local.G.shape[1]
+    generators2 = Z2_local.G.shape[1]
     
     # If first zonotope has more or equal generators
     if generators2 <= generators1:
-        cG = (Z.c - Z2.c) / 2
-        Gcut = Z.G[:, :generators2]
-        Gadd = Z.G[:, generators2:generators1] if generators2 < generators1 else np.array([]).reshape(Z.G.shape[0], 0)
-        Gequal = Z2.G
+        cG = (Z_local.c - Z2_local.c) / 2
+        Gcut = Z_local.G[:, :generators2]
+        Gadd = Z_local.G[:, generators2:generators1] if generators2 < generators1 else np.array([]).reshape(Z_local.G.shape[0], 0)
+        Gequal = Z2_local.G
     else:
-        cG = (Z2.c - Z.c) / 2
-        Gcut = Z2.G[:, :generators1]
-        Gadd = Z2.G[:, generators1:generators2]
-        Gequal = Z.G
+        cG = (Z2_local.c - Z_local.c) / 2
+        Gcut = Z2_local.G[:, :generators1]
+        Gadd = Z2_local.G[:, generators1:generators2]
+        Gequal = Z_local.G
     
     # Compute enclosing zonotope
-    Z.c = (Z.c + Z2.c) / 2
+    Z_local.c = (Z_local.c + Z2_local.c) / 2
     
     # Construct the new generator matrix 
     G_parts = [(Gcut + Gequal) / 2, cG, (Gcut - Gequal) / 2]
@@ -96,8 +100,8 @@ def enclose(Z: Zonotope, Z2_or_M=None, Zplus: Optional[Zonotope] = None) -> Zono
     
     # Concatenate all parts
     if len(G_parts) > 0:
-        Z.G = np.hstack(G_parts)
+        Z_local.G = np.hstack(G_parts)
     else:
-        Z.G = np.array([]).reshape(Z.c.shape[0], 0)
+        Z_local.G = np.array([]).reshape(Z_local.c.shape[0], 0)
     
-    return Z 
+    return Z_local

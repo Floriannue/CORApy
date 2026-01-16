@@ -16,7 +16,6 @@ from cora_python.contDynamics.linearSys import LinearSys, affineSolution
 from cora_python.contSet.zonotope import Zonotope
 from cora_python.g.functions.matlab.validate.check import compareMatrices
 from cora_python.contSet.contSet import isequal, contains
-from cora_python.g.functions.helper.sets.contSet.contSet import enclose
 import scipy.linalg
 
 
@@ -63,7 +62,7 @@ def test_linearSys_affineSolution_basic():
     assert isequal(Htp, expected_Htp, tol)
     
     # The affine time-interval solution is enclose(X,Htp) + error terms
-    enclosed = enclose(X, Htp)
+    enclosed = X.enclose(Htp)
     expected_Hti = enclosed + C_state + C_input
     assert isequal(Hti, expected_Hti, tol)
 

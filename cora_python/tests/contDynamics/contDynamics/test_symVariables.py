@@ -49,52 +49,55 @@ class TestSymVariables:
     """Test class for symVariables functionality"""
     
     def test_symVariables_basic_without_brackets(self):
-        """Test basic symVariables without brackets"""
+        """Test basic symVariables without brackets
+        
+        Verified against MATLAB using debug_matlab_symVariables.m
+        MATLAB output: vars.x = [x1, x2, x3], vars.u = [u1], vars.o = [y1, y2]
+        vars_der.x = [dx1, dx2, dx3], vars_der.u = [du1], vars_der.o = [do1, do2]
+        """
         # MATLAB: sys = contDynamics('test',3,1,2);
         sys = MockContDynamics(nrOfDims=3, nrOfInputs=1, nrOfOutputs=2)
         # MATLAB: [vars,vars_der] = symVariables(sys);
         vars_dict, vars_der = symVariables(sys, False)
         
-        # Check that vars.x has 3 elements (nrOfDims)
-        assert vars_dict['x'] is not None
-        if isinstance(vars_dict['x'], sp.Matrix):
-            assert vars_dict['x'].shape[0] == 3
-        else:
-            assert len(vars_dict['x']) == 3
+        # MATLAB verified values
+        assert vars_dict['x'].shape[0] == 3, "MATLAB: vars.x length = 3"
+        assert str(vars_dict['x'][0]) == 'x1', "MATLAB: vars.x(1) = x1"
+        assert str(vars_dict['x'][1]) == 'x2', "MATLAB: vars.x(2) = x2"
+        assert str(vars_dict['x'][2]) == 'x3', "MATLAB: vars.x(3) = x3"
         
-        # Check that vars.u has 1 element (nrOfInputs)
-        # When nrVars=1, aux_symVector returns a single Symbol, not a Matrix
-        assert vars_dict['u'] is not None
-        if isinstance(vars_dict['u'], sp.Matrix):
-            assert vars_dict['u'].shape[0] == 1
-        elif isinstance(vars_dict['u'], sp.Symbol):
-            # Single variable case - this is correct behavior
-            assert True
-        else:
-            assert len(vars_dict['u']) == 1
+        assert vars_dict['u'].shape[0] == 1, "MATLAB: vars.u length = 1"
+        assert str(vars_dict['u'][0]) == 'u1', "MATLAB: vars.u(1) = u1"
         
-        # Check that vars.o has 2 elements (nrOfOutputs)
-        assert vars_dict['o'] is not None
-        if isinstance(vars_dict['o'], sp.Matrix):
-            assert vars_dict['o'].shape[0] == 2
-        else:
-            assert len(vars_dict['o']) == 2
+        assert vars_dict['o'].shape[0] == 2, "MATLAB: vars.o length = 2"
+        assert str(vars_dict['o'][0]) == 'y1', "MATLAB: vars.o(1) = y1"
+        assert str(vars_dict['o'][1]) == 'y2', "MATLAB: vars.o(2) = y2"
         
-        # Check deviation variables
-        assert vars_der['dx'] is not None
-        assert vars_der['du'] is not None
-        assert vars_der['do'] is not None
+        # Deviation variables (Python uses 'dx', 'du', 'do' keys, MATLAB uses 'x', 'u', 'o')
+        assert vars_der['dx'].shape[0] == 3, "MATLAB: vars_der.x length = 3"
+        assert str(vars_der['dx'][0]) == 'dx1', "MATLAB: vars_der.x(1) = dx1"
+        assert vars_der['du'].shape[0] == 1, "MATLAB: vars_der.u length = 1"
+        assert str(vars_der['du'][0]) == 'du1', "MATLAB: vars_der.u(1) = du1"
+        assert vars_der['do'].shape[0] == 2, "MATLAB: vars_der.o length = 2"
+        assert str(vars_der['do'][0]) == 'do1', "MATLAB: vars_der.o(1) = do1"
+        assert str(vars_der['do'][1]) == 'do2', "MATLAB: vars_der.o(2) = do2"
     
     def test_symVariables_with_brackets(self):
-        """Test symVariables with brackets (xL1R format)"""
+        """Test symVariables with brackets (xL1R format)
+        
+        Verified against MATLAB using debug_matlab_symVariables.m
+        MATLAB output: vars2.x = [xL1R, xL2R], vars_der2.x = [dxL1R, dxL2R]
+        """
         sys = MockContDynamics(nrOfDims=2, nrOfInputs=1, nrOfOutputs=1)
         # MATLAB: [vars,vars_der] = symVariables(sys,true);
         vars_dict, vars_der = symVariables(sys, True)
         
-        # With brackets, variables should be in format xL1R, xL2R, etc.
-        # Check that variables are created (exact format depends on implementation)
-        assert vars_dict['x'] is not None
-        assert vars_der['dx'] is not None
+        # MATLAB verified values
+        assert vars_dict['x'].shape[0] == 2, "MATLAB: vars2.x length = 2"
+        assert str(vars_dict['x'][0]) == 'xL1R', "MATLAB: vars2.x(1) = xL1R"
+        assert str(vars_dict['x'][1]) == 'xL2R', "MATLAB: vars2.x(2) = xL2R"
+        assert vars_der['dx'].shape[0] == 2, "MATLAB: vars_der2.x length = 2"
+        assert str(vars_der['dx'][0]) == 'dxL1R', "MATLAB: vars_der2.x(1) = dxL1R"
     
     def test_symVariables_with_constraints(self):
         """Test symVariables with constraint variables"""
@@ -112,15 +115,17 @@ class TestSymVariables:
         assert vars_der['dy'] is not None
     
     def test_symVariables_without_constraints(self):
-        """Test symVariables without constraint variables"""
+        """Test symVariables without constraint variables
+        
+        Verified against MATLAB using debug_matlab_symVariables.m
+        MATLAB output: vars4.y length = 0
+        """
         sys = MockContDynamics(nrOfDims=2, nrOfInputs=1, nrOfOutputs=1, nrOfConstraints=0)
         # sys doesn't have nrOfConstraints attribute
         vars_dict, vars_der = symVariables(sys, False)
         
-        # y should be empty matrix
-        assert vars_dict['y'] is not None
-        if isinstance(vars_dict['y'], sp.Matrix):
-            assert vars_dict['y'].shape[0] == 0 or vars_dict['y'].size == 0
+        # MATLAB verified: y should be empty matrix
+        assert vars_dict['y'].shape[0] == 0 or vars_dict['y'].size == 0, "MATLAB: vars4.y length = 0"
     
     def test_symVariables_with_parameters(self):
         """Test symVariables with parameter variables"""
@@ -136,14 +141,16 @@ class TestSymVariables:
             assert len(vars_dict['p']) == 3
     
     def test_symVariables_without_parameters(self):
-        """Test symVariables without parameter variables"""
+        """Test symVariables without parameter variables
+        
+        Verified against MATLAB using debug_matlab_symVariables.m
+        MATLAB output: vars6.p length = 0
+        """
         sys = MockContDynamics(nrOfDims=2, nrOfInputs=1, nrOfOutputs=1, nrOfParam=0)
         vars_dict, vars_der = symVariables(sys, False)
         
-        # p should be empty matrix
-        assert vars_dict['p'] is not None
-        if isinstance(vars_dict['p'], sp.Matrix):
-            assert vars_dict['p'].shape[0] == 0 or vars_dict['p'].size == 0
+        # MATLAB verified: p should be empty matrix
+        assert vars_dict['p'].shape[0] == 0 or vars_dict['p'].size == 0, "MATLAB: vars6.p length = 0"
     
     def test_symVariables_nonlinearARX(self):
         """Test symVariables for nonlinearARX system"""

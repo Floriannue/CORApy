@@ -30,6 +30,10 @@ import pickle
 from cora_python.contDynamics.contDynamics.private.priv_checkTensorRecomputation import priv_checkTensorRecomputation
 
 
+def mock_fdyn(x, u):
+    return np.array([[x[0]**2], [x[1]*u[0]]])
+
+
 class MockContDynamics:
     """Mock contDynamics object for testing"""
     def __init__(self, name='test_sys', nrOfDims=2, nrOfOutputs=1):
@@ -44,14 +48,15 @@ class TestPrivCheckTensorRecomputation:
     def test_priv_checkTensorRecomputation_no_stored_data(self):
         """Test when no stored data exists (first run)"""
         sys = MockContDynamics()
-        fdyn = lambda x, u: np.array([[x[0]**2], [x[1]*u[0]]])
+        fdyn = mock_fdyn
         fcon = None
         fout = None
         
         # Create temporary directory
         with tempfile.TemporaryDirectory() as tmpdir:
             options = {
-                'tensorOrder': 2
+                'tensorOrder': 2,
+                'tensorOrderOutput': 2
             }
             
             try:
@@ -69,14 +74,15 @@ class TestPrivCheckTensorRecomputation:
     def test_priv_checkTensorRecomputation_with_stored_data(self):
         """Test when stored data exists and matches"""
         sys = MockContDynamics()
-        fdyn = lambda x, u: np.array([[x[0]**2], [x[1]*u[0]]])
+        fdyn = mock_fdyn
         fcon = None
         fout = None
         
         # Create temporary directory
         with tempfile.TemporaryDirectory() as tmpdir:
             options = {
-                'tensorOrder': 2
+                'tensorOrder': 2,
+                'tensorOrderOutput': 2
             }
             
             # Create stored data file
@@ -105,13 +111,13 @@ class TestPrivCheckTensorRecomputation:
     def test_priv_checkTensorRecomputation_different_tensorOrder(self):
         """Test when tensorOrder changes"""
         sys = MockContDynamics()
-        fdyn = lambda x, u: np.array([[x[0]**2], [x[1]*u[0]]])
+        fdyn = mock_fdyn
         fcon = None
         fout = None
         
         with tempfile.TemporaryDirectory() as tmpdir:
             # First run with tensorOrder=2
-            options1 = {'tensorOrder': 2}
+            options1 = {'tensorOrder': 2, 'tensorOrderOutput': 2}
             try:
                 requiredFiles1, _, _, _ = priv_checkTensorRecomputation(
                     sys, fdyn, fcon, fout, tmpdir, options1
@@ -120,7 +126,7 @@ class TestPrivCheckTensorRecomputation:
                 pytest.skip(f"Dependencies not yet translated: {e}")
             
             # Second run with tensorOrder=3 (different)
-            options2 = {'tensorOrder': 3}
+            options2 = {'tensorOrder': 3, 'tensorOrderOutput': 3}
             try:
                 requiredFiles2, _, _, deleteAll2 = priv_checkTensorRecomputation(
                     sys, fdyn, fcon, fout, tmpdir, options2
@@ -134,7 +140,7 @@ class TestPrivCheckTensorRecomputation:
     def test_priv_checkTensorRecomputation_output_equation(self):
         """Test with output equation"""
         sys = MockContDynamics(nrOfOutputs=2)
-        fdyn = lambda x, u: np.array([[x[0]**2], [x[1]*u[0]]])
+        fdyn = mock_fdyn
         fcon = None
         fout = lambda x, u: np.array([[x[0]], [x[1]]])
         

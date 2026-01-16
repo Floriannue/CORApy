@@ -100,6 +100,26 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
     # translate Rinit by linearization point
     # MATLAB: Rdelta = Rinit + (-sys.linError.p.x);
     Rdelta = Rinit + (-sys.linError.p.x)
+    import os
+    if os.getenv('CORA_DEBUG_LINREACH') == '1':
+        try:
+            t_now = options.get('t')
+            if t_now is not None and abs(t_now - 312.0) < 1e-9:
+                Rdelta_int = Rdelta.interval()
+                print("DEBUG Rdelta.inf =", Rdelta_int.infimum().reshape(-1))
+                print("DEBUG Rdelta.sup =", Rdelta_int.supremum().reshape(-1))
+        except Exception:
+            pass
+    # Debug Rdelta interval for MATLAB comparison
+    import os
+    if os.getenv('CORA_DEBUG_LINREACH') == '1' and options.get('t') in (4.0, 8.0, 12.0, 16.0, 308.0, 312.0):
+        try:
+            Rdelta_int = Rdelta.interval()
+            print("DEBUG Rdelta t =", options.get('t'))
+            print("DEBUG Rdelta.inf =", Rdelta_int.infimum().reshape(-1))
+            print("DEBUG Rdelta.sup =", Rdelta_int.supremum().reshape(-1))
+        except Exception:
+            pass
     
     # compute reachable set of the linearized system
     # MATLAB: if isa(sys,'nonlinParamSys') && isa(params.paramInt,'interval')
@@ -115,7 +135,7 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
         Rtp = R['tp']
         Rti = R['ti']
     # MATLAB: elseif isa(linsys,'linParamSys')
-    elif hasattr(linsys, '__class__') and 'linParamSys' in linsys.__class__.__name__.lower():
+    elif _is_linear_param_sys(linsys):
         # MATLAB: R = initReach(linsys,Rdelta,linParams,linOptions);
         # NOTE: linParamSys.initReach needs to be translated
         from cora_python.contDynamics.linearParamSys.initReach import initReach as linParamSys_initReach
@@ -126,10 +146,46 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
         # MATLAB: [Rtp,Rti,~,~,PU,Pu,~,C_input] = oneStep(linsys,Rdelta,...
         #        linParams.U,linParams.uTrans,options.timeStep,options.taylorTerms);
         from cora_python.contDynamics.linearSys.oneStep import oneStep
-        Rtp, Rti, _, _, PU, Pu, _, C_input = oneStep(
+        Rtp, Rti, Htp, Hti, PU, Pu, C_state, C_input = oneStep(
             linsys, Rdelta, linParams['U'], linParams['uTrans'], 
             options['timeStep'], options['taylorTerms']
         )
+        # Debug oneStep components for MATLAB comparison
+        import os
+        if os.getenv('CORA_DEBUG_LINREACH') == '1' and options.get('t') == 312.0:
+            def _interval_bounds(S):
+                try:
+                    IH = S.interval()
+                    return IH.infimum().reshape(-1), IH.supremum().reshape(-1)
+                except Exception:
+                    return None, None
+            try:
+                from cora_python.contDynamics.linearSys.private.priv_correctionMatrixState import priv_correctionMatrixState
+                F_dbg = priv_correctionMatrixState(linsys, options['timeStep'], options['taylorTerms'])
+                print("DEBUG oneStep F.inf =", F_dbg.int.inf.reshape(-1))
+                print("DEBUG oneStep F.sup =", F_dbg.int.sup.reshape(-1))
+            except Exception as exc:
+                print("DEBUG oneStep F.error =", repr(exc))
+            Hti_inf, Hti_sup = _interval_bounds(Hti)
+            PU_inf, PU_sup = _interval_bounds(PU)
+            Pu_inf, Pu_sup = _interval_bounds(Pu)
+            Cstate_inf, Cstate_sup = _interval_bounds(C_state)
+            Cinput_inf, Cinput_sup = _interval_bounds(C_input)
+            if Hti_inf is not None:
+                print("DEBUG oneStep Hti.inf =", Hti_inf)
+                print("DEBUG oneStep Hti.sup =", Hti_sup)
+            if PU_inf is not None:
+                print("DEBUG oneStep PU.inf =", PU_inf)
+                print("DEBUG oneStep PU.sup =", PU_sup)
+            if Pu_inf is not None:
+                print("DEBUG oneStep Pu.inf =", Pu_inf)
+                print("DEBUG oneStep Pu.sup =", Pu_sup)
+            if Cstate_inf is not None:
+                print("DEBUG oneStep C_state.inf =", Cstate_inf)
+                print("DEBUG oneStep C_state.sup =", Cstate_sup)
+            if Cinput_inf is not None:
+                print("DEBUG oneStep C_input.inf =", Cinput_inf)
+                print("DEBUG oneStep C_input.sup =", Cinput_sup)
         
         # MATLAB: if strcmp(options.alg,'poly')
         if options['alg'] == 'poly':
@@ -238,10 +294,45 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
                 # compute overall reachable set including linearization error
                 # MATLAB: Rmax = Rti+RallError;
                 Rmax = Rti + RallError
+                # Debug logging for interval growth (controlled via env var)
+                import os
+                if os.getenv('CORA_DEBUG_LINREACH') == '1':
+                    try:
+                        t_now = options.get('t')
+                        Rti_int = Rti.interval()
+                        Rall_int = RallError.interval()
+                        Rmax_int = Rmax.interval()
+                        print("DEBUG linReach t =", t_now)
+                        print("DEBUG p.x =", sys.linError.p.x.reshape(-1))
+                        print("DEBUG Rti.inf =", Rti_int.infimum().reshape(-1))
+                        print("DEBUG Rti.sup =", Rti_int.supremum().reshape(-1))
+                        print("DEBUG RallError.inf =", Rall_int.infimum().reshape(-1))
+                        print("DEBUG RallError.sup =", Rall_int.supremum().reshape(-1))
+                        print("DEBUG Rmax.inf =", Rmax_int.infimum().reshape(-1))
+                        print("DEBUG Rmax.sup =", Rmax_int.supremum().reshape(-1))
+                        if t_now is not None and abs(t_now - 312.0) < 1e-9:
+                            print("DEBUG maxError =", options.get('maxError'))
+                            try:
+                                F_dbg = None
+                                if hasattr(linsys, 'taylor') and hasattr(linsys.taylor, '_F_cache'):
+                                    F_dbg = linsys.taylor._F_cache.get(options['timeStep'])
+                                if F_dbg is not None and hasattr(F_dbg, 'inf') and hasattr(F_dbg, 'sup'):
+                                    print("DEBUG oneStep F.inf =", F_dbg.inf.reshape(-1))
+                                    print("DEBUG oneStep F.sup =", F_dbg.sup.reshape(-1))
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
                 
                 # compute linearization error
                 # MATLAB: [trueError,VerrorDyn] = priv_abstrerr_lin(sys,Rmax,params,options);
                 trueError, VerrorDyn = priv_abstrerr_lin(sys, Rmax, params, options)
+                if os.getenv('CORA_DEBUG_LINREACH') == '1':
+                    try:
+                        print("DEBUG appliedError =", appliedError.reshape(-1))
+                        print("DEBUG trueError =", trueError.reshape(-1))
+                    except Exception:
+                        pass
                 
                 # MATLAB: VerrorStat = zeros(sys.nrOfDims,1);
                 VerrorStat = np.zeros((sys.nr_of_dims, 1))
@@ -268,9 +359,23 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
             # compare linearization error with the maximum allowed error
             # MATLAB: perfIndCurr = max(trueError./appliedError);
             perfIndCurr = np.max(trueError / appliedError)
+            if os.getenv('CORA_DEBUG_LINREACH') == '1':
+                try:
+                    t_now = options.get('t')
+                    if t_now is not None and abs(t_now - 312.0) < 1e-9:
+                        print("DEBUG perfIndCurr =", perfIndCurr)
+                except Exception:
+                    pass
             
             # MATLAB: perfInd = max(trueError./options.maxError);
             perfInd = np.max(trueError / options['maxError'])
+            if os.getenv('CORA_DEBUG_LINREACH') == '1':
+                try:
+                    t_now = options.get('t')
+                    if t_now is not None and abs(t_now - 312.0) < 1e-9:
+                        print("DEBUG perfInd =", perfInd)
+                except Exception:
+                    pass
             
             # MATLAB: abstrerr = trueError;
             abstrerr = trueError
@@ -403,7 +508,7 @@ def aux_deltaReach(sys: Any, Rinit: Any, RV: Any, Rtrans: Any, inputCorr: Any,
     
     # MATLAB: Rhom_tp_delta = (eAt - eye(n))*Rinit + Rtrans;
     eye_n = np.eye(n)
-    Rhom_tp_delta = (eAt - eye_n) * Rinit + Rtrans
+    Rhom_tp_delta = (eAt - eye_n) @ Rinit + Rtrans
     
     # MATLAB: if isa(Rinit,'zonotope')
     if isinstance(Rinit, Zonotope):
@@ -412,18 +517,16 @@ def aux_deltaReach(sys: Any, Rinit: Any, RV: Any, Rtrans: Any, inputCorr: Any,
         O = Zonotope.origin(n)
         
         # MATLAB: Rhom=enclose(O,Rhom_tp_delta)+F*Rinit+inputCorr;
-        from cora_python.contSet.zonotope.enclose import enclose
-        Rhom = enclose(O, Rhom_tp_delta) + F * Rinit + inputCorr
+        Rhom = O.enclose(Rhom_tp_delta) + F @ Rinit + inputCorr
     # MATLAB: elseif isa(Rinit,'polyZonotope') || isa(Rinit,'conPolyZono')
     elif (PolyZonotope is not None and isinstance(Rinit, PolyZonotope)) or \
          (ConPolyZono is not None and isinstance(Rinit, ConPolyZono)):
         # MATLAB: O = zeros(n)*Rhom_tp_delta;  % to retain dependencies!
-        O = np.zeros((n, 1)) * Rhom_tp_delta  # to retain dependencies!
+        O = np.zeros((n, n)) @ Rhom_tp_delta  # to retain dependencies!
         
         # MATLAB: Rhom=enclose(O,Rhom_tp_delta)+F*zonotope(Rinit)+inputCorr;
-        from cora_python.contSet.zonotope.enclose import enclose
         Rinit_zono = Zonotope(Rinit)
-        Rhom = enclose(O, Rhom_tp_delta) + F * Rinit_zono + inputCorr
+        Rhom = O.enclose(Rhom_tp_delta) + F @ Rinit_zono + inputCorr
     # MATLAB: elseif isa(Rinit,'zonoBundle')
     elif hasattr(Rinit, '__class__') and 'zonoBundle' in Rinit.__class__.__name__.lower():
         # MATLAB: O = zonoBundle.origin(n);
@@ -432,7 +535,7 @@ def aux_deltaReach(sys: Any, Rinit: Any, RV: Any, Rtrans: Any, inputCorr: Any,
         
         # MATLAB: Rhom=enclose(O,Rhom_tp_delta)+F*Rinit.Z{1}+inputCorr;
         from cora_python.contSet.zonotope.enclose import enclose
-        Rhom = enclose(O, Rhom_tp_delta) + F * Rinit.Z[0] + inputCorr
+        Rhom = enclose(O, Rhom_tp_delta) + F @ Rinit.Z[0] + inputCorr
     else:
         Rhom = Rhom_tp_delta
     
@@ -626,4 +729,13 @@ def aux_approxDepReachOnly(linsys: Any, nlnsys: Any, R: Dict[str, Any],
     dimForSplit = None
     
     return Rtp, Rti, dimForSplit, options
+
+
+def _is_linear_param_sys(linsys: Any) -> bool:
+    """Robust check for LinearParamSys instances without string matching."""
+    try:
+        from cora_python.contDynamics.linearParamSys import LinearParamSys
+        return isinstance(linsys, LinearParamSys)
+    except Exception:
+        return hasattr(linsys, '__class__') and 'linearparamsys' in linsys.__class__.__name__.lower()
 

@@ -59,7 +59,6 @@ import numpy as np
 from typing import Tuple, Union, List, Optional
 from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes
 from cora_python.g.functions.helper.sets.contSet.contSet import block_operation
-from cora_python.g.functions.helper.sets.contSet.contSet import enclose
 from cora_python.g.classes.taylorLinSys import TaylorLinSys
 
 def affineSolution(linsys, X, u: np.ndarray, timeStep: float, truncationOrder: int, 
@@ -124,7 +123,7 @@ def affineSolution(linsys, X, u: np.ndarray, timeStep: float, truncationOrder: i
         # Add up the curvature errors
         C = block_operation(lambda a, b: a + b, C_state, C_input.decompose(blocks))
         # Affine time-interval solution
-        Hti_approx = block_operation(enclose, X_decomp, Htp)
+        Hti_approx = block_operation(lambda a, b: a.enclose(b), X_decomp, Htp)
         Hti = block_operation(lambda a, b: a + b, Hti_approx, C)
         
         return Htp, Pu, Hti, C_state, C_input

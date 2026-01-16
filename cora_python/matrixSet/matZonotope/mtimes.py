@@ -65,13 +65,15 @@ def mtimes(factor1: Union[np.ndarray, matZonotope, float, int],
     if isinstance(factor1, matZonotope) and isinstance(factor2, matZonotope):
         return _aux_mtimes_matZonotope(factor1, factor2)
     
-    # matZonotope * zonotope
+    # matZonotope * zonotope / zonoBundle
     if isinstance(factor1, matZonotope):
-        # Check if factor2 is a zonotope
         try:
             from cora_python.contSet.zonotope import Zonotope
+            from cora_python.contSet.zonoBundle import ZonoBundle
             if isinstance(factor2, Zonotope):
                 return _aux_mtimes_zonotope(factor1, factor2)
+            if isinstance(factor2, ZonoBundle):
+                return _aux_mtimes_zonoBundle(factor1, factor2)
         except ImportError:
             pass
     
@@ -130,52 +132,64 @@ def _aux_mtimes_zonotope(matZ, Z):
     """
     from cora_python.contSet.zonotope import Zonotope
     
-    # MATLAB: Z.c = matZ.C*Z.c;
-    c_new = matZ.C @ Z.center()
-    
-    # MATLAB: Z.G = [matZ.C*Z.G, reshape(matZ.G*Z.c,[],size(Z.G,2))];
-    # First part: matZ.C * Z.G
-    if Z.generators().size > 0:
-        G_part1 = matZ.C @ Z.generators()
-    else:
-        G_part1 = np.zeros((matZ.C.shape[0], 0))
-    
-    # Second part: reshape(matZ.G * Z.c, [], size(Z.G, 2))
-    # MATLAB: reshape(matZ.G*Z.c,[],size(Z.G,2))
-    # This multiplies each generator matrix in matZ.G with Z.c and reshapes
-    if matZ.G.size > 0:
-        # matZ.G has shape (n, m, h) where h is number of generators
-        # Z.c has shape (m, 1)
-        # We want to compute matZ.G[:, :, i] @ Z.c for each i
-        n, m, h = matZ.G.shape
-        Z_c = Z.center()
-        G_part2_list = []
-        for i in range(h):
-            G_i = matZ.G[:, :, i] @ Z_c  # Shape (n, 1)
-            G_part2_list.append(G_i)
-        # Stack horizontally
-        if G_part2_list:
-            G_part2 = np.hstack(G_part2_list)  # Shape (n, h)
+    # extract center and generators
+    c = Z.center()
+    G = Z.generators()
+
+    # normalize generator shape to 3D when needed
+    matZ_G = matZ.G
+    if isinstance(matZ_G, np.ndarray) and matZ_G.ndim == 2:
+        if matZ_G.size == 0:
+            matZ_G = np.zeros((*matZ.C.shape, 0))
         else:
-            G_part2 = np.zeros((n, 0))
+            matZ_G = matZ_G[:, :, np.newaxis]
+
+    # output dimension
+    if matZ.C.shape == (1, 1) and (matZ_G.size == 0 or matZ_G.shape[:2] == (1, 1)):
+        n = c.shape[0]
     else:
-        G_part2 = np.zeros((matZ.C.shape[0], 0))
-    
-    # MATLAB: Z.G = [matZ.C*Z.G, reshape(matZ.G*Z.c,[],size(Z.G,2))];
-    # But wait, the reshape dimensions don't match. Let me check MATLAB code more carefully.
-    # Actually, looking at the MATLAB code, it seems like:
-    # - matZ.C*Z.G gives generators from the center matrix
-    # - matZ.G*Z.c gives generators from the generator matrices
-    # The reshape might be different. Let me implement a simpler version first.
-    
-    # Concatenate generators
-    if G_part1.size > 0 and G_part2.size > 0:
-        G_new = np.hstack([G_part1, G_part2])
-    elif G_part1.size > 0:
-        G_new = G_part1
-    elif G_part2.size > 0:
-        G_new = G_part2
+        n = matZ.C.shape[0]
+
+    # center
+    c_new = matZ.C @ c
+
+    # part 1: matZ.C * G
+    if G.size > 0:
+        G_part1 = matZ.C @ G
     else:
-        G_new = np.zeros((c_new.shape[0], 0))
-    
+        G_part1 = np.zeros((n, 0))
+
+    # part 2: reshape(pagemtimes(matZ.G, c), n, [])
+    if matZ_G.size > 0:
+        part2 = pagemtimes(matZ_G, c)  # shape (n, 1, h)
+        G_part2 = part2.reshape(n, -1, order='F')
+    else:
+        G_part2 = np.zeros((n, 0))
+
+    # part 3: reshape(pagemtimes(matZ.G, reshape(G,...)), n, [])
+    if matZ_G.size > 0 and G.size > 0:
+        n_mat, m_mat, h = matZ_G.shape
+        g = G.shape[1]
+        part3_cols = []
+        for j in range(g):
+            G_col = G[:, j:j+1]
+            for i in range(h):
+                part3_cols.append(matZ_G[:, :, i] @ G_col)
+        G_part3 = np.hstack(part3_cols) if part3_cols else np.zeros((n, 0))
+    else:
+        G_part3 = np.zeros((n, 0))
+
+    # concatenate generators
+    parts = [p for p in [G_part1, G_part2, G_part3] if p.size > 0]
+    G_new = np.hstack(parts) if parts else np.zeros((n, 0))
+
     return Zonotope(c_new, G_new)
+
+
+def _aux_mtimes_zonoBundle(matZ, zB):
+    """Auxiliary function for matZonotope * zonoBundle."""
+    from cora_python.contSet.zonoBundle import ZonoBundle
+    zB_out = ZonoBundle(zB)
+    for i in range(zB_out.parallelSets):
+        zB_out.Z[i] = _aux_mtimes_zonotope(matZ, zB_out.Z[i])
+    return zB_out

@@ -54,7 +54,6 @@ import numpy as np
 from typing import Tuple, Optional, Union
 from cora_python.g.functions.helper.sets.contSet.contSet import block_mtimes
 from cora_python.g.functions.helper.sets.contSet.contSet import block_operation
-from cora_python.g.functions.helper.sets.contSet.contSet import enclose
 
 from cora_python.g.classes.taylorLinSys import TaylorLinSys
 from cora_python.contSet.zonotope import Zonotope
@@ -114,7 +113,7 @@ def homogeneousSolution(linsys, X, timeStep: float, truncationOrder: int,
         C_state = priv_curvatureState(linsys, X_decomposed, timeStep, truncationOrder)
         
         # Homogeneous time-interval solution
-        Hti_approx = block_operation(enclose, X_decomposed, Htp)
+        Hti_approx = block_operation(lambda a, b: a.enclose(b), X_decomposed, Htp)
         Hti = block_operation(lambda a, b: a + b, Hti_approx, C_state)
         
         return Htp, Hti, C_state

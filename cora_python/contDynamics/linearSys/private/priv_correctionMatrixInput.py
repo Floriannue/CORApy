@@ -19,7 +19,6 @@ Python translation: 2025
 import numpy as np
 import math
 from cora_python.contSet.interval import Interval
-from cora_python.matrixSet.intervalMatrix import IntervalMatrix
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 from .priv_expmRemainder import priv_expmRemainder
 
@@ -73,14 +72,11 @@ def priv_correctionMatrixInput(linsys, timeStep: float, truncationOrder: float):
 
     # Compute correction matrix for input
     # MATLAB: G = interval(Asum_neg_G,Asum_pos_G);
-    # G is a 2D interval matrix, so use IntervalMatrix
-    G = IntervalMatrix(Asum_neg_G, Asum_pos_G)
+    G = Interval(Asum_neg_G, Asum_pos_G)
 
     # Compute/read remainder of exponential matrix (unless truncationOrder=Inf)
     if not truncationOrderInf:
         E = priv_expmRemainder(linsys, timeStep, truncationOrder)
-        # E is an IntervalMatrix, E * timeStep is also IntervalMatrix
-        # G is an IntervalMatrix, so addition should work
         G = G + E * timeStep
 
     # Save in taylorLinSys object

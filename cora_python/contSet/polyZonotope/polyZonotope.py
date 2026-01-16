@@ -147,6 +147,30 @@ class PolyZonotope(ContSet):
                 self.precedence = 70
                 return
 
+        # Handle Zonotope object input (direct conversion)
+        if len(varargin) == 1:
+            from cora_python.contSet.zonotope.zonotope import Zonotope
+            if isinstance(varargin[0], Zonotope):
+                Z = varargin[0]
+                c = Z.c.copy()
+                G = Z.G.copy()
+                n = c.shape[0]
+                GI = np.array([]).reshape(n, 0)
+                if G.size == 0:
+                    E = np.zeros((0, 0))
+                    id = np.array([]).reshape(0, 1)
+                else:
+                    E = np.eye(G.shape[1])
+                    id = np.arange(1, E.shape[0] + 1).reshape(-1, 1)
+                self.c = c
+                self.G = G
+                self.GI = GI
+                self.E = E
+                self.id = id
+                super().__init__()
+                self.precedence = 70
+                return
+
         # 2. parse input arguments: varargin -> vars
         c, G, GI, E, id = _aux_parseInputArgs(*varargin)
 

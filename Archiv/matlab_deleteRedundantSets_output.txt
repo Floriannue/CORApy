@@ -1,0 +1,54 @@
+MATLAB deleteRedundantSets Test Output (Full Setup)
+==================================================
+
+Test 1: First run (no Rold.internalCount)
+----------------------------------------
+Input:
+R.tp length: 1
+R.ti length: 1
+Rold has internalCount: 0
+options.reductionInterval = 3
+
+Output:
+R_result.internalCount = 1
+R_result.tp length: 1
+
+Test 2: Increment count (internalCount = 1 -> 2)
+------------------------------------------------
+Note: When internalCount becomes 2, MATLAB code requires Rold.P to exist.
+Since P is only created at reductionInterval, this case is skipped.
+See Test 4 for the internalCount==2 case with proper P field.
+
+Test 3: Reduction interval (internalCount == reductionInterval)
+---------------------------------------------------------------
+Input:
+Rold3.internalCount = 2
+options3.reductionInterval = 3
+R3.tp length: 2
+
+Output:
+R_result3.internalCount = 1
+R_result3 has P field: 1
+R_result3.P length: 2
+R_result3.P{1} type: polytope
+R_result3.P{1}.dim: 2
+R_result3.tp length: 2
+
+Test 4: Set intersection (internalCount == 2) with Rold.P
+----------------------------------------------------------
+Input:
+Rold4.internalCount = 1
+Rold4.P length: 2
+R4.tp length: 2
+
+Output:
+R_result4.internalCount = 2
+R_result4.tp length: 2
+R_result4.tp{1} has prev field: 1
+R_result4.tp{1}.prev = 1
+
+Test 5: With parent field
+--------------------------
+Input:
+R5.tp{1} has parent field: 1
+R5.tp{1}.parent = 0

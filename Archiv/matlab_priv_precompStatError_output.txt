@@ -1,0 +1,55 @@
+MATLAB priv_precompStatError Test Output
+========================================
+
+Test 1: Basic test (tensorOrder = 2)
+------------------------------------
+Input:
+sys dimension: 6
+sys.linError.p.x shape: 6x1
+sys.linError.p.x = [2.01207448283961; 3.92215870207619; 4; 2.07784129792381; 9.76771128608295; 4.15444741599323]
+sys.linError.p.u = [0]
+Rdelta center shape: 6x1
+Rdelta.c = [-0.0120744828396102; 0.0778412979238112; 0; -0.0778412979238112; 0.232288713917045; -0.154447415993234]
+Rdelta.G shape: 6x6
+params.U center = [0]
+options.tensorOrder = 2
+
+Output:
+H is cell: 1
+H length: 6
+H{1} shape: 7x7
+H{1}(1,1) = 0.00581988883337653
+H{1}(1,2) = 0
+H{1}(2,2) = 0
+Zdelta center shape: 7x1
+Zdelta.c = [-0.0120744828396102; 0.0778412979238112; 0; -0.0778412979238112; 0.232288713917045; -0.154447415993234]
+Zdelta.G shape: 7x6
+errorStat type: zonotope
+errorStat center shape: 6x1
+errorStat.c = [5.86231382554061e-05; -3.07603075310711e-05; -7.09979829588185e-06; 5.14963789598991e-05; -5.21385307739722e-05; 2.28911680974854e-05]
+errorStat.G shape: 6x11
+errorStat.G(1,1) = 5.81988883337653e-05
+T is empty: 1
+ind3 is empty: 1
+Zdelta3 is empty: 1
+
+Test 2: With tensorOrder = 4 (third-order error)
+-------------------------------------------------
+Input:
+options.tensorOrder = 3
+
+Output:
+H2 is cell: 1
+errorStat2 type: zonotope
+T2 is empty: 1
+ind3_2 is empty: 1
+Zdelta3_2 is empty: 1
+
+Test 3: With errorOrder3 specified
+----------------------------------
+Input:
+options.errorOrder3 = 5
+
+Output:
+Zdelta3_3 is empty: 1
+
