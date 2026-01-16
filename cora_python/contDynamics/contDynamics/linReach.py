@@ -685,7 +685,36 @@ def aux_approxDepReachOnly(linsys: Any, nlnsys: Any, R: Dict[str, Any],
             Asum = Asum + linsys.taylor.Apower[i] * linsys.taylor.dtoverfac[0][i + 1]
         
         # MATLAB: eAtInt = Asum + linsys.taylor.E{1}*options.timeStep;
-        eAtInt = Asum + linsys.taylor.E[0] * options['timeStep']
+        # Ensure taylor.E is initialized as a list (MATLAB cell array E{1})
+        from cora_python.contDynamics.linearSys.private.priv_expmRemainder import priv_expmRemainder
+        from cora_python.matrixSet.intervalMatrix import IntervalMatrix
+        
+        # Check if E needs to be computed
+        needs_E = False
+        if not hasattr(linsys.taylor, 'E'):
+            needs_E = True
+        elif linsys.taylor.E is None:
+            needs_E = True
+        elif isinstance(linsys.taylor.E, list) and (len(linsys.taylor.E) == 0 or linsys.taylor.E[0] is None):
+            needs_E = True
+        
+        if needs_E:
+            E_interval = priv_expmRemainder(linsys, options['timeStep'], options['taylorTerms'])
+            # Convert Interval to IntervalMatrix (MATLAB: interval(-W,W) creates interval matrix)
+            # E_interval is an Interval with matrix bounds, convert to IntervalMatrix
+            # Extract center and delta from interval: center = (inf + sup) / 2, delta = (sup - inf) / 2
+            center = (E_interval.inf + E_interval.sup) / 2
+            delta = (E_interval.sup - E_interval.inf) / 2
+            E = IntervalMatrix(center, delta)
+            linsys.taylor.E = [E]  # Store as list to match MATLAB cell array E{1}
+        else:
+            E = linsys.taylor.E[0]
+        
+        # MATLAB: eAtInt = Asum + linsys.taylor.E{1}*options.timeStep;
+        # In MATLAB, numeric_matrix + interval_matrix creates an interval matrix
+        # E is an IntervalMatrix, so we need to add Asum to it
+        E_scaled = E * options['timeStep']  # Scale the interval matrix
+        eAtInt = Asum + E_scaled  # This should use IntervalMatrix.plus
         
         # MATLAB: Rerror = eAtInt*errorStat;
         Rerror = eAtInt * errorStat

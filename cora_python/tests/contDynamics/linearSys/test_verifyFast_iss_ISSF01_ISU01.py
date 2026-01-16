@@ -99,13 +99,11 @@ class TestVerifyFastIssISSF01ISU01:
         print(f"specifications verified: {res}")
         print(f"computation time: {savedata.get('tComp', 'N/A')}")
         
-        # Return value ------------------------------------------------------------
-        
-        # MATLAB: text = ['Spacestation,ISSF01_ISU01,',num2str(res),',',num2str(savedata.tComp)];
-        # Note: MATLAB uses underscore, not hyphen
-        text = f'Spacestation,ISSF01_ISU01,{res},{savedata.get("tComp", "N/A")}'
-        
-        return text
+        # Verify the result
+        # MATLAB expects: res = False (unsafeSet reached, specification violated)
+        assert res is not None, "Verification result should not be None"
+        assert res == False, f"Specification should be violated (unsafeSet reached), got {res}"
+        assert savedata.get('tComp', 0) > 0, "Computation time should be positive"
 
 
 def test_verifyFast_iss_ISSF01_ISU01():
@@ -114,10 +112,7 @@ def test_verifyFast_iss_ISSF01_ISU01():
     Runs all test methods to verify correct implementation.
     """
     test = TestVerifyFastIssISSF01ISU01()
-    result = test.test_verifyFast_iss_ISSF01_ISU01()
-    
-    print(f"test_verifyFast_iss_ISSF01_ISU01: result = {result}")
-    return result
+    test.test_verifyFast_iss_ISSF01_ISU01()
 
 
 if __name__ == "__main__":

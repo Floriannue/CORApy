@@ -73,14 +73,16 @@ def mtimes(factor1: Union[np.ndarray, 'IntervalMatrix'],
         delta = 0.5 * (res_int.sup - res_int.inf)
         return IntervalMatrix(center, delta)
     
-    # intervalMatrix * zonotope
+    # intervalMatrix * zonotope or polyZonotope
     if isinstance(factor1, IntervalMatrix):
-        try:
-            from cora_python.contSet.zonotope import Zonotope
-            if isinstance(factor2, Zonotope):
-                return _aux_mtimes_zonotope(factor1, factor2)
-        except ImportError:
-            pass
+        from cora_python.contSet.zonotope import Zonotope
+        from cora_python.contSet.polyZonotope import PolyZonotope
+        
+        if isinstance(factor2, Zonotope):
+            return _aux_mtimes_zonotope(factor1, factor2)
+        
+        if isinstance(factor2, PolyZonotope):
+            return _aux_mtimes_polyZonotope(factor1, factor2)
     
     raise TypeError(f"Unsupported multiplication: {type(factor1)} * {type(factor2)}")
 
@@ -159,3 +161,72 @@ def _aux_mtimes_zonotope(intMat, Z):
         G_new = np.zeros((c_new.shape[0], 0))
     
     return Zonotope(c_new, G_new)
+
+
+def _aux_mtimes_polyZonotope(intMat, pZ):
+    """
+    Auxiliary function for intervalMatrix * polyZonotope multiplication
+    
+    MATLAB: function pZ = aux_mtimes_polyZonotope(intMat,pZ)
+    
+    Args:
+        intMat: IntervalMatrix object
+        pZ: PolyZonotope object
+        
+    Returns:
+        pZ: Resulting polyZonotope
+    """
+    from cora_python.contSet.polyZonotope import PolyZonotope
+    
+    # MATLAB: M_min = infimum(intMat.int);
+    # MATLAB: M_max = supremum(intMat.int);
+    M_min = intMat.int.inf
+    M_max = intMat.int.sup
+    
+    # MATLAB: M = 0.5*(M_max+M_min);
+    # MATLAB: R = 0.5*(M_max-M_min);
+    M = 0.5 * (M_max + M_min)
+    R = 0.5 * (M_max - M_min)
+    
+    # MATLAB: I = interval(pZ);
+    I = pZ.interval()
+    # MATLAB: S = abs(center(I)) + rad(I);
+    S = np.abs(I.center()) + I.rad()
+    # Ensure S is a column vector
+    if S.ndim == 1:
+        S = S.reshape(-1, 1)
+    
+    # MATLAB: pZ.c = M*pZ.c;
+    c_new = M @ pZ.c
+    
+    # MATLAB: if ~isempty(pZ.G)
+    # MATLAB:     pZ.G = M*pZ.G;
+    # MATLAB: end
+    if pZ.G.size > 0:
+        G_new = M @ pZ.G
+    else:
+        G_new = np.zeros((c_new.shape[0], 0))
+    
+    # MATLAB: if ~isempty(pZ.GI)
+    # MATLAB:     pZ.GI = [M*pZ.GI, diag(R*S)];
+    # MATLAB: else
+    # MATLAB:     pZ.GI = diag(R*S);
+    # MATLAB: end
+    R_S = R @ S
+    # Ensure R_S is a column vector for diag
+    if R_S.ndim == 1:
+        R_S = R_S.flatten()
+    elif R_S.ndim == 2:
+        R_S = R_S.flatten()
+    
+    diag_R_S = np.diag(R_S)
+    
+    if pZ.GI.size > 0:
+        GI_new = np.hstack([M @ pZ.GI, diag_R_S])
+    else:
+        GI_new = diag_R_S
+    
+    # MATLAB: pZ.id stays the same
+    # pZ.E stays the same
+    
+    return PolyZonotope(c_new, G_new, GI_new, pZ.E, pZ.id)

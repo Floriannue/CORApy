@@ -233,6 +233,4 @@ def test_linearSys_reach_krylov_01_heat3D():
     # Verify computation completed
     assert tComp > 0, "Computation time should be positive"
     assert len(Rset) > 0, "Should have computed reachable sets"
-    
-    return f"Heat3D,HEAT03,{res},{tComp}"
 

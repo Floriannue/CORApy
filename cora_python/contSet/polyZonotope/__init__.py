@@ -34,6 +34,12 @@ from .restructure import restructure
 from .approxVolumeRatio import approxVolumeRatio
 from .display import display, display_
 from .copy import copy
+from .reduce import reduce
+from .cartProd_ import cartProd_
+from .quadMap import quadMap
+from .linComb import linComb
+from .convHull_ import convHull_
+from .exactPlus import exactPlus
 
 # Attach methods to the PolyZonotope class
 # dim and isemptyobject are required by ContSet
@@ -56,6 +62,12 @@ PolyZonotope.restructure = restructure
 PolyZonotope.display = display
 PolyZonotope.display_ = display_
 PolyZonotope.copy = copy
+PolyZonotope.reduce = reduce
+PolyZonotope.cartProd_ = cartProd_
+PolyZonotope.quadMap = quadMap
+PolyZonotope.linComb = linComb
+PolyZonotope.convHull_ = convHull_
+PolyZonotope.exactPlus = exactPlus
 
 # Attach display_ to __str__
 PolyZonotope.__str__ = lambda self: display_(self)
@@ -63,6 +75,8 @@ PolyZonotope.__str__ = lambda self: display_(self)
 # Attach operator overloads
 PolyZonotope.__matmul__ = lambda self, other: mtimes(self, other)  # @ operator (matrix multiplication)
 PolyZonotope.__rmatmul__ = lambda self, other: mtimes(other, self)  # @ operator (reverse)
+PolyZonotope.__mul__ = lambda self, other: mtimes(self, other)  # * operator (scalar/matrix multiplication)
+PolyZonotope.__rmul__ = lambda self, other: mtimes(other, self)  # * operator (reverse, for scalar * polyZonotope)
 PolyZonotope.__add__ = lambda self, other: plus(self, other)  # + operator
 PolyZonotope.__radd__ = lambda self, other: plus(other, self)  # + operator (reverse)
 
@@ -90,4 +104,10 @@ __all__ = [
     'restructure',
     'approxVolumeRatio',
     'copy',
+    'reduce',
+    'cartProd_',
+    'quadMap',
+    'linComb',
+    'convHull_',
+    'exactPlus',
 ] 

@@ -157,12 +157,11 @@ class TestVerifyFastBeamCBF02:
         print(f"specifications verified: {res}")
         print(f"computation time: {savedata.get('tComp', 'N/A')}")
         
-        # Return value ------------------------------------------------------------
-        
-        # MATLAB: text = ['Beam,CBF02,',num2str(res),',',num2str(savedata.tComp)];
-        text = f'Beam,CBF02,{res},{savedata.get("tComp", "N/A")}'
-        
-        return text
+        # Verify the result
+        # MATLAB expects: res = True (safeSet satisfied)
+        assert res is not None, "Verification result should not be None"
+        assert res == True, f"Specification should be satisfied (safeSet), got {res}"
+        assert savedata.get('tComp', 0) > 0, "Computation time should be positive"
 
 
 def test_verifyFast_beam_CBF02():
@@ -171,10 +170,7 @@ def test_verifyFast_beam_CBF02():
     Runs all test methods to verify correct implementation.
     """
     test = TestVerifyFastBeamCBF02()
-    result = test.test_verifyFast_beam_CBF02()
-    
-    print(f"test_verifyFast_beam_CBF02: result = {result}")
-    return result
+    test.test_verifyFast_beam_CBF02()
 
 
 if __name__ == "__main__":

@@ -63,8 +63,9 @@ def compact_(pZ: 'PolyZonotope', method: str = 'all', tol: float = None) -> 'Pol
     # In MATLAB, this modifies the object in place, but we'll return a new one
     from cora_python.contSet.polyZonotope.polyZonotope import PolyZonotope
     
-    if method == 'states':
+    if method == 'states' or method == 'zeros':
         # Remove empty generators (fast -> always)
+        # 'zeros' is an alias for 'states' (for compatibility with deleteZeros)
         G, GI, E, id = _aux_removeRedundanciesGI(pZ.G, pZ.GI, pZ.E, pZ.id, tol)
         return PolyZonotope(pZ.c, G, GI, E, id)
     
@@ -81,7 +82,7 @@ def compact_(pZ: 'PolyZonotope', method: str = 'all', tol: float = None) -> 'Pol
         return PolyZonotope(c, G, GI, E, id)
     
     else:
-        raise ValueError(f"Unknown method: {method}. Use 'states', 'exponentMatrix', or 'all'.")
+        raise ValueError(f"Unknown method: {method}. Use 'states', 'zeros', 'exponentMatrix', or 'all'.")
 
 
 def _aux_removeRedundanciesGI(G: np.ndarray, GI: np.ndarray, E: np.ndarray, id: np.ndarray, tol: float):
