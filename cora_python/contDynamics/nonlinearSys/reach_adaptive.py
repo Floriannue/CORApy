@@ -67,7 +67,11 @@ def reach_adaptive(nlnsys: Any, params: Dict[str, Any], options: Dict[str, Any])
                 )
 
         # propagation of reachable set
+        if options.get('progress', False):
+            print(f"[reach_adaptive] Starting linReach_adaptive for step {options['i']}...", flush=True)
         Rti, Rtp, options = nlnsys.linReach_adaptive(options['R'], params, options)
+        if options.get('progress', False):
+            print(f"[reach_adaptive] Completed linReach_adaptive for step {options['i']}", flush=True)
         Rnext = {'ti': Rti, 'tp': Rtp}
 
         # reduction for next step
@@ -100,6 +104,18 @@ def reach_adaptive(nlnsys: Any, params: Dict[str, Any], options: Dict[str, Any])
 
         # start set for next step (since always initReach called)
         options['R'] = Rnext['tp']
+        
+        # Debug: Track reachable set size to identify when it starts growing unbounded
+        if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] <= 5):
+            try:
+                R_center = options['R'].center()
+                R_radius = np.linalg.norm(options['R'].interval().rad())
+                max_abs_center = np.max(np.abs(R_center))
+                print(f"[reach_adaptive] Step {options['i']}: R center max abs = {max_abs_center:.6e}, R radius = {R_radius:.6e}", flush=True)
+                if max_abs_center > 1e+50:
+                    print(f"[reach_adaptive] WARNING: Reachable set center is extremely large! This may indicate numerical instability.", flush=True)
+            except Exception as e:
+                print(f"[reach_adaptive] Could not compute R size: {e}", flush=True)
 
         # check for timeStep -> 0
         abortAnalysis = _aux_checkForAbortion(np.array(tVec), options['t'], params['tFinal'])

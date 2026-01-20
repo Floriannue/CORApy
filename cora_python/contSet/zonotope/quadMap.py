@@ -144,19 +144,54 @@ def _aux_quadMapSingle(Z: Zonotope, Q: List[np.ndarray]) -> Zonotope:
             # Pure quadratic evaluation
             quadMat = Zmat.T @ Q_i @ Zmat
             
+            # Extract numeric values from quadMat if it's an Interval
+            from cora_python.contSet.interval import Interval
+            import scipy.sparse
+            if isinstance(quadMat, Interval):
+                # For Interval, use the center (midpoint) for the computation
+                # This is a conservative approximation
+                quadMat_center = quadMat.center()
+                # Convert to dense numpy array if needed
+                if scipy.sparse.issparse(quadMat_center):
+                    quadMat = quadMat_center.toarray()
+                else:
+                    quadMat = np.asarray(quadMat_center)
+            elif hasattr(quadMat, 'inf') and hasattr(quadMat, 'sup'):
+                # Handle other interval-like objects
+                quadMat_inf = quadMat.inf.toarray() if scipy.sparse.issparse(quadMat.inf) else quadMat.inf
+                quadMat_sup = quadMat.sup.toarray() if scipy.sparse.issparse(quadMat.sup) else quadMat.sup
+                quadMat = (quadMat_inf + quadMat_sup) / 2
+            elif scipy.sparse.issparse(quadMat):
+                # Convert sparse matrix to dense
+                quadMat = quadMat.toarray()
+            
+            # Ensure quadMat is a numpy array (dense)
+            if not isinstance(quadMat, np.ndarray):
+                quadMat = np.asarray(quadMat)
+            elif scipy.sparse.issparse(quadMat):
+                quadMat = quadMat.toarray()
+            
             if gens > 0:
                 # Diagonal elements
-                G[i, :gens] = 0.5 * np.diag(quadMat[1:gens+1, 1:gens+1])
+                # MATLAB: G(i,1:gens) = 0.5*diag(quadMat(2:gens+1,2:gens+1));
+                # Python: quadMat[1:gens+1, 1:gens+1] (0-based indexing)
+                quadMat_sub = quadMat[1:gens+1, 1:gens+1]
+                G[i, :gens] = 0.5 * np.diag(quadMat_sub)
                 
                 # Center
+                # MATLAB: c(i,1) = quadMat(1,1) + sum(G(i,1:gens));
                 c[i, 0] = quadMat[0, 0] + np.sum(G[i, :gens])
                 
                 # Off-diagonal elements
+                # MATLAB: quadMatoffdiag = quadMat + quadMat';
                 quadMatoffdiag = quadMat + quadMat.T
+                # MATLAB: quadMatoffdiag = quadMatoffdiag(:);
                 quadMatoffdiag_flat = quadMatoffdiag.flatten()
                 
                 # Create lower triangular mask (excluding diagonal)
+                # MATLAB: kInd = tril(true(gens+1,gens+1),-1);
                 kInd = np.tril(np.ones((gens+1, gens+1), dtype=bool), -1)
+                # MATLAB: G(i, gens+1:end) = quadMatoffdiag(kInd(:));
                 G[i, gens:] = quadMatoffdiag_flat[kInd.flatten()]
             else:
                 # No generators case

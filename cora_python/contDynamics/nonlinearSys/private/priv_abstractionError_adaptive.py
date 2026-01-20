@@ -93,10 +93,28 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
             for i in range(nlnsys.nr_of_dims):
                 H_abs = abs(H[i])
                 H_ = np.maximum(H_abs.infimum(), H_abs.supremum())
-                err[i, 0] = 0.5 * (dz.T @ H_ @ dz)
+                # Debug: Check for infinite values in H_ or dz
+                if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+                    H_max = np.max(np.abs(H_)) if H_.size > 0 else 0
+                    dz_max = np.max(np.abs(dz)) if dz.size > 0 else 0
+                    if H_max > 1e+50 or dz_max > 1e+50:
+                        print(f"[priv_abstractionError_adaptive] Step {options['i']}, dim {i}: H_max = {H_max:.6e}, dz_max = {dz_max:.6e}", flush=True)
+                err_val = 0.5 * (dz.T @ H_ @ dz)
+                # Check for infinite result
+                if np.isinf(err_val) or np.isnan(err_val):
+                    if options.get('progress', False):
+                        print(f"[priv_abstractionError_adaptive] ERROR: err[{i}] = {err_val} (inf/nan) at step {options['i']}. "
+                              f"H_max = {np.max(np.abs(H_)):.6e}, dz_max = {np.max(np.abs(dz)):.6e}", flush=True)
+                    raise CORAerror('CORA:reachSetExplosion', f'Abstraction error computation produced {err_val} at dimension {i}.')
+                err[i, 0] = err_val
         else:
             for i in range(nlnsys.nr_of_dims):
-                err[i, 0] = 0.5 * (dz.T @ options['hessianConst'][i] @ dz)
+                err_val = 0.5 * (dz.T @ options['hessianConst'][i] @ dz)
+                if np.isinf(err_val) or np.isnan(err_val):
+                    if options.get('progress', False):
+                        print(f"[priv_abstractionError_adaptive] ERROR: err[{i}] = {err_val} (inf/nan) with const Hessian at step {options['i']}", flush=True)
+                    raise CORAerror('CORA:reachSetExplosion', f'Abstraction error computation produced {err_val} at dimension {i}.')
+                err[i, 0] = err_val
 
         VerrorDyn = Zonotope(np.zeros_like(err), np.diag(err.flatten()))
         VerrorStat = []
@@ -109,6 +127,31 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
         H = nlnsys.hessian(nlnsys.linError.p.x, nlnsys.linError.p.u)
         dz = Interval.vertcat(IH_x, IH_u)
 
+        # Debug: Check R size before reduction
+        if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+            try:
+                R_center = R.center() if hasattr(R, 'center') else None
+                R_generators = R.generators() if hasattr(R, 'generators') else None
+                if R_center is not None:
+                    R_center_max = np.max(np.abs(R_center))
+                    if R_generators is not None:
+                        R_radius = np.sum(np.abs(R_generators), axis=1)
+                        R_radius_max = np.max(R_radius) if R_radius.size > 0 else 0
+                        R_num_generators = R_generators.shape[1] if R_generators.ndim > 1 else 0
+                        R_generator_max = np.max(np.abs(R_generators)) if R_generators.size > 0 else 0
+                        print(f"[priv_abstractionError_adaptive] Step {options['i']}: R before reduce: center max = {R_center_max:.6e}, radius max = {R_radius_max:.6e}, num gens = {R_num_generators}, gen max = {R_generator_max:.6e}", flush=True)
+                    else:
+                        print(f"[priv_abstractionError_adaptive] Step {options['i']}: R before reduce: center max = {R_center_max:.6e}", flush=True)
+                # Check if R is PolyZonotope
+                if hasattr(R, 'G') and hasattr(R, 'GI'):
+                    R_G_max = np.max(np.abs(R.G)) if R.G.size > 0 else 0
+                    R_GI_max = np.max(np.abs(R.GI)) if R.GI.size > 0 else 0
+                    R_G_num = R.G.shape[1] if R.G.size > 0 else 0
+                    R_GI_num = R.GI.shape[1] if R.GI.size > 0 else 0
+                    print(f"[priv_abstractionError_adaptive] Step {options['i']}: R (PolyZonotope): G max = {R_G_max:.6e} ({R_G_num} gens), GI max = {R_GI_max:.6e} ({R_GI_num} gens)", flush=True)
+            except Exception as e:
+                print(f"[priv_abstractionError_adaptive] Step {options['i']}: Error checking R: {e}", flush=True)
+        
         # reduce zonotope
         if 'gredIdx' in options and len(options['gredIdx'].get('Rred', [])) == options['i']:
             Rred = R.reduce('idx', options['gredIdx']['Rred'][options['i'] - 1])
@@ -121,8 +164,60 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
             else:
                 Rred = Rred_res
 
+        # Debug: Check Rred size before cartProd_
+        if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+            try:
+                Rred_center = Rred.center() if hasattr(Rred, 'center') else None
+                Rred_generators = Rred.generators() if hasattr(Rred, 'generators') else None
+                if Rred_center is not None:
+                    Rred_center_max = np.max(np.abs(Rred_center))
+                    if Rred_generators is not None:
+                        Rred_radius = np.sum(np.abs(Rred_generators), axis=1)
+                        Rred_radius_max = np.max(Rred_radius) if Rred_radius.size > 0 else 0
+                        print(f"[priv_abstractionError_adaptive] Step {options['i']}: Rred center max = {Rred_center_max:.6e}, Rred radius max = {Rred_radius_max:.6e}", flush=True)
+                    else:
+                        print(f"[priv_abstractionError_adaptive] Step {options['i']}: Rred center max = {Rred_center_max:.6e}", flush=True)
+            except Exception as e:
+                print(f"[priv_abstractionError_adaptive] Step {options['i']}: Error checking Rred: {e}", flush=True)
+        
         Z = Rred.cartProd_(U)
+        # Debug: Check Z size before quadMap
+        if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+            try:
+                Z_center = Z.center() if hasattr(Z, 'center') else None
+                Z_generators = Z.generators() if hasattr(Z, 'generators') else None
+                if Z_center is not None:
+                    Z_center_max = np.max(np.abs(Z_center))
+                    if Z_generators is not None:
+                        Z_radius = np.sum(np.abs(Z_generators), axis=1)
+                        Z_radius_max = np.max(Z_radius) if Z_radius.size > 0 else 0
+                        print(f"[priv_abstractionError_adaptive] Step {options['i']}: Z center max = {Z_center_max:.6e}, Z radius max = {Z_radius_max:.6e}", flush=True)
+                    else:
+                        print(f"[priv_abstractionError_adaptive] Step {options['i']}: Z center max = {Z_center_max:.6e}", flush=True)
+                # Check H
+                H_max = 0
+                if H is not None:
+                    if isinstance(H, (list, tuple)):
+                        for h in H:
+                            if h is not None and hasattr(h, 'size') and h.size > 0:
+                                H_max = max(H_max, np.max(np.abs(h)))
+                    elif hasattr(H, 'size') and H.size > 0:
+                        H_max = np.max(np.abs(H))
+                print(f"[priv_abstractionError_adaptive] Step {options['i']}: H_max = {H_max:.6e}", flush=True)
+            except Exception as e:
+                print(f"[priv_abstractionError_adaptive] Step {options['i']}: Error checking Z/H: {e}", flush=True)
         errorSec = 0.5 * Z.quadMap(H)
+        # Check for infinite values in errorSec
+        if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+            try:
+                errorSec_center = errorSec.center() if hasattr(errorSec, 'center') else None
+                if errorSec_center is not None and np.any(np.isinf(errorSec_center)):
+                    print(f"[priv_abstractionError_adaptive] ERROR: errorSec center contains inf at step {options['i']}", flush=True)
+                    raise CORAerror('CORA:reachSetExplosion', 'errorSec contains infinite values.')
+            except Exception as e:
+                if isinstance(e, CORAerror):
+                    raise
+                pass
 
         try:
             if options.get('thirdOrderTensorempty', False) or not callable(getattr(nlnsys, 'thirdOrderTensor', None)):
@@ -149,6 +244,19 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
             options['thirdOrderTensorempty'] = True
 
         VerrorDyn = errorSec + errorLagr
+        
+        # Debug: Check components before reduction
+        if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+            try:
+                errorSec_center = errorSec.center() if hasattr(errorSec, 'center') else None
+                errorLagr_center = errorLagr.center() if hasattr(errorLagr, 'center') else None
+                VerrorDyn_center_before = VerrorDyn.center()
+                print(f"[priv_abstractionError_adaptive] Step {options['i']}: errorSec center norm = {np.linalg.norm(errorSec_center) if errorSec_center is not None else 'N/A':.6e}, "
+                      f"errorLagr center norm = {np.linalg.norm(errorLagr_center) if errorLagr_center is not None else 'N/A':.6e}, "
+                      f"VerrorDyn center norm (before reduce) = {np.linalg.norm(VerrorDyn_center_before):.6e}", flush=True)
+            except Exception:
+                pass
+        
         if 'gredIdx' in options and len(options['gredIdx'].get('VerrorDyn', [])) == options['i']:
             VerrorDyn = VerrorDyn.reduce('idx', options['gredIdx']['VerrorDyn'][options['i'] - 1])
         else:
@@ -161,7 +269,20 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
                 VerrorDyn = VerrorDyn_res
 
         VerrorStat = []
-        err = np.abs(VerrorDyn.center()) + np.sum(np.abs(VerrorDyn.generators()), axis=1).reshape(-1, 1)
+        # Check if VerrorDyn contains infinite values
+        VerrorDyn_center = VerrorDyn.center()
+        if np.any(np.isinf(VerrorDyn_center)) or np.any(np.isnan(VerrorDyn_center)):
+            # Debug: Print more info before raising error
+            if options.get('progress', False):
+                try:
+                    R_center = R.center()
+                    R_radius = np.linalg.norm(R.interval().rad())
+                    print(f"[priv_abstractionError_adaptive] ERROR at step {options['i']}: VerrorDyn contains Inf/NaN. "
+                          f"R center norm = {np.linalg.norm(R_center):.6e}, R radius = {R_radius:.6e}", flush=True)
+                except Exception:
+                    pass
+            raise CORAerror('CORA:reachSetExplosion', 'VerrorDyn contains infinite or NaN values.')
+        err = np.abs(VerrorDyn_center) + np.sum(np.abs(VerrorDyn.generators()), axis=1).reshape(-1, 1)
 
     # POLY --------------------------------------------------------------------
     elif options['alg'] == 'poly' and options['tensorOrder'] == 3:

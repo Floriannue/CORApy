@@ -62,6 +62,9 @@ def linearize(nlnsys: Any, R: Any, params: Dict[str, Any],
     p = {'u': params['uTrans']}
     
     # obtain linearization point
+    # Initialize f0prev to None (will be set in else block if needed)
+    f0prev = None
+    
     # MATLAB: if isfield(options,'linearizationPoint')
     if 'linearizationPoint' in options:
         # MATLAB: p.x = options.linearizationPoint;
@@ -77,6 +80,12 @@ def linearize(nlnsys: Any, R: Any, params: Dict[str, Any],
         # center of start set
         # MATLAB: cx = center(R);
         cx = R.center()
+        
+        # Check if center is too large (indicates set explosion before linReach can catch it)
+        # This prevents overflow when computing f0prev
+        if np.any(np.abs(cx) > 1e+100):
+            from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+            raise CORAerror('CORA:reachSetExplosion')
         
         # linearization point p.x of the state is the center of the last
         # reachable set R translated by 0.5*delta_t*f0

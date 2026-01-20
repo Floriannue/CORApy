@@ -346,6 +346,16 @@ def reach(sys: Any, params: Dict[str, Any], options: Dict[str, Any],
         # MATLAB: verboseLog(options.verbose,i,options.t,params.tStart,params.tFinal);
         verboseLog(options.get('verbose', False), i+1, options['t'], params['tStart'], params['tFinal'])
         
+        # optional progress logging (helps diagnose non-termination)
+        if options.get('progress', False):
+            interval = int(options.get('progressInterval', 10))
+            if i == 1 or (interval > 0 and (i + 1) % interval == 0):
+                time_step = options.get('timeStep', np.nan)
+                progress_pct = (options['t'] - params['tStart']) / (params['tFinal'] - params['tStart']) * 100
+                remaining = params['tFinal'] - options['t']
+                print(f"[reach] step={i+1}/{steps} t={options['t']:.6g} dt={time_step:.6g} "
+                      f"({progress_pct:.1f}% complete, {remaining:.6g} remaining)", flush=True)
+        
         # if a trajectory should be tracked
         # MATLAB: if isfield(params,'uTransVec')
         if 'uTransVec' in params:

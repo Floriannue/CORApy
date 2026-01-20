@@ -49,7 +49,8 @@ def test_nonlinearSys_reach_adaptive_01_jetEngine():
     options['alg'] = 'lin-adaptive'
     # progress logging to spot non-termination
     options['progress'] = True
-    options['progressInterval'] = 10
+    options['progressInterval'] = 5  # More frequent progress updates
+    options['verbose'] = 1  # Enable verbose logging for additional progress info
     
     # init system
     # MATLAB: sys = nonlinearSys(@jetEngine,dim_x,1);

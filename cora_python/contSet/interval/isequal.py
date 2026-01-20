@@ -51,5 +51,12 @@ def isequal(I1:Interval, I2:Interval, tol: float = 1e-12) -> bool:
         return False
     
     # Check if bounds are equal with given tolerance
-    return (np.allclose(I1.inf, I2.inf, rtol=tol, atol=tol) and
-            np.allclose(I1.sup, I2.sup, rtol=tol, atol=tol)) 
+    # Convert sparse matrices to dense for comparison (scipy sparse doesn't support scalar addition)
+    from scipy.sparse import issparse
+    I1_inf = I1.inf.toarray() if issparse(I1.inf) else I1.inf
+    I1_sup = I1.sup.toarray() if issparse(I1.sup) else I1.sup
+    I2_inf = I2.inf.toarray() if issparse(I2.inf) else I2.inf
+    I2_sup = I2.sup.toarray() if issparse(I2.sup) else I2.sup
+    
+    return (np.allclose(I1_inf, I2_inf, rtol=tol, atol=tol) and
+            np.allclose(I1_sup, I2_sup, rtol=tol, atol=tol)) 

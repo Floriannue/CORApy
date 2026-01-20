@@ -63,9 +63,49 @@ def errorSolution_adaptive(linsys: Any, options: Dict[str, Any], Vdyn: Any, Vsta
     Apower_abs = [A_abs]
     M = np.eye(linsys.nr_of_dims)
     eAabst = expm(A_abs * deltat)
+    
+    # Debug: Check eigenvalues and matrix norms
+    if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+        try:
+            eigenvals = np.linalg.eigvals(A)
+            eigenvals_abs = np.abs(eigenvals)
+            eigenvals_max = np.max(eigenvals_abs) if eigenvals.size > 0 else 0
+            A_norm = np.linalg.norm(A, ord='fro')
+            eAabst_max = np.max(np.abs(eAabst))
+            Vdyn_center = Vdyn.center() if hasattr(Vdyn, 'center') else None
+            Vdyn_center_max = np.max(np.abs(Vdyn_center)) if Vdyn_center is not None else 0
+            Vdyn_generators = Vdyn.generators() if hasattr(Vdyn, 'generators') else None
+            Vdyn_radius = np.sum(np.abs(Vdyn_generators), axis=1) if Vdyn_generators is not None else None
+            Vdyn_radius_max = np.max(Vdyn_radius) if Vdyn_radius is not None and Vdyn_radius.size > 0 else 0
+            print(f"[errorSolution_adaptive] Step {options['i']}: A max eigenval = {eigenvals_max:.6e}, A norm = {A_norm:.6e}, "
+                  f"expm(A_abs*dt) max = {eAabst_max:.6e}, Vdyn center max = {Vdyn_center_max:.6e}, Vdyn radius max = {Vdyn_radius_max:.6e}, dt = {deltat:.6e}", flush=True)
+        except Exception as e:
+            print(f"[errorSolution_adaptive] Step {options['i']}: Error checking eigenvalues: {e}", flush=True)
 
     # initialize Asum / AVsum
+    # Check if Vdyn contains infinite values before using it
+    try:
+        Vdyn_center = Vdyn.center() if hasattr(Vdyn, 'center') else None
+        if Vdyn_center is not None and np.any(np.isinf(Vdyn_center)):
+            from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+            raise CORAerror('CORA:reachSetExplosion', 'VerrorDyn contains infinite values.')
+    except Exception:
+        pass  # If check fails, continue (might not have center method)
+    
     AVsum = deltat * Vdyn
+    # Debug: Check initial AVsum
+    if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+        try:
+            AVsum_center = AVsum.center() if hasattr(AVsum, 'center') else None
+            AVsum_generators = AVsum.generators() if hasattr(AVsum, 'generators') else None
+            if AVsum_center is not None:
+                AVsum_center_max = np.max(np.abs(AVsum_center))
+                if AVsum_generators is not None:
+                    AVsum_radius = np.sum(np.abs(AVsum_generators), axis=1)
+                    AVsum_radius_max = np.max(AVsum_radius) if AVsum_radius.size > 0 else 0
+                    print(f"[errorSolution_adaptive] Step {options['i']}: Initial AVsum (deltat*Vdyn): center max = {AVsum_center_max:.6e}, radius max = {AVsum_radius_max:.6e}, deltat = {deltat:.6e}", flush=True)
+        except Exception as e:
+            print(f"[errorSolution_adaptive] Step {options['i']}: Error checking initial AVsum: {e}", flush=True)
     RerrorInt_etanoF = _sum_abs_generators(AVsum)
     if isVstat:
         Asum = deltat * np.eye(linsys.nr_of_dims)
@@ -82,6 +122,24 @@ def errorSolution_adaptive(linsys: Any, options: Dict[str, Any], Vdyn: Any, Vsta
         # MATLAB: temp = deltat^(eta+1)/factorial(eta+1) * Apower{eta};
         temp = deltat**(eta + 1) / math.factorial(eta + 1) * Apower[eta - 1]
         ApowerV = temp * Vdyn
+        # Debug: Check for infinite values in Taylor terms
+        if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340) and eta <= 10:
+            try:
+                ApowerV_center = ApowerV.center() if hasattr(ApowerV, 'center') else None
+                ApowerV_generators = ApowerV.generators() if hasattr(ApowerV, 'generators') else None
+                if ApowerV_center is not None:
+                    ApowerV_center_max = np.max(np.abs(ApowerV_center))
+                    if ApowerV_generators is not None:
+                        ApowerV_radius = np.sum(np.abs(ApowerV_generators), axis=1)
+                        ApowerV_radius_max = np.max(ApowerV_radius) if ApowerV_radius.size > 0 else 0
+                        temp_norm = np.linalg.norm(temp, ord='fro')
+                        temp_max = np.max(np.abs(temp)) if temp.size > 0 else 0
+                        print(f"[errorSolution_adaptive] Step {options['i']}, eta={eta}: ApowerV center max = {ApowerV_center_max:.6e}, ApowerV radius max = {ApowerV_radius_max:.6e}, temp norm = {temp_norm:.6e}, temp max = {temp_max:.6e}", flush=True)
+                    elif np.any(np.isinf(ApowerV_center)) or ApowerV_center_max > 1e+50:
+                        temp_norm = np.linalg.norm(temp, ord='fro')
+                        print(f"[errorSolution_adaptive] Step {options['i']}, eta={eta}: ApowerV center max = {ApowerV_center_max:.6e}, temp norm = {temp_norm:.6e}", flush=True)
+            except Exception:
+                pass
         AVsum = AVsum + ApowerV
 
         if isVstat:
@@ -114,6 +172,39 @@ def errorSolution_adaptive(linsys: Any, options: Dict[str, Any], Vdyn: Any, Vsta
                     Rerror = AVsum + F + (eAtInt * Vstat)
                 else:
                     Rerror = AVsum + F
+                
+                # Debug: Check components of Rerror
+                if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+                    try:
+                        AVsum_center = AVsum.center() if hasattr(AVsum, 'center') else None
+                        AVsum_generators = AVsum.generators() if hasattr(AVsum, 'generators') else None
+                        F_center = F.center() if hasattr(F, 'center') else None
+                        F_generators = F.generators() if hasattr(F, 'generators') else None
+                        if AVsum_center is not None:
+                            AVsum_center_max = np.max(np.abs(AVsum_center))
+                            if AVsum_generators is not None:
+                                AVsum_radius = np.sum(np.abs(AVsum_generators), axis=1)
+                                AVsum_radius_max = np.max(AVsum_radius) if AVsum_radius.size > 0 else 0
+                                print(f"[errorSolution_adaptive] Step {options['i']}, eta={eta}: AVsum center max = {AVsum_center_max:.6e}, AVsum radius max = {AVsum_radius_max:.6e}", flush=True)
+                        if F_center is not None:
+                            F_center_max = np.max(np.abs(F_center))
+                            if F_generators is not None:
+                                F_radius = np.sum(np.abs(F_generators), axis=1)
+                                F_radius_max = np.max(F_radius) if F_radius.size > 0 else 0
+                                print(f"[errorSolution_adaptive] Step {options['i']}, eta={eta}: F center max = {F_center_max:.6e}, F radius max = {F_radius_max:.6e}", flush=True)
+                        W_max = np.max(W) if W.size > 0 else 0
+                        print(f"[errorSolution_adaptive] Step {options['i']}, eta={eta}: W max = {W_max:.6e}, deltat = {deltat:.6e}", flush=True)
+                    except Exception as e:
+                        print(f"[errorSolution_adaptive] Step {options['i']}, eta={eta}: Error checking components: {e}", flush=True)
+                
+                # Check if Rerror contains infinite values
+                try:
+                    Rerror_center = Rerror.center() if hasattr(Rerror, 'center') else None
+                    if Rerror_center is not None and np.any(np.isinf(Rerror_center)):
+                        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+                        raise CORAerror('CORA:reachSetExplosion', 'Rerror contains infinite values.')
+                except Exception:
+                    pass  # If check fails, continue
 
                 # save taylor order for analysis
                 if 'tt_err' not in options:

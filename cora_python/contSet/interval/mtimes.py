@@ -242,24 +242,34 @@ def _mtimes_matrix_scalar(factor1: Interval, factor2: Interval) -> Interval:
     
     if factor2_is_numeric:
         # MATLAB: if isnumeric(factor2)
-        # Handle sparse matrices
+        # Check if factor2 is actually a scalar (1x1)
         import scipy.sparse
         if scipy.sparse.issparse(factor2.inf):
-            factor2_val = factor2.inf.toarray().item()
+            factor2_inf_dense = factor2.inf.toarray()
+            factor2_sup_dense = factor2.sup.toarray() if scipy.sparse.issparse(factor2.sup) else factor2.sup
         else:
-            factor2_val = factor2.inf.item()
-        if factor2_val < 0:
-            # MATLAB: infimum and supremum
-            # res = interval(factor2*factor1.sup, factor2*factor1.inf);
-            return Interval(factor2_val * factor1.sup, factor2_val * factor1.inf)
-        elif factor2_val > 0:
-            # MATLAB: infimum and supremum
-            # res = interval(factor2*factor1.inf, factor2*factor1.sup);
-            return Interval(factor2_val * factor1.inf, factor2_val * factor1.sup)
-        else:  # factor2_val == 0
-            # MATLAB: as 0*[-inf,inf] = {0*x|-inf<x<inf}={0}
-            # res = interval(zeros(size(factor1.inf)));
-            return Interval(np.zeros_like(factor1.inf))
+            factor2_inf_dense = factor2.inf
+            factor2_sup_dense = factor2.sup
+        
+        # Check if it's a scalar (1x1 matrix)
+        if factor2_inf_dense.size == 1:
+            factor2_val = factor2_inf_dense.item() if factor2_inf_dense.ndim > 0 else float(factor2_inf_dense)
+            if factor2_val < 0:
+                # MATLAB: infimum and supremum
+                # res = interval(factor2*factor1.sup, factor2*factor1.inf);
+                return Interval(factor2_val * factor1.sup, factor2_val * factor1.inf)
+            elif factor2_val > 0:
+                # MATLAB: infimum and supremum
+                # res = interval(factor2*factor1.inf, factor2*factor1.sup);
+                return Interval(factor2_val * factor1.inf, factor2_val * factor1.sup)
+            else:  # factor2_val == 0
+                # MATLAB: as 0*[-inf,inf] = {0*x|-inf<x<inf}={0}
+                # res = interval(zeros(size(factor1.inf)));
+                return Interval(np.zeros_like(factor1.inf))
+        else:
+            # factor2 is numeric but not scalar - use element-wise multiplication
+            # This case shouldn't happen in aux_mtimes_matrix_scalar, but handle it gracefully
+            return factor1.times(factor2)
     else:
         # MATLAB: else
         # res = factor1.*factor2;

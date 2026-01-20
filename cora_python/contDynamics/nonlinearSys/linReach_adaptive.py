@@ -38,6 +38,10 @@ from cora_python.contDynamics.nonlinearSys.private.priv_abstractionError_adaptiv
 def linReach_adaptive(nlnsys: Any, Rstart: Any, params: Dict[str, Any], options: Dict[str, Any]) -> Tuple[Any, Any, Dict[str, Any]]:
     # set linearization error
     error_adm = options['error_adm_horizon']
+    # Debug: Check error_adm_horizon at start of step
+    if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+        error_adm_max = np.max(error_adm) if error_adm.size > 0 else 0
+        print(f"[linReach_adaptive] Step {options['i']}: Starting with error_adm_horizon max = {error_adm_max:.6e}", flush=True)
 
     lastStep = False
     veryfirststep = False
@@ -60,20 +64,25 @@ def linReach_adaptive(nlnsys: Any, Rstart: Any, params: Dict[str, Any], options:
         options['timeStep'] = params['tFinal'] - options['t']
         finitehorizon = options['timeStep']
     elif options['i'] > 1:
-        minorder_val = options.get('minorder', 0)
-        if not np.isfinite(minorder_val):
-            minorder_idx = 0
-        else:
-            minorder_idx = int(minorder_val)
-        zetaphi = options.get('zetaphi', [])
-        if isinstance(zetaphi, (list, np.ndarray)) and len(zetaphi) > 0:
-            minorder_idx = max(0, min(minorder_idx, len(zetaphi) - 1))
+        # MATLAB line 80-81: finitehorizon = options.finitehorizon(options.i-1) ...
+        #     * (1 + options.varphi(options.i-1) - options.zetaphi(options.minorder+1));
+        # MATLAB uses minorder+1 as index (1-indexed), Python uses minorder (0-indexed)
+        # So if MATLAB uses options.zetaphi(options.minorder+1), Python uses options['zetaphi'][minorder]
+        # Convert minorder to int for list indexing
+        minorder = int(options.get('minorder', 0))
         finitehorizon = options['finitehorizon'][options['i'] - 2] * (
-            1 + options['varphi'][options['i'] - 2] - options['zetaphi'][minorder_idx])
+            1 + options['varphi'][options['i'] - 2] - options['zetaphi'][minorder])
+        # MATLAB line 84: min([params.tFinal - options.t, finitehorizon]);
+        # Note: MATLAB computes this but doesn't assign it (dead code or bug)
+        # Python correctly assigns it to cap finitehorizon
         finitehorizon = min(params['tFinal'] - options['t'], finitehorizon)
         if withinTol(finitehorizon, options['stepsize'][options['i'] - 2], 1e-3):
             finitehorizon = options['finitehorizon'][options['i'] - 2] * 1.1
         options['timeStep'] = finitehorizon
+        
+        # MATLAB line 101: assert(options.timeStep > 0,'Tuning error.. report to devs');
+        assert options['timeStep'] > 0, 'Tuning error.. report to devs'
+        
         if options['i'] == 2 and options['alg'] == 'poly' and options.get('polyGain', False):
             options['orders'] = options['orders'] - 1
             options['minorder'] = np.min(options['orders'])
@@ -88,6 +97,8 @@ def linReach_adaptive(nlnsys: Any, Rstart: Any, params: Dict[str, Any], options:
     abscount = 0
 
     while True:
+        if options.get('progress', False) and options.get('run', 0) > 0:
+            print(f"[linReach_adaptive] run={options.get('run', 0)} abscount={abscount} timeStep={options.get('timeStep', np.nan):.6g}", flush=True)
         nlnsys, linsys, linParams, linOptions = nlnsys.linearize(Rstart, params, options)
 
         if options['run'] == 1:
@@ -116,7 +127,11 @@ def linReach_adaptive(nlnsys: Any, Rstart: Any, params: Dict[str, Any], options:
         perfInds = []
         options['Lconverged'] = False
 
+        inner_iter = 0
         while True:
+            inner_iter += 1
+            if options.get('progress', False) and inner_iter % 100 == 0:
+                print(f"[linReach_adaptive] inner loop iter={inner_iter} abscount={abscount} perfIndCounter={perfIndCounter}", flush=True)
             abscount += 1
             if np.any(error_adm):
                 errG = np.diag(error_adm.flatten())
@@ -127,7 +142,47 @@ def linReach_adaptive(nlnsys: Any, Rstart: Any, params: Dict[str, Any], options:
 
             try:
                 if options['alg'] == 'lin':
+                    # Debug: Check Rlinti and RallError before computing Rmax
+                    if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
+                        try:
+                            Rlinti_center = Rlinti.center() if hasattr(Rlinti, 'center') else None
+                            Rlinti_generators = Rlinti.generators() if hasattr(Rlinti, 'generators') else None
+                            RallError_center = RallError.center() if hasattr(RallError, 'center') else None
+                            RallError_generators = RallError.generators() if hasattr(RallError, 'generators') else None
+                            if Rlinti_center is not None:
+                                Rlinti_center_max = np.max(np.abs(Rlinti_center))
+                                if Rlinti_generators is not None:
+                                    Rlinti_radius = np.sum(np.abs(Rlinti_generators), axis=1)
+                                    Rlinti_radius_max = np.max(Rlinti_radius) if Rlinti_radius.size > 0 else 0
+                                    print(f"[linReach_adaptive] Step {options['i']}: Rlinti center max = {Rlinti_center_max:.6e}, Rlinti radius max = {Rlinti_radius_max:.6e}", flush=True)
+                            if RallError_center is not None:
+                                RallError_center_max = np.max(np.abs(RallError_center))
+                                if RallError_generators is not None:
+                                    RallError_radius = np.sum(np.abs(RallError_generators), axis=1)
+                                    RallError_radius_max = np.max(RallError_radius) if RallError_radius.size > 0 else 0
+                                    print(f"[linReach_adaptive] Step {options['i']}: RallError center max = {RallError_center_max:.6e}, RallError radius max = {RallError_radius_max:.6e}", flush=True)
+                                    # Check if RallError is too large (set explosion)
+                                    if RallError_radius_max > 1e+100:
+                                        from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+                                        raise CORAerror('CORA:reachSetExplosion', f'RallError radius ({RallError_radius_max:.6e}) exceeds threshold. Set explosion detected.')
+                        except Exception as e:
+                            if isinstance(e, CORAerror) and e.identifier == 'CORA:reachSetExplosion':
+                                raise
+                            print(f"[linReach_adaptive] Step {options['i']}: Error checking Rlinti/RallError: {e}", flush=True)
                     Rmax = Rlinti + RallError
+                    # Check if Rmax is too large before passing to priv_abstractionError_adaptive
+                    try:
+                        Rmax_center = Rmax.center() if hasattr(Rmax, 'center') else None
+                        Rmax_generators = Rmax.generators() if hasattr(Rmax, 'generators') else None
+                        if Rmax_center is not None and Rmax_generators is not None:
+                            Rmax_radius = np.sum(np.abs(Rmax_generators), axis=1)
+                            Rmax_radius_max = np.max(Rmax_radius) if Rmax_radius.size > 0 else 0
+                            if Rmax_radius_max > 1e+100:
+                                from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
+                                raise CORAerror('CORA:reachSetExplosion', f'Rmax radius ({Rmax_radius_max:.6e}) exceeds threshold. Set explosion detected.')
+                    except Exception as e:
+                        if isinstance(e, CORAerror) and e.identifier == 'CORA:reachSetExplosion':
+                            raise
                     Rdiff = Zonotope(np.zeros((len(RallError.center()), 1)))
                     Rtemp = Rdiff + RallError
                     VerrorDyn, VerrorStat, trueError, options = priv_abstractionError_adaptive(
@@ -147,17 +202,48 @@ def linReach_adaptive(nlnsys: Any, Rstart: Any, params: Dict[str, Any], options:
                     break
                 raise
 
-            perfIndCurr = np.max(trueError / error_adm) if np.any(error_adm) else 0
+            # MATLAB line 229: perfIndCurr = max(trueError ./ error_adm);
+            # MATLAB uses element-wise division, which produces Inf for zero denominators
+            # MATLAB does NOT handle Inf specially - it just uses it directly
+            # If perfIndCurr is Inf, then perfIndCurr <= 1 is false, so loop continues
+            with np.errstate(divide='ignore', invalid='ignore'):
+                # Element-wise division: trueError ./ error_adm
+                # This will produce Inf where error_adm is zero (if trueError is non-zero)
+                perfIndCurr_ratio = trueError / error_adm
+                # MATLAB: max() of the result - keep Inf if present, don't replace it
+                perfIndCurr = np.max(perfIndCurr_ratio)
+                # Only handle NaN case (when both error_adm and trueError are zero)
+                if np.isnan(perfIndCurr):
+                    # Both error_adm and trueError are zero - converged
+                    perfIndCurr = 0
+            
+            if options.get('progress', False) and inner_iter % 100 == 0:
+                # Debug: check if error_adm has zeros
+                error_adm_has_zeros = np.any(error_adm == 0) if error_adm.size > 0 else False
+                error_adm_shape = error_adm.shape if hasattr(error_adm, 'shape') else 'unknown'
+                trueError_shape = trueError.shape if hasattr(trueError, 'shape') else 'unknown'
+                print(f"[linReach_adaptive] perfIndCurr={perfIndCurr:.6g} (inf={np.isinf(perfIndCurr)}) perfIndCounter={perfIndCounter} error_adm_max={np.max(error_adm) if np.any(error_adm) else 0:.6g} trueError_max={np.max(trueError) if np.any(trueError) else 0:.6g} error_adm_has_zeros={error_adm_has_zeros} error_adm_shape={error_adm_shape} trueError_shape={trueError_shape}", flush=True)
+            
+            # MATLAB break conditions (lines 230-239):
+            # 1. perfIndCurr <= 1 || ~any(trueError) -> converged
+            # 2. perfIndCounter > 2 && perfInds(perfIndCounter) > perfInds(perfIndCounter-1) -> diverging
             if perfIndCurr <= 1 or not np.any(trueError):
                 perfInds.append(perfIndCurr)
                 options['Lconverged'] = True
+                if options.get('progress', False):
+                    print(f"[linReach_adaptive] Inner loop converged after {inner_iter} iterations, perfIndCurr={perfIndCurr:.6g}", flush=True)
                 break
             elif perfIndCounter > 1:
                 perfInds.append(perfIndCurr)
                 if perfIndCounter > 2 and perfInds[-1] > perfInds[-2]:
                     options['Lconverged'] = False
+                    if options.get('progress', False):
+                        print(f"[linReach_adaptive] Inner loop diverging after {inner_iter} iterations, perfIndCurr={perfIndCurr:.6g}", flush=True)
                     break
-
+            
+            # MATLAB line 243: increase admissible abstraction error for next iteration
+            # This updates error_adm to be 1.1 * trueError, which should eventually
+            # make error_adm large enough that perfIndCurr <= 1
             error_adm = 1.1 * trueError
             perfIndCounter += 1
 
@@ -166,17 +252,27 @@ def linReach_adaptive(nlnsys: Any, Rstart: Any, params: Dict[str, Any], options:
             finitehorizon = options['timeStep']
             error_adm = options['error_adm_horizon']
             continue
-
+        
+        # ... now containment of L ensured
+        
+        # if rank of Rstart changes... re-compute orders
         if veryfirststep or not np.all(zeroWidthDim == options.get('zeroWidthDim', zeroWidthDim)):
             options['zeroWidthDim'] = zeroWidthDim
             options = _aux_getPowers(nlnsys, options, linsys, zeroWidthDim, VerrorDyn)
+        
+        # MATLAB line 264: compute set of abstraction errors
+        # This is always computed, regardless of the condition above
+        Rerror, options = linsys.errorSolution_adaptive(options, VerrorDyn, VerrorStat)
 
-            Rerror, options = linsys.errorSolution_adaptive(options, VerrorDyn, VerrorStat)
-
+        # MATLAB line 267-279: measure abstraction error
         if isinstance(Rerror, PolyZonotope):
-            abstrerr = np.sum(np.abs(Rerror.GI), axis=1)
+            # MATLAB: abstrerr = sum(abs(Rerror.GI),2)';
+            # MATLAB produces a row vector (transpose), Python axis=1 produces column vector
+            # We need to transpose to match MATLAB's row vector
+            abstrerr = np.sum(np.abs(Rerror.GI), axis=1).reshape(1, -1)
         else:
-            abstrerr = np.sum(np.abs(Rerror.generators()), axis=1)
+            # MATLAB: abstrerr = sum(abs(generators(Rerror)),2)';
+            abstrerr = np.sum(np.abs(Rerror.generators()), axis=1).reshape(1, -1)
 
         if options['run'] == 1 and not lastStep:
             if options['i'] == 1:
@@ -192,18 +288,25 @@ def linReach_adaptive(nlnsys: Any, Rstart: Any, params: Dict[str, Any], options:
                     error_adm = options['decrFactor'] * trueError
                     continue
 
-                temp = abstrerr[options['orders'] == options['minorder']] / \
-                    abstrerr_h[options['orders'] == options['minorder']]
+                # MATLAB line 306-308: temp = abstrerr(options.orders == options.minorder) ./ ...
+                #     abstrerr_h(options.orders == options.minorder);
+                #     varphi = max( temp(~isnan(temp)) );
+                # Note: abstrerr is a row vector in MATLAB (1, n), orders is a column vector (n, 1)
+                # We need to flatten orders_mask to use it for indexing
+                orders_mask = (options['orders'] == options['minorder']).flatten()
+                if abstrerr.ndim == 2 and abstrerr.shape[0] == 1:
+                    # Row vector (MATLAB style): abstrerr is (1, n), use [0, :] to get row
+                    temp = abstrerr[0, orders_mask] / abstrerr_h[0, orders_mask]
+                else:
+                    # Column vector
+                    temp = abstrerr[orders_mask] / abstrerr_h[orders_mask]
                 temp = temp[~np.isnan(temp)]
                 varphi = np.max(temp) if temp.size > 0 else 0.0
-                minorder_val = options.get('minorder', 0)
-                if not np.isfinite(minorder_val):
-                    minorder_idx = 0
-                else:
-                    minorder_idx = int(minorder_val)
-                zetaphi = options.get('zetaphi', [])
-                if isinstance(zetaphi, (list, np.ndarray)) and len(zetaphi) > 0:
-                    minorder_idx = max(0, min(minorder_idx, len(zetaphi) - 1))
+                
+                # MATLAB line 311: if varphi < options.zetaphi(options.minorder+1)
+                # MATLAB uses minorder+1 (1-indexed), Python uses minorder (0-indexed)
+                # Convert minorder to int for list indexing
+                minorder_idx = int(options['minorder'])
                 if varphi < options['zetaphi'][minorder_idx]:
                     finitehorizon = options['timeStep']
                     options['timeStep'] = options['decrFactor'] * options['timeStep']
@@ -246,15 +349,38 @@ def linReach_adaptive(nlnsys: Any, Rstart: Any, params: Dict[str, Any], options:
                 error_adm = options['error_adm_Deltatopt']
 
         elif options['run'] == 2 or lastStep:
+            # MATLAB line 356-364: run using tuned time step size
             if timeStepequalHorizon:
-                temp = abstrerr[options['orders'] == options['minorder']] / \
-                    abstrerr_h[options['orders'] == options['minorder']]
+                # MATLAB line 357-359: temp = abstrerr(options.orders == options.minorder) ./ ...
+                #     abstrerr_h(options.orders == options.minorder);
+                #     options.varphi(options.i,1) = max( temp(~isnan(temp)) );
+                # Flatten orders_mask to use for indexing
+                orders_mask = (options['orders'] == options['minorder']).flatten()
+                if abstrerr.ndim == 2 and abstrerr.shape[0] == 1:
+                    # Row vector (MATLAB style): abstrerr is (1, n)
+                    temp = abstrerr[0, orders_mask] / abstrerr_h[0, orders_mask]
+                else:
+                    # Column vector
+                    temp = abstrerr[orders_mask] / abstrerr_h[orders_mask]
+                # Ensure varphi array is long enough
+                while len(options['varphi']) < options['i']:
+                    options['varphi'].append(0.0)
                 options['varphi'][options['i'] - 1] = np.max(temp[~np.isnan(temp)])
             elif not lastStep:
+                # MATLAB line 361-363: options.varphi(options.i,1) = aux_varphiest(...)
+                # Ensure varphi array is long enough
+                while len(options['varphi']) < options['i']:
+                    options['varphi'].append(0.0)
                 options['varphi'][options['i'] - 1] = _aux_varphiest(
                     finitehorizon, options['timeStep'], Rerror_h, Rerror,
                     options['decrFactor'], options['orders'], options['minorder']
                 )
+            # MATLAB line 366-367: save finite horizon and linearization error for next step
+            #     options.finitehorizon(options.i,1) = finitehorizon;
+            #     options.error_adm_Deltatopt = trueError;
+            # Ensure finitehorizon array is long enough
+            while len(options['finitehorizon']) < options['i']:
+                options['finitehorizon'].append(0.0)
             options['finitehorizon'][options['i'] - 1] = finitehorizon
             options['error_adm_Deltatopt'] = trueError
 
@@ -289,6 +415,20 @@ def linReach_adaptive(nlnsys: Any, Rstart: Any, params: Dict[str, Any], options:
     else:
         Rti = Rti + Rerror
         Rtp = Rtp + Rerror
+    
+    # Debug: Track components of Rtp to identify which part is growing
+    if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] <= 5):
+        try:
+            p_x_norm = np.linalg.norm(nlnsys.linError.p.x)
+            Rlintp_center = Rlintp.center()
+            Rlintp_norm = np.linalg.norm(Rlintp_center)
+            Rerror_norm = np.linalg.norm(Rerror.center()) if hasattr(Rerror, 'center') else 0
+            Rtp_center = Rtp.center()
+            Rtp_norm = np.linalg.norm(Rtp_center)
+            print(f"[linReach_adaptive] Step {options['i']}: p.x norm = {p_x_norm:.6e}, Rlintp center norm = {Rlintp_norm:.6e}, "
+                  f"Rerror center norm = {Rerror_norm:.6e}, Rtp center norm = {Rtp_norm:.6e}", flush=True)
+        except Exception as e:
+            pass  # Silently skip if computation fails
 
     options.setdefault('timeStepequalHorizon', [])
     options.setdefault('abscount', [])
@@ -440,7 +580,10 @@ def _aux_optimaldeltat(Rt: Any, Rerr: Any, deltat: float, varphimin: float, zeta
     )
     bestIdxnew = int(np.argmin(objfuncset))
     deltatest = deltats[bestIdxnew]
-    kprimeest = bestIdxnew
+    # MATLAB line 648: kprimeest = bestIdxnew - 1;
+    # MATLAB: bestIdxnew is 1-indexed, so kprimeest = bestIdxnew - 1 gives the value
+    # Python: bestIdxnew is 0-indexed, so kprimeest = kprime[bestIdxnew] gives the value
+    kprimeest = kprime[bestIdxnew]
     return float(deltatest), float(kprimeest)
 
 
@@ -449,14 +592,19 @@ def _aux_varphiest(horizon: float, deltat: float, Rerr_h: Any, Rerr_deltat: Any,
     if isinstance(Rerr_h, Zonotope) and isinstance(Rerr_deltat, Zonotope):
         G_Rerr_h = Rerr_h.generators()
         G_Rerr_deltat = Rerr_deltat.generators()
-        rerr1 = np.linalg.norm(np.sum(np.abs(G_Rerr_h[orders == minorder, :]), axis=1), 2)
-        rerrk = np.linalg.norm(np.sum(np.abs(G_Rerr_deltat[orders == minorder, :]), axis=1), 2)
+        # orders is a column vector (2D), need to flatten for boolean indexing
+        orders_mask = (orders.flatten() == minorder)
+        rerr1 = np.linalg.norm(np.sum(np.abs(G_Rerr_h[orders_mask, :]), axis=1), 2)
+        rerrk = np.linalg.norm(np.sum(np.abs(G_Rerr_deltat[orders_mask, :]), axis=1), 2)
     else:
         rerr1 = np.linalg.norm(np.sum(np.abs(Rerr_h.GI), axis=1), 2)
         rerrk = np.linalg.norm(np.sum(np.abs(Rerr_deltat.GI), axis=1), 2)
 
     rhs = rerrk / rerr1
     varphi_lim = decrFactor ** (minorder + 1)
+
+    # MATLAB line 677: assert(rerr1 > rerrk,'Check abstraction errors');
+    assert rerr1 > rerrk, 'Check abstraction errors'
 
     varphi_up = decrFactor ** (minorder + 1)
     varphi_low = 0
@@ -545,7 +693,9 @@ def _aux_getPowers(nlnsys: Any, options: Dict[str, Any], linsys: Any, zeroWidthD
         if p == 100:
             if np.all(qi[~np.isinf(qi)] < p + 1):
                 break
-    options['orders'] = qi.flatten()
+    # MATLAB line 892: options.orders = qi; (column vector)
+    # Python: keep as column vector to match MATLAB
+    options['orders'] = qi
     options['minorder'] = np.min(options['orders'])
     return options
 
@@ -559,7 +709,10 @@ def _aux_deltaReach_adaptive(linsys: Any, Rinit: Any, options: Dict[str, Any]) -
     dim = len(F)
     Rhom_tp_delta = (eAt - np.eye(dim)) * Rinit + Rtrans
 
-    O = PolyZonotope(np.zeros((dim, 1)), np.zeros((dim, 0)), [], np.zeros((0, 0)))
+    # MATLAB line 913: O = polyZonotope(zeros(dim,1),[],[],[]);
+    # Empty PolyZonotope: c=zeros(dim,1), G=[], GI=[], E=[]
+    # In Python: use np.array([]).reshape(dim, 0) for empty G and GI to match constructor pattern
+    O = PolyZonotope(np.zeros((dim, 1)), np.array([]).reshape(dim, 0), np.array([]).reshape(dim, 0), np.zeros((0, 0), dtype=int))
     Rdelta = O.enclose(Rhom_tp_delta) + F * Zonotope(Rinit) + inputCorr
     if options.get('isRV', False):
         Rdelta = Rdelta + linsys.taylor.RV
