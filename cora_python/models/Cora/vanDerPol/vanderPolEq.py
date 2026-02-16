@@ -24,6 +24,7 @@ Last revision: ---
 """
 
 import numpy as np
+import sympy as sp
 
 
 def vanderPolEq(x, u):
@@ -31,17 +32,25 @@ def vanderPolEq(x, u):
     vanderPolEq - system dynamics for the Van-der-Pol oscillator
     
     Args:
-        x: state vector (2-dimensional)
-        u: input vector
+        x: state vector (2-dimensional) - can be numpy array or sympy Matrix
+        u: input vector - can be numpy array or sympy Matrix
         
     Returns:
-        dx: time-derivative of the system state
+        dx: time-derivative of the system state (same type as input)
     """
     mu = 1
-    
-    dx = np.zeros((2, 1))
-    dx[0, 0] = x[1, 0]
-    dx[1, 0] = mu * (1 - x[0, 0]**2) * x[1, 0] - x[0, 0] + u[0, 0]
-    
+
+    # Check if inputs are symbolic (sympy Matrix) for derivatives computation
+    is_symbolic = isinstance(x, (sp.Matrix, sp.Basic)) or isinstance(u, (sp.Matrix, sp.Basic))
+
+    if is_symbolic:
+        dx = sp.zeros(2, 1)
+        dx[0, 0] = x[1, 0]
+        dx[1, 0] = mu * (1 - x[0, 0]**2) * x[1, 0] - x[0, 0] + u[0, 0]
+    else:
+        dx = np.zeros((2, 1))
+        dx[0, 0] = x[1, 0]
+        dx[1, 0] = mu * (1 - x[0, 0]**2) * x[1, 0] - x[0, 0] + u[0, 0]
+
     return dx
 
