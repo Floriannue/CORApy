@@ -40,6 +40,8 @@ from .quadMap import quadMap
 from .linComb import linComb
 from .convHull_ import convHull_
 from .exactPlus import exactPlus
+from .project import project
+from .polygon import polygon
 
 # Attach methods to the PolyZonotope class
 # dim and isemptyobject are required by ContSet
@@ -68,6 +70,8 @@ PolyZonotope.quadMap = quadMap
 PolyZonotope.linComb = linComb
 PolyZonotope.convHull_ = convHull_
 PolyZonotope.exactPlus = exactPlus
+PolyZonotope.project = project
+PolyZonotope.polygon = polygon
 
 # Attach display_ to __str__
 PolyZonotope.__str__ = lambda self: display_(self)
@@ -110,4 +114,6 @@ __all__ = [
     'linComb',
     'convHull_',
     'exactPlus',
+    'project',
+    'polygon',
 ] 

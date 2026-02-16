@@ -3,6 +3,9 @@ name = "CORA.py"
 version = "0.9.0"
 description = "Python translation of the CORA toolbox"
 authors = ["Florian Nüssel"]
+packages = [
+    { include = "cora_python" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"

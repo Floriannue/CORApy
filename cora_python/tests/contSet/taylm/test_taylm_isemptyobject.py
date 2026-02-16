@@ -63,7 +63,7 @@ class TestTaylmIsemptyobject:
 
     def test_isemptyobject_generated_random(self):
         """Test isemptyobject for randomly generated Taylm"""
-        tay = Taylm.generateRandom(Dimension=3)
+        tay = Taylm.generateRandom(dimension=3)
         assert not tay.isemptyobject()
 
     def test_isemptyobject_origin(self):

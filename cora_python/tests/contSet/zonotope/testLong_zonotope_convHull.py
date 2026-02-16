@@ -33,8 +33,8 @@ class TestZonotopeConvHull:
             nrGens = np.random.randint(n, 2*n+1)  # n~2n
 
             # 随机生成两个 zonotope
-            Z1 = Zonotope.generateRandom('Dimension', n, 'NrGenerators', nrGens)
-            Z2 = Zonotope.generateRandom('Dimension', n, 'NrGenerators', nrGens)
+            Z1 = Zonotope.generateRandom(dimension=n, nr_generators=nrGens)
+            Z2 = Zonotope.generateRandom(dimension=n, nr_generators=nrGens)
 
             # 计算 convex hull
             Z = Z1.convHull_(Z2)

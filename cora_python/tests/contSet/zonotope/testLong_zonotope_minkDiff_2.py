@@ -140,10 +140,10 @@ def testLong_zonotope_minkDiff_2():
     # Create zonotopes -- random cases in 3D (check under-approximation)
     for iSet in range(10):
         # Create minuend
-        Z_m = Zonotope.generateRandom('Dimension', 3, 'NrGenerators', 5)
+        Z_m = Zonotope.generateRandom(dimension=3, nr_generators=5)
         
         # Create subtrahend
-        Z_s = Zonotope.generateRandom('Dimension', 3, 'NrGenerators', 5).enlarge(0.2)
+        Z_s = Zonotope.generateRandom(dimension=3, nr_generators=5).enlarge(0.2)
         
         # Set considered types
         typeSet = ['inner', 'inner:conZonotope', 'inner:RaghuramanKoeln']

@@ -43,10 +43,7 @@ def generateRandom(**kwargs) -> 'ZonoBundle':
     Generates a random zonotope bundle
     
     Args:
-        **kwargs: Name-value pair arguments:
-            Dimension: dimension (default: 2)
-            NrZonotopes: number of zonotopes in bundle (default: 3)
-            NrGenerators: number of generators per zonotope (default: 5)
+        **kwargs: dimension, nr_zonotopes, nr_generators (all optional).
         
     Returns:
         zB: random zonoBundle object
@@ -55,11 +52,11 @@ def generateRandom(**kwargs) -> 'ZonoBundle':
     from .zonoBundle import ZonoBundle
     from cora_python.contSet.zonotope.zonotope import Zonotope
     
-    # Default values
+    # Default values (Python-style lowercase parameter names)
     listOfNameValuePairs = [
-        'Dimension', 2,
-        'NrZonotopes', 3,
-        'NrGenerators', 5
+        'dimension', 2,
+        'nr_zonotopes', 3,
+        'nr_generators', 5
     ]
     
     # Parse input arguments
@@ -76,7 +73,7 @@ def generateRandom(**kwargs) -> 'ZonoBundle':
     # Generate random zonotopes
     zonotopes = []
     for i in range(nrZonos):
-        zono = Zonotope.generateRandom('Dimension', n, 'NrGenerators', nrGens)
+        zono = Zonotope.generateRandom(dimension=n, nr_generators=nrGens)
         zonotopes.append(zono)
     
     return ZonoBundle(zonotopes) 

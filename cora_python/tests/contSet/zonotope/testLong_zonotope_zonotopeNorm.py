@@ -44,7 +44,7 @@ def testLong_zonotope_zonotopeNorm():
         print(f"   Dimension {n}:")
         for i in range(Ntests):
             # Generate random zonotope
-            Z = Zonotope.generateRandom('Dimension', n)
+            Z = Zonotope.generateRandom(dimension=n)
             
             # Generate random points inside the zonotope
             P = Z.randPoint(Npoints)
@@ -71,7 +71,7 @@ def testLong_zonotope_zonotopeNorm():
         print(f"   Dimension {n}:")
         for i in range(Ntests):
             # Generate random zonotope
-            Z = Zonotope.generateRandom('Dimension', n)
+            Z = Zonotope.generateRandom(dimension=n)
             
             # Lift Z to a space with one more dimension
             # This ensures points cannot be contained if chosen correctly
@@ -108,7 +108,7 @@ def testLong_zonotope_zonotopeNorm():
         print(f"   Dimension {n}:")
         for i in range(Ntests):
             # Generate random zonotope
-            Z = Zonotope.generateRandom('Dimension', n)
+            Z = Zonotope.generateRandom(dimension=n)
             
             # Sample random points
             p1 = Z.randPoint(1).flatten()

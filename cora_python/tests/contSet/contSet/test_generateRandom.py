@@ -34,7 +34,7 @@ class TestContSetGenerateRandom:
     
     def test_generate_random_dimension(self):
         """Test generateRandom with specified dimension"""
-        S = generateRandom(Dimension=3)
+        S = generateRandom(dimension=3)
         assert dim(S) == 3
     
     def test_generate_random_given_classes_interval(self):

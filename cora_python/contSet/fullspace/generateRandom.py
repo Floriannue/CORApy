@@ -39,8 +39,7 @@ def generateRandom(**kwargs) -> 'Fullspace':
     Generates a random fullspace
     
     Args:
-        **kwargs: Name-value pair arguments:
-            Dimension: dimension (default: 2)
+        **kwargs: dimension (optional).
         
     Returns:
         fs: random fullspace object
@@ -48,9 +47,9 @@ def generateRandom(**kwargs) -> 'Fullspace':
     
     from .fullspace import Fullspace
     
-    # Default values
+    # Default values (Python-style lowercase parameter names)
     listOfNameValuePairs = [
-        'Dimension', 2
+        'dimension', 2
     ]
     
     # Parse input arguments

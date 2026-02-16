@@ -43,11 +43,15 @@ def empty(n: int = 0) -> ProbZonotope:
         pZ: empty probZonotope object
     """
     
-    # Create empty zonotope
+    # Create empty zonotope and convert to numeric matrix [c, G]
     empty_zono = Zonotope.empty(n)
-    
+    if empty_zono.G.size > 0:
+        Z_mat = np.hstack([empty_zono.c, empty_zono.G])
+    else:
+        Z_mat = empty_zono.c
+
     # Create empty probabilistic zonotope
     g = np.zeros((n, 0)) if n > 0 else np.zeros((0, 0))
     gamma = 2  # Default gamma value
     
-    return ProbZonotope(empty_zono, g, gamma) 
+    return ProbZonotope(Z_mat, g, gamma) 

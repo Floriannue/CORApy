@@ -78,7 +78,7 @@ class TestLongPolytopeContains:
             n = np.random.randint(1, 6)
             
             # Generate zonotope
-            Z = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 5)
+            Z = Zonotope.generateRandom(dimension=n, nr_generators=5)
             # Create inner ellipsoid
             E = Ellipsoid(Z, method='inner:norm')
             # Convert zonotope to polytope

@@ -39,28 +39,28 @@ def test_zonotope_generateRandom_empty_call():
 def test_zonotope_generateRandom_dimension_only():
     """Test generateRandom with only dimension parameter"""
     n = 3
-    Z = Zonotope.generateRandom('Dimension', n)
+    Z = Zonotope.generateRandom(dimension=n)
     assert Z.dim() == n
 
 
 def test_zonotope_generateRandom_center_only():
     """Test generateRandom with only center parameter"""
     c = np.array([[2], [1], [-1]])
-    Z = Zonotope.generateRandom('Center', c)
+    Z = Zonotope.generateRandom(center=c)
     assert np.allclose(Z.c, c)
 
 
 def test_zonotope_generateRandom_nr_generators_only():
     """Test generateRandom with only number of generators parameter"""
     nrGens = 10
-    Z = Zonotope.generateRandom('NrGenerators', nrGens)
+    Z = Zonotope.generateRandom(nr_generators=nrGens)
     assert Z.G.shape[1] == nrGens
 
 
 def test_zonotope_generateRandom_distribution_only():
     """Test generateRandom with only distribution parameter"""
     type_dist = 'exp'
-    Z = Zonotope.generateRandom('Distribution', type_dist)
+    Z = Zonotope.generateRandom(distribution=type_dist)
     assert isinstance(Z, Zonotope)
 
 
@@ -68,7 +68,7 @@ def test_zonotope_generateRandom_dimension_and_nr_generators():
     """Test generateRandom with dimension and number of generators"""
     n = 3
     nrGens = 10
-    Z = Zonotope.generateRandom('Dimension', n, 'NrGenerators', nrGens)
+    Z = Zonotope.generateRandom(dimension=n, nr_generators=nrGens)
     assert Z.dim() == n and Z.G.shape[1] == nrGens
 
 
@@ -76,7 +76,7 @@ def test_zonotope_generateRandom_center_and_nr_generators():
     """Test generateRandom with center and number of generators"""
     c = np.array([[2], [1], [-1]])
     nrGens = 10
-    Z = Zonotope.generateRandom('Center', c, 'NrGenerators', nrGens)
+    Z = Zonotope.generateRandom(center=c, nr_generators=nrGens)
     assert np.allclose(Z.c, c) and Z.G.shape[1] == nrGens
 
 
@@ -84,7 +84,7 @@ def test_zonotope_generateRandom_center_and_distribution():
     """Test generateRandom with center and distribution"""
     c = np.array([[2], [1], [-1]])
     type_dist = 'exp'
-    Z = Zonotope.generateRandom('Center', c, 'Distribution', type_dist)
+    Z = Zonotope.generateRandom(center=c, distribution=type_dist)
     assert np.allclose(Z.c, c)
 
 
@@ -92,7 +92,7 @@ def test_zonotope_generateRandom_nr_generators_and_distribution():
     """Test generateRandom with number of generators and distribution"""
     nrGens = 10
     type_dist = 'exp'
-    Z = Zonotope.generateRandom('NrGenerators', nrGens, 'Distribution', type_dist)
+    Z = Zonotope.generateRandom(nr_generators=nrGens, distribution=type_dist)
     assert Z.G.shape[1] == nrGens
 
 
@@ -101,26 +101,26 @@ def test_zonotope_generateRandom_all_parameters():
     c = np.array([[2], [1], [-1]])
     nrGens = 10
     type_dist = 'exp'
-    Z = Zonotope.generateRandom('Center', c, 'NrGenerators', nrGens, 'Distribution', type_dist)
+    Z = Zonotope.generateRandom(center=c, nr_generators=nrGens, distribution=type_dist)
     assert np.allclose(Z.c, c) and Z.G.shape[1] == nrGens
 
 
 def test_zonotope_generateRandom_uniform_distribution():
     """Test generateRandom with uniform distribution"""
-    Z = Zonotope.generateRandom('Distribution', 'uniform')
+    Z = Zonotope.generateRandom(distribution='uniform')
     assert isinstance(Z, Zonotope)
 
 
 def test_zonotope_generateRandom_gamma_distribution():
     """Test generateRandom with gamma distribution"""
-    Z = Zonotope.generateRandom('Distribution', 'gamma')
+    Z = Zonotope.generateRandom(distribution='gamma')
     assert isinstance(Z, Zonotope)
 
 
 def test_zonotope_generateRandom_center_from_dimension():
     """Test that center dimension is inferred from center parameter"""
     c = np.array([[1], [2], [3], [4]])
-    Z = Zonotope.generateRandom('Center', c)
+    Z = Zonotope.generateRandom(center=c)
     assert Z.dim() == 4
     assert np.allclose(Z.c, c)
 
@@ -128,21 +128,21 @@ def test_zonotope_generateRandom_center_from_dimension():
 def test_zonotope_generateRandom_default_generators():
     """Test that default number of generators is 2*dimension"""
     n = 5
-    Z = Zonotope.generateRandom('Dimension', n)
+    Z = Zonotope.generateRandom(dimension=n)
     assert Z.G.shape[1] == 2 * n
 
 
 def test_zonotope_generateRandom_center_vector_input():
     """Test generateRandom with center as a vector (not column vector)"""
     c = np.array([2, 1, -1])
-    Z = Zonotope.generateRandom('Center', c)
+    Z = Zonotope.generateRandom(center=c)
     assert np.allclose(Z.c.flatten(), c)
 
 
 def test_zonotope_generateRandom_center_list_input():
     """Test generateRandom with center as a list"""
     c = [2, 1, -1]
-    Z = Zonotope.generateRandom('Center', c)
+    Z = Zonotope.generateRandom(center=c)
     assert np.allclose(Z.c.flatten(), np.array(c))
 
 

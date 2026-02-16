@@ -24,27 +24,27 @@ class TestPolyZonotopeGenerateRandom:
     def test_generateRandom_dimension_only(self):
         """Test generateRandom with only dimension specified"""
         n = 3
-        pZ = PolyZonotope.generateRandom(Dimension=n)
+        pZ = PolyZonotope.generateRandom(dimension=n)
         assert pZ.dim() == n
     
     def test_generateRandom_nr_generators_only(self):
         """Test generateRandom with only number of generators specified"""
         nrGens = 10
-        pZ = PolyZonotope.generateRandom(NrGenerators=nrGens)
+        pZ = PolyZonotope.generateRandom(nr_generators=nrGens)
         assert isinstance(pZ, PolyZonotope)
         # Number of generators check would depend on implementation
     
     def test_generateRandom_nr_factors_only(self):
-        """Test generateRandom with only number of factors specified"""
-        nrFac = 3
-        pZ = PolyZonotope.generateRandom(NrFactors=nrFac)
+        """Test generateRandom with only number of generators (E.shape[0]) specified"""
+        nrGens = 3
+        pZ = PolyZonotope.generateRandom(nr_generators=nrGens)
         assert isinstance(pZ, PolyZonotope)
-        assert pZ.E.shape[0] == nrFac
+        assert pZ.E.shape[0] == nrGens
     
     def test_generateRandom_nr_ind_generators_only(self):
         """Test generateRandom with only number of independent generators specified"""
         nrIndGens = 5
-        pZ = PolyZonotope.generateRandom(NrIndGenerators=nrIndGens)
+        pZ = PolyZonotope.generateRandom(nr_indep_generators=nrIndGens)
         assert isinstance(pZ, PolyZonotope)
         assert pZ.GI.shape[1] == nrIndGens
     
@@ -52,66 +52,63 @@ class TestPolyZonotopeGenerateRandom:
         """Test generateRandom with dimension and number of generators"""
         n = 3
         nrGens = 10
-        pZ = PolyZonotope.generateRandom(Dimension=n, NrGenerators=nrGens)
+        pZ = PolyZonotope.generateRandom(dimension=n, nr_generators=nrGens)
         assert pZ.dim() == n
     
     def test_generateRandom_dimension_and_factors(self):
-        """Test generateRandom with dimension and number of factors"""
+        """Test generateRandom with dimension and number of generators"""
         n = 3
-        nrFac = 3
-        pZ = PolyZonotope.generateRandom(Dimension=n, NrFactors=nrFac)
-        assert pZ.dim() == n and pZ.E.shape[0] == nrFac
+        nrGens = 3
+        pZ = PolyZonotope.generateRandom(dimension=n, nr_generators=nrGens)
+        assert pZ.dim() == n and pZ.E.shape[0] == nrGens
     
     def test_generateRandom_dimension_generators_factors(self):
-        """Test generateRandom with dimension, generators, and factors"""
+        """Test generateRandom with dimension and generators (E.shape[0] follows nr_generators)"""
         n = 3
         nrGens = 10
-        nrFac = 3
-        pZ = PolyZonotope.generateRandom(Dimension=n, NrGenerators=nrGens, NrFactors=nrFac)
-        assert pZ.dim() == n and pZ.E.shape[0] == nrFac
+        pZ = PolyZonotope.generateRandom(dimension=n, nr_generators=nrGens)
+        assert pZ.dim() == n and pZ.E.shape[0] == nrGens
     
     def test_generateRandom_dimension_factors_ind_generators(self):
-        """Test generateRandom with dimension, factors, and independent generators"""
+        """Test generateRandom with dimension, generators, and independent generators"""
         n = 3
-        nrFac = 3
+        nrGens = 3
         nrIndGens = 5
-        pZ = PolyZonotope.generateRandom(Dimension=n, NrFactors=nrFac, NrIndGenerators=nrIndGens)
-        assert pZ.dim() == n and pZ.E.shape[0] == nrFac
+        pZ = PolyZonotope.generateRandom(dimension=n, nr_generators=nrGens, nr_indep_generators=nrIndGens)
+        assert pZ.dim() == n and pZ.E.shape[0] == nrGens
     
     def test_generateRandom_dimension_generators_ind_generators(self):
         """Test generateRandom with dimension, generators, and independent generators"""
         n = 3
         nrGens = 10
         nrIndGens = 5
-        pZ = PolyZonotope.generateRandom(Dimension=n, NrGenerators=nrGens, NrIndGenerators=nrIndGens)
+        pZ = PolyZonotope.generateRandom(dimension=n, nr_generators=nrGens, nr_indep_generators=nrIndGens)
         assert pZ.dim() == n and pZ.GI.shape[1] == nrIndGens
     
     def test_generateRandom_all_parameters(self):
         """Test generateRandom with all parameters specified"""
         n = 3
         nrGens = 10
-        nrFac = 3
         nrIndGens = 5
         pZ = PolyZonotope.generateRandom(
-            Dimension=n, 
-            NrGenerators=nrGens, 
-            NrFactors=nrFac, 
-            NrIndGenerators=nrIndGens
+            dimension=n,
+            nr_generators=nrGens,
+            nr_indep_generators=nrIndGens
         )
-        assert (pZ.dim() == n and 
-                pZ.E.shape[0] == nrFac and 
+        assert (pZ.dim() == n and
+                pZ.E.shape[0] == nrGens and
                 pZ.GI.shape[1] == nrIndGens)
     
     def test_generateRandom_various_dimensions(self):
         """Test generateRandom with various dimensions"""
         for n in [1, 2, 5, 10]:
-            pZ = PolyZonotope.generateRandom(Dimension=n)
+            pZ = PolyZonotope.generateRandom(dimension=n)
             assert pZ.dim() == n
             assert not pZ.isemptyobject()
     
     def test_generateRandom_properties(self):
         """Test properties of randomly generated polyZonotope"""
-        pZ = PolyZonotope.generateRandom(Dimension=4, NrFactors=2, NrIndGenerators=3)
+        pZ = PolyZonotope.generateRandom(dimension=4, nr_generators=2, nr_indep_generators=3)
         
         # Should have correct dimension
         assert pZ.dim() == 4
@@ -128,15 +125,15 @@ class TestPolyZonotopeGenerateRandom:
     def test_generateRandom_edge_cases(self):
         """Test edge cases for generateRandom"""
         # Minimum dimension
-        pZ = PolyZonotope.generateRandom(Dimension=1)
+        pZ = PolyZonotope.generateRandom(dimension=1)
         assert pZ.dim() == 1
         
         # No factors
-        pZ = PolyZonotope.generateRandom(Dimension=2, NrFactors=0)
+        pZ = PolyZonotope.generateRandom(dimension=2, nr_generators=0)
         assert pZ.dim() == 2
         assert pZ.E.shape[0] == 0
         
         # No independent generators
-        pZ = PolyZonotope.generateRandom(Dimension=2, NrIndGenerators=0)
+        pZ = PolyZonotope.generateRandom(dimension=2, nr_indep_generators=0)
         assert pZ.dim() == 2
         assert pZ.GI.shape[1] == 0 

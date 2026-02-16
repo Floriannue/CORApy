@@ -43,7 +43,7 @@ class TestPolyZonotopeIsEmptyObject:
     
     def test_isemptyobject_random_polyzonotope(self):
         """Test isemptyobject with random polyZonotope"""
-        pZ = PolyZonotope.generateRandom(Dimension=3, NrFactors=2, NrIndGenerators=2)
+        pZ = PolyZonotope.generateRandom(dimension=3, nr_generators=2, nr_indep_generators=2)
         assert not pZ.isemptyobject()
     
     def test_isemptyobject_simple_cases(self):

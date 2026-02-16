@@ -21,7 +21,7 @@ class TestZonoBundleGenerateRandom:
     def test_generateRandom_with_dimension(self):
         """Test generateRandom with dimension specified"""
         n = 2
-        zB = ZonoBundle.generateRandom(Dimension=n)
+        zB = ZonoBundle.generateRandom(dimension=n)
         
         assert isinstance(zB, ZonoBundle)
         assert zB.dim() == n
@@ -30,7 +30,7 @@ class TestZonoBundleGenerateRandom:
     def test_generateRandom_various_dimensions(self):
         """Test generateRandom with various dimensions"""
         for n in [1, 3, 5, 8]:
-            zB = ZonoBundle.generateRandom(Dimension=n)
+            zB = ZonoBundle.generateRandom(dimension=n)
             assert isinstance(zB, ZonoBundle)
             assert zB.dim() == n
             assert not zB.isemptyobject()
@@ -39,7 +39,7 @@ class TestZonoBundleGenerateRandom:
         """Test generateRandom with specified number of zonotopes"""
         n = 3
         num_sets = 5
-        zB = ZonoBundle.generateRandom(Dimension=n, NrGenerators=10)
+        zB = ZonoBundle.generateRandom(dimension=n, nr_generators=10)
         
         assert isinstance(zB, ZonoBundle)
         assert zB.dim() == n
@@ -48,29 +48,29 @@ class TestZonoBundleGenerateRandom:
     def test_generateRandom_consistency(self):
         """Test that generateRandom produces valid objects consistently"""
         for _ in range(5):
-            zB = ZonoBundle.generateRandom(Dimension=3)
+            zB = ZonoBundle.generateRandom(dimension=3)
             assert isinstance(zB, ZonoBundle)
             assert zB.dim() == 3
             assert not zB.isemptyobject()
 
     def test_generateRandom_static_method(self):
         """Test that generateRandom is a static method"""
-        zB = ZonoBundle.generateRandom(Dimension=2)
+        zB = ZonoBundle.generateRandom(dimension=2)
         assert isinstance(zB, ZonoBundle)
 
     def test_generateRandom_invalid_dimension(self):
         """Test generateRandom with invalid dimension"""
         # Negative dimension should raise error
         with pytest.raises((ValueError, Exception)):
-            ZonoBundle.generateRandom(Dimension=-1)
+            ZonoBundle.generateRandom(dimension=-1)
         
         # Zero dimension should raise error or be handled gracefully
         with pytest.raises((ValueError, Exception)):
-            ZonoBundle.generateRandom(Dimension=0)
+            ZonoBundle.generateRandom(dimension=0)
 
     def test_generateRandom_properties(self):
         """Test that generated objects have expected properties"""
-        zB = ZonoBundle.generateRandom(Dimension=4)
+        zB = ZonoBundle.generateRandom(dimension=4)
         
         # Should have proper attributes
         assert hasattr(zB, 'Z')
@@ -86,13 +86,13 @@ class TestZonoBundleGenerateRandom:
     def test_generateRandom_large_dimension(self):
         """Test generateRandom with moderately large dimension"""
         n = 20
-        zB = ZonoBundle.generateRandom(Dimension=n)
+        zB = ZonoBundle.generateRandom(dimension=n)
         assert isinstance(zB, ZonoBundle)
         assert zB.dim() == n
 
     def test_generateRandom_default_behavior(self):
         """Test generateRandom with default behavior"""
-        zB = ZonoBundle.generateRandom(Dimension=3)
+        zB = ZonoBundle.generateRandom(dimension=3)
         assert isinstance(zB, ZonoBundle)
         assert zB.dim() == 3
         assert zB.parallelSets >= 1 

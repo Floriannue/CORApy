@@ -109,36 +109,35 @@ class ProbZonotope(ContSet):
 # Auxiliary functions -----------------------------------------------------
 
 def _aux_parseInputArgs(*varargin) -> Tuple[np.ndarray, np.ndarray, float]:
-    """Parse input arguments from user and assign to variables"""
-    
-    # no input arguments
+    """Parse input arguments from user and assign to variables (MATLAB translation)."""
+
+    # 0) no input arguments
     if len(varargin) == 0:
+        # Match MATLAB defaults: Z = [], g = [], gamma = []
         Z = np.array([])
         g = np.array([])
-        gamma = 2
+        gamma = 2.0
         return Z, g, gamma
 
-    # set default values
+    # 1) set default values: [Z, g, gamma] = setDefaultValues({[],[],2}, varargin)
     Z, g, gamma = setDefaultValues([[], [], 2], list(varargin))
 
-    # Convert to numpy arrays
+    # 2) postprocessing / type normalization
     Z = np.array(Z) if Z is not None else np.array([])
     g = np.array(g) if g is not None else np.array([])
-    gamma = float(gamma) if gamma is not None else 2
+    gamma = float(gamma) if gamma is not None else 2.0
 
     return Z, g, gamma
 
 
 def _aux_checkInputArgs(Z: np.ndarray, g: np.ndarray, gamma: float, n_in: int):
-    """Check correctness of input arguments"""
-    
+    """Check correctness of input arguments (MATLAB aux_checkInputArgs)."""
+
     # only check if macro set to true
     if CHECKS_ENABLED and n_in > 0:
-
         inputChecks = [
             [Z, 'att', 'numeric', 'finite'],
             [g, 'att', 'numeric', 'finite'],
-            [gamma, 'att', 'numeric']
+            [gamma, 'att', 'numeric'],
         ]
-        
-        inputArgsCheck(inputChecks) 
+        inputArgsCheck(inputChecks)

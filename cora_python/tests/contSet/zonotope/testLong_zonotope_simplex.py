@@ -47,7 +47,7 @@ def testLong_zonotope_simplex():
         nr_gens = np.random.randint(1, 5 * n + 1)  # 1 to 5*n
         
         # Initialize random zonotope
-        Z = generateRandom('Dimension', n, 'NrGenerators', nr_gens)
+        Z = generateRandom(dimension=n, nr_generators=nr_gens)
         
         # Convert to simplex
         P = simplex(Z)

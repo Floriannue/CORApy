@@ -145,5 +145,5 @@ def cora_color(identifier: str, *args) -> np.ndarray:
         
     else:
         raise CORAerror("CORA:wrongValue", "first", admissible_colors)
-    
-    return color 
+
+    return color

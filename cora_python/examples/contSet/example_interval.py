@@ -57,7 +57,7 @@ def example_interval():
     print("=== Interval Example ===\n")
     
     # Create intervals
-    I1 = Interval([0, -1], [3, 1])  # create interval I1
+    I1 = Interval([0, -1], [2, 0.5])  # create interval I1
     I2 = Interval([-1, -1.5], [1, -0.5])  # create interval I2
     
     print(I1)
@@ -98,6 +98,16 @@ def example_interval():
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.axis('equal')
+
+    # init sets
+    I1 = Interval([1, 2],[3, 4])
+    I2 = Interval([2, 3],[4, 5])
+    # compute intersection
+    I3 = I1 & I2
+    # visualize
+    plt.figure(figsize=(6, 6))
+    I1.plot(); I2.plot(); I3.plot()
+    plt.savefig("IntervalIntersection_figure_python.svg")
     
     # Show plot
     plt.show()

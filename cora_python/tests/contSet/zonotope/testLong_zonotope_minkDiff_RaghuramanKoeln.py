@@ -30,10 +30,10 @@ def testLong_zonotope_minkDiff_RaghuramanKoeln():
     # Create zonotopes -- random cases in 3D
     for iSet in range(20):
         # Create minuend
-        Z_m = Zonotope.generateRandom('Dimension', 3, 'NrGenerators', 5)
+        Z_m = Zonotope.generateRandom(dimension=3, nr_generators=5)
         
         # Create subtrahend
-        Z_s = Zonotope.generateRandom('Dimension', 3, 'NrGenerators', 5).enlarge(0.2)
+        Z_s = Zonotope.generateRandom(dimension=3, nr_generators=5).enlarge(0.2)
         
         if iSet > 10:
             # Test with zero center

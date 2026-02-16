@@ -32,13 +32,13 @@ class TestTaylmGenerateRandom:
         """Test generateRandom with dimension specified"""
         # Dimension given
         n = 2
-        tay = Taylm.generateRandom(Dimension=n)
+        tay = Taylm.generateRandom(dimension=n)
         assert tay.dim() == n
 
     def test_generateRandom_various_dimensions(self):
         """Test generateRandom with various dimensions"""
         for n in [1, 3, 5, 10]:
-            tay = Taylm.generateRandom(Dimension=n)
+            tay = Taylm.generateRandom(dimension=n)
             assert tay.dim() == n
             assert isinstance(tay, Taylm)
             assert not tay.isemptyobject()
@@ -46,7 +46,7 @@ class TestTaylmGenerateRandom:
     def test_generateRandom_large_dimension(self):
         """Test generateRandom with large dimension"""
         n = 50
-        tay = Taylm.generateRandom(Dimension=n)
+        tay = Taylm.generateRandom(dimension=n)
         assert tay.dim() == n
         assert isinstance(tay, Taylm)
 
@@ -54,7 +54,7 @@ class TestTaylmGenerateRandom:
         """Test that generateRandom produces valid objects consistently"""
         # Generate multiple objects
         for _ in range(10):
-            tay = Taylm.generateRandom(Dimension=3)
+            tay = Taylm.generateRandom(dimension=3)
             assert isinstance(tay, Taylm)
             assert tay.dim() == 3
             assert not tay.isemptyobject()
@@ -69,11 +69,11 @@ class TestTaylmGenerateRandom:
         """Test generateRandom with invalid dimension"""
         # Negative dimension should raise error
         with pytest.raises((ValueError, Exception)):
-            Taylm.generateRandom(Dimension=-1)
+            Taylm.generateRandom(dimension=-1)
         
         # Zero dimension should raise error or be handled gracefully
         with pytest.raises((ValueError, Exception)):
-            Taylm.generateRandom(Dimension=0)
+            Taylm.generateRandom(dimension=0)
 
     def test_generateRandom_default_dimension(self):
         """Test generateRandom default behavior"""

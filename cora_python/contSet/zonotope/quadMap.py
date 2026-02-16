@@ -144,23 +144,58 @@ def _aux_quadMapSingle(Z: Zonotope, Q: List[np.ndarray]) -> Zonotope:
             # Pure quadratic evaluation
             quadMat = Zmat.T @ Q_i @ Zmat
             
+            # Track quadMat for comparison (if tracking enabled)
+            # This helps debug why errorSec differs
+            if hasattr(Z, '_track_quadmat') and Z._track_quadmat:
+                from cora_python.contSet.interval import Interval
+                import scipy.sparse
+                quadmat_info = {
+                    'type': type(quadMat).__name__,
+                    'is_interval': isinstance(quadMat, Interval),
+                    'is_sparse': scipy.sparse.issparse(quadMat),
+                }
+                if isinstance(quadMat, Interval):
+                    quadmat_info['inf_max'] = np.max(np.abs(quadMat.inf)) if hasattr(quadMat.inf, '__abs__') else None
+                    quadmat_info['sup_max'] = np.max(np.abs(quadMat.sup)) if hasattr(quadMat.sup, '__abs__') else None
+                    quadmat_info['center_max'] = np.max(np.abs(quadMat.center())) if hasattr(quadMat, 'center') else None
+                elif scipy.sparse.issparse(quadMat):
+                    quadmat_info['sparse_max'] = np.max(np.abs(quadMat.data)) if hasattr(quadMat, 'data') else None
+                    quadmat_dense = quadMat.toarray()
+                    quadmat_info['dense_max'] = np.max(np.abs(quadmat_dense))
+                    if gens > 0:
+                        quadmat_info['dense_diag'] = np.diag(quadmat_dense[1:gens+1, 1:gens+1]).copy()
+                elif isinstance(quadMat, np.ndarray):
+                    quadmat_info['dense_max'] = np.max(np.abs(quadMat))
+                    if gens > 0:
+                        quadmat_info['dense_diag'] = np.diag(quadMat[1:gens+1, 1:gens+1]).copy()
+                        # Also store full matrix for detailed comparison
+                        quadmat_info['dense_full'] = quadMat.copy()
+                
+                if not hasattr(Z, '_quadmat_values'):
+                    Z._quadmat_values = []
+                Z._quadmat_values.append((i, quadmat_info))
+            
             # Extract numeric values from quadMat if it's an Interval
+            # MATLAB uses max(abs(infimum), abs(supremum)) for conservative over-approximation
+            # This matches the tensorOrder==2 conversion: max(infimum(abs(H_)), supremum(abs(H_)))
             from cora_python.contSet.interval import Interval
             import scipy.sparse
+            
+            # Debug: Check if quadMat is actually Interval (should be numeric for 'standard' Hessian)
+            # If Q_i is sparse/numeric, quadMat should be numeric too
             if isinstance(quadMat, Interval):
-                # For Interval, use the center (midpoint) for the computation
-                # This is a conservative approximation
-                quadMat_center = quadMat.center()
-                # Convert to dense numpy array if needed
-                if scipy.sparse.issparse(quadMat_center):
-                    quadMat = quadMat_center.toarray()
-                else:
-                    quadMat = np.asarray(quadMat_center)
+                # For Interval, use max(abs(inf), abs(sup)) for conservative over-approximation
+                # This matches MATLAB's behavior in tensorOrder==2 case
+                quadMat_inf = quadMat.inf.toarray() if scipy.sparse.issparse(quadMat.inf) else quadMat.inf
+                quadMat_sup = quadMat.sup.toarray() if scipy.sparse.issparse(quadMat.sup) else quadMat.sup
+                # Use maximum of absolute values (conservative over-approximation)
+                quadMat = np.maximum(np.abs(quadMat_inf), np.abs(quadMat_sup))
             elif hasattr(quadMat, 'inf') and hasattr(quadMat, 'sup'):
                 # Handle other interval-like objects
                 quadMat_inf = quadMat.inf.toarray() if scipy.sparse.issparse(quadMat.inf) else quadMat.inf
                 quadMat_sup = quadMat.sup.toarray() if scipy.sparse.issparse(quadMat.sup) else quadMat.sup
-                quadMat = (quadMat_inf + quadMat_sup) / 2
+                # Use maximum of absolute values (conservative over-approximation)
+                quadMat = np.maximum(np.abs(quadMat_inf), np.abs(quadMat_sup))
             elif scipy.sparse.issparse(quadMat):
                 # Convert sparse matrix to dense
                 quadMat = quadMat.toarray()
@@ -170,6 +205,14 @@ def _aux_quadMapSingle(Z: Zonotope, Q: List[np.ndarray]) -> Zonotope:
                 quadMat = np.asarray(quadMat)
             elif scipy.sparse.issparse(quadMat):
                 quadMat = quadMat.toarray()
+            
+            # Track quadMat after conversion
+            if hasattr(Z, '_track_quadmat') and Z._track_quadmat:
+                if hasattr(Z, '_quadmat_values') and len(Z._quadmat_values) > 0:
+                    idx, info = Z._quadmat_values[-1]
+                    info['after_convert_max'] = np.max(np.abs(quadMat))
+                    if gens > 0:
+                        info['after_convert_diag'] = np.diag(quadMat[1:gens+1, 1:gens+1]).copy()
             
             if gens > 0:
                 # Diagonal elements
@@ -186,13 +229,15 @@ def _aux_quadMapSingle(Z: Zonotope, Q: List[np.ndarray]) -> Zonotope:
                 # MATLAB: quadMatoffdiag = quadMat + quadMat';
                 quadMatoffdiag = quadMat + quadMat.T
                 # MATLAB: quadMatoffdiag = quadMatoffdiag(:);
-                quadMatoffdiag_flat = quadMatoffdiag.flatten()
+                # MATLAB uses column-major (Fortran) order for flattening
+                quadMatoffdiag_flat = quadMatoffdiag.flatten(order='F')
                 
                 # Create lower triangular mask (excluding diagonal)
                 # MATLAB: kInd = tril(true(gens+1,gens+1),-1);
                 kInd = np.tril(np.ones((gens+1, gens+1), dtype=bool), -1)
                 # MATLAB: G(i, gens+1:end) = quadMatoffdiag(kInd(:));
-                G[i, gens:] = quadMatoffdiag_flat[kInd.flatten()]
+                # MATLAB uses column-major (Fortran) order for mask flattening too
+                G[i, gens:] = quadMatoffdiag_flat[kInd.flatten(order='F')]
             else:
                 # No generators case
                 c[i, 0] = quadMat[0, 0] if quadMat.size > 0 else 0

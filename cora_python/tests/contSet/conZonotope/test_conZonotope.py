@@ -160,7 +160,7 @@ class TestConZonotope:
         
         # Custom parameters
         cZ_rand_custom = ConZonotope.generateRandom(
-            Dimension=3, NrGenerators=4, NrConstraints=2
+            dimension=3, nr_generators=4, nr_constraints=2
         )
         assert cZ_rand_custom.dim() == 3
         assert cZ_rand_custom.G.shape == (3, 4)

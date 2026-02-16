@@ -46,7 +46,8 @@ from cora_python.g.functions.matlab.validate.check.withinTol import withinTol
 
 def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, options: Dict[str, Any],
                                   H: Any = None, Zdelta: Any = None, VerrorStat: Any = None,
-                                  T: Optional[Any] = None, ind3: Optional[list] = None, Zdelta3: Optional[Any] = None
+                                  T: Optional[Any] = None, ind3: Optional[list] = None, Zdelta3: Optional[Any] = None,
+                                  trace_file: Any = None
                                   ) -> Tuple[Any, Any, np.ndarray, Dict[str, Any]]:
     """
     Compute abstraction error for adaptive nonlinear reachability.
@@ -60,7 +61,9 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
     totalInt_u = IH_u + nlnsys.linError.p.u
 
     # LIN; TENSOR 2 -----------------------------------------------------------
-    if options['alg'] == 'lin' and options['tensorOrder'] == 2:
+    # Handle both 'lin' and 'lin-adaptive' algorithms
+    alg_is_lin = options['alg'] == 'lin' or options['alg'] == 'lin-adaptive'
+    if alg_is_lin and options['tensorOrder'] == 2:
         # assign correct hessian (using interval arithmetic)
         nlnsys = nlnsys.setHessian('int')
 
@@ -100,6 +103,7 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
                     if H_max > 1e+50 or dz_max > 1e+50:
                         print(f"[priv_abstractionError_adaptive] Step {options['i']}, dim {i}: H_max = {H_max:.6e}, dz_max = {dz_max:.6e}", flush=True)
                 err_val = 0.5 * (dz.T @ H_ @ dz)
+                err_val = float(np.asarray(err_val).flat[0])
                 # Check for infinite result
                 if np.isinf(err_val) or np.isnan(err_val):
                     if options.get('progress', False):
@@ -110,6 +114,7 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
         else:
             for i in range(nlnsys.nr_of_dims):
                 err_val = 0.5 * (dz.T @ options['hessianConst'][i] @ dz)
+                err_val = float(np.asarray(err_val).flat[0])
                 if np.isinf(err_val) or np.isnan(err_val):
                     if options.get('progress', False):
                         print(f"[priv_abstractionError_adaptive] ERROR: err[{i}] = {err_val} (inf/nan) with const Hessian at step {options['i']}", flush=True)
@@ -120,12 +125,21 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
         VerrorStat = []
 
     # LIN; TENSOR 3 -----------------------------------------------------------
-    elif options['alg'] == 'lin' and options['tensorOrder'] == 3:
+    elif alg_is_lin and options['tensorOrder'] == 3:
+        from cora_python.contSet.interval import Interval
         nlnsys = nlnsys.setHessian('standard')
         nlnsys = nlnsys.setThirdOrderTensor('int')
 
         H = nlnsys.hessian(nlnsys.linError.p.x, nlnsys.linError.p.u)
         dz = Interval.vertcat(IH_x, IH_u)
+        
+        # Mark that we're in tensorOrder 3 path for tracking
+        if trace_file:
+            try:
+                trace_file.write(f'[TRACKING] Entered tensorOrder 3 path (lin algorithm)\n')
+                trace_file.flush()
+            except Exception as e:
+                print(f"[priv_abstractionError_adaptive] Failed to write tracking marker: {e}", flush=True)
 
         # Debug: Check R size before reduction
         if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
@@ -152,10 +166,32 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
             except Exception as e:
                 print(f"[priv_abstractionError_adaptive] Step {options['i']}: Error checking R: {e}", flush=True)
         
+        # Track R before reduction for comparison
+        R_before_reduction = None
+        if options.get('trackUpstream', False):
+            try:
+                R_center = R.center() if hasattr(R, 'center') else None
+                R_generators = R.generators() if hasattr(R, 'generators') else None
+                if R_center is not None and R_generators is not None:
+                    R_before_reduction = {
+                        'center': np.asarray(R_center).copy(),
+                        'generators': np.asarray(R_generators).copy(),
+                        'num_generators': R_generators.shape[1] if len(R_generators.shape) > 1 else 0,
+                        'redFactor': options.get('redFactor'),
+                        'diagpercent': np.sqrt(options.get('redFactor', 0))
+                    }
+            except Exception as e:
+                if options.get('progress', False):
+                    print(f"[priv_abstractionError_adaptive] Step {options['i']}: Error tracking R before reduction: {e}", flush=True)
+        
         # reduce zonotope
         if 'gredIdx' in options and len(options['gredIdx'].get('Rred', [])) == options['i']:
             Rred = R.reduce('idx', options['gredIdx']['Rred'][options['i'] - 1])
         else:
+            # Enable detailed tracking if upstream tracking is enabled
+            if options.get('trackUpstream', False):
+                # Set flag on R to track reduction details
+                R._track_reduction_details = True
             Rred_res = R.reduce('adaptive', np.sqrt(options['redFactor']))
             if isinstance(Rred_res, tuple):
                 Rred, _, idx = Rred_res
@@ -181,6 +217,60 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
                 print(f"[priv_abstractionError_adaptive] Step {options['i']}: Error checking Rred: {e}", flush=True)
         
         Z = Rred.cartProd_(U)
+        
+        # Track Rred after reduction (store in options for later access)
+        if options.get('trackUpstream', False):
+            try:
+                Rred_center = Rred.center() if hasattr(Rred, 'center') else None
+                Rred_generators = Rred.generators() if hasattr(Rred, 'generators') else None
+                if Rred_center is not None and Rred_generators is not None:
+                    Rred_after_reduction = {
+                        'center': np.asarray(Rred_center).copy(),
+                        'generators': np.asarray(Rred_generators).copy(),
+                        'num_generators': Rred_generators.shape[1] if len(Rred_generators.shape) > 1 else 0
+                    }
+                    # Check if reduction details are available
+                    if hasattr(Rred, '_reduction_details'):
+                        # Convert numpy arrays to lists for serialization
+                        details = Rred._reduction_details.copy()
+                        for key, value in details.items():
+                            if isinstance(value, np.ndarray):
+                                details[key] = value.tolist()
+                            elif isinstance(value, (np.integer, np.floating)):
+                                details[key] = float(value)
+                        Rred_after_reduction['reduction_details'] = details
+                    # Store in options for later access
+                    options['Rred_after_reduction'] = Rred_after_reduction
+            except Exception as e:
+                if options.get('progress', False):
+                    print(f"[priv_abstractionError_adaptive] Step {options['i']}: Error tracking Rred after reduction: {e}", flush=True)
+        
+        # Store R_before_reduction in options for later access
+        if R_before_reduction is not None:
+            options['R_before_reduction'] = R_before_reduction
+        
+        # Track Z before quadMap for intermediate value comparison
+        if trace_file:
+            try:
+                Z_center = Z.center()
+                Z_gens = Z.generators()
+                Z_radius = np.sum(np.abs(Z_gens), axis=1)
+                Z_radius_max = np.max(Z_radius) if Z_radius.size > 0 else 0
+                trace_file.write(f'Z (before quadMap) center: {Z_center.flatten()}\n')
+                trace_file.write(f'Z (before quadMap) radius: {Z_radius.flatten()}\n')
+                trace_file.write(f'Z (before quadMap) radius_max: {Z_radius_max:.15e}\n')
+                trace_file.flush()
+            except Exception as e:
+                # Always log tracking errors - no silent failures
+                error_msg = f"[priv_abstractionError_adaptive] Z tracking error at step {options['i']}: {e}"
+                print(error_msg, flush=True)
+                # Also write error to trace file
+                try:
+                    trace_file.write(f'Z tracking ERROR: {str(e)}\n')
+                    trace_file.flush()
+                except Exception:
+                    pass  # If we can't write to file, at least we printed the error
+        
         # Debug: Check Z size before quadMap
         if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
             try:
@@ -206,7 +296,80 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
                 print(f"[priv_abstractionError_adaptive] Step {options['i']}: H_max = {H_max:.6e}", flush=True)
             except Exception as e:
                 print(f"[priv_abstractionError_adaptive] Step {options['i']}: Error checking Z/H: {e}", flush=True)
+        # Track Z and H before quadMap for comparison
+        if options.get('trackUpstream', False):
+            Z_before_quadmap = {
+                'center': Z.center().copy() if hasattr(Z, 'center') else None,
+                'generators': Z.generators().copy() if hasattr(Z, 'generators') else None,
+            }
+            if Z_before_quadmap['generators'] is not None:
+                Z_before_quadmap['radius'] = np.sum(np.abs(Z_before_quadmap['generators']), axis=1)
+                Z_before_quadmap['radius_max'] = np.max(Z_before_quadmap['radius']) if Z_before_quadmap['radius'].size > 0 else 0
+            else:
+                Z_before_quadmap['radius'] = None
+                Z_before_quadmap['radius_max'] = None
+            
+            # Track H (Hessian) values
+            H_before_quadmap = []
+            if H is not None:
+                from cora_python.contSet.interval import Interval
+                for i, h_i in enumerate(H):
+                    if h_i is not None:
+                        if isinstance(h_i, Interval):
+                            # For Interval, store inf and sup
+                            h_inf = h_i.inf.toarray() if hasattr(h_i.inf, 'toarray') else np.asarray(h_i.inf)
+                            h_sup = h_i.sup.toarray() if hasattr(h_i.sup, 'toarray') else np.asarray(h_i.sup)
+                            H_before_quadmap.append({
+                                'inf': h_inf.copy(),
+                                'sup': h_sup.copy(),
+                                'center': h_i.center().copy() if hasattr(h_i, 'center') else None,
+                                'max_abs': np.max(np.abs(h_i.center())) if hasattr(h_i, 'center') else None,
+                            })
+                        else:
+                            # For regular arrays (including sparse)
+                            import scipy.sparse
+                            if scipy.sparse.issparse(h_i):
+                                h_i_arr = h_i.toarray()
+                            else:
+                                h_i_arr = np.asarray(h_i)
+                            H_before_quadmap.append({
+                                'matrix': h_i_arr.copy(),
+                                'max_abs': np.max(np.abs(h_i_arr)) if h_i_arr.size > 0 else 0,
+                            })
+                    else:
+                        H_before_quadmap.append(None)
+            
+            # Enable quadMat tracking in quadMap
+            Z._track_quadmat = True
+            Z._quadmat_values = []
+        else:
+            Z_before_quadmap = None
+            H_before_quadmap = None
+        
         errorSec = 0.5 * Z.quadMap(H)
+        
+        # Track errorSec after quadMap for intermediate value comparison
+        if trace_file:
+            try:
+                errorSec_center = errorSec.center()
+                errorSec_gens = errorSec.generators()
+                errorSec_radius = np.sum(np.abs(errorSec_gens), axis=1)
+                errorSec_radius_max = np.max(errorSec_radius) if errorSec_radius.size > 0 else 0
+                trace_file.write(f'errorSec (after quadMap) center: {errorSec_center.flatten()}\n')
+                trace_file.write(f'errorSec (after quadMap) radius: {errorSec_radius.flatten()}\n')
+                trace_file.write(f'errorSec (after quadMap) radius_max: {errorSec_radius_max:.15e}\n')
+                trace_file.flush()
+            except Exception as e:
+                # Always log tracking errors - no silent failures
+                error_msg = f"[priv_abstractionError_adaptive] errorSec tracking error at step {options['i']}: {e}"
+                print(error_msg, flush=True)
+                # Also write error to trace file
+                try:
+                    trace_file.write(f'errorSec tracking ERROR: {str(e)}\n')
+                    trace_file.flush()
+                except Exception:
+                    pass  # If we can't write to file, at least we printed the error
+        
         # Check for infinite values in errorSec
         if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
             try:
@@ -235,15 +398,69 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
             for i in range(len(ind)):
                 error_sum = Interval(0, 0)
                 for j in range(len(ind[i])):
-                    error_tmp = dz.T @ T[i, ind[i][j]] @ dz
-                    error_sum = error_sum + error_tmp * dz[ind[i][j]]
-                errorLagr[i, 0] = (1 / 6) * error_sum
+                    # MATLAB: T{i,ind{i}(j)} - cell array indexing
+                    # Python: T is list of lists, use T[i][ind[i][j]]
+                    T_ij = T[i][ind[i][j]]
+                    # MATLAB: dz.'*T{i,ind{i}(j)}*dz
+                    # Use interval arithmetic for proper computation
+                    dz_T = dz.transpose()  # Row vector (1 x n)
+                    dz_T_Tij = dz_T.mtimes(T_ij)  # (1 x n) interval
+                    error_tmp = dz_T_Tij.mtimes(dz)  # Scalar interval
+                    # MATLAB: dz(ind{i}(j)) - get j-th element of dz
+                    dz_idx = Interval(dz.inf[ind[i][j]], dz.sup[ind[i][j]])
+                    error_sum = error_sum + error_tmp * dz_idx
+                scalar_val = (1 / 6) * error_sum
+                inf_s = float(np.asarray(scalar_val.inf).flat[0])
+                sup_s = float(np.asarray(scalar_val.sup).flat[0])
+                errorLagr[i, 0] = Interval(inf_s, sup_s)
             errorLagr = Zonotope(errorLagr)
         else:
             errorLagr = 0
             options['thirdOrderTensorempty'] = True
 
+        # Track errorSec and errorLagr before combining
+        if options.get('trackUpstream', False):
+            errorSec_before_combine = {
+                'center': errorSec.center().copy() if hasattr(errorSec, 'center') else None,
+                'generators': errorSec.generators().copy() if hasattr(errorSec, 'generators') else None,
+            }
+            if errorSec_before_combine['generators'] is not None:
+                errorSec_before_combine['radius'] = np.sum(np.abs(errorSec_before_combine['generators']), axis=1)
+                errorSec_before_combine['radius_max'] = np.max(errorSec_before_combine['radius']) if errorSec_before_combine['radius'].size > 0 else 0
+            else:
+                errorSec_before_combine['radius'] = None
+                errorSec_before_combine['radius_max'] = None
+            
+            errorLagr_before_combine = {
+                'center': errorLagr.center().copy() if hasattr(errorLagr, 'center') else None,
+                'generators': errorLagr.generators().copy() if hasattr(errorLagr, 'generators') else None,
+            }
+            if errorLagr_before_combine['generators'] is not None:
+                errorLagr_before_combine['radius'] = np.sum(np.abs(errorLagr_before_combine['generators']), axis=1)
+                errorLagr_before_combine['radius_max'] = np.max(errorLagr_before_combine['radius']) if errorLagr_before_combine['radius'].size > 0 else 0
+            else:
+                errorLagr_before_combine['radius'] = None
+                errorLagr_before_combine['radius_max'] = None
+        else:
+            errorSec_before_combine = None
+            errorLagr_before_combine = None
+        
         VerrorDyn = errorSec + errorLagr
+        
+        # Track VerrorDyn before reduction
+        if options.get('trackUpstream', False):
+            VerrorDyn_before_reduce = {
+                'center': VerrorDyn.center().copy() if hasattr(VerrorDyn, 'center') else None,
+                'generators': VerrorDyn.generators().copy() if hasattr(VerrorDyn, 'generators') else None,
+            }
+            if VerrorDyn_before_reduce['generators'] is not None:
+                VerrorDyn_before_reduce['radius'] = np.sum(np.abs(VerrorDyn_before_reduce['generators']), axis=1)
+                VerrorDyn_before_reduce['radius_max'] = np.max(VerrorDyn_before_reduce['radius']) if VerrorDyn_before_reduce['radius'].size > 0 else 0
+            else:
+                VerrorDyn_before_reduce['radius'] = None
+                VerrorDyn_before_reduce['radius_max'] = None
+        else:
+            VerrorDyn_before_reduce = None
         
         # Debug: Check components before reduction
         if options.get('progress', False) and (options['i'] % 10 == 0 or options['i'] >= 340):
@@ -259,14 +476,120 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
         
         if 'gredIdx' in options and len(options['gredIdx'].get('VerrorDyn', [])) == options['i']:
             VerrorDyn = VerrorDyn.reduce('idx', options['gredIdx']['VerrorDyn'][options['i'] - 1])
+            reduction_method = 'idx'
+            reduction_idx = options['gredIdx']['VerrorDyn'][options['i'] - 1]
         else:
             VerrorDyn_res = VerrorDyn.reduce('adaptive', 10 * options['redFactor'])
             if isinstance(VerrorDyn_res, tuple):
                 VerrorDyn, _, idx = VerrorDyn_res
                 if 'gredIdx' in options:
                     options['gredIdx'].setdefault('VerrorDyn', []).append(idx)
+                reduction_method = 'adaptive'
+                reduction_idx = idx
             else:
                 VerrorDyn = VerrorDyn_res
+                reduction_method = 'adaptive'
+                reduction_idx = None
+        
+        # Track VerrorDyn after reduction
+        if options.get('trackUpstream', False):
+            VerrorDyn_after_reduce = {
+                'center': VerrorDyn.center().copy() if hasattr(VerrorDyn, 'center') else None,
+                'generators': VerrorDyn.generators().copy() if hasattr(VerrorDyn, 'generators') else None,
+            }
+            if VerrorDyn_after_reduce['generators'] is not None:
+                VerrorDyn_after_reduce['radius'] = np.sum(np.abs(VerrorDyn_after_reduce['generators']), axis=1)
+                VerrorDyn_after_reduce['radius_max'] = np.max(VerrorDyn_after_reduce['radius']) if VerrorDyn_after_reduce['radius'].size > 0 else 0
+            else:
+                VerrorDyn_after_reduce['radius'] = None
+                VerrorDyn_after_reduce['radius_max'] = None
+            
+            # Extract quadMat tracking if available
+            quadmat_tracking = None
+            if hasattr(Z, '_quadmat_values') and Z._quadmat_values:
+                quadmat_tracking = Z._quadmat_values.copy()
+                # Clean up tracking attribute
+                if hasattr(Z, '_track_quadmat'):
+                    delattr(Z, '_track_quadmat')
+                if hasattr(Z, '_quadmat_values'):
+                    delattr(Z, '_quadmat_values')
+            
+            # Store in options for later extraction
+            log_entry = {
+                'step': options['i'],
+                'run': options.get('run', 0),
+                'Z_before_quadmap': Z_before_quadmap,
+                'H_before_quadmap': H_before_quadmap,
+                'quadmat_tracking': quadmat_tracking,
+                'errorSec_before_combine': errorSec_before_combine,
+                'errorLagr_before_combine': errorLagr_before_combine,
+                'VerrorDyn_before_reduce': VerrorDyn_before_reduce,
+                'VerrorDyn_after_reduce': VerrorDyn_after_reduce,
+                'reduction_method': reduction_method,
+                'reduction_idx': reduction_idx,
+            }
+            
+            # Add R reduction tracking if available (from earlier in the function)
+            # Note: R_before_reduction and Rred_after_reduction are defined earlier
+            # but may not be in scope here. We'll need to pass them through options
+            if 'R_before_reduction' in options:
+                log_entry['R_before_reduction'] = options['R_before_reduction']
+            if 'Rred_after_reduction' in options:
+                log_entry['Rred_after_reduction'] = options['Rred_after_reduction']
+            # Add Rmax components if available (from linReach_adaptive)
+            if 'Rmax_before_reduction' in options:
+                log_entry['Rmax_before_reduction'] = options['Rmax_before_reduction']
+                del options['Rmax_before_reduction']
+            if 'Rlinti_before_Rmax' in options:
+                log_entry['Rlinti_before_Rmax'] = options['Rlinti_before_Rmax']
+                del options['Rlinti_before_Rmax']
+            if 'RallError_before_Rmax' in options:
+                log_entry['RallError_before_Rmax'] = options['RallError_before_Rmax']
+                del options['RallError_before_Rmax']
+            
+            # Add Rlinti and RallError tracking if available (from linReach_adaptive)
+            if 'Rlinti_tracking' in options:
+                log_entry['Rlinti_tracking'] = options['Rlinti_tracking']
+                del options['Rlinti_tracking']
+            if 'RallError_tracking' in options:
+                log_entry['RallError_tracking'] = options['RallError_tracking']
+                del options['RallError_tracking']
+            
+            # Add initReach_tracking if available (from initReach_adaptive)
+            if 'initReach_tracking' in options:
+                log_entry['initReach_tracking'] = options['initReach_tracking']
+                del options['initReach_tracking']
+            
+            # Add Rstart_tracking if available (from linReach_adaptive)
+            if 'Rstart_tracking' in options:
+                log_entry['Rstart_tracking'] = options['Rstart_tracking']
+                del options['Rstart_tracking']
+            
+            # Add Rtp_final_tracking if available (from linReach_adaptive)
+            if 'Rtp_final_tracking' in options:
+                log_entry['Rtp_final_tracking'] = options['Rtp_final_tracking']
+                del options['Rtp_final_tracking']
+            
+            # Add Rlintp_tracking and Rerror_tracking if available (from linReach_adaptive)
+            if 'Rlintp_tracking' in options:
+                log_entry['Rlintp_tracking'] = options['Rlintp_tracking']
+                del options['Rlintp_tracking']
+            if 'Rerror_tracking' in options:
+                log_entry['Rerror_tracking'] = options['Rerror_tracking']
+                del options['Rerror_tracking']
+            # Add timeStepequalHorizon tracking if available
+            if 'timeStepequalHorizon_used' in options:
+                log_entry['timeStepequalHorizon_used'] = options['timeStepequalHorizon_used']
+                del options['timeStepequalHorizon_used']
+            # Add Rtp_h_tracking and Rerror_h_tracking if available (for timeStepequalHorizon path)
+            if 'Rtp_h_tracking' in options:
+                log_entry['Rtp_h_tracking'] = options['Rtp_h_tracking']
+                del options['Rtp_h_tracking']
+            if 'Rerror_h_tracking' in options:
+                log_entry['Rerror_h_tracking'] = options['Rerror_h_tracking']
+                del options['Rerror_h_tracking']
+            
+            options.setdefault('upstreamLog', []).append(log_entry)
 
         VerrorStat = []
         # Check if VerrorDyn contains infinite values
@@ -316,8 +639,17 @@ def priv_abstractionError_adaptive(nlnsys: Any, R: Any, Rdiff: Any, U: Any, opti
             error_thirdOrder_old = Interval(np.zeros((nrind, 1)), np.zeros((nrind, 1)))
             for i in range(nrind):
                 for j in range(len(ind[i])):
-                    error_thirdOrder_old[i, 0] = error_thirdOrder_old[i, 0] + \
-                        (dz.T @ T[i, ind[i][j]] @ dz) * dz[ind[i][j]]
+                    # MATLAB: T{i,ind{i}(j)} - cell array indexing
+                    # Python: T is list of lists, use T[i][ind[i][j]]
+                    T_ij = T[i][ind[i][j]]
+                    # MATLAB: dz.'*T{i,ind{i}(j)}*dz
+                    # Use interval arithmetic for proper computation
+                    dz_T = dz.transpose()  # Row vector (1 x n)
+                    dz_T_Tij = dz_T.mtimes(T_ij)  # (1 x n) interval
+                    error_tmp = dz_T_Tij.mtimes(dz)  # Scalar interval
+                    # MATLAB: dz(ind{i}(j)) - get j-th element of dz
+                    dz_idx = Interval(dz.inf[ind[i][j]], dz.sup[ind[i][j]])
+                    error_thirdOrder_old[i, 0] = error_thirdOrder_old[i, 0] + error_tmp * dz_idx
             error_thirdOrder_dyn = Zonotope((1 / 6) * error_thirdOrder_old)
         else:
             error_thirdOrder_dyn = 0

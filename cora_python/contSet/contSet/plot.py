@@ -143,7 +143,7 @@ def _parse_input(S, args, kwargs):
     nvpairs_polygon = []
     nvpairs_vertices = []
     
-    if hasattr(S, '__class__') and S.__class__.__name__ == 'polyZonotope':
+    if hasattr(S, '__class__') and S.__class__.__name__ == 'PolyZonotope':
         remaining_opts, splits = read_name_value_pair(all_options, 'Splits', 'isscalar', 8)
         nvpairs_interval = ['split', splits]
         nvpairs_polygon = [splits]

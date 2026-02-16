@@ -15,8 +15,8 @@ from cora_python.contSet.taylm.taylm import Taylm
 def generateRandom(**kwargs) -> Taylm:
     """Generates a random Taylor model"""
     
-    # Default values
-    listOfNameValuePairs = ['Dimension', 2]
+    # Default values (Python-style lowercase parameter names)
+    listOfNameValuePairs = ['dimension', 2]
     
     # Parse input arguments
     [n] = NVpairsPlainSetDefaultValues(listOfNameValuePairs, list(kwargs.keys()), list(kwargs.values()))

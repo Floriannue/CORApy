@@ -40,7 +40,7 @@ def and_(I1: Interval, I2: Interval, method: str = 'exact') -> Interval:
     # Convert I2 to interval if it's not already
     if not isinstance(I2, Interval) :
         if hasattr(I2, 'interval'):
-            I2 = I2.Interval()
+            I2 = I2.interval()
         else:
             raise ValueError("Cannot compute intersection: second argument is not convertible to interval")
     

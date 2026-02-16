@@ -17,6 +17,7 @@ from .isemptyobject import isemptyobject
 from .empty import empty
 from .origin import origin
 from .generateRandom import generateRandom
+from .center import center
 from .sigma import sigma
 from .display import display, display_
 
@@ -29,6 +30,7 @@ ProbZonotope.display_ = display_
 ProbZonotope.__str__ = lambda self: display_(self)
 ProbZonotope.isemptyobject = isemptyobject
 ProbZonotope.sigma = sigma
+ProbZonotope.center = center
 
 # Attach static methods
 ProbZonotope.empty = staticmethod(empty)
@@ -43,4 +45,5 @@ __all__ = [
     'empty',
     'origin',
     'generateRandom',
+    'center',
 ] 

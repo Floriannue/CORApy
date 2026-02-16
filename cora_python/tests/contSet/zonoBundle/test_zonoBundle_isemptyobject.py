@@ -66,7 +66,7 @@ class TestZonoBundleIsemptyobject:
 
     def test_isemptyobject_generated_random(self):
         """Test isemptyobject for randomly generated ZonoBundle"""
-        zB = ZonoBundle.generateRandom(Dimension=3)
+        zB = ZonoBundle.generateRandom(dimension=3)
         assert not zB.isemptyobject()
 
     def test_isemptyobject_origin(self):

@@ -101,8 +101,10 @@ def read_plot_options(plot_options, purpose: str = 'none') -> Dict[str, Any]:
     # Ensure we have color if not specified
     has_face_color = ('facecolor' in plot_kwargs or 'FaceColor' in plot_kwargs)
     if 'color' not in plot_kwargs and not has_face_color:
-        plot_kwargs['color'] = next_color()
-    
+        c = next_color()
+        plot_kwargs['color'] = c
+        # Also set facecolor so 2D filled plots (intervals, zonotopes, etc.) get automatic cycle color
+        plot_kwargs['facecolor'] = c
     # Remove conflicting color if facecolor is specified for filled plots
     elif has_face_color and 'color' in plot_kwargs:
         # For filled plots, facecolor takes precedence over color

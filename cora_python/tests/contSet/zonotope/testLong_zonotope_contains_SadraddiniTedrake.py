@@ -24,11 +24,11 @@ class TestLongZonotopeContainsSadraddiniTedrake:
         
         for i_set in range(10):
             # Create zonotope which is supposed to be enclosed (s: small)
-            Z_s = Zonotope.generateRandom('Dimension', 3, 'NrGenerators', 5)
+            Z_s = Zonotope.generateRandom(dimension=3, nr_generators=5)
             
             # Create zonotope which is supposed to enclose the smaller one (l: large)
             # Enlarge by 1.2 (using scalar multiplication)
-            Z_l = 1.2 * Zonotope.generateRandom('Dimension', 3, 'NrGenerators', 5)
+            Z_l = 1.2 * Zonotope.generateRandom(dimension=3, nr_generators=5)
             
             # Compute result with approx:st
             res_original, cert_original, scaling_original = Z_l.contains_(Z_s, 'approx:st')
@@ -48,11 +48,11 @@ class TestLongZonotopeContainsSadraddiniTedrake:
         
         for i_set in range(10):
             # Create zonotope which is supposed to be enclosed (s: small)
-            Z_s = Zonotope.generateRandom('Center', np.zeros((3, 1)), 'Dimension', 3, 'NrGenerators', 5)
+            Z_s = Zonotope.generateRandom(center=np.zeros((3, 1)), dimension=3, nr_generators=5)
             
             # Create zonotope which is supposed to enclose the smaller one (l: large)
             # Enlarge by 1.2 (using scalar multiplication)
-            Z_l = 1.2 * Zonotope.generateRandom('Center', np.zeros((3, 1)), 'Dimension', 3, 'NrGenerators', 5)
+            Z_l = 1.2 * Zonotope.generateRandom(center=np.zeros((3, 1)), dimension=3, nr_generators=5)
             
             # Compute result with approx:st
             res_original, cert_original, scaling_original = Z_l.contains_(Z_s, 'approx:st')

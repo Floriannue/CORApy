@@ -27,9 +27,18 @@ Python translation: 2025
 """
 
 import numpy as np
+import os, sys
 import matplotlib.pyplot as plt
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(current_dir, '../../../..')
+sys.path.insert(0, project_root)
+
 from cora_python.contDynamics.linearSys import LinearSys
 from cora_python.contSet.zonotope import Zonotope
+
+
+
 
 
 def example_linear_reach_adaptive():
@@ -56,9 +65,12 @@ def example_linear_reach_adaptive():
     # output matrix
     C = np.array([[1, 0, 0, 0, 0],
                   [0, 1, 0, 0, 0]])
-    
-    # create linear system object
-    sys = LinearSys('sys', A, B, C)
+
+    # constant input offset (c) – zero vector (matches MATLAB default [])
+    c = np.zeros((A.shape[0], 1))
+
+    # create linear system object (A, B, c, C)
+    sys = LinearSys('sys', A, B, c, C)
     
     # Parameters -------------------------------------------------------------
     
@@ -93,19 +105,20 @@ def example_linear_reach_adaptive():
     
     # plot reachable set in output space
     fig, ax = plt.subplots(1, 1, figsize=(10, 8))
-    
-    # plot time-interval reachable sets
+    plt.sca(ax)  # contSet.plot() uses plt.gca(), so set current axes
+
+    # plot time-interval reachable sets (dims [0,1] = first two output dimensions)
     for i, (Rset, time_interval) in enumerate(zip(R.timeInterval.set, R.timeInterval.time)):
         if hasattr(Rset, 'plot'):
-            Rset.plot(ax, color='lightblue', alpha=0.7)
-    
+            Rset.plot(color='lightblue', alpha=0.7)
+
     # plot time-point reachable sets
     for i, (Rset, time_point) in enumerate(zip(R.timePoint.set, R.timePoint.time)):
         if hasattr(Rset, 'plot'):
             if i == 0:  # Initial set
-                Rset.plot(ax, color='green', alpha=0.8, label='Initial set')
+                Rset.plot(color='green', alpha=0.8, label='Initial set')
             elif i == len(R.timePoint.set) - 1:  # Final set
-                Rset.plot(ax, color='red', alpha=0.8, label='Final set')
+                Rset.plot(color='red', alpha=0.8, label='Final set')
     
     ax.set_xlabel('y₁')
     ax.set_ylabel('y₂')
@@ -133,21 +146,23 @@ def example_linear_reach_adaptive():
     
     # Plot comparison
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-    
+
     # Standard algorithm
+    plt.sca(ax1)
     for Rset in R_std.timeInterval.set:
         if hasattr(Rset, 'plot'):
-            Rset.plot(ax1, color='lightcoral', alpha=0.7)
+            Rset.plot(color='lightcoral', alpha=0.7)
     ax1.set_title('Standard Algorithm (Fixed Time Step)')
     ax1.set_xlabel('y₁')
     ax1.set_ylabel('y₂')
     ax1.grid(True, alpha=0.3)
     ax1.axis('equal')
-    
+
     # Adaptive algorithm
+    plt.sca(ax2)
     for Rset in R.timeInterval.set:
         if hasattr(Rset, 'plot'):
-            Rset.plot(ax2, color='lightblue', alpha=0.7)
+            Rset.plot(color='lightblue', alpha=0.7)
     ax2.set_title('Adaptive Algorithm (Variable Time Step)')
     ax2.set_xlabel('y₁')
     ax2.set_ylabel('y₂')
@@ -220,12 +235,13 @@ def example_linear_reach_adaptive_different_errors():
     
     # Visualization
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-    
+
     for i, (R, error) in enumerate(zip(results, errors)):
+        plt.sca(axes[i])
         for Rset in R.timeInterval.set:
             if hasattr(Rset, 'plot'):
-                Rset.plot(axes[i], color='lightblue', alpha=0.7)
-        
+                Rset.plot(color='lightblue', alpha=0.7)
+
         axes[i].set_title(f'Error Bound: {error}')
         axes[i].set_xlabel('x₁')
         axes[i].set_ylabel('x₂')

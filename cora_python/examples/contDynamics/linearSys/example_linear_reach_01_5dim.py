@@ -143,10 +143,9 @@ def example_linear_reach_01_5dim():
         plt.tight_layout()  # Adjust layout to prevent overlap
         
         # Save plot instead of showing it
-        plt.savefig(f'example_5dim_projection_{projDims[0]+1}_{projDims[1]+1}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f"example_5dim_projection_{projDims[0]+1}_{projDims[1]+1}_python.svg")
         print(f'Saved plot for projection [{projDims[0]+1}, {projDims[1]+1}]')
     
-    print("Plots saved successfully!")
     plt.show()
     plt.close()
     

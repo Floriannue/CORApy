@@ -15,8 +15,8 @@ from cora_python.contSet.spectraShadow.spectraShadow import SpectraShadow
 def generateRandom(**kwargs) -> SpectraShadow:
     """Generates a random spectrahedral shadow"""
     
-    # Default values
-    listOfNameValuePairs = ['Dimension', 2]
+    # Default values (Python-style lowercase parameter names)
+    listOfNameValuePairs = ['dimension', 2]
     
     # Parse input arguments
     [n] = NVpairsPlainSetDefaultValues(listOfNameValuePairs, list(kwargs.keys()), list(kwargs.values()))

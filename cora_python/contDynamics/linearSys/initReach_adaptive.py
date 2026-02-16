@@ -74,30 +74,229 @@ def initReach_adaptive(linsys: Any, Rstart: Any, options: Dict[str, Any],
     Rhom_tp = eAt * Rstart + Rtrans
     Rhom = Rstart.enclose(Rhom_tp) + F * Rstart + inputCorr
 
+    # Track initReach_adaptive computation if requested
+    if options.get('trackUpstream', False):
+        try:
+            # Helper function to convert arrays to lists only if needed for pickle
+            # For large arrays, keep as numpy arrays - pickle handles them efficiently
+            def to_list_if_array(val):
+                # Only convert small arrays or scalars to lists
+                # Large arrays are kept as numpy arrays for performance
+                if isinstance(val, np.ndarray):
+                    if val.size < 100:  # Only convert small arrays
+                        return val.tolist()
+                    return val  # Keep large arrays as numpy arrays
+                elif hasattr(val, 'tolist') and hasattr(val, 'size'):
+                    if val.size < 100:
+                        return val.tolist()
+                    return val
+                return val
+            
+            initReach_tracking = {
+                'step': options.get('i'),
+                'run': options.get('run', 0),
+                'Rstart_center': to_list_if_array(np.asarray(Rstart.center())),
+                'Rstart_generators': to_list_if_array(np.asarray(Rstart.generators())),
+                'Rstart_num_generators': Rstart.generators().shape[1] if Rstart.generators().ndim > 1 else 0,
+                'eAt': to_list_if_array(eAt),
+                'F': to_list_if_array(F) if hasattr(F, 'tolist') else F,
+                'inputCorr_center': to_list_if_array(np.asarray(inputCorr.center())),
+                'inputCorr_generators': to_list_if_array(np.asarray(inputCorr.generators())),
+                'inputCorr_num_generators': inputCorr.generators().shape[1] if inputCorr.generators().ndim > 1 else 0,
+                'Rtrans_center': to_list_if_array(np.asarray(Rtrans.center())),
+                'Rtrans_generators': to_list_if_array(np.asarray(Rtrans.generators())),
+                'Rtrans_num_generators': Rtrans.generators().shape[1] if Rtrans.generators().ndim > 1 else 0,
+                'Rhom_tp_center': to_list_if_array(np.asarray(Rhom_tp.center())),
+                'Rhom_tp_generators': to_list_if_array(np.asarray(Rhom_tp.generators())),
+                'Rhom_tp_num_generators': Rhom_tp.generators().shape[1] if Rhom_tp.generators().ndim > 1 else 0,
+                'Rhom_center': to_list_if_array(np.asarray(Rhom.center())),
+                'Rhom_generators': to_list_if_array(np.asarray(Rhom.generators())),
+                'Rhom_num_generators': Rhom.generators().shape[1] if Rhom.generators().ndim > 1 else 0,
+                'redFactor': options.get('redFactor'),
+                'timeStep': linOptions.get('timeStep'),
+            }
+            options['initReach_tracking'] = initReach_tracking
+            
+            # REMOVED: File I/O on every call is extremely slow
+            # Only write to file at the end if needed, or use a separate flag
+            # The data is already in options['initReach_tracking'] and will be saved to upstreamLog
+        except Exception as e:
+            if options.get('progress', False):
+                print(f"[initReach_adaptive] Error tracking: {e}", flush=True)
+
     Rend = {}
 
     # preliminary solutions without RV
     if 'gredIdx' in options and len(options['gredIdx'].get('Rhomti', [])) == options['i']:
         Rend['ti'] = Rhom.reduce('idx', options['gredIdx']['Rhomti'][options['i'] - 1])
     else:
+        # Set debug attributes for reduction tracking
+        if options.get('trackUpstream', False):
+            Rhom._debug_step = options.get('i')
+            Rhom._debug_run = options.get('run', 0)
+            # Enable reduction details tracking
+            Rhom._track_reduction_details = True
         Rhom_res = Rhom.reduce('adaptive', options['redFactor'])
         if isinstance(Rhom_res, tuple):
             Rend['ti'], _, idx = Rhom_res
             if 'gredIdx' in options:
-                options['gredIdx'].setdefault('Rhomti', []).append(idx)
+                # Store at index options['i'] - 1 (0-based) to match MATLAB's {options.i} (1-based)
+                gredIdx = options['gredIdx'].setdefault('Rhomti', [])
+                # Ensure list is long enough
+                while len(gredIdx) < options['i']:
+                    gredIdx.append(None)
+                gredIdx[options['i'] - 1] = idx
         else:
             Rend['ti'] = Rhom_res
+        
+        # Capture reduction details for Rend.ti if available
+        if options.get('trackUpstream', False) and 'initReach_tracking' in options:
+            if hasattr(Rend['ti'], '_reduction_details') and Rend['ti']._reduction_details is not None:
+                reduction_details = Rend['ti']._reduction_details
+                def to_list_if_array(val):
+                    if isinstance(val, np.ndarray):
+                        if val.size < 100:  # Only convert small arrays
+                            return val.tolist()
+                        return val  # Keep large arrays as numpy arrays
+                    elif hasattr(val, 'tolist') and hasattr(val, 'size'):
+                        if val.size < 100:
+                            return val.tolist()
+                        return val
+                    return val
+                options['initReach_tracking']['reduction_ti_diagpercent'] = reduction_details.get('diagpercent')
+                options['initReach_tracking']['reduction_ti_dHmax'] = reduction_details.get('dHmax')
+                options['initReach_tracking']['reduction_ti_nrG'] = reduction_details.get('nrG')
+                options['initReach_tracking']['reduction_ti_last0Idx'] = reduction_details.get('last0Idx')
+                options['initReach_tracking']['reduction_ti_h_computed'] = to_list_if_array(reduction_details.get('h_computed'))
+                options['initReach_tracking']['reduction_ti_redIdx'] = reduction_details.get('redIdx')
+                options['initReach_tracking']['reduction_ti_redIdx_0based'] = reduction_details.get('redIdx_0based')
+                options['initReach_tracking']['reduction_ti_dHerror'] = reduction_details.get('dHerror')
+                options['initReach_tracking']['reduction_ti_gredIdx'] = to_list_if_array(reduction_details.get('gredIdx'))
+                options['initReach_tracking']['reduction_ti_gredIdx_len'] = reduction_details.get('gredIdx_len')
+        
+        # Clean up debug attributes
+        if hasattr(Rhom, '_debug_step'):
+            delattr(Rhom, '_debug_step')
+        if hasattr(Rhom, '_debug_run'):
+            delattr(Rhom, '_debug_run')
+        if hasattr(Rhom, '_track_reduction_details'):
+            delattr(Rhom, '_track_reduction_details')
+    
+    # Track Rend.ti after reduction if requested
+    if options.get('trackUpstream', False) and 'initReach_tracking' in options:
+        try:
+            def to_list_if_array(val):
+                if isinstance(val, np.ndarray):
+                    if val.size < 100:  # Only convert small arrays
+                        return val.tolist()
+                    return val  # Keep large arrays as numpy arrays
+                elif hasattr(val, 'tolist') and hasattr(val, 'size'):
+                    if val.size < 100:
+                        return val.tolist()
+                    return val
+                return val
+            options['initReach_tracking']['Rend_ti_center'] = to_list_if_array(np.asarray(Rend['ti'].center()))
+            options['initReach_tracking']['Rend_ti_generators'] = to_list_if_array(np.asarray(Rend['ti'].generators()))
+            options['initReach_tracking']['Rend_ti_num_generators'] = Rend['ti'].generators().shape[1] if Rend['ti'].generators().ndim > 1 else 0
+        except Exception as e:
+            if options.get('progress', False):
+                print(f"[initReach_adaptive] Error tracking Rend.ti: {e}", flush=True)
 
     if 'gredIdx' in options and len(options['gredIdx'].get('Rhomtp', [])) == options['i']:
         Rend['tp'] = Rhom_tp.reduce('idx', options['gredIdx']['Rhomtp'][options['i'] - 1])
     else:
+        # Set debug attributes for reduction tracking
+        if options.get('trackUpstream', False):
+            Rhom_tp._debug_step = options.get('i')
+            Rhom_tp._debug_run = options.get('run', 0)
+            # Enable reduction details tracking
+            Rhom_tp._track_reduction_details = True
         Rhomtp_res = Rhom_tp.reduce('adaptive', options['redFactor'])
         if isinstance(Rhomtp_res, tuple):
             Rend['tp'], _, idx = Rhomtp_res
             if 'gredIdx' in options:
-                options['gredIdx'].setdefault('Rhomtp', []).append(idx)
+                # Store at index options['i'] - 1 (0-based) to match MATLAB's {options.i} (1-based)
+                gredIdx = options['gredIdx'].setdefault('Rhomtp', [])
+                # Ensure list is long enough
+                while len(gredIdx) < options['i']:
+                    gredIdx.append(None)
+                gredIdx[options['i'] - 1] = idx
         else:
             Rend['tp'] = Rhomtp_res
+        
+        # Capture reduction details if available
+        if options.get('trackUpstream', False) and 'initReach_tracking' in options:
+            reduction_details = None
+            # Try to get from Z object first
+            if hasattr(Rend['tp'], '_reduction_details') and Rend['tp']._reduction_details is not None:
+                reduction_details = Rend['tp']._reduction_details
+            # Fallback: read from file (more reliable)
+            if reduction_details is None:
+                try:
+                    import pickle
+                    import os
+                    debug_file = 'reduceAdaptive_debug_python.pkl'
+                    if os.path.exists(debug_file):
+                        with open(debug_file, 'rb') as f:
+                            try:
+                                debug_data = pickle.load(f)
+                                if debug_data and len(debug_data) > 0:
+                                    # Get the last entry (most recent reduction)
+                                    reduction_details = debug_data[-1]
+                            except (EOFError, ValueError):
+                                pass
+                except Exception:
+                    pass
+            
+            if reduction_details is not None:
+                def to_list_if_array(val):
+                    if isinstance(val, np.ndarray):
+                        if val.size < 100:  # Only convert small arrays
+                            return val.tolist()
+                        return val  # Keep large arrays as numpy arrays
+                    elif hasattr(val, 'tolist') and hasattr(val, 'size'):
+                        if val.size < 100:
+                            return val.tolist()
+                        return val
+                    return val
+                options['initReach_tracking']['reduction_diagpercent'] = reduction_details.get('diagpercent')
+                options['initReach_tracking']['reduction_dHmax'] = reduction_details.get('dHmax')
+                options['initReach_tracking']['reduction_nrG'] = reduction_details.get('nrG')
+                options['initReach_tracking']['reduction_last0Idx'] = reduction_details.get('last0Idx')
+                options['initReach_tracking']['reduction_h_computed'] = to_list_if_array(reduction_details.get('h_computed'))
+                options['initReach_tracking']['reduction_redIdx'] = reduction_details.get('redIdx')
+                options['initReach_tracking']['reduction_redIdx_0based'] = reduction_details.get('redIdx_0based')
+                options['initReach_tracking']['reduction_dHerror'] = reduction_details.get('dHerror')
+                options['initReach_tracking']['reduction_gredIdx'] = to_list_if_array(reduction_details.get('gredIdx'))
+                options['initReach_tracking']['reduction_gredIdx_len'] = reduction_details.get('gredIdx_len')
+        
+        # Clean up debug attributes
+        if hasattr(Rhom_tp, '_debug_step'):
+            delattr(Rhom_tp, '_debug_step')
+        if hasattr(Rhom_tp, '_debug_run'):
+            delattr(Rhom_tp, '_debug_run')
+        if hasattr(Rhom_tp, '_track_reduction_details'):
+            delattr(Rhom_tp, '_track_reduction_details')
+    
+    # Track Rend.tp after reduction if requested
+    if options.get('trackUpstream', False) and 'initReach_tracking' in options:
+        try:
+            def to_list_if_array(val):
+                if isinstance(val, np.ndarray):
+                    if val.size < 100:  # Only convert small arrays
+                        return val.tolist()
+                    return val  # Keep large arrays as numpy arrays
+                elif hasattr(val, 'tolist') and hasattr(val, 'size'):
+                    if val.size < 100:
+                        return val.tolist()
+                    return val
+                return val
+            options['initReach_tracking']['Rend_tp_center'] = to_list_if_array(np.asarray(Rend['tp'].center()))
+            options['initReach_tracking']['Rend_tp_generators'] = to_list_if_array(np.asarray(Rend['tp'].generators()))
+            options['initReach_tracking']['Rend_tp_num_generators'] = Rend['tp'].generators().shape[1] if Rend['tp'].generators().ndim > 1 else 0
+        except Exception as e:
+            if options.get('progress', False):
+                print(f"[initReach_adaptive] Error tracking Rend.tp: {e}", flush=True)
 
     # reduce and add RV only if exists
     if linOptions.get('isRV', False):
@@ -108,12 +307,43 @@ def initReach_adaptive(linsys: Any, Rstart: Any, options: Dict[str, Any],
             if isinstance(RV_res, tuple):
                 RV, _, idx = RV_res
                 if 'gredIdx' in options:
-                    options['gredIdx'].setdefault('Rpar', []).append(idx)
+                    # Store at index options['i'] - 1 (0-based) to match MATLAB's {options.i} (1-based)
+                    gredIdx = options['gredIdx'].setdefault('Rpar', [])
+                    # Ensure list is long enough
+                    while len(gredIdx) < options['i']:
+                        gredIdx.append(None)
+                    gredIdx[options['i'] - 1] = idx
             else:
                 RV = RV_res
 
         Rend['ti'] = Rend['ti'] + RV
         Rend['tp'] = Rend['tp'] + RV
+    
+    # Track Rend.ti and Rend.tp after all modifications (reduction + RV if applicable)
+    if options.get('trackUpstream', False) and 'initReach_tracking' in options:
+        try:
+            def to_list_if_array(val):
+                if isinstance(val, np.ndarray):
+                    if val.size < 100:  # Only convert small arrays
+                        return val.tolist()
+                    return val  # Keep large arrays as numpy arrays
+                elif hasattr(val, 'tolist') and hasattr(val, 'size'):
+                    if val.size < 100:
+                        return val.tolist()
+                    return val
+                return val
+            options['initReach_tracking']['Rend_ti_center'] = to_list_if_array(np.asarray(Rend['ti'].center()))
+            options['initReach_tracking']['Rend_ti_generators'] = to_list_if_array(np.asarray(Rend['ti'].generators()))
+            options['initReach_tracking']['Rend_ti_num_generators'] = Rend['ti'].generators().shape[1] if Rend['ti'].generators().ndim > 1 else 0
+            options['initReach_tracking']['Rend_tp_center'] = to_list_if_array(np.asarray(Rend['tp'].center()))
+            options['initReach_tracking']['Rend_tp_generators'] = to_list_if_array(np.asarray(Rend['tp'].generators()))
+            options['initReach_tracking']['Rend_tp_num_generators'] = Rend['tp'].generators().shape[1] if Rend['tp'].generators().ndim > 1 else 0
+            
+            # REMOVED: File I/O on every call is extremely slow
+            # The data is already in options['initReach_tracking'] and will be saved to upstreamLog
+        except Exception as e:
+            if options.get('progress', False):
+                print(f"[initReach_adaptive] Error tracking Rend.ti/tp: {e}", flush=True)
 
     return Rend, options, linOptions
 

@@ -62,10 +62,10 @@ def generateRandom(*args, **kwargs):
         value = args[i + 1]
         kwargs[key] = value
     
-    # Extract named arguments
-    n = kwargs.get('Dimension', None)
-    c = kwargs.get('Center', None)
-    r = kwargs.get('MaxRadius', None)
+    # Extract named arguments (Python-style lowercase preferred)
+    n = kwargs.get('dimension', kwargs.get('Dimension', None))
+    c = kwargs.get('center', kwargs.get('Center', None))
+    r = kwargs.get('max_radius', kwargs.get('MaxRadius', None))
     
     # Parse dimension argument
     if n is not None:

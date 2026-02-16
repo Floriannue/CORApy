@@ -42,27 +42,27 @@ if TYPE_CHECKING:
 
 def generateRandom(**kwargs) -> 'PolyZonotope':
     """
-    Generates a random polynomial zonotope
-    
+    Generates a random polynomial zonotope.
+
+    Syntax (Python-style lowercase kwargs):
+        pZ = PolyZonotope.generateRandom(dimension=2)
+        pZ = PolyZonotope.generateRandom(dimension=2, nr_generators=5, nr_indep_generators=2)
+
     Args:
-        **kwargs: Name-value pair arguments:
-            Dimension: dimension (default: 2)
-            NrGenerators: number of dependent generators (default: 5)
-            NrIndepGenerators: number of independent generators (default: 2)
-            MaxDegree: maximum degree of dependent generators (default: 3)
-        
+        **kwargs: dimension, nr_generators, nr_indep_generators, max_degree (all optional).
+
     Returns:
-        pZ: random polyZonotope object
+        PolyZonotope: random polynomial zonotope
     """
     
     from .polyZonotope import PolyZonotope
     
-    # Default values
+    # Default values (Python-style lowercase parameter names)
     listOfNameValuePairs = [
-        'Dimension', 2,
-        'NrGenerators', 5,
-        'NrIndepGenerators', 2,
-        'MaxDegree', 3
+        'dimension', 2,
+        'nr_generators', 5,
+        'nr_indep_generators', 2,
+        'max_degree', 3
     ]
     
     # Parse input arguments

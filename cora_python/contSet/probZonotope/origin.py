@@ -43,11 +43,15 @@ def origin(n: int) -> ProbZonotope:
         pZ: probZonotope object representing the origin
     """
     
-    # Create origin zonotope
+    # Create origin zonotope and convert to numeric matrix [c, G]
     origin_zono = Zonotope.origin(n)
-    
+    if origin_zono.G.size > 0:
+        Z_mat = np.hstack([origin_zono.c, origin_zono.G])
+    else:
+        Z_mat = origin_zono.c
+
     # Create probabilistic zonotope at origin
     g = np.zeros((n, 0))
     gamma = 2  # Default gamma value
     
-    return ProbZonotope(origin_zono, g, gamma) 
+    return ProbZonotope(Z_mat, g, gamma) 

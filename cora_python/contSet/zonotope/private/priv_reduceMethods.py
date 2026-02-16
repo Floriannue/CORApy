@@ -25,10 +25,10 @@ def priv_reduceGirard(Z: 'Zonotope', order: int) -> 'Zonotope':
     """
     from cora_python.contSet.zonotope import Zonotope
     
-    from cora_python.g.functions.helper.sets.contSet.zonotope.pickedGenerators import pickedGenerators
+    from cora_python.g.functions.helper.sets.contSet.zonotope.pickedGeneratorsFast import pickedGeneratorsFast
 
     # MATLAB: [center, Gunred, Gred] = pickedGeneratorsFast(Z, order);
-    center, Gunred, Gred, _ = pickedGenerators(Z, order)
+    center, Gunred, Gred, _ = pickedGeneratorsFast(Z, order)
 
     # box remaining generators
     # MATLAB: d = sum(abs(Gred),2); Gbox = diag(d);
@@ -113,12 +113,29 @@ def priv_reduceIdx(Z: 'Zonotope', order) -> 'Zonotope':
 
 
 def priv_reduceAdaptive(Z: 'Zonotope', order, option: str = 'default') -> Tuple['Zonotope', float, np.ndarray]:
-    """Adaptive reduction method - simplified implementation"""
-    Z_reduced = priv_reduceGirard(Z, 1)
-    dHerror = 0.0  # Placeholder
-    gredIdx = np.array([])  # Placeholder
+    """
+    Adaptive reduction method - delegates to actual implementation.
     
-    return Z_reduced, dHerror, gredIdx
+    Note: 'order' parameter is actually 'diagpercent' for adaptive reduction.
+    """
+    from .priv_reduceAdaptive import priv_reduceAdaptive as _priv_reduceAdaptive_impl
+    
+    # Determine type
+    type_str = 'girard'  # default
+    track_details = False
+    if option and isinstance(option, str):
+        if option in ['penven', 'girard']:
+            type_str = option
+        elif option == 'track_details':
+            track_details = True
+    elif isinstance(option, dict):
+        # Option can be a dict with 'type' and 'track_details'
+        type_str = option.get('type', 'girard')
+        track_details = option.get('track_details', False)
+    
+    # Call actual implementation
+    # Note: 'order' is actually 'diagpercent' for adaptive reduction
+    return _priv_reduceAdaptive_impl(Z, order, type_str, track_details=track_details)
 
 
 def priv_reduceMethE(Z: 'Zonotope', order: int) -> 'Zonotope':

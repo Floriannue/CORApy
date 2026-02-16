@@ -74,11 +74,44 @@ def reach_adaptive(nlnsys: Any, params: Dict[str, Any], options: Dict[str, Any])
             print(f"[reach_adaptive] Completed linReach_adaptive for step {options['i']}", flush=True)
         Rnext = {'ti': Rti, 'tp': Rtp}
 
+        # Track Rtp before reduction if requested
+        if options.get('trackUpstream', False):
+            try:
+                Rtp_center = Rtp.center() if hasattr(Rtp, 'center') else None
+                Rtp_gens = Rtp.generators() if hasattr(Rtp, 'generators') else None
+                if Rtp_center is not None and Rtp_gens is not None:
+                    options['Rtp_before_reduction'] = {
+                        'step': options['i'],
+                        'center': np.asarray(Rtp_center).copy(),
+                        'generators': np.asarray(Rtp_gens).copy(),
+                        'num_generators': Rtp_gens.shape[1] if Rtp_gens.ndim > 1 else 0,
+                        'redFactor': options.get('redFactor')
+                    }
+            except Exception as e:
+                if options.get('progress', False):
+                    print(f"[reach_adaptive] Error tracking Rtp before reduction: {e}", flush=True)
+
         # reduction for next step
         Rti_res = Rnext['ti'].reduce('adaptive', options['redFactor'] * 5)
         Rnext['ti'] = Rti_res[0] if isinstance(Rti_res, tuple) else Rti_res
         Rtp_res = Rnext['tp'].reduce('adaptive', options['redFactor'])
         Rnext['tp'] = Rtp_res[0] if isinstance(Rtp_res, tuple) else Rtp_res
+        
+        # Track Rtp after reduction if requested
+        if options.get('trackUpstream', False):
+            try:
+                Rtp_after_center = Rnext['tp'].center() if hasattr(Rnext['tp'], 'center') else None
+                Rtp_after_gens = Rnext['tp'].generators() if hasattr(Rnext['tp'], 'generators') else None
+                if Rtp_after_center is not None and Rtp_after_gens is not None:
+                    options['Rtp_after_reduction'] = {
+                        'step': options['i'],
+                        'center': np.asarray(Rtp_after_center).copy(),
+                        'generators': np.asarray(Rtp_after_gens).copy(),
+                        'num_generators': Rtp_after_gens.shape[1] if Rtp_after_gens.ndim > 1 else 0
+                    }
+            except Exception as e:
+                if options.get('progress', False):
+                    print(f"[reach_adaptive] Error tracking Rtp after reduction: {e}", flush=True)
 
         # additional reduction for poly
         if isinstance(Rnext['tp'], PolyZonotope):
@@ -103,6 +136,23 @@ def reach_adaptive(nlnsys: Any, params: Dict[str, Any], options: Dict[str, Any])
         options['i'] = options['i'] + 1
 
         # start set for next step (since always initReach called)
+        # Before updating options['R'], save Rtp tracking if this becomes the next step's Rstart
+        if options.get('trackUpstream', False) and 'Rtp_after_reduction' in options:
+            # This Rtp_after_reduction will become the next step's Rstart
+            # Store it with the step number it will be used for (current step + 1)
+            next_step = options['i'] + 1
+            if 'Rtp_tracking_by_step' not in options:
+                options['Rtp_tracking_by_step'] = {}
+            options['Rtp_tracking_by_step'][next_step] = {
+                'before': options.get('Rtp_before_reduction', {}),
+                'after': options.get('Rtp_after_reduction', {})
+            }
+            # Clear the current step's tracking to avoid confusion
+            if 'Rtp_before_reduction' in options:
+                del options['Rtp_before_reduction']
+            if 'Rtp_after_reduction' in options:
+                del options['Rtp_after_reduction']
+        
         options['R'] = Rnext['tp']
         
         # Debug: Track reachable set size to identify when it starts growing unbounded
@@ -125,17 +175,37 @@ def reach_adaptive(nlnsys: Any, params: Dict[str, Any], options: Dict[str, Any])
 
 
 def _aux_checkForAbortion(tVec: np.ndarray, currt: float, tFinal: float) -> bool:
+    # MATLAB: aux_checkForAbortion - matches MATLAB exactly
+    # MATLAB code (line 113-132):
+    #   abortAnalysis = false;
+    #   remTime = tFinal - currt;
+    #   N = 10;
+    #   k = length(tVec);
+    #   lastNsteps = sum(tVec(end-min(N,k)+1:end));
+    #   if remTime / lastNsteps > 1e9
+    #       abortAnalysis = true;
+    #   end
     abortAnalysis = False
     remTime = tFinal - currt
     N = 10
     k = len(tVec)
+    # MATLAB doesn't check k == 0, but it's safe to add
     if k == 0:
         return False
+    # MATLAB: lastNsteps = sum(tVec(end-min(N,k)+1:end));
+    # Python equivalent: tVec[max(0, k - N):]
     lastNsteps = np.sum(tVec[max(0, k - N):])
+    # MATLAB: if remTime / lastNsteps > 1e9
+    # In MATLAB, if lastNsteps == 0, then remTime / lastNsteps = Inf, which is > 1e9
+    # So MATLAB would abort. To match MATLAB exactly, we need to handle Inf case.
+    # In Python, division by zero raises, so we check for Inf result.
     if lastNsteps == 0:
-        return True
-    if remTime / lastNsteps > 1e9:
+        # MATLAB: Inf > 1e9 is True, so abort
         abortAnalysis = True
+    else:
+        ratio = remTime / lastNsteps
+        if ratio > 1e9:
+            abortAnalysis = True
     return abortAnalysis
 
 

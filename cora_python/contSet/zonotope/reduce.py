@@ -123,7 +123,18 @@ def reduce(Z: 'Zonotope', method: str, order: Optional[int] = 1,
     
     elif method == 'adaptive':
         # note: var 'order' is not an order here!
-        Z_reduced, dHerror, gredIdx = priv_reduceAdaptive(Z, order)
+        # Check if we should track details (from Z attribute if available)
+        track_details = False
+        if hasattr(Z, '_track_reduction_details'):
+            track_details = Z._track_reduction_details
+            delattr(Z, '_track_reduction_details')  # Clean up
+        # Pass tracking flag - priv_reduceAdaptive accepts type as 3rd arg and track_details as keyword
+        # But we need to pass track_details, so use the dict approach for backward compatibility
+        if track_details:
+            option_dict = {'type': 'girard', 'track_details': True}
+            Z_reduced, dHerror, gredIdx = priv_reduceAdaptive(Z, order, option_dict)
+        else:
+            Z_reduced, dHerror, gredIdx = priv_reduceAdaptive(Z, order, 'girard')
         return Z_reduced, dHerror, gredIdx
     
     elif method == 'adaptive-penven':

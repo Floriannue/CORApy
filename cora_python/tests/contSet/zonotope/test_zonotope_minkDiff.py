@@ -203,8 +203,8 @@ def test_zonotope_minkDiff_exact_2d():
     n = 2
     for i in range(5):  # Reduced from 10 for faster testing
         # Generate random zonotopes
-        difference = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
-        subtrahend = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
+        difference = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
+        subtrahend = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
         minuend = difference + subtrahend
         
         # Compute Minkowski difference
@@ -222,7 +222,7 @@ def test_zonotope_minkDiff_exact_aligned():
     # Test aligned zonotopes with exact method
     for i in range(5):  # Reduced from 10 for faster testing
         n = np.random.randint(2, 6)
-        minuend = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
+        minuend = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
         subtrahend = minuend * np.random.random()  # Scale down
         
         # Compute Minkowski difference
@@ -242,8 +242,8 @@ def test_zonotope_minkDiff_exact_error():
     # Test error for exact method with higher dimensions
     ns = [3, 5]
     for n in ns:
-        minuend = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
-        subtrahend = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
+        minuend = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
+        subtrahend = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
         
         with pytest.raises(CORAerror) as exc_info:
             minuend.minkDiff(subtrahend, 'exact')
@@ -258,7 +258,7 @@ def test_zonotope_minkDiff_outer_scaling():
     # Test outer:scaling method
     for i in range(3):  # Reduced from 10 for faster testing
         n = np.random.randint(2, 6)
-        difference = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
+        difference = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
         subtrahend = Interval.generateRandom('Dimension', n)
         minuend = difference + subtrahend
         
@@ -327,8 +327,8 @@ def test_zonotope_minkDiff_all_methods_syntax():
         try:
             # Initialize
             n = 3
-            difference = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
-            subtrahend = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
+            difference = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
+            subtrahend = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
             minuend = difference + subtrahend
             
             # Compute Minkowski difference

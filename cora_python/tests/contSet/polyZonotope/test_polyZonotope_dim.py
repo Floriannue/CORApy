@@ -29,7 +29,7 @@ class TestPolyZonotropeDim:
     def test_dim_random_polyzonotope(self):
         """Test dim with random polyZonotope"""
         for n in [1, 2, 3, 5, 10]:
-            pZ = PolyZonotope.generateRandom(Dimension=n)
+            pZ = PolyZonotope.generateRandom(dimension=n)
             assert pZ.dim() == n
     
     def test_dim_constructed_polyzonotope(self):
@@ -75,7 +75,7 @@ class TestPolyZonotropeDim:
         n = 4
         pZ_empty = PolyZonotope.empty(n)
         pZ_origin = PolyZonotope.origin(n)
-        pZ_random = PolyZonotope.generateRandom(Dimension=n)
+        pZ_random = PolyZonotope.generateRandom(dimension=n)
         
         assert pZ_empty.dim() == n
         assert pZ_origin.dim() == n

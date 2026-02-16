@@ -141,16 +141,9 @@ def priv_reach_adaptive(linsys, params: Dict[str, Any], options: Dict[str, Any])
     errs, savedata = aux_errorboundreduction(errs, linsys.A, isU, G_U, options, savedata)
     
     # compute first output solution and corresponding error
-    V_init = params.get('V', np.zeros((linsys.C.shape[0], 1))) if params.get('V') is not None else np.zeros((linsys.C.shape[0], 1))
-    vTrans_init = params.get('vTrans', np.zeros((linsys.C.shape[0], 1))) if params.get('vTrans') is not None else np.zeros((linsys.C.shape[0], 1))
-    
-    # Ensure V_init and vTrans_init have the correct output dimension
-    if V_init.shape[0] != linsys.C.shape[0]:
-        V_init = np.zeros((linsys.C.shape[0], 1))
-    if vTrans_init.shape[0] != linsys.C.shape[0]:
-        vTrans_init = np.zeros((linsys.C.shape[0], 1))
-    
-    timePoint['set'].append(linsys.C @ params['R0'] + V_init + vTrans_init)
+    # MATLAB: timePoint.set{1} = linsys.C * params.R0 + params.V + params.vTrans
+    # V and vTrans may be Zonotope (e.g. from _validateOptions) or array (from aux_canonicalForm)
+    timePoint['set'].append(linsys.C @ params['R0'] + params['V'] + params['vTrans'])
     timePoint['time'].append(params['tStart'])
     timePoint['error'].append(0.0)
     

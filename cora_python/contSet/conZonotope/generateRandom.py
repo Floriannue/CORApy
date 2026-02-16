@@ -44,10 +44,7 @@ def generateRandom(**kwargs) -> 'ConZonotope':
     Generates a random constrained zonotope
     
     Args:
-        **kwargs: Name-value pair arguments:
-            Dimension: dimension (default: 2)
-            NrGenerators: number of generators (default: 5)
-            NrConstraints: number of constraints (default: 2)
+        **kwargs: dimension, nr_generators, nr_constraints (all optional).
         
     Returns:
         cZ: random conZonotope object
@@ -55,11 +52,11 @@ def generateRandom(**kwargs) -> 'ConZonotope':
     
     from .conZonotope import ConZonotope
     
-    # Default values
+    # Default values (Python-style lowercase parameter names)
     listOfNameValuePairs = [
-        'Dimension', 2,
-        'NrGenerators', 5, 
-        'NrConstraints', 2
+        'dimension', 2,
+        'nr_generators', 5,
+        'nr_constraints', 2
     ]
     
     # Parse input arguments

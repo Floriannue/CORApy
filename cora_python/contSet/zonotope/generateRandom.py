@@ -34,45 +34,31 @@ Last update:   19-May-2022 (MATLAB)
 import numpy as np
 from typing import Optional, Union, Dict, Any, List
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
-from cora_python.g.functions.matlab.validate.check.checkNameValuePairs import checkNameValuePairs
-from cora_python.g.functions.matlab.validate.preprocessing.readNameValuePair import readNameValuePair
 from cora_python.g.functions.helper.sets.contSet.zonotope.randomPointOnSphere import randomPointOnSphere
 from .zonotope import Zonotope
 
 
-def generateRandom(*args) -> Zonotope:
+def generateRandom(**kwargs) -> Zonotope:
     """
     Generates a random zonotope.
-    
+
+    Syntax (Python-style lowercase kwargs, consistent with LinearSys.generateRandom):
+        Z = Zonotope.generateRandom()
+        Z = Zonotope.generateRandom(dimension=2)
+        Z = Zonotope.generateRandom(dimension=2, nr_generators=5)
+
     Args:
-        *args: Name-value pairs:
-            - Dimension: dimension
-            - Center: center
-            - NrGenerators: number of generators
-            - Distribution: distribution for generators ('uniform', 'exp', 'gamma')
-        
+        **kwargs: dimension, center, nr_generators, distribution (all optional).
+
     Returns:
         Zonotope: Random zonotope
-        
-    Raises:
-        CORAerror: If inputs are invalid or computation fails
     """
-    # name-value pairs -> number of input arguments is always a multiple of 2
-    if len(args) % 2 != 0:
-        raise CORAerror('CORA:evenNumberInputArgs')
-    else:
-        # read input arguments
-        NVpairs = list(args)
-        # check list of name-value pairs
-        checkNameValuePairs(NVpairs, ['Dimension', 'Center', 'NrGenerators', 'Distribution'])
-        # dimension given?
-        [NVpairs, n] = readNameValuePair(NVpairs, 'Dimension')
-        # center given?
-        [NVpairs, c] = readNameValuePair(NVpairs, 'Center')
-        # number of generators given?
-        [NVpairs, nrGens] = readNameValuePair(NVpairs, 'NrGenerators')
-        # distribution for generators given?
-        [NVpairs, type_dist] = readNameValuePair(NVpairs, 'Distribution')
+    n = kwargs.get('dimension')
+    c = kwargs.get('center')
+    nrGens = kwargs.get('nr_generators')
+    type_dist = kwargs.get('distribution')
+    if kwargs.keys() - {'dimension', 'center', 'nr_generators', 'distribution'}:
+        raise CORAerror('CORA:wrongValue', 'kwargs', 'Only dimension, center, nr_generators, distribution allowed')
     
     # Default computation for dimension
     if n is None:

@@ -146,7 +146,7 @@ class TestPolyZonotopeRepresentsa:
         pZ = PolyZonotope.origin(2)
         assert not pZ.representsa_('fullspace', tol=1e-10)
         
-        pZ = PolyZonotope.generateRandom(Dimension=3)
+        pZ = PolyZonotope.generateRandom(dimension=3)
         assert not pZ.representsa_('fullspace', tol=1e-10)
     
     def test_representsa_edge_cases(self):
@@ -209,7 +209,7 @@ class TestPolyZonotopeRepresentsa:
         assert not pZ_origin.representsa_('emptySet', tol=1e-10)
         
         # Random polyZonotope should not be empty
-        pZ_random = PolyZonotope.generateRandom(Dimension=3)
+        pZ_random = PolyZonotope.generateRandom(dimension=3)
         assert not pZ_random.representsa_('emptySet', tol=1e-10)
 
 

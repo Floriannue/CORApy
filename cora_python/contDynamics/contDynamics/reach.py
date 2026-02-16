@@ -112,12 +112,38 @@ def reach(sys: Any, params: Dict[str, Any], options: Dict[str, Any],
                 options['polyZono'].setdefault('maxDepGenOrder', 50)
                 options['polyZono'].setdefault('maxPolyZonoRatio', 0.05)
                 options['polyZono'].setdefault('restructureTechnique', 'reducePca')
-        if 'U' not in params:
-            from cora_python.contSet.zonotope import Zonotope
-            params['U'] = Zonotope(np.zeros((sys.nr_of_inputs, 1)), np.array([]).reshape(sys.nr_of_inputs, 0))
-        # MATLAB validateOptions/postProcessing sets uTrans default to center(U)
-        if 'uTrans' not in params and 'uTransVec' not in params and 'U' in params:
-            params['uTrans'] = params['U'].center()
+    
+    # MATLAB postProcessing (func='reach') for contDynamics: normalize input set U and u/uTrans
+    # Ensures non-standard U (e.g. Interval) and params.u are correctly handled before subfunctions
+    from cora_python.contSet.zonotope import Zonotope
+    if 'U' not in params:
+        params['U'] = Zonotope(np.zeros((sys.nr_of_inputs, 1)), np.array([]).reshape(sys.nr_of_inputs, 0))
+    if 'U' in params:
+        from cora_python.contSet.interval import Interval
+        if isinstance(params['U'], Interval):
+            params['U'] = Zonotope(params['U'])
+    sys_class = getattr(sys, '__class__', None)
+    sys_name = sys_class.__name__ if sys_class else ''
+    if 'u' in params and 'nonlinearARX' not in sys_name:
+        U = params['U']
+        centerU = np.asarray(U.center())
+        if centerU.ndim == 1:
+            centerU = centerU.reshape(-1, 1)
+        if np.any(centerU):
+            u_val = np.asarray(params['u'])
+            if u_val.ndim == 1:
+                u_val = u_val.reshape(-1, 1)
+            params['u'] = u_val + centerU
+            params['U'] = U + (-centerU)
+        input_traj_len = params['u'].shape[1] if np.asarray(params['u']).ndim >= 2 else 1
+        if input_traj_len > 1:
+            params['uTransVec'] = params['u']
+        else:
+            u_1 = np.asarray(params['u'])
+            params['uTrans'] = u_1.reshape(-1, 1) if u_1.ndim == 1 else u_1
+        del params['u']
+    if 'uTrans' not in params and 'uTransVec' not in params and 'U' in params:
+        params['uTrans'] = params['U'].center()
     
     # handling of specifications
     # MATLAB: specLogic = [];

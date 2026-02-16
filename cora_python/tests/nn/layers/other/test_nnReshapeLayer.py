@@ -27,7 +27,6 @@ import pytest
 import numpy as np
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'cora_python'))
 
 from cora_python.nn.layers.other.nnReshapeLayer import nnReshapeLayer
 

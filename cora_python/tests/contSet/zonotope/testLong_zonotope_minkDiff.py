@@ -34,8 +34,8 @@ def testLong_zonotope_minkDiff():
         try:
             # init
             n = 3
-            difference = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
-            subtrahend = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
+            difference = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
+            subtrahend = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
             minuend = difference + subtrahend
             
             # minkDiff
@@ -51,8 +51,8 @@ def testLong_zonotope_minkDiff():
     n = 2
     for i in range(10):
         # init
-        difference = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
-        subtrahend = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
+        difference = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
+        subtrahend = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
         minuend = difference + subtrahend
         
         # minkDiff
@@ -66,7 +66,7 @@ def testLong_zonotope_minkDiff():
     for i in range(10):
         # init
         n = np.random.randint(1, 11)
-        minuend = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
+        minuend = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
         subtrahend = minuend * np.random.random()  # scale down
         
         # minkDiff
@@ -81,8 +81,8 @@ def testLong_zonotope_minkDiff():
     # Test error for exact
     ns = [3, 5, 10]
     for n in ns:
-        minuend = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
-        subtrahend = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
+        minuend = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
+        subtrahend = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
         with pytest.raises(CORAerror):
             minuend.minkDiff(subtrahend, method)
     
@@ -92,7 +92,7 @@ def testLong_zonotope_minkDiff():
     for i in range(10):
         # init
         n = np.random.randint(1, 11)
-        difference = Zonotope.generateRandom('Dimension', n, 'NrGenerators', 2*n)
+        difference = Zonotope.generateRandom(dimension=n, nr_generators=2*n)
         subtrahend = Interval.generateRandom('Dimension', n)
         minuend = difference + subtrahend
         
