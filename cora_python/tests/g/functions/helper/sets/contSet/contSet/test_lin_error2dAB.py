@@ -161,7 +161,6 @@ def test_lin_error2dAB():
     test.test_lin_error2dAB_with_varargin()
     
     print("test_lin_error2dAB: all tests passed")
-    return True
 
 
 if __name__ == "__main__":

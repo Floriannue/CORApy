@@ -146,7 +146,6 @@ def test_generateNthTensor():
     test.test_generateNthTensor_multiple_components()
     
     print("test_generateNthTensor: all tests passed")
-    return True
 
 
 if __name__ == "__main__":

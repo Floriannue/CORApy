@@ -92,7 +92,6 @@ def test_rmiffield():
     test.test_rmiffield_repeated_call()
     
     print("test_rmiffield: all tests passed")
-    return True
 
 
 if __name__ == "__main__":

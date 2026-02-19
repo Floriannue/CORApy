@@ -76,7 +76,6 @@ def test_bracketSubs():
     test.test_bracketSubs_longer_name()
     
     print("test_bracketSubs: all tests passed")
-    return True
 
 
 if __name__ == "__main__":
