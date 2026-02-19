@@ -33,8 +33,7 @@ Last revision: ---
 
 import numpy as np
 from typing import Tuple, Any, Dict, List, Optional, Union
-from cora_python.contSet.zonotope import Zonotope
-from cora_python.contSet.zonotope.split import split
+
 
 
 def initReach(nlnsys: Any, Rinit: Union[Any, List[Dict[str, Any]]], 
@@ -89,8 +88,7 @@ def initReach(nlnsys: Any, Rinit: Union[Any, List[Dict[str, Any]]],
         # compute reachable set of abstraction
         # MATLAB: [Rtemp_ti,Rtemp_tp,dimForSplit,opts] = ...
         #            linReach(nlnsys,Rinit{i},params,options);
-        # NOTE: linReach is in @contDynamics and needs to be translated
-        # For now, we assume it exists as a function
+        # linReach is implemented in cora_python.contDynamics.contDynamics.linReach
         from cora_python.contDynamics.contDynamics.linReach import linReach
         Rtemp_ti, Rtemp_tp, dimForSplit, opts = linReach(nlnsys, Rinit[i], params, options)
         
@@ -120,7 +118,9 @@ def initReach(nlnsys: Any, Rinit: Union[Any, List[Dict[str, Any]]],
         else:
             # splitting
             # MATLAB: Rtmp = split(Rinit{i}.set,dimForSplit);
-            Rtmp = split(Rinit[i]['set'], dimForSplit)
+            set_obj = Rinit[i]['set']
+            Rtmp = set_obj.split(dimForSplit)
+
             
             # MATLAB: Rsplit{1}.set = Rtmp{1};
             # MATLAB: Rsplit{2}.set = Rtmp{2};

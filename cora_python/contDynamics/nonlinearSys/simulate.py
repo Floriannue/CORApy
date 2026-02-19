@@ -58,13 +58,24 @@ def simulate(nlnsys: Any, params: Dict[str, Any], options: Optional[Dict[str, An
         t_span = np.arange(0, seg_final + params['timeStep'], params['timeStep'])
         if abs(t_span[-1] - seg_final) > 1e-10:
             t_span = np.append(t_span, seg_final)
+        t_eval = t_span
+        t_span = (t_span[0], t_span[-1])
     else:
-        t_span = np.array([0.0, seg_final])
+        # MATLAB: ode45 returns adaptive intermediate points if no timeStep is set
+        t_span = (0.0, seg_final)
+        t_eval = None
 
     t = []
     x = []
     ind = None
     x0 = np.asarray(params['x0']).flatten()
+
+    # Extract solver options (filter out simulateRandom options)
+    refine = options.pop('Refine', options.pop('refine', 4))
+    valid_solve_keys = {
+        'rtol', 'atol', 'method', 'max_step', 'first_step',
+        'vectorized', 'jac', 'jac_sparsity', 'events', 'dense_output'
+    }
 
     for i in range(segs):
         params_seg = params.copy()
@@ -72,16 +83,27 @@ def simulate(nlnsys: Any, params: Dict[str, Any], options: Optional[Dict[str, An
 
         f = getfcn(nlnsys, params_seg)
 
-        solve_opts = options.copy()
+        solve_opts = {k: v for k, v in options.items() if k in valid_solve_keys}
         solve_opts.setdefault('rtol', 1e-6)
         solve_opts.setdefault('atol', 1e-9)
+        if t_eval is None and refine is not None and refine > 1:
+            solve_opts.setdefault('dense_output', True)
 
-        sol = solve_ivp(f, (t_span[0], t_span[-1]), x0, t_eval=t_span, **solve_opts)
+        sol = solve_ivp(f, t_span, x0, t_eval=t_eval, **solve_opts)
         if not sol.success:
             raise RuntimeError(f"Integration failed: {sol.message}")
 
-        t_seg = sol.t
-        x_seg = sol.y.T
+        if t_eval is None and refine is not None and refine > 1 and sol.sol is not None:
+            # MATLAB ode45 uses a refine factor to output additional points per step
+            t_dense = [sol.t[0]]
+            for j in range(len(sol.t) - 1):
+                t_local = np.linspace(sol.t[j], sol.t[j + 1], refine + 1)[1:]
+                t_dense.extend(t_local.tolist())
+            t_seg = np.array(t_dense)
+            x_seg = sol.sol(t_seg).T
+        else:
+            t_seg = sol.t
+            x_seg = sol.y.T
 
         if i == 0:
             t = t_seg + params['tStart']

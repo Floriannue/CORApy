@@ -50,8 +50,10 @@ def center(zB: 'ZonoBundle') -> np.ndarray:
     if zB.parallelSets == 0:
         # fully-empty zonotope bundle
         return np.array([]).reshape(zB.dim(), 0)
-    else:
-        # For simplicity, use the center of the first zonotope as an estimate
-        # This works well for interval->zonoBundle conversion (single zonotope)
-        # For multiple zonotopes, this is just an approximation
-        return zB.Z[0].center() 
+
+    # MATLAB: use constrained zonotope and its center (Chebyshev if non-empty)
+    cZ = zB.conZonotope()
+    if cZ.representsa_('emptySet', np.finfo(float).eps):
+        return np.array([]).reshape(cZ.dim(), 0)
+
+    return cZ.center()

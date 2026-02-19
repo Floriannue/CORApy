@@ -17,10 +17,13 @@ from .isemptyobject import isemptyobject
 from .empty import empty
 from .origin import origin
 from .generateRandom import generateRandom
+from .isFullDim import isFullDim
 from .representsa_ import representsa_
 from .minkDiff import minkDiff
 from .vertices_ import vertices_
 from .compact import compact
+from .compact_ import compact_
+from .and_ import and_
 from .reduceConstraints import reduceConstraints
 from .plus import plus
 from .uminus import uminus
@@ -30,12 +33,15 @@ from .display import display, display_
 # Attach methods to the ConZonotope class
 # dim and isemptyobject are required by ContSet
 ConZonotope.center = center
+ConZonotope.isFullDim = isFullDim
 ConZonotope.dim = dim
 ConZonotope.isemptyobject = isemptyobject
 ConZonotope.representsa_ = representsa_
 ConZonotope.minkDiff = minkDiff
 ConZonotope.vertices_ = vertices_
 ConZonotope.compact = compact
+ConZonotope.compact_ = compact_
+ConZonotope.and_ = and_
 ConZonotope.reduceConstraints = reduceConstraints
 ConZonotope.plus = plus
 ConZonotope.__add__ = plus

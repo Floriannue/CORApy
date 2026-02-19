@@ -33,7 +33,6 @@ Last revision: ---
 
 import numpy as np
 from typing import Any, Dict, Optional
-from cora_python.contSet.zonotope.split import split
 # Import linReach inside function to avoid circular import
 # from cora_python.contDynamics.contDynamics.linReach import linReach
 
@@ -55,7 +54,9 @@ def priv_select(sys: Any, Rinit: Dict[str, Any], params: Dict[str, Any],
     
     # compute all possible splits of the maximum reachable set
     # MATLAB: Rtmp = split(Rinit.set);
-    Rtmp = split(Rinit['set'])
+    set_obj = Rinit['set']
+    Rtmp = set_obj.split()
+
     
     # MATLAB: R = cell(length(Rtmp),1);
     R = [None] * len(Rtmp)

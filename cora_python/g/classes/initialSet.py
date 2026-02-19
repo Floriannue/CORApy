@@ -14,6 +14,7 @@ from typing import List, Any, Optional
 from cora_python.contSet.contSet.contSet import ContSet
 from cora_python.contSet.zonotope.zonotope import Zonotope
 from cora_python.g.functions.verbose.plot.read_plot_options import read_plot_options
+from cora_python.g.functions.verbose.plot.color.cora_color import cora_color
 
 class InitialSet:
     """
@@ -52,6 +53,10 @@ class InitialSet:
         """
         if dims is None:
             dims = [0, 1]  # Python uses 0-based indexing
+
+        # Ensure initial set uses CORA default color (white) unless overridden
+        if 'FaceColor' not in kwargs and 'facecolor' not in kwargs:
+            kwargs['FaceColor'] = cora_color('CORA:initialSet')
         
         # Just pass the original kwargs and let contSet.plot() handle all processing
         # This avoids double-processing issues

@@ -78,7 +78,7 @@ import matplotlib.pyplot as plt
 
 # Add the project root to the path so imports work when run as script
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.join(current_dir, '../../..')
+project_root = os.path.abspath(os.path.join(current_dir, '../../../..'))
 sys.path.insert(0, project_root)
 
 # Configure matplotlib for smooth rendering like MATLAB
@@ -91,6 +91,7 @@ plt.rcParams['axes.linewidth'] = 0.8
 
 from cora_python.contDynamics.nonlinearSys import NonlinearSys
 from cora_python.contSet.zonotope import Zonotope
+from cora_python.contSet.zonoBundle import ZonoBundle
 from cora_python.models.Cora.vanDerPol.vanderPolEq import vanderPolEq
 
 
@@ -102,12 +103,10 @@ def example_nonlinear_reach_03_vanDerPol_splitting():
     # Parameters --------------------------------------------------------------
     # MATLAB: params.tFinal = 0.5;
     # MATLAB: Z0{1} = zonotope([1.4 0.3 0; 2.3 0 0.05]); params.R0 = zonoBundle(Z0);
-    # Use single Zonotope for R0 (same shape as first in bundle) so reach runs;
-    # zonoBundle + zonotope in linReach not yet implemented in Python.
     # Zonotope(c, G): c = [1.4; 2.3], G = [0.3 0; 0 0.05]
     params = {
         'tFinal': 0.5,
-        'R0': Zonotope(np.array([[1.4], [2.3]]), np.array([[0.3, 0], [0, 0.05]]))
+        'R0': ZonoBundle([Zonotope(np.array([[1.4], [2.3]]), np.array([[0.3, 0], [0, 0.05]]))])
     }
 
     # Reachability Settings ---------------------------------------------------
@@ -139,9 +138,9 @@ def example_nonlinear_reach_03_vanDerPol_splitting():
 
     # Handle R as list (multiple branches) or single ReachSet
     if isinstance(R, list):
-        R_plot = R[0]
-    else:
         R_plot = R
+    else:
+        R_plot = [R]
 
     # Simulation --------------------------------------------------------------
     # MATLAB: simOpt.points = 60; traj = simulateRandom(vanderPol, params, simOpt);
@@ -156,10 +155,14 @@ def example_nonlinear_reach_03_vanDerPol_splitting():
     plt.hold = True if hasattr(plt, 'hold') else None
 
     # plot reachable sets
-    R_plot.plot(proj_dim, DisplayName='Reachable set')
+    for idx, r_branch in enumerate(R_plot):
+        if idx == 0:
+            r_branch.plot(proj_dim, DisplayName='Reachable set')
+        else:
+            r_branch.plot(proj_dim)
 
     # plot initial set (MATLAB: R(1).R0 -> first branch)
-    R_plot.R0.plot(proj_dim, DisplayName='Initial set')
+    R_plot[0].R0.plot(proj_dim, DisplayName='Initial set')
 
     # plot simulation results
     traj.plot(proj_dim, DisplayName='Simulations')
@@ -167,9 +170,8 @@ def example_nonlinear_reach_03_vanDerPol_splitting():
     # label plot (MATLAB: xlabel(['x_{',num2str(projDim(1)),'}']); 1-based)
     plt.xlabel(f'$x_{{{proj_dim[0] + 1}}}$')
     plt.ylabel(f'$x_{{{proj_dim[1] + 1}}}$')
-    plt.legend(loc='best')
-    plt.grid(True)
     plt.box(True)
+    plt.legend()
     plt.tight_layout()
 
     # Save figure (examples must run; saving allows verification without GUI)

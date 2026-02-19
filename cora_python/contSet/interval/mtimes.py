@@ -511,6 +511,23 @@ def _mtimes_vector_matrix(vector_interval: Interval, matrix_interval: Interval) 
     # [k] .* [k, n] = [k, n]
     v_inf = vector_interval.inf[:, np.newaxis]
     v_sup = vector_interval.sup[:, np.newaxis]
+
+    if _is_sparse(matrix_interval):
+        if not HAS_SCIPY:
+            raise CORAerror('CORA:noops', 'Sparse interval multiplication requires scipy')
+        # Scale rows using diagonal matrices to emulate element-wise multiplication for sparse matrices
+        v_inf_diag = sp.diags(v_inf.flatten())
+        v_sup_diag = sp.diags(v_sup.flatten())
+
+        sum_1 = np.asarray((v_inf_diag @ matrix_interval.inf).sum(axis=0)).ravel()
+        sum_2 = np.asarray((v_inf_diag @ matrix_interval.sup).sum(axis=0)).ravel()
+        sum_3 = np.asarray((v_sup_diag @ matrix_interval.inf).sum(axis=0)).ravel()
+        sum_4 = np.asarray((v_sup_diag @ matrix_interval.sup).sum(axis=0)).ravel()
+
+        sums = np.stack([sum_1, sum_2, sum_3, sum_4], axis=-1)
+        inf_result = np.min(sums, axis=-1)
+        sup_result = np.max(sums, axis=-1)
+        return Interval(inf_result, sup_result)
     
     products = [
         v_inf * matrix_interval.inf,

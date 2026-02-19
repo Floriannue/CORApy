@@ -37,16 +37,12 @@ from ..contSet import ContSet
 from cora_python.g.functions.matlab.validate.postprocessing.CORAerror import CORAerror
 
 # Import geometric computation capabilities
-try:
-    from shapely.geometry import Polygon as ShapelyPolygon
-    from shapely.geometry import Point, MultiPolygon, LineString
-    from shapely.ops import unary_union
-    from shapely import convex_hull, buffer
-    import shapely
-    SHAPELY_AVAILABLE = True
-except ImportError:
-    SHAPELY_AVAILABLE = False
-    ShapelyPolygon = None
+
+from shapely.geometry import Polygon as ShapelyPolygon
+from shapely.geometry import Point, MultiPolygon, LineString
+from shapely.ops import unary_union
+from shapely import convex_hull, buffer
+
 
 
 class Polygon(ContSet):
@@ -93,10 +89,7 @@ class Polygon(ContSet):
 
         # Empty constructor
         if len(varargin) == 0:
-            if SHAPELY_AVAILABLE:
-                set_obj = ShapelyPolygon()
-            else:
-                set_obj = None
+            set_obj = ShapelyPolygon()
             return set_obj, x, y, nvpairs
         
         # polygon(set)
@@ -130,7 +123,7 @@ class Polygon(ContSet):
             if isinstance(set_obj, Polygon):
                 # Valid polygon object
                 pass
-            elif SHAPELY_AVAILABLE and isinstance(set_obj, ShapelyPolygon):
+            elif isinstance(set_obj, ShapelyPolygon):
                 # Valid shapely polygon
                 pass
             elif isinstance(set_obj, np.ndarray):
@@ -170,7 +163,7 @@ class Polygon(ContSet):
         self.TOL = 1e-8
         
         # Shapely polygon given?
-        if SHAPELY_AVAILABLE and isinstance(set_obj, ShapelyPolygon):
+        if isinstance(set_obj, ShapelyPolygon):
             self.set = set_obj
             self.poly = set_obj  # For compatibility with tests
             if not set_obj.is_empty:
@@ -195,47 +188,37 @@ class Polygon(ContSet):
 
         # Empty x,y?
         if x.size == 0:
-            if SHAPELY_AVAILABLE:
-                self.set = ShapelyPolygon()
-                self.poly = self.set
-            else:
-                self.set = None
-                self.poly = None
-            return
+            self.set = ShapelyPolygon()
+            self.poly = self.set
+
 
         # x,y given
         x = x.reshape(-1)
         y = y.reshape(-1)
 
         # Create shapely polygon
-        if SHAPELY_AVAILABLE:
-            try:
-                # Try to create polygon directly
-                coords = list(zip(x, y))
-                poly = ShapelyPolygon(coords)
+        try:
+            # Try to create polygon directly
+            coords = list(zip(x, y))
+            poly = ShapelyPolygon(coords)
+            
+            # Check if valid
+            if poly.is_valid and not poly.is_empty:
+                self.set = poly
+                self.poly = poly
+                self._V = np.vstack([x, y])
+            else:
+                # Try with convex hull
+                poly = convex_hull(ShapelyPolygon(coords))
+                self.set = poly
+                self.poly = poly
+                self._V = np.vstack([x, y])
                 
-                # Check if valid
-                if poly.is_valid and not poly.is_empty:
-                    self.set = poly
-                    self.poly = poly
-                    self._V = np.vstack([x, y])
-                else:
-                    # Try with convex hull
-                    poly = convex_hull(ShapelyPolygon(coords))
-                    self.set = poly
-                    self.poly = poly
-                    self._V = np.vstack([x, y])
-                    
-            except Exception:
-                # Fallback: create empty polygon
-                self.set = ShapelyPolygon()
-                self.poly = self.set
-                self._V = np.array([]).reshape(2, 0)
-        else:
-            # No shapely available - store vertices directly
-            self.set = {'vertices': np.vstack([x, y])}
+        except Exception:
+            # Fallback: create empty polygon
+            self.set = ShapelyPolygon()
             self.poly = self.set
-            self._V = np.vstack([x, y])
+            self._V = np.array([]).reshape(2, 0)
 
     @property
     def V(self):
@@ -259,10 +242,10 @@ class Polygon(ContSet):
     @property
     def nrOfRegions(self):
         """Get number of regions"""
-        if SHAPELY_AVAILABLE and hasattr(self.set, 'geoms'):
+        if hasattr(self.set, 'geoms'):
             # MultiPolygon case
             return len(self.set.geoms)
-        elif SHAPELY_AVAILABLE and isinstance(self.set, ShapelyPolygon):
+        elif isinstance(self.set, ShapelyPolygon):
             return 1 if not self.set.is_empty else 0
         else:
             return 1 if self._V.size > 0 else 0
@@ -270,7 +253,7 @@ class Polygon(ContSet):
     @property
     def nrOfHoles(self):
         """Get number of holes"""
-        if SHAPELY_AVAILABLE and isinstance(self.set, ShapelyPolygon) and not self.set.is_empty:
+        if isinstance(self.set, ShapelyPolygon) and not self.set.is_empty:
             return len(self.set.interiors)
         else:
             return 0

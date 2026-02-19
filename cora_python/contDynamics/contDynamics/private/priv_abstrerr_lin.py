@@ -147,7 +147,7 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
             # calculate the Lagrange remainder (second-order error)
             # ...acc. to Proposition 1 in [1]
             # MATLAB: errorLagr = zeros(length(H),1);
-            errorLagr = np.zeros(len(H))
+            errorLagr = np.zeros((len(H), 1))
             
             # MATLAB: dz = [dx;du];
             dz = np.vstack([dx, du])
@@ -183,9 +183,9 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
                 # dz.T @ H_ @ dz returns a 1x1 matrix, extract scalar
                 result = dz.T @ H_ @ dz
                 if isinstance(result, np.ndarray):
-                    errorLagr[i] = 0.5 * result.item() if result.size == 1 else 0.5 * result[0, 0]
+                    errorLagr[i, 0] = 0.5 * result.item() if result.size == 1 else 0.5 * result[0, 0]
                 else:
-                    errorLagr[i] = 0.5 * float(result)
+                    errorLagr[i, 0] = 0.5 * float(result)
         
             # check if Lagrange remainder is too large
             # MATLAB: if any(isnan(errorLagr)) || any(isinf(errorLagr))
@@ -196,7 +196,7 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
             trueError = errorLagr
             
             # MATLAB: VerrorDyn = zonotope(zeros(size(trueError)),diag(trueError));
-            VerrorDyn = Zonotope(np.zeros_like(trueError), np.diag(trueError))
+            VerrorDyn = Zonotope(np.zeros_like(trueError), np.diag(trueError.reshape(-1)))
         
         else:
             # no interval arithmetic (commented out in MATLAB)
@@ -288,7 +288,7 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
         else:
             # skip tensors with all-zero entries using ind from tensor creation
             # MATLAB: errorLagr = interval(zeros(sys.nrOfDims,1),zeros(sys.nrOfDims,1));
-            errorLagr = Interval(np.zeros(sys.nr_of_dims), np.zeros(sys.nr_of_dims))
+            errorLagr = Interval(np.zeros((sys.nr_of_dims, 1)), np.zeros((sys.nr_of_dims, 1)))
             
             # MATLAB: for i=1:length(ind)
             for i in range(len(ind)):
@@ -314,12 +314,12 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
                     
                     # MATLAB: error_sum = error_sum + error_tmp * dz(j);
                     # dz(j) is the j-th element of dz interval
-                    dz_j = Interval(dz.inf[j], dz.sup[j])
+                    dz_j = Interval(dz.inf[j, 0], dz.sup[j, 0])
                     error_sum = error_sum + error_tmp * dz_j
                 
                 # MATLAB: errorLagr(i,1) = 1/6*error_sum;
-                errorLagr.inf[i] = (1.0 / 6.0) * error_sum.inf
-                errorLagr.sup[i] = (1.0 / 6.0) * error_sum.sup
+                errorLagr.inf[i, 0] = (1.0 / 6.0) * error_sum.inf
+                errorLagr.sup[i, 0] = (1.0 / 6.0) * error_sum.sup
             
             # MATLAB: errorLagr = zonotope(errorLagr);
             errorLagr = errorLagr.zonotope()
@@ -333,8 +333,10 @@ def priv_abstrerr_lin(sys: Any, R: Any, params: Dict[str, Any],
         
         # MATLAB: trueError = supremum(abs(interval(VerrorDyn)));
         VerrorDyn_interval = VerrorDyn.interval()
-        trueError = VerrorDyn_interval.supremum()
-        trueError = np.abs(trueError)
+        trueError = np.maximum(
+            np.abs(VerrorDyn_interval.infimum()),
+            np.abs(VerrorDyn_interval.supremum())
+        )
     
     else:
         # MATLAB: throw(CORAerror('CORA:notSupported',...));

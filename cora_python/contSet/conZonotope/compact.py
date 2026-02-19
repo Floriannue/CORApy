@@ -30,6 +30,5 @@ def compact(self: 'ConZonotope', method: str = 'zeros', tol: float = 1e-10) -> '
     Returns:
         compacted constrained zonotope
     """
-    # For now, return self as a simple implementation
-    # In the full implementation, this would remove zero generators and redundant constraints
-    return self 
+    from cora_python.contSet.conZonotope.compact_ import compact_
+    return compact_(self, method, tol)

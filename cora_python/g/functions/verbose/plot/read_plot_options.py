@@ -270,9 +270,9 @@ def _apply_purpose_defaults(kwargs: Dict[str, Any], purpose: str) -> Dict[str, A
         if 'EdgeColor' not in kwargs and 'edgecolor' not in kwargs:
             kwargs['EdgeColor'] = 'black'
         
-        # Ensure initial set is clearly visible with high opacity
+        # Ensure initial set is clearly visible with full opacity
         if 'alpha' not in kwargs and 'FaceAlpha' not in kwargs:
-            kwargs['alpha'] = 0.9  # High opacity for visibility
+            kwargs['alpha'] = 1.0
         
         # Use default MATLAB line width (no explicit linewidth = matplotlib default)
         # MATLAB doesn't specify LineWidth for initial sets, so use matplotlib default

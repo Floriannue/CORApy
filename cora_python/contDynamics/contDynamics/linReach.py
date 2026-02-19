@@ -93,7 +93,7 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
     
     # linearize the nonlinear system
     # MATLAB: [sys,linsys,linParams,linOptions] = linearize(sys,Rinit,params,options);
-    # NOTE: linearize needs to be translated - for now assume it exists
+    # linearize is implemented in cora_python.contDynamics.nonlinearSys.linearize
     from cora_python.contDynamics.nonlinearSys.linearize import linearize
     sys, linsys, linParams, linOptions = linearize(sys, Rinit, params, options)
     
@@ -358,7 +358,8 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
             
             # compare linearization error with the maximum allowed error
             # MATLAB: perfIndCurr = max(trueError./appliedError);
-            perfIndCurr = np.max(trueError / appliedError)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                perfIndCurr = np.max(trueError / appliedError)
             if os.getenv('CORA_DEBUG_LINREACH') == '1':
                 try:
                     t_now = options.get('t')
@@ -368,7 +369,25 @@ def linReach(sys: Any, Rstart: Dict[str, Any], params: Dict[str, Any],
                     pass
             
             # MATLAB: perfInd = max(trueError./options.maxError);
-            perfInd = np.max(trueError / options['maxError'])
+            with np.errstate(divide='ignore', invalid='ignore'):
+                perfInd = np.max(trueError / options['maxError'])
+            
+            debug_split = (options.get('debugSplit', False) or os.getenv('CORA_DEBUG_SPLIT') == '1')
+            if debug_split:
+                try:
+                    t_now = options.get('t', None)
+                    debug_max_t = options.get('debugSplitMaxT', None)
+                    if debug_max_t is None:
+                        debug_max_t_env = os.getenv('CORA_DEBUG_SPLIT_MAX_T')
+                        debug_max_t = float(debug_max_t_env) if debug_max_t_env else None
+                    if debug_max_t is None or (t_now is not None and t_now <= debug_max_t):
+                        print("DEBUG split: t =", t_now)
+                        print("DEBUG split: appliedError =", np.asarray(appliedError).reshape(-1))
+                        print("DEBUG split: trueError =", np.asarray(trueError).reshape(-1))
+                        print("DEBUG split: maxError =", np.asarray(options['maxError']).reshape(-1))
+                        print("DEBUG split: perfIndCurr =", perfIndCurr, "perfInd =", perfInd, flush=True)
+                except Exception:
+                    pass
             if os.getenv('CORA_DEBUG_LINREACH') == '1':
                 try:
                     t_now = options.get('t')
@@ -534,8 +553,7 @@ def aux_deltaReach(sys: Any, Rinit: Any, RV: Any, Rtrans: Any, inputCorr: Any,
         O = ZonoBundle.origin(n)
         
         # MATLAB: Rhom=enclose(O,Rhom_tp_delta)+F*Rinit.Z{1}+inputCorr;
-        from cora_python.contSet.zonotope.enclose import enclose
-        Rhom = enclose(O, Rhom_tp_delta) + F @ Rinit.Z[0] + inputCorr
+        Rhom = O.enclose(Rhom_tp_delta) + F @ Rinit.Z[0] + inputCorr
     else:
         Rhom = Rhom_tp_delta
     

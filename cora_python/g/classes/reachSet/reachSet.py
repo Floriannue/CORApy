@@ -114,8 +114,14 @@ class ReachSet:
             # Return empty set for plotting compatibility
             return InitialSet(EmptySet(3))
         else:
-            # Return the first time-point set wrapped in InitialSet 
-            return InitialSet(self.timePoint.set[0])
+            # Unwrap nested structures used in nonlinear reachability
+            tp0 = self.timePoint.set[0]
+            if isinstance(tp0, list):
+                tp0 = tp0[0] if tp0 else None
+            if isinstance(tp0, dict):
+                tp0 = tp0.get('set', tp0)
+            # Return the first time-point set wrapped in InitialSet
+            return InitialSet(tp0)
     
     
     # String representation

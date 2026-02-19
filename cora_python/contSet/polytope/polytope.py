@@ -166,7 +166,7 @@ class Polytope(ContSet):
         if 'dim' in kkwargs and any(hasattr(a, 'dtype') for a in args):
             kkwargs.pop('dim')
         self._general_constructor(*args, **kkwargs)
-        print(f"DEBUG (Polytope.__init__): self._dim_val after _general_constructor: {self._dim_val}")
+        # Debug logging removed for MATLAB parity
         self.precedence = 80
 
         # Ensure _dim_val is set after construction,
@@ -546,7 +546,7 @@ def _aux_validate_and_normalize_polytope_inputs(
 
     elif isHRep_flag:
         # Debug prints for raw inputs
-        print(f"DEBUG (_aux_validate_and_normalize_polytope_inputs HRep): A_raw shape: {A_raw.shape if A_raw is not None else 'None'}, Ae_raw shape: {Ae_raw.shape if Ae_raw is not None else 'None'}")
+        # Debug logging removed for MATLAB parity
 
         A = A_raw if A_raw is not None else np.array([]).reshape(0,0)
         b = b_raw if b_raw is not None else np.array([]).reshape(0,1)
@@ -565,7 +565,7 @@ def _aux_validate_and_normalize_polytope_inputs(
         if n == 0 and (b.size > 0 or be.size > 0):
             n = 1
 
-        print(f"DEBUG (_aux_validate_and_normalize_polytope_inputs HRep): Inferred n: {n}")
+        # Debug logging removed for MATLAB parity
 
         # Validate types and shapes
         for var, name in [(A, 'A'), (b, 'b'), (Ae, 'Ae'), (be, 'be')]:
@@ -636,5 +636,5 @@ def _aux_validate_and_normalize_polytope_inputs(
         V = np.array([]).reshape(0, 0)
         n = 0 # Default to 0 dimension if no other information
 
-    print(f"DEBUG (_aux_validate_and_normalize_polytope_inputs): Final n before return: {n}")
+    # Debug logging removed for MATLAB parity
     return A, b, Ae, be, V, n

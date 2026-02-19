@@ -95,10 +95,11 @@ def post(nlnsys: Any, R: Dict[str, Any], params: Dict[str, Any],
     # MATLAB: for i=1:length(Rnext.tp)
     for i in range(len(Rnext['tp'])):
         # MATLAB: if ~representsa_(Rnext.tp{i}.set,'emptySet',eps)
-        from cora_python.contSet.zonotope.representsa_ import representsa_
         eps = np.finfo(float).eps
-        
-        if not representsa_(Rnext['tp'][i]['set'], 'emptySet', eps):
+        set_obj = Rnext['tp'][i]['set']
+        is_empty = set_obj.representsa_('emptySet', eps)
+
+        if not is_empty:
             # MATLAB: Rnext.tp{i}.set=reduce(Rnext.tp{i}.set,options.reductionTechnique,options.zonotopeOrder);
             Rnext['tp'][i]['set'] = Rnext['tp'][i]['set'].reduce(
                 options['reductionTechnique'], options['zonotopeOrder']

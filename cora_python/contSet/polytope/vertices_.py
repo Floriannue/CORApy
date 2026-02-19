@@ -24,7 +24,6 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
     
     # If polytope has V-representation, return it (assume minimal)
     if P.isVRep:
-        print(f"DEBUG vertices_: polytope has V-representation, computing convex hull")
         # MATLAB computes convex hull for V-representation polytopes
         # to return only the extreme vertices
         try:
@@ -34,16 +33,12 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
             # Extract the extreme vertices from the convex hull
             V = P.V[:, hull.vertices]
             return V
-        except Exception as e:
-            print(f"DEBUG vertices_: convex hull failed, returning all vertices: {e}")
+        except Exception:
             return P.V
 
     n = P.dim()
-    print(f"DEBUG vertices_: n = P.dim() = {n}")
-
     # Check if polytope is known to be empty (MATLAB checks P.emptySet.val, not isemptyobject)
     if getattr(P, '_emptySet_val', None) is True:
-        print(f"DEBUG vertices_: polytope is known empty set (cache)")
         V = np.zeros((n, 0))
         P._V = V
         P.isVRep = True
@@ -53,24 +48,11 @@ def vertices_(P: Polytope, method: str = 'lcon2vert') -> np.ndarray:
         return V
 
     # 1D case quick
-    print(f"DEBUG vertices_: checking if n == 1: {n == 1}")
     if n == 1:
-        print(f"DEBUG vertices_: entering 1D case")
-        print(f"DEBUG vertices_: n={n}, P.dim()={P.dim()}")
-        
         # Convert to H-rep if not already
         if not P.isHRep:
-            print(f"DEBUG vertices_: converting to H-rep")
             P.constraints()
-        
-        # Debug output
-        print(f"DEBUG vertices_ 1D case: P.A={P.A}, P.b={P.b}, P.Ae={P.Ae}, P.be={P.be}")
-        print(f"DEBUG vertices_: about to call priv_vertices_1D")
-        
         V, empty = priv_vertices_1D(P.A, P.b, P.Ae, P.be)
-        
-        # Debug output
-        print(f"DEBUG vertices_ 1D case: V={V}, V.shape={V.shape}, V.size={V.size}")
         
         # Empty set
         if empty or V.size == 0:
@@ -167,11 +149,11 @@ def _aux_vertices_cdd(P: Polytope, n: int, c: np.ndarray) -> np.ndarray:
     try:
         # TODO: Implement actual cdd method when cddmex is available
         # For now, fall back to lcon2vert method
-        print("Warning: cdd method not implemented, falling back to lcon2vert")
+        warnings.warn("cdd method not implemented, falling back to lcon2vert")
         return _aux_vertices_lcon2vert(P, n, c)
     except Exception:
         # If lcon2vert fails, fall back to comb method
-        print("Warning: lcon2vert failed, falling back to comb method")
+        warnings.warn("lcon2vert failed, falling back to comb method")
         return _aux_vertices_comb(P)
 
 
@@ -294,11 +276,9 @@ def _aux_vertices_lcon2vert(P: Polytope, n: int, c: np.ndarray, tol_local: float
 
     # Proactively handle degeneracy (lower-dimensional polytopes)
     X_test = _compute_affine_subspace_basis(P)
-    print(f"DEBUG: X_test.shape={X_test.shape}, n={n}")
     
     # MATLAB-style single point detection: if isFullDim returns empty subspace, it's a single point
     if X_test.shape[1] == 0:
-        print(f"DEBUG: Single point detected via isFullDim, returning center")
         V = c.reshape(-1, 1)
         P._V = V
         P.isVRep = True
@@ -310,11 +290,9 @@ def _aux_vertices_lcon2vert(P: Polytope, n: int, c: np.ndarray, tol_local: float
     
     # For degenerate cases (X_test.shape[1] < n), we need to compute vertices in the subspace
     if X_test.shape[1] < n:
-        print(f"DEBUG: Going through degeneracy path")
         return _handle_degeneracy()
 
     if halfspaces.shape[0] == 0:
-        print(f"DEBUG: No halfspaces, going through degeneracy path")
         return _handle_degeneracy()
 
     c_pt = c.flatten()

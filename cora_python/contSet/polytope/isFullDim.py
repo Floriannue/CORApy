@@ -315,18 +315,13 @@ def _aux_isFullDim_nD_Hpoly_subspace(P: 'Polytope', tol: float) -> Tuple[bool, O
     subspace = np.zeros((n, 0))
     for i in range(n):
         # Find max-norm vector x perpendicular to current subspace directions
-        print(f"DEBUG: Iteration {i}, subspace shape: {subspace.shape}")
         x_iter = _aux_maxNormPerpendicularPolytope(P_iter, subspace)
-        print(f"DEBUG: x_iter norm: {np.linalg.norm(x_iter, ord=np.inf)}")
         if np.linalg.norm(x_iter, ord=np.inf) <= tol:
-            print(f"DEBUG: Breaking at iteration {i}, subspace shape: {subspace.shape}")
             break
         x_unit = x_iter / np.linalg.norm(x_iter)
         subspace = np.hstack([subspace, x_unit.reshape(-1, 1)])
-        print(f"DEBUG: Added vector, new subspace shape: {subspace.shape}")
 
     k = subspace.shape[1]
-    print(f"DEBUG: Final subspace shape: {subspace.shape}, k={k}, n={n}")
     if k == n:
         return True, np.eye(n)
     else:
@@ -352,37 +347,28 @@ def _aux_maxNormPerpendicularPolytope(P: 'Polytope', X: np.ndarray) -> np.ndarra
     maximum = 0.0
     maximizer = np.zeros((n, 1))
 
-    print(f"DEBUG: _aux_maxNormPerpendicularPolytope: n={n}, X.shape={X.shape}")
-
     # loop over all dimensions (for y)
     for i in range(n):
         # compute maximum for y = +e_i
         y = np.zeros((n, 1))
         y[i, 0] = 1.0
-        print(f"DEBUG: Trying y = +e_{i}")
         res, x = _aux_firstMaximum(P, y, X)
-        print(f"DEBUG: +e_{i}: res={res}, x norm={np.linalg.norm(x)}")
 
         # save maximizer if objective value is larger
         if -res > maximum:
             maximum = -res
             maximizer = x
-            print(f"DEBUG: Updated maximizer with +e_{i}")
 
         # compute maximum for y = -e_i
         y = np.zeros((n, 1))
         y[i, 0] = -1.0
-        print(f"DEBUG: Trying y = -e_{i}")
         res, x = _aux_firstMaximum(P, y, X)
-        print(f"DEBUG: -e_{i}: res={res}, x norm={np.linalg.norm(x)}")
 
         # save maximizer if objective value is larger
         if -res > maximum:
             maximum = -res
             maximizer = x
-            print(f"DEBUG: Updated maximizer with -e_{i}")
 
-    print(f"DEBUG: Final maximum={maximum}, maximizer norm={np.linalg.norm(maximizer)}")
     # return maximizer
     return maximizer
 

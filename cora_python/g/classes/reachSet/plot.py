@@ -75,12 +75,18 @@ def plot(R, dims: Optional[List[int]] = None, **kwargs) -> Any:
         
         # Extract MATLAB-style options from the processed options
         whichset = plot_options.pop('Set', 'ti')  # 'ti', 'tp', or 'y'
-        unify = plot_options.pop('Unify', plot_options.pop('unify', False))  # Check both cases
+        unify = plot_options.pop('Unify', plot_options.pop('unify', len(dims) == 2))  # Match MATLAB default
         face_color = plot_options.pop('facecolor', plot_options.pop('FaceColor', None))
         edge_color = plot_options.pop('edgecolor', plot_options.pop('EdgeColor', None))
         alpha = plot_options.pop('alpha', 0.7)
         label = plot_options.pop('label', plot_options.pop('DisplayName', None))
         
+        # Set default colors for reachable sets using CORA colors
+        if face_color is None:
+            face_color = cora_color('CORA:reachSet')
+        if edge_color is None:
+            edge_color = face_color
+
         # Use processed options
         kwargs = plot_options
         
@@ -140,34 +146,53 @@ def plot(R, dims: Optional[List[int]] = None, **kwargs) -> Any:
 def _get_sets_to_plot(R, whichset: str) -> List:
     """Get the appropriate sets to plot from the reachSet object"""
     try:
+        def _flatten_sets(sets):
+            flat_sets = []
+            for item in sets:
+                if item is None:
+                    continue
+                if isinstance(item, list):
+                    for sub in item:
+                        if isinstance(sub, dict):
+                            sub = sub.get('set', sub)
+                        if sub is not None:
+                            flat_sets.append(sub)
+                elif isinstance(item, dict):
+                    sub = item.get('set', item)
+                    if sub is not None:
+                        flat_sets.append(sub)
+                else:
+                    flat_sets.append(item)
+            return flat_sets
+
         if whichset == 'ti':
             if hasattr(R, 'timeInterval') and hasattr(R.timeInterval, 'set'):
-                return R.timeInterval.set
+                return _flatten_sets(R.timeInterval.set)
             elif hasattr(R, 'timeInterval') and isinstance(R.timeInterval, dict) and 'set' in R.timeInterval:
-                return R.timeInterval['set']
+                return _flatten_sets(R.timeInterval['set'])
         elif whichset == 'tp':
             if hasattr(R, 'timePoint') and hasattr(R.timePoint, 'set'):
-                return R.timePoint.set
+                return _flatten_sets(R.timePoint.set)
             elif hasattr(R, 'timePoint') and isinstance(R.timePoint, dict) and 'set' in R.timePoint:
-                return R.timePoint['set']
+                return _flatten_sets(R.timePoint['set'])
         elif whichset == 'y':
             if hasattr(R, 'timeInterval') and hasattr(R.timeInterval, 'algebraic'):
-                return R.timeInterval.algebraic
+                return _flatten_sets(R.timeInterval.algebraic)
             elif hasattr(R, 'timeInterval') and isinstance(R.timeInterval, dict) and 'algebraic' in R.timeInterval:
-                return R.timeInterval['algebraic']
+                return _flatten_sets(R.timeInterval['algebraic'])
         
         # Fallback: try to get any available sets
         if hasattr(R, 'timeInterval'):
             if hasattr(R.timeInterval, 'set'):
-                return R.timeInterval.set
+                return _flatten_sets(R.timeInterval.set)
             elif isinstance(R.timeInterval, dict) and 'set' in R.timeInterval:
-                return R.timeInterval['set']
+                return _flatten_sets(R.timeInterval['set'])
         
         if hasattr(R, 'timePoint'):
             if hasattr(R.timePoint, 'set'):
-                return R.timePoint.set
+                return _flatten_sets(R.timePoint.set)
             elif isinstance(R.timePoint, dict) and 'set' in R.timePoint:
-                return R.timePoint['set']
+                return _flatten_sets(R.timePoint['set'])
         
         return []
     except:
@@ -191,13 +216,17 @@ def _plot_unified(sets_to_plot: List, dims: List[int], face_color: str, edge_col
             else:
                 s_proj = s
             
-            # Get vertices of the projected set
-            if hasattr(s_proj, 'vertices'):
+            # Get vertices of the projected set (prefer exact methods)
+            if hasattr(s_proj, 'vertices_'):
+                vertices = s_proj.vertices_()
+            elif hasattr(s_proj, 'vertices'):
                 vertices = s_proj.vertices()
             elif hasattr(s_proj, 'polytope'):
                 # For zonotopes, convert to polytope first
                 poly = s_proj.polytope()
-                if hasattr(poly, 'vertices'):
+                if hasattr(poly, 'vertices_'):
+                    vertices = poly.vertices_()
+                elif hasattr(poly, 'vertices'):
                     vertices = poly.vertices()
                 else:
                     continue
@@ -263,18 +292,16 @@ def _plot_unified(sets_to_plot: List, dims: List[int], face_color: str, edge_col
         
         if hasattr(unified_poly, 'geoms'):
             # MultiPolygon result
-            patches = []
-            for geom in unified_poly.geoms:
+            handles = []
+            for idx, geom in enumerate(unified_poly.geoms):
                 if hasattr(geom, 'exterior'):
                     coords = np.array(geom.exterior.coords)
-                    patches.append(Polygon(coords, closed=True))
-            
-            collection = PolyCollection(patches, facecolors=face_color, 
-                                      edgecolors=edge_color, alpha=alpha, zorder=zorder, **kwargs)
-            # Set label after creation for proper legend registration
-            if label is not None:
-                collection.set_label(label)
-            handle = ax.add_collection(collection)
+                    patch = Polygon(coords, closed=True, facecolor=face_color,
+                                    edgecolor=edge_color, alpha=alpha, zorder=zorder, **kwargs)
+                    if label is not None and idx == 0:
+                        patch.set_label(label)
+                    handles.append(ax.add_patch(patch))
+            handle = handles[0] if handles else None
         else:
             # Single Polygon result
             if hasattr(unified_poly, 'exterior'):
