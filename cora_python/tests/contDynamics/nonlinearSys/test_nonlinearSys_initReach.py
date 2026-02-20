@@ -114,7 +114,6 @@ def test_nonlinearSys_initReach():
     test.test_nonlinearSys_initReach()
     
     print("test_nonlinearSys_initReach: all tests passed")
-    return True
 
 
 if __name__ == "__main__":

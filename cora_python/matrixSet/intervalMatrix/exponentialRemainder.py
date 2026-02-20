@@ -15,6 +15,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import TYPE_CHECKING
 from scipy.linalg import expm as scipy_expm
@@ -59,7 +60,7 @@ def exponentialRemainder(intMat: 'intervalMatrix', maxOrder: int) -> 'intervalMa
             # MATLAB: Mpow = M*Mpow;
             Mpow = M @ Mpow
             # MATLAB: eMpartial = eMpartial + Mpow/factorial(i);
-            eMpartial = eMpartial + Mpow / np.math.factorial(i)
+            eMpartial = eMpartial + Mpow / math.factorial(i)
         
         # MATLAB: W = eM-eMpartial;
         W = eM - eMpartial

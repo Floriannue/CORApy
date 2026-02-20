@@ -34,6 +34,7 @@ Last revision: 10-August-2022 (renamed)
                Automatic python translation: Florian Nüssel BA 2025
 """
 
+import math
 import numpy as np
 import torch
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -1513,7 +1514,7 @@ class nnActivationLayer(nnLayer):
                 P_torch = torch.tensor(P, dtype=dtype, device=device)
                 arange_torch = torch.arange(i+1, dtype=dtype, device=device)
                 # Compute coefficient update - df_i works with torch
-                coeff_update = (P_torch * (-c) ** arange_torch) * df_i(c) / np.math.factorial(i)
+                coeff_update = (P_torch * (-c) ** arange_torch) * df_i(c) / math.factorial(i)
                 # Update coeffs (backward indexing)
                 coeffs[-(i+1):] = coeffs[-(i+1):] + coeff_update
                 

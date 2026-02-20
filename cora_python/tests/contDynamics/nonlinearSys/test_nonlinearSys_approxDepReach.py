@@ -123,7 +123,6 @@ def test_nonlinearSys_approxDepReach():
     test.test_nonlinearSys_approxDepReach()
     
     print("test_nonlinearSys_approxDepReach: all tests passed")
-    return True
 
 
 if __name__ == "__main__":

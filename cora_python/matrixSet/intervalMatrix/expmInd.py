@@ -21,6 +21,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Tuple, List, Optional, TYPE_CHECKING
 
@@ -70,14 +71,14 @@ def expmInd(intMat: 'IntervalMatrix', *args):
     # Compute finite Taylor series
     # Initialize
     # MATLAB: eI=initialPower*(1/factorial(initialOrder));
-    eI = initialPower * (1.0 / np.math.factorial(initialOrder))
+    eI = initialPower * (1.0 / math.factorial(initialOrder))
     
     # Compute Taylor series
     # MATLAB: for i=(initialOrder+1):maxOrder
     for i in range(initialOrder + 1, maxOrder + 1):
         # MATLAB: eI = eI + iPow{i}*(1/factorial(i));
         if i - 1 < len(iPow):
-            eI = eI + iPow[i - 1] * (1.0 / np.math.factorial(i))
+            eI = eI + iPow[i - 1] * (1.0 / math.factorial(i))
     
     # Compute exponential remainder
     # MATLAB: E = exponentialRemainder(intMat,maxOrder);

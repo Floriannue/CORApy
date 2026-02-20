@@ -25,6 +25,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Tuple, List, Optional, Dict, Any, TYPE_CHECKING
 from .matZonotope import matZonotope
@@ -183,7 +184,7 @@ def expmOneParam(matZ: 'matZonotope', r: float, maxOrder: int,
     # MATLAB: for n = 1:maxOrder
     for n in range(1, maxOrder + 1):
         # MATLAB: factor = r^n/factorial(n);
-        factor = r ** n / np.math.factorial(n)
+        factor = r ** n / math.factorial(n)
         # MATLAB: E_sum(:,:,n) = E(:,:,1,n)*factor;
         E_sum[:, :, n - 1] = E[:, :, 0, n - 1] * factor
         # MATLAB: E_u_sum(:,:,n) = E_u(:,:,1,n)*factor;
@@ -192,7 +193,7 @@ def expmOneParam(matZ: 'matZonotope', r: float, maxOrder: int,
         # MATLAB: for i=(n+1):maxOrder
         for i in range(n + 1, maxOrder + 1):
             # MATLAB: factor = r^i/factorial(i);
-            factor = r ** i / np.math.factorial(i)
+            factor = r ** i / math.factorial(i)
             # MATLAB: E_sum(:,:,n) = E_sum(:,:,n) + E(:,:,n,i)*factor;
             E_sum[:, :, n - 1] = E_sum[:, :, n - 1] + E[:, :, n - 1, i - 1] * factor
             # MATLAB: E_u_sum(:,:,n) = E_u_sum(:,:,n) + E_u(:,:,n,i)*factor;
@@ -208,7 +209,7 @@ def expmOneParam(matZ: 'matZonotope', r: float, maxOrder: int,
     # MATLAB: for i = 2:maxOrder
     for i in range(2, maxOrder + 1):
         # MATLAB: factor = r^i/factorial(i);
-        factor = r ** i / np.math.factorial(i)
+        factor = r ** i / math.factorial(i)
         # MATLAB: D_sum = D_sum + D(:,:,i)*factor;
         D_sum = D_sum + D[:, :, i - 1] * factor
         # MATLAB: D_u_sum = D_u_sum + D_u(:,:,i)*factor;

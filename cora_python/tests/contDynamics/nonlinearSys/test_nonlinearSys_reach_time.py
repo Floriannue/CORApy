@@ -55,9 +55,6 @@ class TestNonlinearSysReachTime:
     
     def test_nonlinearSys_reach_time(self):
         """Test reach for nonlinear system with shifted start time"""
-        # MATLAB: res = true;
-        res = True
-        
         # MATLAB: n = 3; m = 1;
         n = 3
         m = 1
@@ -111,8 +108,6 @@ class TestNonlinearSysReachTime:
         # MATLAB: assert(withinTol(R.timePoint.time{end},params.tFinal))
         assert withinTol(R.timePoint.time[-1], params['tFinal']), \
             f"Last time point {R.timePoint.time[-1]} should equal tFinal {params['tFinal']}"
-        
-        return res
 
 
 def test_nonlinearSys_reach_time():
@@ -121,10 +116,9 @@ def test_nonlinearSys_reach_time():
     Runs all test methods to verify correct implementation.
     """
     test = TestNonlinearSysReachTime()
-    result = test.test_nonlinearSys_reach_time()
+    test.test_nonlinearSys_reach_time()
     
     print("test_nonlinearSys_reach_time: all tests passed")
-    return result
 
 
 if __name__ == "__main__":

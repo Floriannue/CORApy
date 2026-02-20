@@ -17,6 +17,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Any, Dict
 from cora_python.matrixSet.matZonotope import matZonotope
@@ -117,13 +118,13 @@ def priv_mappingMatrix(sys: Any, params: Dict[str, Any], options: Dict[str, Any]
     sys.power['zono_input'] = []
     for i in range(len(sys.power['zono'])):
         # MATLAB: obj.power.zono_input{i} = obj.power.zono{i}*(obj.stepSize/factorial(i+1));
-        sys.power['zono_input'].append(sys.power['zono'][i] * (sys.stepSize / np.math.factorial(i + 1)))
+        sys.power['zono_input'].append(sys.power['zono'][i] * (sys.stepSize / math.factorial(i + 1)))
     
     # MATLAB: for i=1:length(obj.power.int)
     sys.power['int_input'] = []
     for i in range(len(sys.power['int'])):
         # MATLAB: obj.power.int_input{i} = obj.power.int{i}*(obj.stepSize/factorial(i+1));
-        sys.power['int_input'].append(sys.power['int'][i] * (sys.stepSize / np.math.factorial(i + 1)))
+        sys.power['int_input'].append(sys.power['int'][i] * (sys.stepSize / math.factorial(i + 1)))
     
     # Remainder
     # MATLAB: obj.E = E;

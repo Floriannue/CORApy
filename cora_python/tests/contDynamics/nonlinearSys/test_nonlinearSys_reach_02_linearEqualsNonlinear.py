@@ -144,7 +144,6 @@ def test_nonlinearSys_reach_02_linearEqualsNonlinear():
     test.test_nonlinearSys_reach_02_linearEqualsNonlinear()
     
     print("test_nonlinearSys_reach_02_linearEqualsNonlinear: all tests passed")
-    return True
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Any
 # center is attached to Interval class, use object.center()
@@ -54,9 +55,9 @@ def priv_highOrderMappingMatrix(sys: Any, intermediateTerms: int) -> Any:
     for i in range(3, intermediateTerms + 1):
         # MATLAB: eZ = eZ + zPow{i}*(1/factorial(i));
         if i - 1 < len(zPow):  # Python 0-based indexing
-            eZ = eZ + zPow[i - 1] * (1.0 / np.math.factorial(i))
+            eZ = eZ + zPow[i - 1] * (1.0 / math.factorial(i))
             # MATLAB: eZ_input = eZ_input + zPow{i}*(r/factorial(i+1));
-            eZ_input = eZ_input + zPow[i - 1] * (r / np.math.factorial(i + 1))
+            eZ_input = eZ_input + zPow[i - 1] * (r / math.factorial(i + 1))
     
     # Interval computations
     # MATLAB: eI = zeros(obj.nrOfDims);
@@ -70,9 +71,9 @@ def priv_highOrderMappingMatrix(sys: Any, intermediateTerms: int) -> Any:
         for i in range(intermediateTerms + 1, sys.taylorTerms + 1):
             # MATLAB: eI = eI + iPow{i}*(1/factorial(i));
             if i - 1 < len(iPow) and iPow[i - 1] is not None:  # Python 0-based indexing
-                eI = eI + iPow[i - 1] * (1.0 / np.math.factorial(i))
+                eI = eI + iPow[i - 1] * (1.0 / math.factorial(i))
                 # MATLAB: eI_input = eI_input + iPow{i}*(r/factorial(i+1));
-                eI_input = eI_input + iPow[i - 1] * (r / np.math.factorial(i + 1))
+                eI_input = eI_input + iPow[i - 1] * (r / math.factorial(i + 1))
     
     # MATLAB: eI = eI + E;
     # MATLAB: eI_input = eI_input + E*r;

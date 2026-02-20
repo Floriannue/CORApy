@@ -23,6 +23,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Tuple, List, TYPE_CHECKING
 from .matZonotope import matZonotope
@@ -78,7 +79,7 @@ def expmMixed(matZ: 'matZonotope', r: float, intermediateOrder: int,
         # MATLAB: eZ = eZ + zPow{i}*(1/factorial(i));
         # zPow is 0-indexed, so zPow[i-1] corresponds to MATLAB zPow{i}
         if i - 1 < len(zPow):
-            eZ = eZ + zPow[i - 1] * (1.0 / np.math.factorial(i))
+            eZ = eZ + zPow[i - 1] * (1.0 / math.factorial(i))
     
     # Compute interval part
     # MATLAB: intMat = intervalMatrix(matZ);

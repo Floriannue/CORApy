@@ -194,7 +194,6 @@ def test_nonlinearSys_evalNthTensor():
     test.test_nonlinearSys_evalNthTensor()
     
     print("test_nonlinearSys_evalNthTensor: all tests passed")
-    return True
 
 
 if __name__ == "__main__":

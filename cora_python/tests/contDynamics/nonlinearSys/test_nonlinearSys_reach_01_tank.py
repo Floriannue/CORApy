@@ -105,7 +105,6 @@ def test_nonlinearSys_reach_01_tank():
     test.test_nonlinearSys_reach_01_tank()
     
     print("test_nonlinearSys_reach_01_tank: all tests passed")
-    return True
 
 
 if __name__ == "__main__":

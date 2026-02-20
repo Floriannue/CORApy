@@ -16,6 +16,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Any, Dict
 from cora_python.contSet.zonotope import Zonotope
@@ -60,7 +61,7 @@ def priv_inputSolution(sys: Any, params: Dict[str, Any], options: Dict[str, Any]
     # MATLAB: for i=1:length(obj.power.zono)
     for i in range(len(sys.power['zono'])):
         # MATLAB: taylorTerm = obj.power.zono{i}*(r/factorial(i+1));
-        taylorTerm = sys.power['zono'][i] * (r / np.math.factorial(i + 1))
+        taylorTerm = sys.power['zono'][i] * (r / math.factorial(i + 1))
         # MATLAB: inputSet = inputSet + taylorTerm*V;
         inputSet = inputSet + taylorTerm * V
         # MATLAB: intM = intM + intervalMatrix(taylorTerm);
@@ -71,7 +72,7 @@ def priv_inputSolution(sys: Any, params: Dict[str, Any], options: Dict[str, Any]
     # MATLAB: for i=(length(obj.power.zono)+1):length(obj.power.int)
     for i in range(len(sys.power['zono']), len(sys.power['int'])):
         # MATLAB: taylorTerm = obj.power.int{i}*(r/factorial(i+1));
-        taylorTerm = sys.power['int'][i] * (r / np.math.factorial(i + 1))
+        taylorTerm = sys.power['int'][i] * (r / math.factorial(i + 1))
         # MATLAB: inputSet = inputSet + taylorTerm*V;
         inputSet = inputSet + taylorTerm * V
         # MATLAB: intM = intM + taylorTerm;

@@ -15,6 +15,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Any
 from cora_python.matrixSet.intervalMatrix.intervalMatrix import IntervalMatrix
@@ -71,12 +72,12 @@ def priv_tie(sys: Any) -> Any:
         # MATLAB: Asum=timeInterval*Apower{2}*(1/factorial(2));
         # Handle scalar multiplication manually (IntervalMatrix doesn't support scalar * yet)
         temp = timeInterval * Apower[1]
-        scalar = 1.0 / np.math.factorial(2)
+        scalar = 1.0 / math.factorial(2)
         # Multiply interval by scalar
         Asum = IntervalMatrix(temp.int.inf * scalar, temp.int.sup * scalar - temp.int.inf * scalar)
     else:
         # Fallback if Apower doesn't have enough elements
-        scalar = 1.0 / np.math.factorial(2)
+        scalar = 1.0 / math.factorial(2)
         Asum = IntervalMatrix(timeInterval.int.inf * scalar, timeInterval.int.sup * scalar - timeInterval.int.inf * scalar)
     
     # MATLAB: for i=3:obj.taylorTerms
@@ -104,7 +105,7 @@ def priv_tie(sys: Any) -> Any:
         # Compute sum
         # MATLAB: Asum=Asum+Aadd*(1/factorial(i));
         # Handle scalar multiplication and addition manually
-        scalar = 1.0 / np.math.factorial(i)
+        scalar = 1.0 / math.factorial(i)
         Aadd_scaled = IntervalMatrix(Aadd.int.inf * scalar, Aadd.int.sup * scalar - Aadd.int.inf * scalar)
         # Manual addition: add intervals
         Asum_new_int_inf = Asum.int.inf + Aadd_scaled.int.inf

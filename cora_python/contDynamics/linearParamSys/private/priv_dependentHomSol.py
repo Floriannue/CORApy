@@ -17,6 +17,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Any
 from cora_python.contSet.zonotope import Zonotope
@@ -99,7 +100,7 @@ def priv_dependentHomSol(sys: Any, Rinit: Any, Uconst: Any) -> Zonotope:
         if c_plus_Uc.ndim == 1:
             c_plus_Uc = c_plus_Uc.reshape(-1, 1)
         # Compute Ac^i * (c + Uc*r/(i+1)) to get a column vector
-        R_c_add = np.linalg.matrix_power(Ac, i) @ c_plus_Uc * (r ** i / np.math.factorial(i))
+        R_c_add = np.linalg.matrix_power(Ac, i) @ c_plus_Uc * (r ** i / math.factorial(i))
         # Ensure R_c_add is a 1D array
         if R_c_add.ndim == 2:
             R_c_add = R_c_add.flatten()

@@ -102,7 +102,6 @@ def test_nonlinearSys_linearize():
     test.test_nonlinearSys_linearize()
     
     print("test_nonlinearSys_linearize: all tests passed")
-    return True
 
 
 if __name__ == "__main__":

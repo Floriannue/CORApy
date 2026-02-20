@@ -24,6 +24,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Tuple, List, Optional, TYPE_CHECKING
 
@@ -87,7 +88,7 @@ def expm(intMat: 'IntervalMatrix', *args) -> 'IntervalMatrix':
         initialPower = args[3]
         # Init eI
         # MATLAB: eI=initialPower*(1/factorial(initialOrder));
-        eI = initialPower * (1.0 / np.math.factorial(initialOrder))
+        eI = initialPower * (1.0 / math.factorial(initialOrder))
     else:
         raise ValueError(f"expm expects 0, 1, 2, or 4 additional arguments, got {nargs}")
     
@@ -101,7 +102,7 @@ def expm(intMat: 'IntervalMatrix', *args) -> 'IntervalMatrix':
         # MATLAB: eI = eI + iPow{i}*(1/factorial(i));
         # iPow is 0-indexed, so iPow[i-1] corresponds to MATLAB iPow{i}
         if i - 1 < len(iPow):
-            eI = eI + iPow[i - 1] * (1.0 / np.math.factorial(i))
+            eI = eI + iPow[i - 1] * (1.0 / math.factorial(i))
     
     # Compute exponential remainder
     # MATLAB: E = exponentialRemainder(intMat,maxOrder);

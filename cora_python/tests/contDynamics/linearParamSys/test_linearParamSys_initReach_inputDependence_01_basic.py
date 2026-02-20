@@ -89,8 +89,10 @@ class TestInitReachInputDependence:
         
         # Parameters
         params = {
-            'Uconst': Zonotope(np.array([[0], [0]]), np.array([[0.05, 0], [0, 0.05]])),
-            'uTrans': np.array([[0.1], [0]])
+            # U and Uconst are in input dimension (1D), uTrans is in input dimension (1D)
+            'U': Zonotope(np.array([[0]]), np.array([[0.05]])),
+            'Uconst': Zonotope(np.array([[0]]), np.array([[0.05]])),
+            'uTrans': np.array([[0.1]])
         }
         
         # Options

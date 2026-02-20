@@ -16,6 +16,7 @@ Authors:       Matthias Althoff (MATLAB)
               Python translation: 2025
 """
 
+import math
 import numpy as np
 from typing import Any, Dict
 from cora_python.matrixSet.intervalMatrix import IntervalMatrix
@@ -59,7 +60,7 @@ def priv_inputTie(sys: Any, options: Dict[str, Any]) -> Any:
     infimum = -0.25 * r  # *r^2 already included in Apower
     supremum = 0.0
     timeInterval = IntervalMatrix(0.5 * (supremum + infimum), 0.5 * (supremum - infimum))
-    Asum = timeInterval * Apower[0] * (1.0 / np.math.factorial(2))  # Apower[1] in MATLAB is index 0 in Python
+    Asum = timeInterval * Apower[0] * (1.0 / math.factorial(2))  # Apower[1] in MATLAB is index 0 in Python
     
     # MATLAB: for i=3:obj.taylorTerms
     for i in range(3, sys.taylorTerms + 1):
@@ -86,7 +87,7 @@ def priv_inputTie(sys: Any, options: Dict[str, Any]) -> Any:
         
         # Compute sum
         # MATLAB: Asum=Asum+Aadd*(1/factorial(i));
-        Asum = Asum + Aadd * (1.0 / np.math.factorial(i))
+        Asum = Asum + Aadd * (1.0 / math.factorial(i))
     
     # Compute error due to finite Taylor series according to "M. L. Liou. A novel 
     # method of evaluating transient response. In Proceedings of the IEEE, 
@@ -113,7 +114,7 @@ def priv_inputTie(sys: Any, options: Dict[str, Any]) -> Any:
     if epsilon < 1:
         # MATLAB: phi = norm_A^(obj.taylorTerms+1)*r^(obj.taylorTerms+1)/(factorial(obj.taylorTerms + 1)*(1-epsilon));
         phi = (norm_A ** (sys.taylorTerms + 1) * r ** (sys.taylorTerms + 1) / 
-               (np.math.factorial(sys.taylorTerms + 1) * (1 - epsilon)))
+               (math.factorial(sys.taylorTerms + 1) * (1 - epsilon)))
         # MATLAB: Einput = ones(length(obj.A))*interval(-1,1)*phi/norm_A;
         n = sys.nr_of_dims
         # Create interval with scaled bounds
