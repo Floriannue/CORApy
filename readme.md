@@ -59,6 +59,7 @@ conda activate corapy
 
 # 3. checkout the examples
 python cora_python/examples/contDynamics/linearSys/example_linear_reach_01_5dim.py
+python cora_python/examples/contDynamics/nonlinearSys/example_nonlinear_reach_03_vanDerPol_splitting.py
 python cora_python/examples/nn/example_neuralNetwork_verify_safe.py
 python cora_python/examples/nn/example_neuralNetwork_verify_unsafe.py
 ```
